@@ -1,0 +1,165 @@
+services:
+  # PostgreSQL 16 Alpine Development Database
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: ecommerce-db-dev
+    environment:
+      POSTGRES_DB: ${DATABASE_DEV_NAME}
+      POSTGRES_USER: ${DATABASE_DEV_USER}
+      POSTGRES_PASSWORD: ${DATABASE_DEV_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=tr_TR.UTF-8"
+    ports:
+      - "${DATABASE_DEV_PORT}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_DEV_USER} -d ${DATABASE_DEV_NAME}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=development"
+      - "com.ecommerce.service=database"
+
+  # PostgreSQL 16 Alpine Test Datbase
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: ecommerce-db-test
+    environment:
+      POSTGRES_DB: ${DATABASE_TEST_NAME}
+      POSTGRES_USER: ${DATABASE_TEST_USER}
+      POSTGRES_PASSWORD: ${DATABASE_TEST_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=tr_TR.UTF-8"
+    ports:
+      - "${DATABASE_TEST_PORT}:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_TEST_USER} -d ${DATABASE_TEST_NAME}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=test"
+      - "com.ecommerce.service=database"
+
+  # PostgreSQL 16 Alpine Production Database
+  postgres-prod:
+    image: postgres:16-alpine
+    container_name: ecommerce-db-prod
+    environment:
+      POSTGRES_DB: ${DATABASE_PROD_NAME}
+      POSTGRES_USER: ${DATABASE_PROD_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PROD_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=tr_TR.UTF-8"
+    ports:
+      - "${DATABASE_PROD_PORT}:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_PROD_USER} -d ${DATABASE_PROD_NAME}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=production"
+      - "com.ecommerce.service=database"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ecommerce-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    networks:
+      - ecommerce-network
+    depends_on:
+      - postgres-dev
+      - postgres-test
+      - postgres-prod
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=admin-panel"
+
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce-api-dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: "Host=postgres-dev;Database=${DATABASE_DEV_NAME};Username=${DATABASE_DEV_USER};Password=${DATABASE_DEV_PASSWORD};Port=5432"
+    ports:
+      - "5000:80"
+    networks:
+      - ecommerce-network
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=development"
+      - "com.ecommerce.service=api"
+
+  api-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce-api-prod
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: "Host=postgres-prod;Database=${DATABASE_PROD_NAME};Username=${DATABASE_PROD_USER};Password=${DATABASE_PROD_PASSWORD};Port=5432"
+    ports:
+      - "5001:80"
+    networks:
+      - ecommerce-network
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=production"
+      - "com.ecommerce.service=api"
+
+volumes:
+  postgres_dev_data:
+    driver: local
+    labels:
+      - "com.ecommerce.environment=development"
+  postgres_test_data:
+    driver: local
+    labels:
+      - "com.ecommerce.environment=test"
+  postgres_prod_data:
+    driver: local
+    labels:
+      - "com.ecommerce.environment=production"
+  pgadmin_data:
+    driver: local
+
+networks:
+  ecommerce-network:
+    driver: bridge
+    labels:
+      - "com.ecommerce.network=main"

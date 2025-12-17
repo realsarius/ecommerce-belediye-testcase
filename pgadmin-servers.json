@@ -1,0 +1,34 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Development DB",
+      "Group": "E-commerce",
+      "Host": "postgres-dev",
+      "Port": 5432,
+      "MaintenanceDB": "ecommerce_dev",
+      "Username": "ecommerce_dev_user",
+      "SSLMode": "prefer",
+      "Comment": "Development Database"
+    },
+    "2": {
+      "Name": "Test DB",
+      "Group": "E-commerce",
+      "Host": "postgres-test",
+      "Port": 5432,
+      "MaintenanceDB": "ecommerce_test",
+      "Username": "ecommerce_test_user",
+      "SSLMode": "prefer",
+      "Comment": "Test Database"
+    },
+    "3": {
+      "Name": "Production DB",
+      "Group": "E-commerce",
+      "Host": "postgres-prod",
+      "Port": 5432,
+      "MaintenanceDB": "ecommerce_prod",
+      "Username": "ecommerce_prod_user",
+      "SSLMode": "prefer",
+      "Comment": "Production Database"
+    }
+  }
+}
