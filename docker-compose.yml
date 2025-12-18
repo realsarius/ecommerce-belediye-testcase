@@ -109,6 +109,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:80
       ConnectionStrings__DefaultConnection: "Host=postgres-dev;Database=${DATABASE_DEV_NAME};Username=${DATABASE_DEV_USER};Password=${DATABASE_DEV_PASSWORD};Port=5432"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES}
     ports:
       - "5000:80"
     networks:
@@ -130,6 +134,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:80
       ConnectionStrings__DefaultConnection: "Host=postgres-prod;Database=${DATABASE_PROD_NAME};Username=${DATABASE_PROD_USER};Password=${DATABASE_PROD_PASSWORD};Port=5432"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES}
     ports:
       - "5001:80"
     networks:
