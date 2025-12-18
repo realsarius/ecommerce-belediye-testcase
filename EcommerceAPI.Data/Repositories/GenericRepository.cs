@@ -1,10 +1,11 @@
 using System.Linq.Expressions;
+using EcommerceAPI.Core.Entities;
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.Data.Repositories;
 
-public class GenericRepository<T> : IRepository<T> where T : class
+public class GenericRepository<T> : IRepository<T> where T : BaseEntity
 {
     protected readonly AppDbContext _context;
     protected readonly DbSet<T> _dbSet;
@@ -22,12 +23,12 @@ public class GenericRepository<T> : IRepository<T> where T : class
 
     public async Task<IEnumerable<T>> GetAllAsync()
     {
-        return await _dbSet.ToListAsync();
+        return await _dbSet.AsNoTracking().ToListAsync();
     }
 
     public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
     {
-        return await _dbSet.Where(predicate).ToListAsync();
+        return await _dbSet.Where(predicate).AsNoTracking().ToListAsync();
     }
 
     public async Task<T> AddAsync(T entity)
@@ -48,7 +49,6 @@ public class GenericRepository<T> : IRepository<T> where T : class
 
     public async Task<bool> ExistsAsync(int id)
     {
-        var entity = await _dbSet.FindAsync(id);
-        return entity != null;
+        return await _dbSet.AnyAsync(e => e.Id == id);
     }
 }
