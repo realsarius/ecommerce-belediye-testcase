@@ -18,7 +18,7 @@ public class InventoryConfiguration : IEntityTypeConfiguration<Inventory>
         builder.Property(i => i.QuantityReserved)
             .IsRequired();
         
-        // Optimistic concurrency token
+        // Concurrency token
         builder.Property(i => i.RowVersion)
             .IsRowVersion();
         
