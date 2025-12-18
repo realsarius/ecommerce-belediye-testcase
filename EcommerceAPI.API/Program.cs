@@ -3,6 +3,8 @@ using EcommerceAPI.Data;
 using EcommerceAPI.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using EcommerceAPI.Business.Services;
+using EcommerceAPI.Business.Mappers;
+using EcommerceAPI.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -21,6 +23,9 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICartRepository, CartRepository>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICartMapper, CartMapper>();
 
 // ---- JWT Authentication ----
 var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] ?? "default-development-key-min-32-chars";
@@ -66,12 +71,13 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseExceptionHandling();
 
 app.UseHttpsRedirection();
 
