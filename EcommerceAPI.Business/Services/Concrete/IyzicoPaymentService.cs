@@ -1,3 +1,4 @@
+using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Business.Settings;
 using EcommerceAPI.Core.DTOs;
 using EcommerceAPI.Core.Entities;
@@ -9,7 +10,7 @@ using Iyzipay.Model;
 using Iyzipay.Request;
 using Microsoft.Extensions.Options;
 
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Concrete;
 
 public class IyzicoPaymentService : IPaymentService
 {

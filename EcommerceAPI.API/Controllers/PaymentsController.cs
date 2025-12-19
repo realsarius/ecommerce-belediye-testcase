@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using EcommerceAPI.Business.Services;
+using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Core.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

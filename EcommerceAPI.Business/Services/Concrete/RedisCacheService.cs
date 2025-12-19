@@ -2,7 +2,7 @@ using EcommerceAPI.Core.Interfaces;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Concrete;
 
 public class RedisCacheService : ICacheService
 {

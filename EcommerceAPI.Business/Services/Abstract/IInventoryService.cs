@@ -1,4 +1,4 @@
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Abstract;
 
 public interface IInventoryService
 {

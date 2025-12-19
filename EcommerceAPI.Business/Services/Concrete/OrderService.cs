@@ -1,3 +1,4 @@
+using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Core.DTOs;
 using EcommerceAPI.Core.Entities;
 using EcommerceAPI.Core.Enums;
@@ -5,7 +6,7 @@ using EcommerceAPI.Core.Exceptions;
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Concrete;
 
 public class OrderService : IOrderService
 {

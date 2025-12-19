@@ -1,3 +1,4 @@
+using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Core.DTOs;
 using EcommerceAPI.Core.Entities;
 using EcommerceAPI.Core.Interfaces;
@@ -5,7 +6,7 @@ using EcommerceAPI.Core.Parameters;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Concrete;
 
 public class ProductService : IProductService
 {

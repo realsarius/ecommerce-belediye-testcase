@@ -1,10 +1,11 @@
 using EcommerceAPI.Business.Mappers;
+using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Core.DTOs;
 using EcommerceAPI.Core.Entities;
 using EcommerceAPI.Core.Exceptions;
 using EcommerceAPI.Core.Interfaces;
 
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Concrete;
 
 public class CartService : ICartService
 {

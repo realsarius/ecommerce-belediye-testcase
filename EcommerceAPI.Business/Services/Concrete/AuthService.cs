@@ -1,3 +1,4 @@
+using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Core.DTOs;
 using EcommerceAPI.Core.Entities;
 using EcommerceAPI.Core.Interfaces;
@@ -7,7 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace EcommerceAPI.Business.Services;
+namespace EcommerceAPI.Business.Services.Concrete;
 
 public class AuthService : IAuthService
 {
