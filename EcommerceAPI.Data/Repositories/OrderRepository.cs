@@ -13,6 +13,7 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
     public async Task<Order?> GetByOrderNumberAsync(string orderNumber)
     {
         return await _dbSet
+            .Include(o => o.User)
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
@@ -24,6 +25,7 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
     {
         return await _dbSet
             .Where(o => o.UserId == userId)
+            .Include(o => o.User)
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()
             .ToListAsync();
@@ -32,6 +34,7 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
     public async Task<Order?> GetByIdWithDetailsAsync(int orderId)
     {
         return await _dbSet
+            .Include(o => o.User)
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)

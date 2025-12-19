@@ -85,6 +85,7 @@ public class PaymentService : IPaymentService
             Currency = payment.Currency,
             Status = payment.Status.ToString(),
             PaymentMethod = payment.PaymentMethod,
+            ErrorMessage = payment.ErrorMessage,
             CreatedAt = payment.CreatedAt
         };
     }

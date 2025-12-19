@@ -4,6 +4,7 @@ using EcommerceAPI.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using EcommerceAPI.Business.Services;
 using EcommerceAPI.Business.Mappers;
+using EcommerceAPI.Business.Settings;
 using EcommerceAPI.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +13,22 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+
+// ---- Iyzico Settings ----
+builder.Services.Configure<IyzicoSettings>(options =>
+{
+    var config = builder.Configuration.GetSection("Iyzico");
+    options.ApiKey = Environment.GetEnvironmentVariable("IYZICO_API_KEY") 
+                     ?? config["ApiKey"] 
+                     ?? string.Empty;
+    options.SecretKey = Environment.GetEnvironmentVariable("IYZICO_SECRET_KEY") 
+                        ?? config["SecretKey"] 
+                        ?? string.Empty;
+    options.BaseUrl = Environment.GetEnvironmentVariable("IYZICO_BASE_URL") 
+                      ?? config["BaseUrl"] 
+                      ?? "https://sandbox-api.iyzipay.com";
+});
+// ---- Iyzico Settings ----
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -29,7 +46,7 @@ builder.Services.AddScoped<ICartMapper, CartMapper>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentService, IyzicoPaymentService>();
 
 // ---- JWT Authentication ----
 var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] ?? "default-development-key-min-32-chars";
