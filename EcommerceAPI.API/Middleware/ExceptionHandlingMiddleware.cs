@@ -32,7 +32,8 @@ public class ExceptionHandlingMiddleware
         var response = context.Response;
         response.ContentType = "application/json";
 
-        var errorResponse = new ErrorResponse();
+        var traceId = context.Items["CorrelationId"]?.ToString() ?? context.TraceIdentifier;
+        var errorResponse = new ErrorResponse { TraceId = traceId };
 
         switch (exception)
         {
@@ -98,6 +99,7 @@ public class ErrorResponse
     public string? ErrorCode { get; set; }
     public string Message { get; set; } = string.Empty;
     public object? Details { get; set; }
+    public string? TraceId { get; set; }
 }
 
 public static class ExceptionHandlingMiddlewareExtensions

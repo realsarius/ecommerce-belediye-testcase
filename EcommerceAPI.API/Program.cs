@@ -106,6 +106,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCorrelationId();
 app.UseExceptionHandling();
 
 app.UseHttpsRedirection();
