@@ -77,7 +77,11 @@ public class OrderService : IOrderService
         {
             foreach (var cartItem in cart.Items)
             {
-                await _inventoryService.DecreaseStockAsync(cartItem.ProductId, cartItem.Quantity);
+                await _inventoryService.DecreaseStockAsync(
+                    cartItem.ProductId, 
+                    cartItem.Quantity, 
+                    userId, 
+                    $"Satış - Sipariş No: {order.OrderNumber}");
             }
 
             await _cartService.ClearCartAsync(userId);
@@ -124,7 +128,11 @@ public class OrderService : IOrderService
 
         foreach (var item in order.OrderItems)
         {
-            await _inventoryService.IncreaseStockAsync(item.ProductId, item.Quantity);
+            await _inventoryService.IncreaseStockAsync(
+                item.ProductId, 
+                item.Quantity, 
+                userId, 
+                $"Sipariş İptali - Sipariş No: {order.OrderNumber}");
         }
 
         _orderRepository.Update(order);
