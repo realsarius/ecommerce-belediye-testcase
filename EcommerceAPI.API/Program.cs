@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Serilog;
+using Hangfire;
+using Hangfire.PostgreSql;
+using EcommerceAPI.API.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,6 +69,17 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 builder.Services.AddScoped<ICacheService, RedisCacheService>();
 // ---- Redis Cache ----
+
+// ---- Hangfire ----
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(connectionString)));
+
+builder.Services.AddHangfireServer();
+// ---- Hangfire ----
 
 // ---- JWT Authentication ----
 var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] ?? "default-development-key-min-32-chars";
@@ -140,7 +154,18 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new HangfireAuthorizationFilter() }
+    });
 }
+
+// ---- Hangfire tekrarlayan işler ----
+RecurringJob.AddOrUpdate<IOrderService>(
+    "cancel-expired-orders",
+    service => service.CancelExpiredOrdersAsync(),
+    "*/15 * * * *"); // Her 15 dakikada bir çalışır (cron expression)
+// ---- Hangfire tekrarlayan işler ----
 
 app.UseCorrelationId();
 app.UseSerilogRequestLogging();

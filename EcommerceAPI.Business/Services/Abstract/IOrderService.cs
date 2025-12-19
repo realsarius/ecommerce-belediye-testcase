@@ -8,4 +8,5 @@ public interface IOrderService
     Task<OrderDto> GetOrderAsync(int userId, int orderId);
     Task<List<OrderDto>> GetUserOrdersAsync(int userId);
     Task<OrderDto> CancelOrderAsync(int userId, int orderId);
+    Task CancelExpiredOrdersAsync();
 }

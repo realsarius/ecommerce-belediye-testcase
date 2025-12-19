@@ -34,7 +34,7 @@ public class AdminProductsController : ControllerBase
         var product = await _productService.UpdateProductAsync(id, request);
         
         if (product == null)
-            return NotFound(new { message = "Product not found" });
+            return NotFound(new { message = "Ürün bulunamadı" });
 
         return Ok(product);
     }
@@ -45,7 +45,7 @@ public class AdminProductsController : ControllerBase
         var result = await _productService.DeleteProductAsync(id);
         
         if (!result)
-            return NotFound(new { message = "Product not found" });
+            return NotFound(new { message = "Ürün bulunamadı" });
 
         return NoContent();
     }
@@ -55,13 +55,13 @@ public class AdminProductsController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
-            return Unauthorized(new { message = "Invalid user token" });
+            return Unauthorized(new { message = "Geçersiz kullanıcı oturumu" });
 
         var result = await _productService.UpdateStockAsync(id, request, userId);
         
         if (!result)
-            return BadRequest(new { message = "Stock update failed. Product not found or insufficient stock." });
+            return BadRequest(new { message = "Stok güncelleme başarısız. Ürün bulunamadı veya stok yetersiz." });
 
-        return Ok(new { message = "Stock updated successfully" });
+        return Ok(new { message = "Stok başarıyla güncellendi" });
     }
 }

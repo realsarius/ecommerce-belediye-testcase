@@ -142,6 +142,36 @@ public class OrderService : IOrderService
         return MapToDto(order);
     }
 
+    public async Task CancelExpiredOrdersAsync()
+    {
+        // 30 dakikadan fazla PendingPayment durumunda bekleyen siparişleri al
+        var expiredOrders = await _orderRepository.GetExpiredPendingOrdersAsync(30);
+
+        if (!expiredOrders.Any()) return;
+
+        foreach (var order in expiredOrders)
+        {
+            // Durumu güncelle
+            order.Status = OrderStatus.Cancelled;
+            order.Notes = (order.Notes ?? "") + " | [Sistem] Ödeme zaman aşımı nedeniyle iptal edildi.";
+            order.CancelledAt = DateTime.UtcNow;
+
+            // Stokları iade et
+            foreach (var item in order.OrderItems)
+            {
+                await _inventoryService.IncreaseStockAsync(
+                    item.ProductId,
+                    item.Quantity,
+                    order.UserId,
+                    $"Sistem İptali - Sipariş No: {order.OrderNumber}");
+            }
+
+            _orderRepository.Update(order);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+    }
+
     private static string GenerateOrderNumber()
     {
         return $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";

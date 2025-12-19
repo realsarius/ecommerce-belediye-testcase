@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Core.Enums;
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,5 +40,16 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
             .FirstOrDefaultAsync(o => o.Id == orderId);
+    }
+
+    public async Task<List<Order>> GetExpiredPendingOrdersAsync(int timeoutMinutes)
+    {
+        var cutoffTime = DateTime.UtcNow.AddMinutes(-timeoutMinutes);
+
+        return await _dbSet
+            .Include(o => o.OrderItems)
+            .Where(o => o.Status == OrderStatus.PendingPayment && 
+                        o.CreatedAt < cutoffTime)
+            .ToListAsync();
     }
 }
