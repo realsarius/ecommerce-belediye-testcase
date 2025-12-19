@@ -18,9 +18,10 @@ public class InventoryConfiguration : IEntityTypeConfiguration<Inventory>
         builder.Property(i => i.QuantityReserved)
             .IsRequired();
         
-        // Concurrency token
         builder.Property(i => i.RowVersion)
-            .IsRowVersion();
-        
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
     }
 }

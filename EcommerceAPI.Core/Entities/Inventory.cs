@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace EcommerceAPI.Core.Entities;
 
 public class Inventory
@@ -8,9 +6,9 @@ public class Inventory
     public int QuantityAvailable { get; set; }
     public int QuantityReserved { get; set; }
     
-    [Timestamp] // Optimistic concurrency token
-    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+    public uint RowVersion { get; set; }
     
-    // Navigation property
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
     public Product Product { get; set; } = null!;
 }

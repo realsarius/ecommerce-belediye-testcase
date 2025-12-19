@@ -20,7 +20,6 @@ public static class DbInitializer
             
             logger.LogInformation("Starting database seeding process...");
             
-            // Roles
             var roles = new List<Role>
             {
                 new Role { Id = 1, Name = "Admin", Description = "Sistem yöneticisi - Tüm yetkilere sahip" },
@@ -30,7 +29,6 @@ public static class DbInitializer
             await context.Roles.AddRangeAsync(roles);
             await context.SaveChangesAsync();
             
-            // Categories
             var categories = new List<Category>
             {
                 new Category { Id = 1, Name = "Elektronik", IsActive = true },
@@ -43,7 +41,6 @@ public static class DbInitializer
             await context.Categories.AddRangeAsync(categories);
             await context.SaveChangesAsync();
             
-            // Products
             var products = new List<Product>
             {
                 new Product
@@ -161,7 +158,6 @@ public static class DbInitializer
             await context.Products.AddRangeAsync(products);
             await context.SaveChangesAsync();
             
-            // Inventory
             var inventories = new List<Inventory>
             {
                 new Inventory { ProductId = 1, QuantityAvailable = 34, QuantityReserved = 0 },

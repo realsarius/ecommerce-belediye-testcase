@@ -104,7 +104,7 @@ namespace EcommerceAPI.Data.Migrations
                     ProductId = table.Column<int>(type: "integer", nullable: false),
                     QuantityAvailable = table.Column<int>(type: "integer", nullable: false),
                     QuantityReserved = table.Column<int>(type: "integer", nullable: false),
-                    RowVersion = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>

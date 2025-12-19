@@ -1,0 +1,16 @@
+# Development Dockerfile with .NET SDK
+# Includes dotnet-ef tools for migrations and hot-reload support
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS dev
+WORKDIR /app
+
+RUN dotnet tool install --global dotnet-ef --version 8.0.11
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+EXPOSE 80
+EXPOSE 443
+
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+
+ENTRYPOINT ["dotnet", "watch", "run", "--project", "EcommerceAPI.API/EcommerceAPI.API.csproj", "--urls", "http://+:80"]

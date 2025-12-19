@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EcommerceAPI.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251217140856_InitialCreate")]
+    [Migration("20251218181843_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -133,11 +133,11 @@ namespace EcommerceAPI.Data.Migrations
                     b.Property<int>("QuantityReserved")
                         .HasColumnType("integer");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
