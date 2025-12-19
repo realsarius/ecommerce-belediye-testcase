@@ -100,6 +100,25 @@ services:
     labels:
       - "com.ecommerce.service=admin-panel"
 
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=cache"
+
   api-dev:
     build:
       context: .
@@ -116,6 +135,7 @@ services:
       IYZICO_API_KEY: ${IYZICO_API_KEY}
       IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY}
       IYZICO_BASE_URL: ${IYZICO_BASE_URL}
+      REDIS_CONNECTION_STRING: redis:6379
     ports:
       - "5000:80"
     volumes:
@@ -173,6 +193,10 @@ volumes:
       - "com.ecommerce.environment=production"
   pgadmin_data:
     driver: local
+  redis_data:
+    driver: local
+    labels:
+      - "com.ecommerce.service=cache"
 
 networks:
   ecommerce-network:

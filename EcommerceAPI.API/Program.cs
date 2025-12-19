@@ -54,6 +54,18 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IPaymentService, IyzicoPaymentService>();
 
+// ---- Redis Cache ----
+var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") 
+                      ?? builder.Configuration["Redis:ConnectionString"]
+                      ?? throw new InvalidOperationException("Redis connection string is not configured. Set REDIS_CONNECTION_STRING environment variable or Redis:ConnectionString in appsettings.");
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = redisConnection;
+    options.InstanceName = "EcommerceAPI_";
+});
+builder.Services.AddScoped<ICacheService, RedisCacheService>();
+// ---- Redis Cache ----
+
 // ---- JWT Authentication ----
 var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] ?? "default-development-key-min-32-chars";
 builder.Services.AddAuthentication(options =>
