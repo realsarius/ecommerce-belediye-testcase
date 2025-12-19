@@ -9,8 +9,14 @@ using EcommerceAPI.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ---- Serilog ----
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
+// ---- Serilog ----
 
 builder.Services.AddControllers();
 
@@ -124,6 +130,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCorrelationId();
+app.UseSerilogRequestLogging();
 app.UseExceptionHandling();
 
 app.UseHttpsRedirection();

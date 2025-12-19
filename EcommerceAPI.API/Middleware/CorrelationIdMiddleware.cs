@@ -1,3 +1,5 @@
+using Serilog.Context;
+
 namespace EcommerceAPI.API.Middleware;
 
 public class CorrelationIdMiddleware
@@ -28,7 +30,10 @@ public class CorrelationIdMiddleware
             return Task.CompletedTask;
         });
 
-        await _next(context);
+        using (LogContext.PushProperty("CorrelationId", correlationId.ToString()))
+        {
+            await _next(context);
+        }
     }
 }
 
