@@ -8,7 +8,7 @@ public class ShippingAddressConfigurationBasic : IEntityTypeConfiguration<Shippi
 {
     public void Configure(EntityTypeBuilder<ShippingAddress> builder)
     {
-        builder.ToTable("ShippingAddresses");
+        builder.ToTable("TBL_ShippingAddresses");
         
         builder.HasKey(sa => sa.Id);
         
