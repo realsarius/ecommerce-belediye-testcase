@@ -23,10 +23,208 @@ public static class DbInitializer
             var roles = new List<Role>
             {
                 new Role { Id = 1, Name = "Admin", Description = "Sistem yöneticisi - Tüm yetkilere sahip" },
-                new Role { Id = 2, Name = "Customer", Description = "Mağaza müşterisi - Alışveriş yapabilir" }
+                new Role { Id = 2, Name = "Customer", Description = "Mağaza müşterisi - Alışveriş yapabilir" },
+                new Role { Id = 3, Name = "Seller", Description = "Satıcı - Ürün satışı yapabilir" }
             };
             
             await context.Roles.AddRangeAsync(roles);
+            await context.SaveChangesAsync();
+            
+            // users
+            // Password: Test123! (BCrypt hash)
+            var passwordHash = "$2a$11$rBNlWqg/4V2Jw!YfG8dfU.K8dGcjlKQMZ3m0H7kXPnHWvnBN6jQFW";
+            // RoleId = 1 Admin, 2 Seller, 3 Customer
+
+            var users = new List<User>
+            {
+                // 1 Admin
+                new User
+                {
+                    Id = 1,
+                    FirstName = "Admin",
+                    LastName = "User",
+                    Email = "admin@ecommerce.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 1, // Admin
+                    CreatedAt = DateTime.UtcNow
+                },
+                // 2 Sellers
+                new User
+                {
+                    Id = 2,
+                    FirstName = "Ahmet",
+                    LastName = "Yılmaz",
+                    Email = "ahmet.seller@ecommerce.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 3, // Seller
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 3,
+                    FirstName = "Fatma",
+                    LastName = "Kaya",
+                    Email = "fatma.seller@ecommerce.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 3,
+                    CreatedAt = DateTime.UtcNow
+                },
+                // 10 Customers
+                new User
+                {
+                    Id = 4,
+                    FirstName = "Mehmet",
+                    LastName = "Demir",
+                    Email = "mehmet@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2, // Customer
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 5,
+                    FirstName = "Ayşe",
+                    LastName = "Çelik",
+                    Email = "ayse@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 6,
+                    FirstName = "Mustafa",
+                    LastName = "Şahin",
+                    Email = "mustafa@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 7,
+                    FirstName = "Zeynep",
+                    LastName = "Yıldız",
+                    Email = "zeynep@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 8,
+                    FirstName = "Ali",
+                    LastName = "Öztürk",
+                    Email = "ali@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 9,
+                    FirstName = "Elif",
+                    LastName = "Arslan",
+                    Email = "elif@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 10,
+                    FirstName = "Hasan",
+                    LastName = "Koç",
+                    Email = "hasan@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 11,
+                    FirstName = "Merve",
+                    LastName = "Aydın",
+                    Email = "merve@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 12,
+                    FirstName = "Emre",
+                    LastName = "Çetin",
+                    Email = "emre@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = 13,
+                    FirstName = "Selin",
+                    LastName = "Korkmaz",
+                    Email = "selin@gmail.com",
+                    PasswordHash = passwordHash,
+                    RoleId = 2,
+                    CreatedAt = DateTime.UtcNow
+                }
+            };
+            
+            await context.Users.AddRangeAsync(users);
+            await context.SaveChangesAsync();
+            
+            // shipping addresses
+            var addresses = new List<ShippingAddress>
+            {
+                // Mehmet (Id=4) has 2 addresses
+                new ShippingAddress
+                {
+                    Id = 1,
+                    UserId = 4,
+                    Title = "Ev",
+                    FullName = "Mehmet Demir",
+                    Phone = "05321234567",
+                    City = "İstanbul",
+                    District = "Kadıköy",
+                    AddressLine = "Caferağa Mah. Moda Cad. No:15 D:3",
+                    PostalCode = "34710",
+                    IsDefault = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new ShippingAddress
+                {
+                    Id = 2,
+                    UserId = 4,
+                    Title = "İş",
+                    FullName = "Mehmet Demir",
+                    Phone = "05321234567",
+                    City = "İstanbul",
+                    District = "Şişli",
+                    AddressLine = "Mecidiyeköy Mah. Büyükdere Cad. No:100 Kat:5",
+                    PostalCode = "34394",
+                    IsDefault = false,
+                    CreatedAt = DateTime.UtcNow
+                },
+                // Ayşe (Id=5) has 1 address
+                new ShippingAddress
+                {
+                    Id = 3,
+                    UserId = 5,
+                    Title = "Ev",
+                    FullName = "Ayşe Çelik",
+                    Phone = "05339876543",
+                    City = "Ankara",
+                    District = "Çankaya",
+                    AddressLine = "Kızılay Mah. Atatürk Bulvarı No:50 D:8",
+                    PostalCode = "06420",
+                    IsDefault = true,
+                    CreatedAt = DateTime.UtcNow
+                }
+            };
+            
+            await context.ShippingAddresses.AddRangeAsync(addresses);
             await context.SaveChangesAsync();
             
             var categories = new List<Category>
