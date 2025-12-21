@@ -3,12 +3,14 @@ using EcommerceAPI.Business.Services.Abstract;
 using EcommerceAPI.Core.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EcommerceAPI.API.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
+[EnableRateLimiting("payment")]
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentService _paymentService;

@@ -14,6 +14,10 @@ using Serilog;
 using Hangfire;
 using Hangfire.PostgreSql;
 using EcommerceAPI.API.Filters;
+using RedisRateLimiting;
+using RedisRateLimiting.AspNetCore;
+using System.Threading.RateLimiting;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,6 +62,11 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IPaymentService, IyzicoPaymentService>();
 
+// ---- KVKK Encryption Services ----
+builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
+builder.Services.AddSingleton<IHashingService, HashingService>();
+// ---- KVKK Encryption Services ----
+
 // ---- Redis Cache ----
 var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") 
                       ?? builder.Configuration["Redis:ConnectionString"]
@@ -68,6 +77,58 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = "EcommerceAPI_";
 });
 builder.Services.AddScoped<ICacheService, RedisCacheService>();
+
+// ---- Redis Rate Limiting ----
+var redis = ConnectionMultiplexer.Connect(redisConnection);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    
+    options.OnRejected = async (context, token) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = 
+                ((int)retryAfter.TotalSeconds).ToString();
+        }
+        
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            errorCode = "RATE_LIMIT_EXCEEDED",
+            message = "Çok fazla istek gönderdiniz. Lütfen bekleyin.",
+            retryAfterSeconds = retryAfter.TotalSeconds
+        }, token);
+    };
+
+    // Auth Policy (IP-based): 5 requests/minute - Brute-force koruması
+    options.AddRedisFixedWindowLimiter("auth", (opt) =>
+    {
+        opt.ConnectionMultiplexerFactory = () => redis;
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+
+    // Payment Policy (User-based): 10 requests/minute - Payment abuse koruması
+    options.AddRedisSlidingWindowLimiter("payment", (opt) =>
+    {
+        opt.ConnectionMultiplexerFactory = () => redis;
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+    
+    // Global Policy (IP-based): 100 requests/minute - DDoS koruması
+    options.AddRedisFixedWindowLimiter("global", (opt) =>
+    {
+        opt.ConnectionMultiplexerFactory = () => redis;
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+});
+// ---- Redis Rate Limiting ----
+
 // ---- Redis Cache ----
 
 // ---- Hangfire ----
@@ -172,6 +233,8 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandling();
 
 app.UseHttpsRedirection();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
