@@ -1,20 +1,11 @@
 using EcommerceAPI.Core.Entities;
-using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.Data.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace EcommerceAPI.Data.Configurations;
 
-public class UserConfiguration : IEntityTypeConfiguration<User>
+public class UserConfigurationBasic : IEntityTypeConfiguration<User>
 {
-    private readonly IEncryptionService _encryptionService;
-
-    public UserConfiguration(IEncryptionService encryptionService)
-    {
-        _encryptionService = encryptionService;
-    }
-
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.ToTable("Users");
@@ -23,9 +14,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         
         builder.Property(u => u.Email)
             .IsRequired()
-            .HasMaxLength(500)
-            .HasConversion(new EncryptedStringConverter(_encryptionService));
+            .HasMaxLength(500);
         
+        // EmailHash - Blind Inde), unique 
         builder.Property(u => u.EmailHash)
             .IsRequired()
             .HasMaxLength(64);
@@ -39,13 +30,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         
         builder.Property(u => u.FirstName)
             .IsRequired()
-            .HasMaxLength(300)
-            .HasConversion(new EncryptedStringConverter(_encryptionService));
+            .HasMaxLength(300);
         
         builder.Property(u => u.LastName)
             .IsRequired()
-            .HasMaxLength(300)
-            .HasConversion(new EncryptedStringConverter(_encryptionService));
+            .HasMaxLength(300);
         
         // Relationships
         builder.HasOne(u => u.Role)
