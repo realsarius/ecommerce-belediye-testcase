@@ -190,4 +190,147 @@ public class IyzicoPaymentService : IPaymentService
             CreatedAt = payment.CreatedAt
         };
     }
+
+    #region Webhook Processing
+
+    public async Task<bool> ProcessWebhookAsync(IyzicoWebhookRequest request, string signatureHeader)
+    {
+        // Signature doğrulama
+        if (!ValidateSignature(request, signatureHeader))
+        {
+            return false;
+        }
+
+        // ConversationId ile siparişi bul
+        if (string.IsNullOrEmpty(request.PaymentConversationId))
+            return false;
+
+        var order = await _orderRepository.GetByOrderNumberAsync(request.PaymentConversationId);
+        if (order == null)
+            return false;
+
+        // Idempotency: Zaten işlenmiş mi?
+        if (order.Status == OrderStatus.Paid)
+            return true;
+
+        // Token varsa - Double Verification
+        if (!string.IsNullOrEmpty(request.Token))
+        {
+            return await VerifyAndFinalizePaymentAsync(request.Token, request.PaymentConversationId);
+        }
+
+        // Direct webhook - status'a göre güncelle
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            if (request.Status?.ToUpperInvariant() == "SUCCESS" && order.Payment != null)
+            {
+                order.Payment.Status = PaymentStatus.Success;
+                order.Payment.PaymentProviderId = request.IyziPaymentId ?? request.PaymentId;
+                order.Status = OrderStatus.Paid;
+            }
+            else if (order.Payment != null)
+            {
+                order.Payment.Status = PaymentStatus.Failed;
+                order.Payment.ErrorMessage = "Webhook: Ödeme başarısız";
+            }
+
+            _orderRepository.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
+    }
+
+    public async Task<bool> VerifyAndFinalizePaymentAsync(string token, string conversationId)
+    {
+        var options = new Iyzipay.Options
+        {
+            ApiKey = _settings.ApiKey,
+            SecretKey = _settings.SecretKey,
+            BaseUrl = _settings.BaseUrl
+        };
+
+        var retrieveRequest = new RetrieveCheckoutFormRequest
+        {
+            ConversationId = conversationId,
+            Token = token
+        };
+
+        // iyzico'dan gerçek sonucu al
+        var checkoutForm = await CheckoutForm.Retrieve(retrieveRequest, options);
+
+        var order = await _orderRepository.GetByOrderNumberAsync(conversationId);
+        if (order == null || order.Payment == null)
+            return false;
+
+        // idempotency check
+        if (order.Status == OrderStatus.Paid)
+            return true;
+
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            if (checkoutForm.Status == "success" && checkoutForm.PaymentStatus == "SUCCESS")
+            {
+                order.Payment.Status = PaymentStatus.Success;
+                order.Payment.PaymentProviderId = checkoutForm.PaymentId;
+                order.Status = OrderStatus.Paid;
+            }
+            else
+            {
+                order.Payment.Status = PaymentStatus.Failed;
+                order.Payment.ErrorMessage = checkoutForm.ErrorMessage ?? "Ödeme doğrulaması başarısız";
+            }
+
+            _orderRepository.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+
+            return checkoutForm.Status == "success";
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
+    }
+
+
+    // iyzico X-IYZ-SIGNATURE-V3 doğrulaması
+    // Format: SECRET KEY + iyziEventType + paymentId + paymentConversationId + status
+    // Development: Boş signature kabul edilir (test için)
+    private bool ValidateSignature(IyzicoWebhookRequest request, string signatureHeader)
+    {
+        // Development mode: Signature yoksa bypass et
+        if (string.IsNullOrEmpty(signatureHeader))
+        {
+            // Production'da false dönmeli, development'da bypass
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            return isDevelopment; // Sadece Development'ta geçir
+        }
+
+        var dataToSign = $"{_settings.SecretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        var computedSignature = ComputeHmacSha256Hex(dataToSign);
+
+        return string.Equals(computedSignature, signatureHeader, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    // HMAC-SHA256 hesaplayıp HEX olarak döndür
+    private string ComputeHmacSha256Hex(string data)
+    {
+        using var hmac = new System.Security.Cryptography.HMACSHA256(
+            System.Text.Encoding.UTF8.GetBytes(_settings.SecretKey));
+        var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
+        return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+    }
+
+    #endregion
 }

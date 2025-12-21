@@ -18,7 +18,6 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
-            .AsNoTracking()
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber);
     }
 

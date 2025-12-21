@@ -90,4 +90,53 @@ public class PaymentService : IPaymentService
             CreatedAt = payment.CreatedAt
         };
     }
+    public async Task<bool> ProcessWebhookAsync(IyzicoWebhookRequest request, string signatureHeader)
+    {
+        if (string.IsNullOrEmpty(request.PaymentConversationId))
+            return false;
+
+        var order = await _orderRepository.GetByOrderNumberAsync(request.PaymentConversationId);
+        if (order == null || order.Payment == null)
+            return false;
+
+        // Idempotency
+        if (order.Status == OrderStatus.Paid)
+            return true;
+
+        if (request.Status?.ToUpperInvariant() == "SUCCESS")
+        {
+            order.Payment.Status = PaymentStatus.Success;
+            order.Payment.PaymentProviderId = request.PaymentId;
+            order.Status = OrderStatus.Paid;
+        }
+        else
+        {
+            order.Payment.Status = PaymentStatus.Failed;
+            order.Payment.ErrorMessage = "Mock webhook: Ödeme başarısız";
+        }
+
+        _orderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync();
+
+        return true;
+    }
+    public async Task<bool> VerifyAndFinalizePaymentAsync(string token, string conversationId)
+    {
+        var order = await _orderRepository.GetByOrderNumberAsync(conversationId);
+        if (order == null || order.Payment == null)
+            return false;
+
+        if (order.Status == OrderStatus.Paid)
+            return true;
+
+        // Mock: Token varsa başarılı say
+        order.Payment.Status = PaymentStatus.Success;
+        order.Payment.PaymentProviderId = $"MOCK-{token[..8]}";
+        order.Status = OrderStatus.Paid;
+
+        _orderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync();
+
+        return true;
+    }
 }
