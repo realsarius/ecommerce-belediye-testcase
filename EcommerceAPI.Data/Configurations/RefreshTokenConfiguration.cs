@@ -8,6 +8,8 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 {
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
     {
+        builder.ToTable("TBL_RefreshTokens");
+        
         builder.HasKey(rt => rt.Id);
 
         builder.Property(rt => rt.Token)

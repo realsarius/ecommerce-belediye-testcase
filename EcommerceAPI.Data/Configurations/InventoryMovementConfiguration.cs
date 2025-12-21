@@ -8,7 +8,7 @@ public class InventoryMovementConfiguration : IEntityTypeConfiguration<Inventory
 {
     public void Configure(EntityTypeBuilder<InventoryMovement> builder)
     {
-        builder.ToTable("InventoryMovements");
+        builder.ToTable("TBL_InventoryMovements");
         
         builder.HasKey(im => im.Id);
         
