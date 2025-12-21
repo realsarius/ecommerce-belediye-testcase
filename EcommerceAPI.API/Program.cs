@@ -203,8 +203,10 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        await DbInitializer.InitializeAsync(context, logger);
+        var hashingService = services.GetRequiredService<IHashingService>();
+        var logger = services.GetRequiredService<ILogger<DbInitializer>>();
+        var initializer = new DbInitializer(context, hashingService, logger);
+        await initializer.InitializeAsync();
     }
     catch (Exception ex)
     {

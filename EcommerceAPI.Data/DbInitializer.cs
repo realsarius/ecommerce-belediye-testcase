@@ -1,24 +1,36 @@
 using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Data;
 
-public static class DbInitializer
+public class DbInitializer
 {
-    public static async Task InitializeAsync(AppDbContext context, ILogger logger)
+    private readonly AppDbContext _context;
+    private readonly IHashingService _hashingService;
+    private readonly ILogger<DbInitializer> _logger;
+
+    public DbInitializer(AppDbContext context, IHashingService hashingService, ILogger<DbInitializer> logger)
+    {
+        _context = context;
+        _hashingService = hashingService;
+        _logger = logger;
+    }
+
+    public async Task InitializeAsync()
     {
         try
         {
-            await context.Database.MigrateAsync();
+            await _context.Database.MigrateAsync();
             
-            if (await context.Roles.AnyAsync())
+            if (await _context.Roles.AnyAsync())
             {
-                logger.LogInformation("Database already seeded. Skipping initial data load.");
+                _logger.LogInformation("Database already seeded. Skipping initial data load.");
                 return;
             }
             
-            logger.LogInformation("Starting database seeding process...");
+            _logger.LogInformation("Starting database seeding process...");
             
             var roles = new List<Role>
             {
@@ -27,13 +39,13 @@ public static class DbInitializer
                 new Role { Id = 3, Name = "Seller", Description = "Satıcı - Ürün satışı yapabilir" }
             };
             
-            await context.Roles.AddRangeAsync(roles);
-            await context.SaveChangesAsync();
+            await _context.Roles.AddRangeAsync(roles);
+            await _context.SaveChangesAsync();
             
             // users
             // Password: Test123! (BCrypt hash)
             var passwordHash = "$2a$11$rBNlWqg/4V2Jw!YfG8dfU.K8dGcjlKQMZ3m0H7kXPnHWvnBN6jQFW";
-            // RoleId = 1 Admin, 2 Seller, 3 Customer
+            // RoleId = 1 Admin, 2 Customer, 3 Seller
 
             var users = new List<User>
             {
@@ -44,6 +56,7 @@ public static class DbInitializer
                     FirstName = "Admin",
                     LastName = "User",
                     Email = "admin@ecommerce.com",
+                    EmailHash = _hashingService.Hash("admin@ecommerce.com"),
                     PasswordHash = passwordHash,
                     RoleId = 1, // Admin
                     CreatedAt = DateTime.UtcNow
@@ -55,6 +68,7 @@ public static class DbInitializer
                     FirstName = "Ahmet",
                     LastName = "Yılmaz",
                     Email = "ahmet.seller@ecommerce.com",
+                    EmailHash = _hashingService.Hash("ahmet.seller@ecommerce.com"),
                     PasswordHash = passwordHash,
                     RoleId = 3, // Seller
                     CreatedAt = DateTime.UtcNow
@@ -65,6 +79,7 @@ public static class DbInitializer
                     FirstName = "Fatma",
                     LastName = "Kaya",
                     Email = "fatma.seller@ecommerce.com",
+                    EmailHash = _hashingService.Hash("fatma.seller@ecommerce.com"),
                     PasswordHash = passwordHash,
                     RoleId = 3,
                     CreatedAt = DateTime.UtcNow
@@ -76,6 +91,7 @@ public static class DbInitializer
                     FirstName = "Mehmet",
                     LastName = "Demir",
                     Email = "mehmet@gmail.com",
+                    EmailHash = _hashingService.Hash("mehmet@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2, // Customer
                     CreatedAt = DateTime.UtcNow
@@ -86,6 +102,7 @@ public static class DbInitializer
                     FirstName = "Ayşe",
                     LastName = "Çelik",
                     Email = "ayse@gmail.com",
+                    EmailHash = _hashingService.Hash("ayse@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -96,6 +113,7 @@ public static class DbInitializer
                     FirstName = "Mustafa",
                     LastName = "Şahin",
                     Email = "mustafa@gmail.com",
+                    EmailHash = _hashingService.Hash("mustafa@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -106,6 +124,7 @@ public static class DbInitializer
                     FirstName = "Zeynep",
                     LastName = "Yıldız",
                     Email = "zeynep@gmail.com",
+                    EmailHash = _hashingService.Hash("zeynep@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -116,6 +135,7 @@ public static class DbInitializer
                     FirstName = "Ali",
                     LastName = "Öztürk",
                     Email = "ali@gmail.com",
+                    EmailHash = _hashingService.Hash("ali@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -126,6 +146,7 @@ public static class DbInitializer
                     FirstName = "Elif",
                     LastName = "Arslan",
                     Email = "elif@gmail.com",
+                    EmailHash = _hashingService.Hash("elif@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -136,6 +157,7 @@ public static class DbInitializer
                     FirstName = "Hasan",
                     LastName = "Koç",
                     Email = "hasan@gmail.com",
+                    EmailHash = _hashingService.Hash("hasan@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -146,6 +168,7 @@ public static class DbInitializer
                     FirstName = "Merve",
                     LastName = "Aydın",
                     Email = "merve@gmail.com",
+                    EmailHash = _hashingService.Hash("merve@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -156,6 +179,7 @@ public static class DbInitializer
                     FirstName = "Emre",
                     LastName = "Çetin",
                     Email = "emre@gmail.com",
+                    EmailHash = _hashingService.Hash("emre@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
@@ -166,14 +190,15 @@ public static class DbInitializer
                     FirstName = "Selin",
                     LastName = "Korkmaz",
                     Email = "selin@gmail.com",
+                    EmailHash = _hashingService.Hash("selin@gmail.com"),
                     PasswordHash = passwordHash,
                     RoleId = 2,
                     CreatedAt = DateTime.UtcNow
                 }
             };
             
-            await context.Users.AddRangeAsync(users);
-            await context.SaveChangesAsync();
+            await _context.Users.AddRangeAsync(users);
+            await _context.SaveChangesAsync();
             
             // shipping addresses
             var addresses = new List<ShippingAddress>
@@ -224,8 +249,8 @@ public static class DbInitializer
                 }
             };
             
-            await context.ShippingAddresses.AddRangeAsync(addresses);
-            await context.SaveChangesAsync();
+            await _context.ShippingAddresses.AddRangeAsync(addresses);
+            await _context.SaveChangesAsync();
             
             var categories = new List<Category>
             {
@@ -236,8 +261,8 @@ public static class DbInitializer
                 new Category { Id = 5, Name = "Spor ve Outdoor", IsActive = true }
             };
             
-            await context.Categories.AddRangeAsync(categories);
-            await context.SaveChangesAsync();
+            await _context.Categories.AddRangeAsync(categories);
+            await _context.SaveChangesAsync();
             
             var products = new List<Product>
             {
@@ -353,8 +378,8 @@ public static class DbInitializer
                 }
             };
             
-            await context.Products.AddRangeAsync(products);
-            await context.SaveChangesAsync();
+            await _context.Products.AddRangeAsync(products);
+            await _context.SaveChangesAsync();
             
             var inventories = new List<Inventory>
             {
@@ -370,14 +395,14 @@ public static class DbInitializer
                 new Inventory { ProductId = 10, QuantityAvailable = 14, QuantityReserved = 0 }
             };
             
-            await context.Inventories.AddRangeAsync(inventories);
-            await context.SaveChangesAsync();
+            await _context.Inventories.AddRangeAsync(inventories);
+            await _context.SaveChangesAsync();
             
-            logger.LogInformation("Database seeding completed successfully.");
+            _logger.LogInformation("Database seeding completed successfully.");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred during the database seeding process.");
+            _logger.LogError(ex, "An error occurred during the database seeding process.");
             throw;
         }
     }
