@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace EcommerceAPI.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {

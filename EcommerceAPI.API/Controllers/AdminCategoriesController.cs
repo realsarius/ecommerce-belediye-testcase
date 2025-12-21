@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EcommerceAPI.API.Controllers;
 
 [ApiController]
-[Route("api/admin/categories")]
+[Route("api/v1/admin/categories")]
 [Authorize(Roles = "Admin")]
 public class AdminCategoriesController : ControllerBase
 {

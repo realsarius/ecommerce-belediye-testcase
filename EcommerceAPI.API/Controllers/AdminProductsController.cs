@@ -7,7 +7,7 @@ using System.Security.Claims;
 namespace EcommerceAPI.API.Controllers;
 
 [ApiController]
-[Route("api/admin/products")]
+[Route("api/v1/admin/products")]
 [Authorize(Roles = "Admin")]
 public class AdminProductsController : ControllerBase
 {
