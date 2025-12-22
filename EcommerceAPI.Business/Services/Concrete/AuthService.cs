@@ -259,6 +259,26 @@ public class AuthService : IAuthService
         return true;
     }
 
+    public async Task<UserDto?> GetUserByIdAsync(int userId)
+    {
+        var users = await _userRepository.FindAsync(u => u.Id == userId);
+        var user = users.FirstOrDefault();
+
+        if (user == null) return null;
+
+        var roles = await _roleRepository.FindAsync(r => r.Id == user.RoleId);
+        var role = roles.FirstOrDefault();
+
+        return new UserDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = role?.Name ?? "Customer"
+        };
+    }
+
     private string GenerateRefreshToken()
     {
         var randomNumber = new byte[32];
