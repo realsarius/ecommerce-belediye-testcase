@@ -29,18 +29,19 @@ public class PaymentService : IPaymentService
         if (order.Payment == null)
             throw new DomainException("Bu siparişe ait ödeme kaydı bulunamadı.");
 
-        if (order.Payment.Status == PaymentStatus.Success)
-            throw new DomainException("Bu sipariş için ödeme zaten alınmış.");
-
         if (order.Status == OrderStatus.Cancelled)
             throw new DomainException("İptal edilmiş siparişler için ödeme yapılamaz.");
 
+        // Idempotency check MUST be before general success check
         if (!string.IsNullOrEmpty(request.IdempotencyKey) && 
             order.Payment.IdempotencyKey == request.IdempotencyKey &&
             order.Payment.Status == PaymentStatus.Success)
         {
             return MapToDto(order.Payment);
         }
+
+        if (order.Payment.Status == PaymentStatus.Success)
+            throw new DomainException("Bu sipariş için ödeme zaten alınmış.");
 
         var isSuccess = _random.Next(1, 11) <= 9;
 

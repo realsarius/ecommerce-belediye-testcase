@@ -87,9 +87,23 @@ builder.Services.AddSingleton<IHashingService, HashingService>();
 // ---- KVKK Encryption Services ----
 
 // ---- Redis Cache ----
-var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") 
-                      ?? builder.Configuration["Redis:ConnectionString"]
-                      ?? throw new InvalidOperationException("Redis connection string is not configured. Set REDIS_CONNECTION_STRING environment variable or Redis:ConnectionString in appsettings.");
+var redisEnv = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+var redisConfig = builder.Configuration["Redis:ConnectionString"];
+var redisConnection = "localhost:6379";
+
+if (!string.IsNullOrWhiteSpace(redisEnv))
+{
+    redisConnection = redisEnv;
+}
+else if (!string.IsNullOrWhiteSpace(redisConfig))
+{
+    redisConnection = redisConfig;
+}
+if (builder.Environment.IsEnvironment("Test"))
+{
+    redisConnection = "localhost:6379";
+}
+
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = redisConnection;
@@ -101,64 +115,73 @@ builder.Services.AddScoped<ICacheService, RedisCacheService>();
 var redis = ConnectionMultiplexer.Connect(redisConnection);
 builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
 
-builder.Services.AddRateLimiter(options =>
+// Rate Limiting - Can be disabled via RateLimiting:Enabled = false (for integration tests)
+var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", true);
+if (rateLimitingEnabled)
 {
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    
-    options.OnRejected = async (context, token) =>
+    builder.Services.AddRateLimiter(options =>
     {
-        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
-        {
-            context.HttpContext.Response.Headers.RetryAfter = 
-                ((int)retryAfter.TotalSeconds).ToString();
-        }
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         
-        context.HttpContext.Response.ContentType = "application/json";
-        await context.HttpContext.Response.WriteAsJsonAsync(new
+        options.OnRejected = async (context, token) =>
         {
-            errorCode = "RATE_LIMIT_EXCEEDED",
-            message = "Çok fazla istek gönderdiniz. Lütfen bekleyin.",
-            retryAfterSeconds = retryAfter.TotalSeconds
-        }, token);
-    };
+            if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            {
+                context.HttpContext.Response.Headers.RetryAfter = 
+                    ((int)retryAfter.TotalSeconds).ToString();
+            }
+            
+            context.HttpContext.Response.ContentType = "application/json";
+            await context.HttpContext.Response.WriteAsJsonAsync(new
+            {
+                errorCode = "RATE_LIMIT_EXCEEDED",
+                message = "Çok fazla istek gönderdiniz. Lütfen bekleyin.",
+                retryAfterSeconds = retryAfter.TotalSeconds
+            }, token);
+        };
 
-    // Auth Policy (IP-based): 5 requests/minute - Brute-force koruması
-    options.AddRedisFixedWindowLimiter("auth", (opt) =>
-    {
-        opt.ConnectionMultiplexerFactory = () => redis;
-        opt.PermitLimit = 5;
-        opt.Window = TimeSpan.FromMinutes(1);
-    });
+        // Auth Policy (IP-based): 5 requests/minute - Brute-force koruması
+        options.AddRedisFixedWindowLimiter("auth", (opt) =>
+        {
+            opt.ConnectionMultiplexerFactory = () => redis;
+            opt.PermitLimit = 5;
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
 
-    // Payment Policy (User-based): 10 requests/minute - Payment abuse koruması
-    options.AddRedisSlidingWindowLimiter("payment", (opt) =>
-    {
-        opt.ConnectionMultiplexerFactory = () => redis;
-        opt.PermitLimit = 10;
-        opt.Window = TimeSpan.FromMinutes(1);
+        // Payment Policy (User-based): 10 requests/minute - Payment abuse koruması
+        options.AddRedisSlidingWindowLimiter("payment", (opt) =>
+        {
+            opt.ConnectionMultiplexerFactory = () => redis;
+            opt.PermitLimit = 10;
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
+        
+        // Global Policy (IP-based): 100 requests/minute - DDoS koruması
+        options.AddRedisFixedWindowLimiter("global", (opt) =>
+        {
+            opt.ConnectionMultiplexerFactory = () => redis;
+            opt.PermitLimit = 100;
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
     });
-    
-    // Global Policy (IP-based): 100 requests/minute - DDoS koruması
-    options.AddRedisFixedWindowLimiter("global", (opt) =>
-    {
-        opt.ConnectionMultiplexerFactory = () => redis;
-        opt.PermitLimit = 100;
-        opt.Window = TimeSpan.FromMinutes(1);
-    });
-});
+}
 // ---- Redis Rate Limiting ----
 
 // ---- Redis Cache ----
 
 // ---- Hangfire ----
-builder.Services.AddHangfire(config => config
-    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(options =>
-        options.UseNpgsqlConnection(connectionString)));
+// Hangfire sadece non-Test ortamında çalışır (Integration testleri için devre dışı)
+if (!builder.Environment.IsEnvironment("Test"))
+{
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UsePostgreSqlStorage(options =>
+            options.UseNpgsqlConnection(connectionString)));
 
-builder.Services.AddHangfireServer();
+    builder.Services.AddHangfireServer();
+}
 // ---- Hangfire ----
 
 // ---- JWT Authentication ----
@@ -243,10 +266,13 @@ if (app.Environment.IsDevelopment())
 }
 
 // ---- Hangfire tekrarlayan işler ----
-RecurringJob.AddOrUpdate<IOrderService>(
-    "cancel-expired-orders",
-    service => service.CancelExpiredOrdersAsync(),
-    "*/15 * * * *"); // Her 15 dakikada bir çalışır (cron expression)
+if (!app.Environment.IsEnvironment("Test"))
+{
+    RecurringJob.AddOrUpdate<IOrderService>(
+        "cancel-expired-orders",
+        service => service.CancelExpiredOrdersAsync(),
+        "*/15 * * * *"); // Her 15 dakikada bir çalışır (cron expression)
+}
 // ---- Hangfire tekrarlayan işler ----
 
 app.UseCorrelationId();
@@ -257,7 +283,11 @@ app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
 
-app.UseRateLimiter();
+// Rate limiter - only if enabled (disabled in Test environment)
+if (app.Configuration.GetValue("RateLimiting:Enabled", true))
+{
+    app.UseRateLimiter();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -266,3 +296,6 @@ app.MapControllers();
 
 app.Run();
 
+
+
+public partial class Program { }

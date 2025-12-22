@@ -11,6 +11,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Core", "Ecomme
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Data", "EcommerceAPI.Data\EcommerceAPI.Data.csproj", "{DD7665A7-7F7E-4639-8672-D039A3AC613E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{78381FF8-1B50-4C69-A3D6-64BC489BB2E4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.UnitTests", "tests\EcommerceAPI.UnitTests\EcommerceAPI.UnitTests.csproj", "{0B27887A-B318-4970-877E-FD1F456660F3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.IntegrationTests", "tests\EcommerceAPI.IntegrationTests\EcommerceAPI.IntegrationTests.csproj", "{9521378A-E2D5-4209-9654-D3F8B73581C6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +42,17 @@ Global
 		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B27887A-B318-4970-877E-FD1F456660F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B27887A-B318-4970-877E-FD1F456660F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B27887A-B318-4970-877E-FD1F456660F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B27887A-B318-4970-877E-FD1F456660F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0B27887A-B318-4970-877E-FD1F456660F3} = {78381FF8-1B50-4C69-A3D6-64BC489BB2E4}
+		{9521378A-E2D5-4209-9654-D3F8B73581C6} = {78381FF8-1B50-4C69-A3D6-64BC489BB2E4}
 	EndGlobalSection
 EndGlobal

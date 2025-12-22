@@ -62,10 +62,13 @@ jobs:
       run: dotnet test EcommerceAPI.sln --no-build --verbosity normal --configuration Release
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=EcommerceDb_CI;Username=postgres;Password=postgres_ci_password"
-        JWT_SECRET_KEY: "all-good-things-come-to-those-who-wait-longer-than-32-chars"
-        JWT_ISSUER: "EcommerceAPI-CI"
-        JWT_AUDIENCE: "EcommerceAPI-CI"
-        REDIS_CONNECTION_STRING: "localhost:6379"
+        JWT_SECRET_KEY: "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait"
+        JWT_ISSUER: "EcommerceAPI"
+        JWT_AUDIENCE: "EcommerceAPI"
+        ENCRYPTION_KEY: "12345678901234567890123456789012"
+        HASH_PEPPER: "ci-test-pepper-value"
+        Redis__ConnectionString: "localhost:6379"
+        RateLimiting__Enabled: "false"
 
   # CD - Build and push docker image
   build-and-push-docker:
