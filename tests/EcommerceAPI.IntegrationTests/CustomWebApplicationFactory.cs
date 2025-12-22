@@ -49,7 +49,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             var sp = services.BuildServiceProvider();
             var config = sp.GetRequiredService<IConfiguration>();
 
-            var cs = config.GetConnectionString("DefaultConnection") 
+            // CI override: prefer env var > config > fallback (local dev uses 5433, CI uses 5432)
+            var cs = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                     ?? config.GetConnectionString("DefaultConnection") 
                      ?? "Host=localhost;Port=5433;Database=ecommerce_test;Username=ecommerce_test_user;Password=test_password";
 
             services.AddDbContext<AppDbContext>(opt =>
