@@ -60,4 +60,18 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Token iptal edildi" });
     }
+
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<AuthResponse>> Me()
+    {
+        var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out var userId))
+            return Unauthorized();
+
+        var user = await _authService.GetUserByIdAsync(userId);
+        if (user == null) return Unauthorized();
+
+        return Ok(new AuthResponse { Success = true, User = user });
+    }
 }
