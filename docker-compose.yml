@@ -183,6 +183,45 @@ services:
       - "com.ecommerce.environment=production"
       - "com.ecommerce.service=api"
 
+  # Frontend Development
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: ecommerce-frontend-dev
+    environment:
+      VITE_API_URL: http://localhost:5000/api/v1
+    ports:
+      - "3000:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - ecommerce-network
+    depends_on:
+      - api-dev
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=development"
+      - "com.ecommerce.service=frontend"
+
+  # Frontend Production
+  frontend-prod:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecommerce-frontend-prod
+    ports:
+      - "80:80"
+    networks:
+      - ecommerce-network
+    depends_on:
+      - api-prod
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=production"
+      - "com.ecommerce.service=frontend"
+
 volumes:
   postgres_dev_data:
     driver: local

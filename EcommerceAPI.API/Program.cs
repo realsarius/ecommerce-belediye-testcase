@@ -28,6 +28,23 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddControllers();
 
+// ---- CORS ----
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:5173",  // Vite dev server
+                "http://localhost:3000",  // Docker dev
+                "http://localhost:80"     // Docker prod
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+// ---- CORS ----
+
 // ---- Iyzico Settings ----
 builder.Services.Configure<IyzicoSettings>(options =>
 {
@@ -235,6 +252,8 @@ RecurringJob.AddOrUpdate<IOrderService>(
 app.UseCorrelationId();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandling();
+
+app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
 
