@@ -39,7 +39,6 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         
         // Şifreleme gerektirmeyen konfigürasyonları otomatik uygula
-        // (User ve ShippingAddress hariç)
         modelBuilder.ApplyConfiguration(new RoleConfiguration());
         modelBuilder.ApplyConfiguration(new CategoryConfiguration());
         modelBuilder.ApplyConfiguration(new ProductConfiguration());
@@ -47,21 +46,22 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new InventoryMovementConfiguration());
         modelBuilder.ApplyConfiguration(new CartConfiguration());
         modelBuilder.ApplyConfiguration(new CartItemConfiguration());
-        modelBuilder.ApplyConfiguration(new OrderConfiguration());
         modelBuilder.ApplyConfiguration(new OrderItemConfiguration());
         modelBuilder.ApplyConfiguration(new PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         
-        // Şifreleme gerektiren konfigürasyonlar
+        // Şifreleme gerektiren konfigürasyonlar (KVKK uyumlu)
         if (_encryptionService != null)
         {
             modelBuilder.ApplyConfiguration(new UserConfiguration(_encryptionService));
             modelBuilder.ApplyConfiguration(new ShippingAddressConfiguration(_encryptionService));
+            modelBuilder.ApplyConfiguration(new OrderConfiguration(_encryptionService));
         }
         else
         {
             modelBuilder.ApplyConfiguration(new UserConfigurationBasic());
             modelBuilder.ApplyConfiguration(new ShippingAddressConfigurationBasic());
+            modelBuilder.ApplyConfiguration(new OrderConfigurationBasic());
         }
     }
 }

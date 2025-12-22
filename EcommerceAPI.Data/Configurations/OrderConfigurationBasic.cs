@@ -1,20 +1,11 @@
 using EcommerceAPI.Core.Entities;
-using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.Data.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace EcommerceAPI.Data.Configurations;
 
-public class OrderConfiguration : IEntityTypeConfiguration<Order>
+public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
 {
-    private readonly IEncryptionService _encryptionService;
-
-    public OrderConfiguration(IEncryptionService encryptionService)
-    {
-        _encryptionService = encryptionService;
-    }
-
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         builder.ToTable("TBL_Orders");
@@ -36,10 +27,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(3);
         
-        // KVKK: ShippingAddress kişisel veri içerdiği için şifrelenir
         builder.Property(o => o.ShippingAddress)
-            .HasMaxLength(2000)
-            .HasConversion(new EncryptedStringConverter(_encryptionService));
+            .HasMaxLength(2000);
         
         builder.HasIndex(o => o.UserId);
         builder.HasIndex(o => o.Status);
