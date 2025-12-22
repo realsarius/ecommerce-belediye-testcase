@@ -8,6 +8,7 @@ public class OrderDto
     public decimal TotalAmount { get; set; }
     public string Currency { get; set; } = string.Empty;
     public string ShippingAddress { get; set; } = string.Empty;
+    public string? CustomerName { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }

@@ -172,6 +172,29 @@ public class OrderService : IOrderService
         await _unitOfWork.SaveChangesAsync();
     }
 
+    public async Task<List<OrderDto>> GetAllOrdersAsync()
+    {
+        var orders = await _orderRepository.GetAllWithDetailsAsync();
+        return orders.Select(MapToDto).ToList();
+    }
+
+    public async Task<OrderDto> UpdateOrderStatusAsync(int orderId, string status)
+    {
+        var order = await _orderRepository.GetByIdWithDetailsAsync(orderId);
+        if (order == null) throw new NotFoundException("Sipariş", orderId);
+
+        if (!Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
+        {
+            throw new DomainException($"Geçersiz sipariş durumu: {status}");
+        }
+
+        order.Status = orderStatus;
+        _orderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync();
+
+        return MapToDto(order);
+    }
+
     private static string GenerateOrderNumber()
     {
         return $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
@@ -187,6 +210,7 @@ public class OrderService : IOrderService
             TotalAmount = order.TotalAmount,
             Currency = order.Currency,
             ShippingAddress = order.ShippingAddress,
+            CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}" : "Bilinmiyor",
             Notes = order.Notes,
             CreatedAt = order.CreatedAt,
             CancelledAt = order.CancelledAt,

@@ -26,6 +26,8 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
         return await _dbSet
             .Where(o => o.UserId == userId)
             .Include(o => o.User)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()
             .ToListAsync();
@@ -49,6 +51,16 @@ public class OrderRepository : GenericRepository<Order>, IOrderRepository
             .Include(o => o.OrderItems)
             .Where(o => o.Status == OrderStatus.PendingPayment && 
                         o.CreatedAt < cutoffTime)
+            .ToListAsync();
+    }
+    public async Task<List<Order>> GetAllWithDetailsAsync()
+    {
+        return await _dbSet
+            .Include(o => o.User)
+            .Include(o => o.OrderItems)
+            .Include(o => o.Payment)
+            .OrderByDescending(o => o.CreatedAt)
+            .AsNoTracking()
             .ToListAsync();
     }
 }

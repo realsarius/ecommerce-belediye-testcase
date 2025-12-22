@@ -8,4 +8,5 @@ public interface IOrderRepository : IRepository<Order>
     Task<List<Order>> GetUserOrdersAsync(int userId);
     Task<Order?> GetByIdWithDetailsAsync(int orderId);
     Task<List<Order>> GetExpiredPendingOrdersAsync(int timeoutMinutes);
+    Task<List<Order>> GetAllWithDetailsAsync();
 }
