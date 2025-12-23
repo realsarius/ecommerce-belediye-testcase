@@ -22,6 +22,7 @@ import AdminProducts from '@/pages/admin/ProductsAdmin';
 import ProductForm from '@/pages/admin/ProductForm';
 import AdminCategories from '@/pages/admin/CategoriesAdmin';
 import AdminOrders from '@/pages/admin/OrdersAdmin';
+import AdminCoupons from '@/pages/admin/CouponsAdmin';
 import Account from '@/pages/Account';
 import Addresses from '@/pages/Addresses';
 import Help from '@/pages/Help';
@@ -107,6 +108,7 @@ function App() {
                 <Route path="products/:id" element={<ProductForm />} />
                 <Route path="categories" element={<AdminCategories />} />
                 <Route path="orders" element={<AdminOrders />} />
+                <Route path="coupons" element={<AdminCoupons />} />
               </Route>
             </Routes>
             <Toaster position="top-right" richColors closeButton style={{ top: '80px' }} />

@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<ShippingAddress> ShippingAddresses => Set<ShippingAddress>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

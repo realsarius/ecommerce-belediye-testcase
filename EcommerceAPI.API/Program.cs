@@ -78,6 +78,7 @@ builder.Services.AddScoped<IRoleDal, EfRoleDal>();
 builder.Services.AddScoped<IRefreshTokenDal, EfRefreshTokenDal>();
 builder.Services.AddScoped<IPaymentDal, EfPaymentDal>();
 builder.Services.AddScoped<IShippingAddressDal, EfShippingAddressDal>();
+builder.Services.AddScoped<ICouponDal, EfCouponDal>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -90,6 +91,7 @@ builder.Services.AddScoped<IInventoryService, InventoryManager>();
 builder.Services.AddScoped<IAuthService, AuthManager>();
 builder.Services.AddScoped<IPaymentService, IyzicoPaymentManager>();
 builder.Services.AddScoped<IShippingAddressService, ShippingAddressManager>();
+builder.Services.AddScoped<ICouponService, CouponManager>();
 
 builder.Services.AddScoped<ICartMapper, CartMapper>();
 

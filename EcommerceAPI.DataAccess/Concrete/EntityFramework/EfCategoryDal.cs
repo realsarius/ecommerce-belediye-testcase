@@ -19,6 +19,10 @@ public class EfCategoryDal : EfEntityRepositoryBase<Category, AppDbContext>, ICa
 
     public async Task<IList<Category>> GetActiveCategoriesAsync()
     {
-        return await _dbSet.Where(c => c.IsActive).AsNoTracking().ToListAsync();
+        return await _dbSet
+            .Include(c => c.Products)
+            .Where(c => c.IsActive)
+            .AsNoTracking()
+            .ToListAsync();
     }
 }

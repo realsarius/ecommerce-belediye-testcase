@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import {
   DropdownMenu,
@@ -25,7 +25,7 @@ export function Header() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
-  const { isDevToolsEnabled } = useDevTools();
+  const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
 
@@ -99,6 +99,11 @@ export function Header() {
                 <DropdownMenuItem onClick={() => setShowTestUsers(true)}>
                   <Users className="mr-2 h-4 w-4" />
                   Kullanıcılar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={openCouponsDialog}>
+                  <Ticket className="mr-2 h-4 w-4" />
+                  Kuponlar
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

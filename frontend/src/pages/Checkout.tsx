@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { useGetAddressesQuery, useCreateAddressMutation } from '@/features/admin/adminApi';
 import { useCheckoutMutation, useProcessPaymentMutation } from '@/features/orders/ordersApi';
@@ -24,12 +24,15 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
-import { Package, CreditCard, MapPin, Loader2, Plus } from 'lucide-react';
+import { Package, CreditCard, MapPin, Loader2, Plus, Ticket, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
+import { useValidateCouponMutation } from '@/features/coupons/couponsApi';
+import type { CouponValidationResult } from '@/features/coupons/types';
 
 export default function Checkout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: cart, isLoading: isCartLoading } = useGetCartQuery();
   const { data: addresses, isLoading: isAddressLoading } = useGetAddressesQuery();
   const [createAddress, { isLoading: isCreatingAddress }] = useCreateAddressMutation();
@@ -59,7 +62,32 @@ export default function Checkout() {
     cvc: '',
   });
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
+  const [validateCoupon, { isLoading: isValidatingCoupon }] = useValidateCouponMutation();
+
   const isLoading = isCartLoading || isAddressLoading;
+  
+  // Auto-apply coupon from cart
+  useEffect(() => {
+    if (cart && location.state?.couponCode && !appliedCoupon && !isValidatingCoupon) {
+      validateCoupon({
+        code: location.state.couponCode,
+        orderTotal: cart.totalAmount,
+      })
+        .unwrap()
+        .then((result) => {
+          if (result.isValid) {
+            setAppliedCoupon(result);
+            toast.success(`Sepet indirimi uygulandı: %${result.coupon?.value}`);
+          }
+        })
+        .catch(() => {
+          // Silent fail
+        });
+    }
+  }, [cart, location.state?.couponCode]);
   
   // Yönlendirme yapılıyor mu? (race condition önlemek için)
   const isNavigatingRef = useRef(false);
@@ -206,6 +234,7 @@ export default function Checkout() {
           paymentMethod: 'CreditCard',
           notes: '',
           idempotencyKey: uuidv4(),
+          couponCode: appliedCoupon?.isValid ? appliedCoupon.coupon?.code : undefined,
         }).unwrap();
 
         orderIdToUse = order.id;
@@ -432,18 +461,89 @@ export default function Checkout() {
                 </div>
               ))}
               <Separator />
+              
+              {/* Kupon Girişi */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Kupon kodu"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className="pl-9 font-mono"
+                      disabled={!!appliedCoupon?.isValid}
+                    />
+                  </div>
+                  {appliedCoupon?.isValid ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setAppliedCoupon(null);
+                        setCouponCode('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      disabled={!couponCode.trim() || isValidatingCoupon}
+                      onClick={async () => {
+                        try {
+                          const result = await validateCoupon({
+                            code: couponCode,
+                            orderTotal: displayCart.totalAmount,
+                          }).unwrap();
+                          if (result.isValid) {
+                            setAppliedCoupon(result);
+                            toast.success(`Kupon uygulandı: ${result.discountAmount.toLocaleString('tr-TR')} ₺ indirim`);
+                          } else {
+                            toast.error(result.errorMessage || 'Geçersiz kupon kodu');
+                          }
+                        } catch {
+                          toast.error('Kupon doğrulanamadı');
+                        }
+                      }}
+                    >
+                      {isValidatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Uygula'}
+                    </Button>
+                  )}
+                </div>
+                {appliedCoupon?.isValid && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="h-4 w-4" />
+                    <span>{appliedCoupon.coupon?.code} kuponu uygulandı</span>
+                  </div>
+                )}
+              </div>
+              
+              <Separator />
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ara Toplam</span>
                 <span>{displayCart.totalAmount.toLocaleString('tr-TR')} ₺</span>
               </div>
+              {appliedCoupon?.isValid && (
+                <div className="flex justify-between text-green-600">
+                  <span>İndirim ({appliedCoupon.coupon?.code})</span>
+                  <span>-{appliedCoupon.discountAmount.toLocaleString('tr-TR')} ₺</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Kargo</span>
-                <span className="text-green-600">Ücretsiz</span>
+                {displayCart.totalAmount >= 1000 ? (
+                  <span className="text-green-600 font-medium">Ücretsiz</span>
+                ) : (
+                  <span>29,90 ₺</span>
+                )}
               </div>
               <Separator />
               <div className="flex justify-between text-lg font-bold">
                 <span>Toplam</span>
-                <span>{displayCart.totalAmount.toLocaleString('tr-TR')} ₺</span>
+                <span>
+                  {((appliedCoupon?.isValid ? appliedCoupon.finalTotal : displayCart.totalAmount) + (displayCart.totalAmount >= 1000 ? 0 : 29.90)).toLocaleString('tr-TR')} ₺
+                </span>
               </div>
               <Button
                 className="w-full"

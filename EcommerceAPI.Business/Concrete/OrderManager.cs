@@ -16,26 +16,27 @@ public class OrderManager : IOrderService
     private readonly IInventoryService _inventoryService;
     private readonly ICartService _cartService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICouponService _couponService;
 
     public OrderManager(
         IOrderDal orderDal,
         ICartDal cartDal,
         IInventoryService inventoryService,
         ICartService cartService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICouponService couponService)
     {
         _orderDal = orderDal;
         _cartDal = cartDal;
         _inventoryService = inventoryService;
         _cartService = cartService;
         _unitOfWork = unitOfWork;
+        _couponService = couponService;
     }
 
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
         var cart = await _cartDal.GetByUserIdWithItemsAsync(userId);
-        // CartDal metodunda IsActive kontrolü gerekebilir veya entity'de var mı bakacağız.
-        // Varsayalım GetByUserIdWithItemsAsync aktif sepeti getiriyor veya sepet mantığı tek.
         
         if (cart == null || !cart.Items.Any())
             return new ErrorDataResult<OrderDto>("Sepetiniz boş. Sipariş oluşturmak için sepete ürün ekleyin.");
@@ -47,6 +48,32 @@ public class OrderManager : IOrderService
                 return new ErrorDataResult<OrderDto>($"Stok yetersiz: {item.Product.Name}");
         }
 
+        // Ara toplam hesapla
+        var subtotal = cart.Items.Sum(i => i.PriceSnapshot * i.Quantity);
+        
+        // Kargo Hesaplama (1000 TL üzeri ücretsiz)
+        decimal shippingCost = subtotal >= 1000 ? 0 : 29.90m;
+        
+        // Kupon validasyonu
+        int? couponId = null;
+        string? couponCode = null;
+        decimal discountAmount = 0;
+        
+        if (!string.IsNullOrEmpty(request.CouponCode))
+        {
+            var couponResult = await _couponService.ValidateCouponAsync(request.CouponCode, subtotal);
+            if (!couponResult.Success)
+                return new ErrorDataResult<OrderDto>("Kupon doğrulanamadı.");
+            
+            var validation = couponResult.Data!;
+            if (!validation.IsValid)
+                return new ErrorDataResult<OrderDto>(validation.ErrorMessage ?? "Geçersiz kupon kodu.");
+            
+            couponId = validation.Coupon!.Id;
+            couponCode = validation.Coupon.Code; // Snapshot
+            discountAmount = validation.DiscountAmount;
+        }
+
         var order = new Order
         {
             UserId = userId,
@@ -54,7 +81,10 @@ public class OrderManager : IOrderService
             Status = OrderStatus.PendingPayment,
             ShippingAddress = request.ShippingAddress,
             Notes = request.Notes ?? string.Empty,
-            TotalAmount = cart.Items.Sum(i => i.PriceSnapshot * i.Quantity)
+            TotalAmount = subtotal - discountAmount + shippingCost, // Kargo dahil
+            CouponId = couponId,
+            CouponCode = couponCode,
+            DiscountAmount = discountAmount
         };
 
         foreach (var cartItem in cart.Items)
@@ -79,13 +109,9 @@ public class OrderManager : IOrderService
 
         try
         {
-            // Transaction aslında UnitOfWork içinde başlatılsa iyi olurdu.
-            // Ama şimdilik mevcut mantığı koruyoruz.
-
+            // Stok düşürme
             foreach (var cartItem in cart.Items)
             {
-                // Not: InventoryService henüz Result dönmeyebilir, onu da güncelleyeceğiz.
-                // Şimdilik Result döndüğünü varsayarak yazıyorum
                 var stockResult = await _inventoryService.DecreaseStockAsync(
                     cartItem.ProductId, 
                     cartItem.Quantity, 
@@ -93,7 +119,15 @@ public class OrderManager : IOrderService
                     $"Satış - Sipariş No: {order.OrderNumber}");
                 
                 if (!stockResult.Success)
-                     throw new Exception(stockResult.Message); // Rollback için exception fırlatıyoruz
+                     throw new Exception(stockResult.Message);
+            }
+
+            // Kupon kullanım sayısını artır (transaction içinde)
+            if (couponId.HasValue)
+            {
+                var usageResult = await _couponService.IncrementUsageAsync(couponId.Value);
+                if (!usageResult.Success)
+                    throw new Exception("Kupon kullanımı kaydedilemedi.");
             }
 
             var clearCartResult = await _cartService.ClearCartAsync(userId);
@@ -104,7 +138,6 @@ public class OrderManager : IOrderService
         }
         catch (Exception ex)
         {
-             // DbUpdateConcurrencyException ve diğerleri
             return new ErrorDataResult<OrderDto>($"Sipariş oluşturulamadı: {ex.Message}");
         }
 
@@ -187,20 +220,10 @@ public class OrderManager : IOrderService
 
     public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync()
     {
-         // OrderDal'da GetAllWithDetailsAsync yoksa eklememiz veya List<T> getiren metodu kullanmamız gerekir
-         // Şimdilik ef repository base'deki GetList ile yetinemeyiz çünkü include lazım
-         // OrderDal'a GetAllWithDetailsAsync eklenmeliydi veya mevcut metodları kullanmalı
-         // Geçici çözüm: GetListAsync + Include (Repository'de generic include desteği yoksa DAL'a özel metod lazım)
-         // OrderDal implementasyonumuzda GetUserOrdersWithDetailsAsync vardı, GetAll için de eklemeliyiz.
-         // Şimdilik IOrderDal'da varmış gibi varsayıyorum veya generic repository metodunu kullanacağım ama include işlemleri manager'da olmaz.
-         // Doğrusu IOrderDal'a GetAllWithDetailsAsync eklemekti.
-         
-         // Hızlı çözüm:
-         var orders = await _orderDal.GetListAsync(); // Include yok :(
-         // Bu yüzden şimdilik DataAccess'te tanımladığımız GetUserOrdersWithDetailsAsync benzeri bir metoda ihtiyacımız var.
-         // IOrderDal'a eklemediğimiz için burada hata alacağız.
-         
-         return new ErrorDataResult<List<OrderDto>>("Bu metod henüz implement edilmedi."); 
+
+        var orders = await _orderDal.GetListAsync(); // Include yok :(
+
+        return new ErrorDataResult<List<OrderDto>>("Bu metod henüz implement edilmedi."); 
     }
 
     public async Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status)
@@ -239,6 +262,8 @@ public class OrderManager : IOrderService
             Notes = order.Notes,
             CreatedAt = order.CreatedAt,
             CancelledAt = order.CancelledAt,
+            CouponCode = order.CouponCode,
+            DiscountAmount = order.DiscountAmount,
             Items = order.OrderItems.Select(oi => new OrderItemDto
             {
                 Id = oi.Id,

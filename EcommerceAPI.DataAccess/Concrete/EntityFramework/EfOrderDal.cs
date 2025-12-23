@@ -26,6 +26,9 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
     public async Task<IList<Order>> GetUserOrdersAsync(int userId)
     {
         return await _dbSet
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+            .Include(o => o.Payment)
             .Where(o => o.UserId == userId)
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()

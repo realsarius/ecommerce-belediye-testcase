@@ -13,6 +13,12 @@ public class OrderDto : IDto
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    
+    // Kupon bilgileri
+    public string? CouponCode { get; set; }
+    public decimal DiscountAmount { get; set; }
+    
     public List<OrderItemDto> Items { get; set; } = new();
     public PaymentDto? Payment { get; set; }
 }
+

@@ -14,4 +14,8 @@ public class CheckoutRequest : IDto
 
     [Required(ErrorMessage = "Ödeme yöntemi zorunludur")]
     public string PaymentMethod { get; set; } = string.Empty;
+    
+    // İsteğe bağlı kupon kodu
+    [StringLength(50)]
+    public string? CouponCode { get; set; }
 }

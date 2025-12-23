@@ -82,7 +82,7 @@ public class IyzicoPaymentManager : IPaymentService
         return new ErrorDataResult<PaymentDto>(MapToDto(order.Payment), order.Payment.ErrorMessage ?? "Ödeme başarısız");
     }
 
-    private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request)
+    private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(EcommerceAPI.Entities.Concrete.Order order, ProcessPaymentRequest request)
     {
         var options = new Iyzipay.Options
         {
@@ -143,14 +143,56 @@ public class IyzicoPaymentManager : IPaymentService
         paymentRequest.BillingAddress = address;
 
         // Sepet ürünleri
-        paymentRequest.BasketItems = order.OrderItems.Select(item => new BasketItem
+        // Sepet ürünlerinin fiyatlarını indirime göre oransal olarak ayarla
+        // Iyzico, "BasketItems toplamı eşittir PaidPrice" kuralını zorunlu tutar.
+        var orderItemsList = order.OrderItems.ToList();
+        var subtotal = orderItemsList.Sum(i => i.PriceSnapshot * i.Quantity);
+        var paidPrice = order.TotalAmount; // İndirimli tutar
+        
+        var basketItems = new List<BasketItem>();
+        decimal accumulatedAdjustedTotal = 0;
+
+        for (int i = 0; i < orderItemsList.Count; i++)
         {
-            Id = $"BI{item.ProductId}",
-            Name = item.Product?.Name ?? $"Product {item.ProductId}",
-            Category1 = item.Product?.Category?.Name ?? "General",
-            ItemType = BasketItemType.PHYSICAL.ToString(),
-            Price = (item.PriceSnapshot * item.Quantity).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)
-        }).ToList();
+            var item = orderItemsList[i];
+            var itemTotal = item.PriceSnapshot * item.Quantity;
+            
+            decimal adjustedPrice;
+            
+            if (subtotal > 0)
+            {
+               // (ItemTotal / Subtotal) * PaidPrice
+               adjustedPrice = (itemTotal / subtotal) * paidPrice;
+            }
+            else
+            {
+               adjustedPrice = 0;
+            }
+
+            // Son eleman kontrolü (Kuruş farkını düzelt)
+            if (i == orderItemsList.Count - 1)
+            {
+                adjustedPrice = paidPrice - accumulatedAdjustedTotal;
+            }
+            else
+            {
+                adjustedPrice = Math.Round(adjustedPrice, 2);
+                accumulatedAdjustedTotal += adjustedPrice;
+            }
+            
+            if (adjustedPrice < 0) adjustedPrice = 0;
+
+            basketItems.Add(new BasketItem
+            {
+                Id = $"BI{item.ProductId}",
+                Name = item.Product?.Name ?? $"Product {item.ProductId}",
+                Category1 = item.Product?.Category?.Name ?? "General",
+                ItemType = BasketItemType.PHYSICAL.ToString(),
+                Price = adjustedPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)
+            });
+        }
+        
+        paymentRequest.BasketItems = basketItems;
 
         return await Iyzipay.Model.Payment.Create(paymentRequest, options);
     }
