@@ -31,7 +31,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
     }
   };
 
-  const cartItemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
     <Sheet>
@@ -52,7 +52,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
         </SheetHeader>
 
         <ScrollArea className="flex-1 p-6">
-          {(!cart || cart.items.length === 0) ? (
+          {(!cart || !cart.items || cart.items.length === 0) ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
               <ShoppingBag className="h-12 w-12 text-muted-foreground opacity-20" />
               <p className="text-muted-foreground">Sepetiniz şu an boş.</p>
@@ -94,7 +94,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
           )}
         </ScrollArea>
 
-        {cart && cart.items.length > 0 && (
+        {cart && cart.items && cart.items.length > 0 && (
           <div className="p-6 border-t bg-muted/30">
             <div className="space-y-4">
               <div className="flex items-center justify-between font-semibold">

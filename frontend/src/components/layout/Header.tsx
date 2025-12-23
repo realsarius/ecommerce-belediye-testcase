@@ -29,7 +29,7 @@ export function Header() {
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
 
-  const cartItemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   const handleLogout = () => {
     dispatch(logout());
@@ -203,17 +203,38 @@ export function Header() {
                     <Link to="/cart" className="text-lg font-medium">
                       Sepetim ({cartItemCount})
                     </Link>
-                    <Link to="/orders" className="text-lg font-medium">
-                      Siparişlerim
-                    </Link>
-                    {user?.role === 'Admin' && (
-                      <Link to="/admin" className="text-lg font-medium">
-                        Admin Panel
+                    <div className="border-t pt-4">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Siparişlerim</p>
+                      <Link to="/orders" className="text-lg font-medium">
+                        Tüm Siparişlerim
                       </Link>
+                    </div>
+                    <div className="border-t pt-4">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Hesabım</p>
+                      <div className="flex flex-col space-y-3">
+                        <Link to="/account" className="text-lg font-medium">
+                          Kullanıcı Bilgilerim
+                        </Link>
+                        <Link to="/account/addresses" className="text-lg font-medium">
+                          Adres Bilgilerim
+                        </Link>
+                        <Link to="/help" className="text-lg font-medium">
+                          Yardım
+                        </Link>
+                      </div>
+                    </div>
+                    {user?.role === 'Admin' && (
+                      <div className="border-t pt-4">
+                        <Link to="/admin" className="text-lg font-medium">
+                          Admin Panel
+                        </Link>
+                      </div>
                     )}
-                    <Button variant="destructive" onClick={handleLogout}>
-                      Çıkış Yap
-                    </Button>
+                    <div className="border-t pt-4">
+                      <Button variant="destructive" onClick={handleLogout} className="w-full">
+                        Çıkış Yap
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <>

@@ -7,4 +7,6 @@ public interface IShippingAddressService
 {
     Task<IDataResult<List<ShippingAddressDto>>> GetUserAddressesAsync(int userId);
     Task<IDataResult<ShippingAddressDto>> AddAddressAsync(int userId, CreateShippingAddressRequest request);
+    Task<IDataResult<ShippingAddressDto>> UpdateAddressAsync(int userId, int addressId, CreateShippingAddressRequest request);
+    Task<IResult> DeleteAddressAsync(int userId, int addressId);
 }

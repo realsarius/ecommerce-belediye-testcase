@@ -41,7 +41,7 @@ export const ProductList = ({
     );
   }
 
-  if (productsData?.items.length === 0) {
+  if (productsData?.items?.length === 0) {
     return (
       <div className="text-center py-12">
         <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -53,7 +53,7 @@ export const ProductList = ({
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {productsData?.items.map((product) => (
+        {productsData?.items?.map((product) => (
           <Card key={product.id} className="overflow-hidden group">
             <div className="relative h-48 bg-muted flex items-center justify-center">
               <Package className="h-16 w-16 text-muted-foreground" />

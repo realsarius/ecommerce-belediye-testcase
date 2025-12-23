@@ -81,5 +81,67 @@ public class ShippingAddressManager : IShippingAddressService
 
         return new SuccessDataResult<ShippingAddressDto>(addressDto, "Adres başarıyla eklendi");
     }
+
+    public async Task<IDataResult<ShippingAddressDto>> UpdateAddressAsync(int userId, int addressId, CreateShippingAddressRequest request)
+    {
+        var address = await _shippingAddressDal.GetAsync(a => a.Id == addressId && a.UserId == userId);
+        
+        if (address == null)
+        {
+            return new ErrorDataResult<ShippingAddressDto>("Adres bulunamadı");
+        }
+
+        address.Title = request.Title;
+        address.FullName = request.FullName;
+        address.Phone = request.Phone;
+        address.City = request.City;
+        address.District = request.District;
+        address.AddressLine = request.AddressLine;
+        address.PostalCode = request.PostalCode;
+
+        if (request.IsDefault && !address.IsDefault)
+        {
+            var existingDefault = await _shippingAddressDal.GetAsync(a => a.UserId == userId && a.IsDefault && a.Id != addressId);
+            if (existingDefault != null)
+            {
+                existingDefault.IsDefault = false;
+                _shippingAddressDal.Update(existingDefault);
+            }
+        }
+        address.IsDefault = request.IsDefault;
+
+        _shippingAddressDal.Update(address);
+        await _unitOfWork.SaveChangesAsync();
+
+        var addressDto = new ShippingAddressDto
+        {
+            Id = address.Id,
+            Title = address.Title,
+            FullName = address.FullName,
+            Phone = address.Phone,
+            City = address.City,
+            District = address.District,
+            AddressLine = address.AddressLine,
+            PostalCode = address.PostalCode,
+            IsDefault = address.IsDefault
+        };
+
+        return new SuccessDataResult<ShippingAddressDto>(addressDto, "Adres başarıyla güncellendi");
+    }
+
+    public async Task<IResult> DeleteAddressAsync(int userId, int addressId)
+    {
+        var address = await _shippingAddressDal.GetAsync(a => a.Id == addressId && a.UserId == userId);
+        
+        if (address == null)
+        {
+            return new ErrorResult("Adres bulunamadı");
+        }
+
+        _shippingAddressDal.Delete(address);
+        await _unitOfWork.SaveChangesAsync();
+
+        return new SuccessResult("Adres başarıyla silindi");
+    }
 }
 

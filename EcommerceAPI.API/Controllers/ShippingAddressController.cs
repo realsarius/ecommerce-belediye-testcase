@@ -49,5 +49,31 @@ public class ShippingAddressController : ControllerBase
         }
         return BadRequest(result);
     }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateAddress(int id, [FromBody] CreateShippingAddressRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _shippingAddressService.UpdateAddressAsync(userId, id, request);
+        
+        if (result.Success)
+        {
+            return Ok(result.Data);
+        }
+        return BadRequest(result);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteAddress(int id)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _shippingAddressService.DeleteAddressAsync(userId, id);
+        
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
+    }
 }
 

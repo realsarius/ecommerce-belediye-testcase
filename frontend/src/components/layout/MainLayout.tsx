@@ -16,8 +16,8 @@ export function MainLayout() {
   });
 
   useEffect(() => {
-    if (data?.user) {
-      dispatch(setUser(data.user));
+    if (data) {
+      dispatch(setUser(data));
     }
   }, [data, dispatch]);
 

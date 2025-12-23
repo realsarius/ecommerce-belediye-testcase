@@ -22,6 +22,9 @@ import AdminProducts from '@/pages/admin/ProductsAdmin';
 import ProductForm from '@/pages/admin/ProductForm';
 import AdminCategories from '@/pages/admin/CategoriesAdmin';
 import AdminOrders from '@/pages/admin/OrdersAdmin';
+import Account from '@/pages/Account';
+import Addresses from '@/pages/Addresses';
+import Help from '@/pages/Help';
 
 function App() {
   return (
@@ -70,6 +73,23 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/account"
+                  element={
+                    <ProtectedRoute>
+                      <Account />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/account/addresses"
+                  element={
+                    <ProtectedRoute>
+                      <Addresses />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/help" element={<Help />} />
               </Route>
 
               {/* Admin routes */}

@@ -15,10 +15,12 @@ export const productsApi = baseApi.injectEndpoints({
         url: '/products',
         params,
       }),
+      transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
       providesTags: ['Products'],
     }),
     getProduct: builder.query<Product, number>({
       query: (id) => `/products/${id}`,
+      transformResponse: (response: { data: Product }) => response.data,
       providesTags: (_result, _error, id) => [{ type: 'Product', id }],
     }),
     // Admin endpoints
