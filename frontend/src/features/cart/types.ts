@@ -33,4 +33,5 @@ export interface CheckoutRequest {
   paymentMethod: string;
   notes?: string;
   idempotencyKey: string;
+  couponCode?: string;
 }

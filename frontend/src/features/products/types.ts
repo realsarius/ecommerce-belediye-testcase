@@ -23,7 +23,7 @@ export interface ProductListRequest {
   search?: string;
   inStock?: boolean;
   sortBy?: string;
-  sortDesc?: boolean;
+  sortDescending?: boolean;
 }
 
 export interface CreateProductRequest {

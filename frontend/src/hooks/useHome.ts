@@ -19,7 +19,7 @@ export const useHome = () => {
     search: search || undefined,
     categoryId: categoryId && categoryId !== 'all' ? parseInt(categoryId) : undefined,
     sortBy,
-    sortDesc,
+    sortDescending: sortDesc,
   });
   
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
