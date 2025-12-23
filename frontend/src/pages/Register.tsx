@@ -85,7 +85,7 @@ export default function Register() {
                 <Label htmlFor="firstName">İsim</Label>
                 <Input
                   id="firstName"
-                  placeholder="Ahmet"
+                  placeholder="Kamuran"
                   {...registerField('firstName')}
                 />
                 {errors.firstName && (
@@ -96,7 +96,7 @@ export default function Register() {
                 <Label htmlFor="lastName">Soyisim</Label>
                 <Input
                   id="lastName"
-                  placeholder="Yılmaz"
+                  placeholder="Oltacı"
                   {...registerField('lastName')}
                 />
                 {errors.lastName && (

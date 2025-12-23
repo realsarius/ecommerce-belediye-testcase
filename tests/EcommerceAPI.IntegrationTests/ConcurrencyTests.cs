@@ -1,13 +1,14 @@
-using EcommerceAPI.Core.Entities;
-using EcommerceAPI.Core.DTOs;
-using EcommerceAPI.Data;
+using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.DataAccess;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.Business.Services.Abstract;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.IntegrationTests;

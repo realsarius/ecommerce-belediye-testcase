@@ -1,5 +1,5 @@
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -44,7 +44,7 @@ public class PaymentWebhookController : ControllerBase
 
             var result = await _paymentService.ProcessWebhookAsync(request, signature ?? string.Empty);
 
-            if (result)
+            if (result.Success)
             {
                 _logger.LogInformation(
                     "Webhook processed successfully: ConversationId={ConversationId}",
@@ -90,7 +90,7 @@ public class PaymentWebhookController : ControllerBase
             // Frontend'e yönlendirme
             var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000";
             
-            if (result)
+            if (result.Success)
             {
                 _logger.LogInformation("Payment verified successfully: ConversationId={ConversationId}", conversationId);
                 return Redirect($"{frontendBaseUrl}/payment/success?orderId={conversationId}");
@@ -109,3 +109,4 @@ public class PaymentWebhookController : ControllerBase
         }
     }
 }
+

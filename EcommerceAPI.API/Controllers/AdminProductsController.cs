@@ -1,5 +1,5 @@
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -8,7 +8,7 @@ namespace EcommerceAPI.API.Controllers;
 
 [ApiController]
 [Route("api/v1/admin/products")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Seller")]
 public class AdminProductsController : ControllerBase
 {
     private readonly IProductService _productService;
@@ -19,24 +19,30 @@ public class AdminProductsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ProductDto>> CreateProduct([FromBody] CreateProductRequest request)
+    public async Task<IActionResult> CreateProduct([FromBody] CreateProductRequest request)
     {
-        var product = await _productService.CreateProductAsync(request);
-        return CreatedAtRoute(
-            routeName: "GetProductById",
-            routeValues: new { id = product.Id },
-            value: product);
+        var result = await _productService.CreateProductAsync(request);
+        
+        if (result.Success)
+        {
+            return CreatedAtRoute(
+                routeName: "GetProductById",
+                routeValues: new { id = result.Data.Id },
+                value: result);
+        }
+        return BadRequest(result);
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ProductDto>> UpdateProduct(int id, [FromBody] UpdateProductRequest request)
+    public async Task<IActionResult> UpdateProduct(int id, [FromBody] UpdateProductRequest request)
     {
-        var product = await _productService.UpdateProductAsync(id, request);
+        var result = await _productService.UpdateProductAsync(id, request);
         
-        if (product == null)
-            return NotFound(new { message = "Ürün bulunamadı" });
-
-        return Ok(product);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpDelete("{id}")]
@@ -44,10 +50,11 @@ public class AdminProductsController : ControllerBase
     {
         var result = await _productService.DeleteProductAsync(id);
         
-        if (!result)
-            return NotFound(new { message = "Ürün bulunamadı" });
-
-        return NoContent();
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpPatch("{id}/stock")]
@@ -59,9 +66,11 @@ public class AdminProductsController : ControllerBase
 
         var result = await _productService.UpdateStockAsync(id, request, userId);
         
-        if (!result)
-            return BadRequest(new { message = "Stok güncelleme başarısız. Ürün bulunamadı veya stok yetersiz." });
-
-        return Ok(new { message = "Stok başarıyla güncellendi" });
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 }
+

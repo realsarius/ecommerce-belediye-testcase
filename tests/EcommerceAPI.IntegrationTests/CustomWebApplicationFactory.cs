@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using EcommerceAPI.Data;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.API;
-using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.IntegrationTests.Utilities;
 
 namespace EcommerceAPI.IntegrationTests;

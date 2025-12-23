@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -27,42 +27,53 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost("checkout")]
-    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<OrderDto>> Checkout([FromBody] CheckoutRequest request)
+    public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request)
     {
         var userId = GetUserId();
-        var order = await _orderService.CheckoutAsync(userId, request);
-        return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+        var result = await _orderService.CheckoutAsync(userId, request);
+        
+        if (result.Success)
+        {
+            return CreatedAtAction(nameof(GetOrder), new { id = result.Data.Id }, result);
+        }
+        return BadRequest(result);
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(List<OrderDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<OrderDto>>> GetOrders()
+    public async Task<IActionResult> GetOrders()
     {
         var userId = GetUserId();
-        var orders = await _orderService.GetUserOrdersAsync(userId);
-        return Ok(orders);
+        var result = await _orderService.GetUserOrdersAsync(userId);
+        
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpGet("{id}")]
-    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<OrderDto>> GetOrder(int id)
+    public async Task<IActionResult> GetOrder(int id)
     {
         var userId = GetUserId();
-        var order = await _orderService.GetOrderAsync(userId, id);
-        return Ok(order);
+        var result = await _orderService.GetOrderAsync(userId, id);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpPost("{id}/cancel")]
-    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<OrderDto>> CancelOrder(int id)
+    public async Task<IActionResult> CancelOrder(int id)
     {
         var userId = GetUserId();
-        var order = await _orderService.CancelOrderAsync(userId, id);
-        return Ok(order);
+        var result = await _orderService.CancelOrderAsync(userId, id);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 }
+

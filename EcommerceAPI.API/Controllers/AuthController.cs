@@ -1,7 +1,8 @@
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 
 namespace EcommerceAPI.API.Controllers;
 
@@ -18,7 +19,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         var result = await _authService.RegisterAsync(request);
         
@@ -29,7 +30,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
         
@@ -40,7 +41,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
     {
         var result = await _authService.RefreshTokenAsync(request);
         
@@ -55,23 +56,24 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.RevokeTokenAsync(request.RefreshToken);
         
-        if (!result)
-            return BadRequest(new { message = "Token geçersiz" });
+        if (!result.Success)
+            return BadRequest(result);
 
-        return Ok(new { message = "Token iptal edildi" });
+        return Ok(result);
     }
 
     [Microsoft.AspNetCore.Authorization.Authorize]
     [HttpGet("me")]
-    public async Task<ActionResult<AuthResponse>> Me()
+    public async Task<IActionResult> Me()
     {
-        var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out var userId))
             return Unauthorized();
 
-        var user = await _authService.GetUserByIdAsync(userId);
-        if (user == null) return Unauthorized();
+        var result = await _authService.GetUserByIdAsync(userId);
+        if (!result.Success) return Unauthorized(result);
 
-        return Ok(new AuthResponse { Success = true, User = user });
+        return Ok(result);
     }
 }
+

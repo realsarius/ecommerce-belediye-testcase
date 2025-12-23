@@ -64,6 +64,63 @@ export default function Checkout() {
   // Yönlendirme yapılıyor mu? (race condition önlemek için)
   const isNavigatingRef = useRef(false);
   
+  // BIGBANG cheat code buffer
+  const cheatCodeBuffer = useRef('');
+  const CHEAT_CODE = 'BIGBANG';
+  
+  // BIGBANG cheat code listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Sadece harf tuşlarını al
+      if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+        cheatCodeBuffer.current += e.key.toUpperCase();
+        
+        // Buffer'ı son 7 karakterle sınırla (BIGBANG uzunluğu)
+        if (cheatCodeBuffer.current.length > CHEAT_CODE.length) {
+          cheatCodeBuffer.current = cheatCodeBuffer.current.slice(-CHEAT_CODE.length);
+        }
+        
+        // BIGBANG yazıldı mı kontrol et
+        if (cheatCodeBuffer.current === CHEAT_CODE) {
+          cheatCodeBuffer.current = '';
+          
+          // Ödeme bilgilerini doldur
+          setPaymentForm({
+            cardHolderName: 'BERKAN SÖZER',
+            cardNumber: '9792 0303 9444 0796',
+            expireMonth: '05',
+            expireYear: '2027',
+            cvc: '654',
+          });
+          
+          // Teslimat adresi kontrolü
+          if (addresses && addresses.length > 0) {
+            // İlk adresi seç
+            setSelectedAddressId(addresses[0].id.toString());
+            toast.success('🎮 BIGBANG! Ödeme bilgileri ve adres otomatik dolduruldu!');
+          } else {
+            // Yeni adres formunu aç ve doldur
+            setAddressForm({
+              title: 'Ev',
+              fullName: 'Ahmet Yılmaz',
+              phone: '0543 954 45 21',
+              city: 'Manisa',
+              district: 'Salihli',
+              addressLine: '321 sk No 9',
+              postalCode: '45300',
+              isDefault: false,
+            });
+            setShowAddressDialog(true);
+            toast.success('🎮 BIGBANG! Ödeme bilgileri dolduruldu, adres formunu kaydedin!');
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [addresses]);
+  
   // Sepet snapshot'ı güncelle (sadece sepet doluyken)
   const displayCart = cartSnapshot || cart;
 
@@ -273,7 +330,7 @@ export default function Checkout() {
               <div className="space-y-2">
                 <Label>Kart Üzerindeki İsim</Label>
                 <Input
-                  placeholder="AHMET YILMAZ"
+                  placeholder="KAMURAN OLTACI"
                   value={paymentForm.cardHolderName}
                   onChange={(e) =>
                     setPaymentForm({ ...paymentForm, cardHolderName: e.target.value.toUpperCase() })
@@ -423,7 +480,7 @@ export default function Checkout() {
             <div className="space-y-2">
               <Label>Ad Soyad</Label>
               <Input
-                placeholder="Ahmet Yılmaz"
+                placeholder="Kamuran Oltacı"
                 value={addressForm.fullName}
                 onChange={(e) => setAddressForm({ ...addressForm, fullName: e.target.value })}
               />

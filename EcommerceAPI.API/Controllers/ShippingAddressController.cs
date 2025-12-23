@@ -1,6 +1,5 @@
-using EcommerceAPI.Core.DTOs;
-using EcommerceAPI.Core.Entities;
-using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -12,15 +11,11 @@ namespace EcommerceAPI.API.Controllers;
 [Authorize]
 public class ShippingAddressController : ControllerBase
 {
-    private readonly IRepository<ShippingAddress> _addressRepository;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IShippingAddressService _shippingAddressService;
 
-    public ShippingAddressController(
-        IRepository<ShippingAddress> addressRepository,
-        IUnitOfWork unitOfWork)
+    public ShippingAddressController(IShippingAddressService shippingAddressService)
     {
-        _addressRepository = addressRepository;
-        _unitOfWork = unitOfWork;
+        _shippingAddressService = shippingAddressService;
     }
 
     private int GetCurrentUserId()
@@ -30,57 +25,29 @@ public class ShippingAddressController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ShippingAddressDto>>> GetMyAddresses()
+    public async Task<IActionResult> GetMyAddresses()
     {
         var userId = GetCurrentUserId();
-        var addresses = await _addressRepository.FindAsync(a => a.UserId == userId);
+        var result = await _shippingAddressService.GetUserAddressesAsync(userId);
         
-        return Ok(addresses.Select(a => new ShippingAddressDto
+        if (result.Success)
         {
-            Id = a.Id,
-            Title = a.Title,
-            FullName = a.FullName,
-            Phone = a.Phone,
-            City = a.City,
-            District = a.District,
-            AddressLine = a.AddressLine,
-            PostalCode = a.PostalCode,
-            IsDefault = a.IsDefault
-        }).ToList());
+            return Ok(result.Data);
+        }
+        return BadRequest(result);
     }
 
     [HttpPost]
-    public async Task<ActionResult<ShippingAddressDto>> CreateAddress([FromBody] CreateShippingAddressRequest request)
+    public async Task<IActionResult> CreateAddress([FromBody] CreateShippingAddressRequest request)
     {
         var userId = GetCurrentUserId();
-
-        var address = new ShippingAddress
+        var result = await _shippingAddressService.AddAddressAsync(userId, request);
+        
+        if (result.Success)
         {
-            UserId = userId,
-            Title = request.Title,
-            FullName = request.FullName,
-            Phone = request.Phone,
-            City = request.City,
-            District = request.District,
-            AddressLine = request.AddressLine,
-            PostalCode = request.PostalCode,
-            IsDefault = request.IsDefault
-        };
-
-        await _addressRepository.AddAsync(address);
-        await _unitOfWork.SaveChangesAsync();
-
-        return Ok(new ShippingAddressDto
-        {
-            Id = address.Id,
-            Title = address.Title,
-            FullName = address.FullName,
-            Phone = address.Phone,
-            City = address.City,
-            District = address.District,
-            AddressLine = address.AddressLine,
-            PostalCode = address.PostalCode,
-            IsDefault = address.IsDefault
-        });
+            return Ok(result.Data);
+        }
+        return BadRequest(result);
     }
 }
+

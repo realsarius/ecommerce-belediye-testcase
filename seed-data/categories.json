@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "name": "Elektronik",
+    "description": "Telefon, bilgisayar, televizyon ve diğer elektronik ürünler.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:30:00Z",
+    "updatedAt": "2024-06-15T10:30:00Z"
+  },
+  {
+    "id": 2,
+    "name": "Moda",
+    "description": "Giyim, ayakkabı ve aksesuar ürünleri.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:31:00Z",
+    "updatedAt": "2024-06-15T10:31:00Z"
+  },
+  {
+    "id": 3,
+    "name": "Ev & Yaşam",
+    "description": "Mobilya, dekorasyon ve ev tekstili ürünleri.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:32:00Z",
+    "updatedAt": "2024-06-15T10:32:00Z"
+  },
+  {
+    "id": 4,
+    "name": "Spor",
+    "description": "Spor ekipmanları, outdoor ve fitness ürünleri.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:33:00Z",
+    "updatedAt": "2024-06-15T10:33:00Z"
+  },
+  {
+    "id": 5,
+    "name": "Kozmetik",
+    "description": "Cilt bakımı, makyaj ve kişisel bakım ürünleri.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:34:00Z",
+    "updatedAt": "2024-06-15T10:34:00Z"
+  },
+  {
+    "id": 6,
+    "name": "Kitap",
+    "description": "Roman, akademik ve çocuk kitapları.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:35:00Z",
+    "updatedAt": "2024-06-15T10:35:00Z"
+  },
+  {
+    "id": 7,
+    "name": "Oyuncak",
+    "description": "Çocuk oyuncakları ve eğitici materyaller.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:36:00Z",
+    "updatedAt": "2024-06-15T10:36:00Z"
+  },
+  {
+    "id": 8,
+    "name": "Gıda",
+    "description": "Temel gıda, atıştırmalık ve içecek ürünleri.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:37:00Z",
+    "updatedAt": "2024-06-15T10:37:00Z"
+  },
+  {
+    "id": 9,
+    "name": "Otomotiv",
+    "description": "Araç aksesuarları, yedek parça ve bakım ürünleri.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:38:00Z",
+    "updatedAt": "2024-06-15T10:38:00Z"
+  },
+  {
+    "id": 10,
+    "name": "Bahçe",
+    "description": "Bahçe mobilyası, bitki ve bahçe ekipmanları.",
+    "isActive": true,
+    "createdAt": "2024-06-15T10:39:00Z",
+    "updatedAt": "2024-06-15T10:39:00Z"
+  }
+]

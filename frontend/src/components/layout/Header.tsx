@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import {
   DropdownMenu,
@@ -113,20 +113,61 @@ export function Header() {
                   <User className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+              <DropdownMenuContent align="end" className="w-64">
+                {/* User Info Header */}
+                <div className="px-3 py-3 bg-muted/50">
+                  <p className="text-sm font-semibold">{user?.firstName} {user?.lastName}</p>
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
-                <DropdownMenuSeparator />
+                
+                {/* Siparişlerim Section */}
+                <div className="px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Siparişlerim</p>
+                </div>
                 <DropdownMenuItem asChild>
-                  <Link to="/orders">Siparişlerim</Link>
+                  <Link to="/orders" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    Tüm Siparişlerim
+                  </Link>
                 </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                {/* Hesabım Section */}
+                <div className="px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hesabım</p>
+                </div>
+                <DropdownMenuItem asChild>
+                  <Link to="/account" className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" />
+                    Kullanıcı Bilgilerim
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account/addresses" className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    Adres Bilgilerim
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/help" className="flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-primary" />
+                    Yardım
+                  </Link>
+                </DropdownMenuItem>
+                
                 {user?.role === 'Admin' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin">Admin Panel</Link>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center gap-2">
+                        <Wrench className="h-4 w-4 text-primary" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
                 )}
+                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />

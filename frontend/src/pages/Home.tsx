@@ -1,8 +1,21 @@
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useHome } from '@/hooks/useHome';
 import { HomeFilters } from '@/components/home/HomeFilters';
 import { ProductList } from '@/components/home/ProductList';
+import { useAppDispatch } from '@/app/hooks';
+import { setCategoryId } from '@/features/products/productsSlice';
 
 export default function Home() {
+  const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
+  
+  // Sync URL categoryId to Redux state
+  useEffect(() => {
+    const urlCategoryId = searchParams.get('categoryId');
+    dispatch(setCategoryId(urlCategoryId || ''));
+  }, [searchParams, dispatch]);
+
   const {
     categories,
     productsData,

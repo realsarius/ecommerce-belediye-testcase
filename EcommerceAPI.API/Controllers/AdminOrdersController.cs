@@ -1,12 +1,12 @@
-using EcommerceAPI.Business.Services.Abstract;
+using EcommerceAPI.Business.Abstract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcommerceAPI.API.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Seller")]
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("api/v1/admin/orders")]
 public class AdminOrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
@@ -19,14 +19,29 @@ public class AdminOrdersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAllOrders()
     {
-        var orders = await _orderService.GetAllOrdersAsync();
-        return Ok(orders);
+        var result = await _orderService.GetAllOrdersAsync();
+        if (result.Success)
+        {
+            return Ok(result.Data);
+        }
+        return BadRequest(result);
     }
 
     [HttpPatch("{id}/status")]
-    public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] string status)
+    public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusRequest request)
     {
-        var order = await _orderService.UpdateOrderStatusAsync(id, status);
-        return Ok(order);
+        var result = await _orderService.UpdateOrderStatusAsync(id, request.Status);
+        
+        if (result.Success)
+        {
+            return Ok(result.Data);
+        }
+        return BadRequest(result);
     }
 }
+
+public class UpdateOrderStatusRequest
+{
+    public string Status { get; set; } = string.Empty;
+}
+
