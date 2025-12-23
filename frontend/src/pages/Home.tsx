@@ -14,7 +14,7 @@ import {
 
 export default function Home() {
   const dispatch = useAppDispatch();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   
   // Redux state
   const { page, search, categoryId, sortBy, sortDesc } = useAppSelector((state) => state.products);
@@ -41,30 +41,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]); // Sadece searchParams değişince çalışır
 
-  // 2. State -> URL Sync (Kullanıcı etkileşimleri)
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams);
 
-    if (categoryId) params.set('categoryId', categoryId);
-    else params.delete('categoryId');
-
-    if (search) params.set('q', search);
-    else params.delete('q');
-
-    if (sortBy && sortBy !== 'createdAt') params.set('sort', sortBy);
-    else params.delete('sort');
-
-    if (!sortDesc) params.set('order', 'asc');
-    else params.delete('order'); // Default desc kabul ediyoruz
-
-    if (page > 1) params.set('page', page.toString());
-    else params.delete('page');
-
-    // Eğer URL parametreleri değiştiyse güncelle
-    if (params.toString() !== searchParams.toString()) {
-      setSearchParams(params, { replace: true });
-    }
-  }, [categoryId, search, sortBy, sortDesc, page, setSearchParams]);
 
   const {
     categories,
