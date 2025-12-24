@@ -12,7 +12,6 @@ namespace EcommerceAPI.Business.Concrete;
 public class OrderManager : IOrderService
 {
     private readonly IOrderDal _orderDal;
-    private readonly ICartDal _cartDal;
     private readonly IInventoryService _inventoryService;
     private readonly ICartService _cartService;
     private readonly IUnitOfWork _unitOfWork;
@@ -20,14 +19,12 @@ public class OrderManager : IOrderService
 
     public OrderManager(
         IOrderDal orderDal,
-        ICartDal cartDal,
         IInventoryService inventoryService,
         ICartService cartService,
         IUnitOfWork unitOfWork,
         ICouponService couponService)
     {
         _orderDal = orderDal;
-        _cartDal = cartDal;
         _inventoryService = inventoryService;
         _cartService = cartService;
         _unitOfWork = unitOfWork;
@@ -36,20 +33,26 @@ public class OrderManager : IOrderService
 
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
-        var cart = await _cartDal.GetByUserIdWithItemsAsync(userId);
+        // Redis'e geçiş: Cart verisini servisten çek (DTO olarak gelir)
+        var cartResult = await _cartService.GetCartAsync(userId);
+        if (!cartResult.Success)
+             return new ErrorDataResult<OrderDto>(cartResult.Message);
+
+        var cartDto = cartResult.Data;
         
-        if (cart == null || !cart.Items.Any())
+        if (cartDto == null || !cartDto.Items.Any())
             return new ErrorDataResult<OrderDto>("Sepetiniz boş. Sipariş oluşturmak için sepete ürün ekleyin.");
 
-        foreach (var item in cart.Items)
+        // Stok kontrolü (Pre-check)
+        // DTO içindeki AvailableStock, CartManager'da anlık olarak DB'den çekilip dolduruldu.
+        foreach (var item in cartDto.Items)
         {
-            var availableStock = item.Product.Inventory?.QuantityAvailable ?? 0;
-            if (item.Quantity > availableStock)
-                return new ErrorDataResult<OrderDto>($"Stok yetersiz: {item.Product.Name}");
+            if (item.Quantity > item.AvailableStock)
+                return new ErrorDataResult<OrderDto>($"Stok yetersiz: {item.ProductName}");
         }
 
-        // Ara toplam hesapla
-        var subtotal = cart.Items.Sum(i => i.PriceSnapshot * i.Quantity);
+        // Ara toplam hesapla (veya DTO'dan al: cartDto.TotalAmount)
+        var subtotal = cartDto.TotalAmount;
         
         // Kargo Hesaplama (1000 TL üzeri ücretsiz)
         decimal shippingCost = subtotal >= 1000 ? 0 : 29.90m;
@@ -87,13 +90,14 @@ public class OrderManager : IOrderService
             DiscountAmount = discountAmount
         };
 
-        foreach (var cartItem in cart.Items)
+        foreach (var cartItem in cartDto.Items)
         {
             order.OrderItems.Add(new OrderItem
             {
                 ProductId = cartItem.ProductId,
                 Quantity = cartItem.Quantity,
-                PriceSnapshot = cartItem.PriceSnapshot
+                // PriceSnapshot artık UnitPrice'dan geliyor (CartManager güncel fiyatı veriyor)
+                PriceSnapshot = cartItem.UnitPrice 
             });
         }
 
@@ -110,7 +114,7 @@ public class OrderManager : IOrderService
         try
         {
             // Stok düşürme
-            foreach (var cartItem in cart.Items)
+            foreach (var cartItem in cartDto.Items)
             {
                 var stockResult = await _inventoryService.DecreaseStockAsync(
                     cartItem.ProductId, 
