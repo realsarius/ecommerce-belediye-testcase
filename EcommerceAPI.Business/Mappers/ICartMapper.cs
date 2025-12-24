@@ -1,5 +1,5 @@
-using EcommerceAPI.Core.DTOs;
-using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Concrete;
 
 namespace EcommerceAPI.Business.Mappers;
 

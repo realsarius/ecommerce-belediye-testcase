@@ -1,0 +1,1202 @@
+[
+  {
+    "productId": 1,
+    "quantityAvailable": 468,
+    "quantityReserved": 11,
+    "updatedAt": "2025-12-15T17:49:10Z"
+  },
+  {
+    "productId": 2,
+    "quantityAvailable": 216,
+    "quantityReserved": 31,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 3,
+    "quantityAvailable": 373,
+    "quantityReserved": 18,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 4,
+    "quantityAvailable": 67,
+    "quantityReserved": 36,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 5,
+    "quantityAvailable": 322,
+    "quantityReserved": 28,
+    "updatedAt": "2025-12-15T17:49:10Z"
+  },
+  {
+    "productId": 6,
+    "quantityAvailable": 392,
+    "quantityReserved": 42,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 7,
+    "quantityAvailable": 276,
+    "quantityReserved": 7,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 8,
+    "quantityAvailable": 360,
+    "quantityReserved": 5,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 9,
+    "quantityAvailable": 68,
+    "quantityReserved": 17,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 10,
+    "quantityAvailable": 94,
+    "quantityReserved": 35,
+    "updatedAt": "2025-11-24T17:49:10Z"
+  },
+  {
+    "productId": 11,
+    "quantityAvailable": 378,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-06T17:49:10Z"
+  },
+  {
+    "productId": 12,
+    "quantityAvailable": 431,
+    "quantityReserved": 36,
+    "updatedAt": "2025-12-04T17:49:10Z"
+  },
+  {
+    "productId": 13,
+    "quantityAvailable": 488,
+    "quantityReserved": 37,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 14,
+    "quantityAvailable": 109,
+    "quantityReserved": 5,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 15,
+    "quantityAvailable": 482,
+    "quantityReserved": 23,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 16,
+    "quantityAvailable": 490,
+    "quantityReserved": 5,
+    "updatedAt": "2025-11-24T17:49:10Z"
+  },
+  {
+    "productId": 17,
+    "quantityAvailable": 180,
+    "quantityReserved": 7,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 18,
+    "quantityAvailable": 495,
+    "quantityReserved": 36,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 19,
+    "quantityAvailable": 134,
+    "quantityReserved": 47,
+    "updatedAt": "2025-12-08T17:49:10Z"
+  },
+  {
+    "productId": 20,
+    "quantityAvailable": 154,
+    "quantityReserved": 20,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 21,
+    "quantityAvailable": 388,
+    "quantityReserved": 20,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 22,
+    "quantityAvailable": 469,
+    "quantityReserved": 34,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 23,
+    "quantityAvailable": 454,
+    "quantityReserved": 48,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 24,
+    "quantityAvailable": 471,
+    "quantityReserved": 41,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 25,
+    "quantityAvailable": 272,
+    "quantityReserved": 18,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 26,
+    "quantityAvailable": 82,
+    "quantityReserved": 39,
+    "updatedAt": "2025-11-23T17:49:10Z"
+  },
+  {
+    "productId": 27,
+    "quantityAvailable": 309,
+    "quantityReserved": 14,
+    "updatedAt": "2025-12-05T17:49:10Z"
+  },
+  {
+    "productId": 28,
+    "quantityAvailable": 189,
+    "quantityReserved": 37,
+    "updatedAt": "2025-12-20T17:49:10Z"
+  },
+  {
+    "productId": 29,
+    "quantityAvailable": 12,
+    "quantityReserved": 11,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 30,
+    "quantityAvailable": 305,
+    "quantityReserved": 3,
+    "updatedAt": "2025-11-24T17:49:10Z"
+  },
+  {
+    "productId": 31,
+    "quantityAvailable": 331,
+    "quantityReserved": 24,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 32,
+    "quantityAvailable": 406,
+    "quantityReserved": 44,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 33,
+    "quantityAvailable": 233,
+    "quantityReserved": 38,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 34,
+    "quantityAvailable": 297,
+    "quantityReserved": 35,
+    "updatedAt": "2025-11-30T17:49:10Z"
+  },
+  {
+    "productId": 35,
+    "quantityAvailable": 144,
+    "quantityReserved": 28,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 36,
+    "quantityAvailable": 333,
+    "quantityReserved": 20,
+    "updatedAt": "2025-12-06T17:49:10Z"
+  },
+  {
+    "productId": 37,
+    "quantityAvailable": 324,
+    "quantityReserved": 3,
+    "updatedAt": "2025-11-30T17:49:10Z"
+  },
+  {
+    "productId": 38,
+    "quantityAvailable": 406,
+    "quantityReserved": 39,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 39,
+    "quantityAvailable": 7,
+    "quantityReserved": 4,
+    "updatedAt": "2025-12-08T17:49:10Z"
+  },
+  {
+    "productId": 40,
+    "quantityAvailable": 179,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-05T17:49:10Z"
+  },
+  {
+    "productId": 41,
+    "quantityAvailable": 297,
+    "quantityReserved": 10,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 42,
+    "quantityAvailable": 106,
+    "quantityReserved": 14,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 43,
+    "quantityAvailable": 368,
+    "quantityReserved": 1,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 44,
+    "quantityAvailable": 92,
+    "quantityReserved": 19,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 45,
+    "quantityAvailable": 215,
+    "quantityReserved": 36,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 46,
+    "quantityAvailable": 134,
+    "quantityReserved": 14,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 47,
+    "quantityAvailable": 14,
+    "quantityReserved": 7,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 48,
+    "quantityAvailable": 188,
+    "quantityReserved": 25,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 49,
+    "quantityAvailable": 40,
+    "quantityReserved": 38,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 50,
+    "quantityAvailable": 35,
+    "quantityReserved": 20,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 51,
+    "quantityAvailable": 334,
+    "quantityReserved": 27,
+    "updatedAt": "2025-12-07T17:49:10Z"
+  },
+  {
+    "productId": 52,
+    "quantityAvailable": 339,
+    "quantityReserved": 37,
+    "updatedAt": "2025-12-20T17:49:10Z"
+  },
+  {
+    "productId": 53,
+    "quantityAvailable": 211,
+    "quantityReserved": 43,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 54,
+    "quantityAvailable": 136,
+    "quantityReserved": 2,
+    "updatedAt": "2025-12-15T17:49:10Z"
+  },
+  {
+    "productId": 55,
+    "quantityAvailable": 257,
+    "quantityReserved": 25,
+    "updatedAt": "2025-12-17T17:49:10Z"
+  },
+  {
+    "productId": 56,
+    "quantityAvailable": 400,
+    "quantityReserved": 14,
+    "updatedAt": "2025-12-07T17:49:10Z"
+  },
+  {
+    "productId": 57,
+    "quantityAvailable": 65,
+    "quantityReserved": 33,
+    "updatedAt": "2025-12-21T17:49:10Z"
+  },
+  {
+    "productId": 58,
+    "quantityAvailable": 118,
+    "quantityReserved": 14,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 59,
+    "quantityAvailable": 311,
+    "quantityReserved": 28,
+    "updatedAt": "2025-12-06T17:49:10Z"
+  },
+  {
+    "productId": 60,
+    "quantityAvailable": 64,
+    "quantityReserved": 44,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 61,
+    "quantityAvailable": 246,
+    "quantityReserved": 3,
+    "updatedAt": "2025-12-02T17:49:10Z"
+  },
+  {
+    "productId": 62,
+    "quantityAvailable": 121,
+    "quantityReserved": 43,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 63,
+    "quantityAvailable": 251,
+    "quantityReserved": 50,
+    "updatedAt": "2025-11-23T17:49:10Z"
+  },
+  {
+    "productId": 64,
+    "quantityAvailable": 271,
+    "quantityReserved": 21,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 65,
+    "quantityAvailable": 149,
+    "quantityReserved": 1,
+    "updatedAt": "2025-12-05T17:49:10Z"
+  },
+  {
+    "productId": 66,
+    "quantityAvailable": 271,
+    "quantityReserved": 28,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 67,
+    "quantityAvailable": 185,
+    "quantityReserved": 38,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 68,
+    "quantityAvailable": 377,
+    "quantityReserved": 10,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 69,
+    "quantityAvailable": 474,
+    "quantityReserved": 22,
+    "updatedAt": "2025-12-15T17:49:10Z"
+  },
+  {
+    "productId": 70,
+    "quantityAvailable": 376,
+    "quantityReserved": 45,
+    "updatedAt": "2025-12-02T17:49:10Z"
+  },
+  {
+    "productId": 71,
+    "quantityAvailable": 44,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 72,
+    "quantityAvailable": 79,
+    "quantityReserved": 36,
+    "updatedAt": "2025-11-25T17:49:10Z"
+  },
+  {
+    "productId": 73,
+    "quantityAvailable": 144,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-06T17:49:10Z"
+  },
+  {
+    "productId": 74,
+    "quantityAvailable": 141,
+    "quantityReserved": 44,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 75,
+    "quantityAvailable": 305,
+    "quantityReserved": 44,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 76,
+    "quantityAvailable": 496,
+    "quantityReserved": 10,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 77,
+    "quantityAvailable": 41,
+    "quantityReserved": 3,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 78,
+    "quantityAvailable": 281,
+    "quantityReserved": 21,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 79,
+    "quantityAvailable": 37,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-08T17:49:10Z"
+  },
+  {
+    "productId": 80,
+    "quantityAvailable": 500,
+    "quantityReserved": 10,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 81,
+    "quantityAvailable": 272,
+    "quantityReserved": 36,
+    "updatedAt": "2025-12-07T17:49:10Z"
+  },
+  {
+    "productId": 82,
+    "quantityAvailable": 330,
+    "quantityReserved": 7,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 83,
+    "quantityAvailable": 372,
+    "quantityReserved": 39,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 84,
+    "quantityAvailable": 469,
+    "quantityReserved": 9,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 85,
+    "quantityAvailable": 193,
+    "quantityReserved": 40,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 86,
+    "quantityAvailable": 64,
+    "quantityReserved": 41,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 87,
+    "quantityAvailable": 74,
+    "quantityReserved": 30,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 88,
+    "quantityAvailable": 378,
+    "quantityReserved": 29,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 89,
+    "quantityAvailable": 176,
+    "quantityReserved": 19,
+    "updatedAt": "2025-12-04T17:49:10Z"
+  },
+  {
+    "productId": 90,
+    "quantityAvailable": 240,
+    "quantityReserved": 25,
+    "updatedAt": "2025-12-02T17:49:10Z"
+  },
+  {
+    "productId": 91,
+    "quantityAvailable": 352,
+    "quantityReserved": 33,
+    "updatedAt": "2025-11-30T17:49:10Z"
+  },
+  {
+    "productId": 92,
+    "quantityAvailable": 310,
+    "quantityReserved": 27,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 93,
+    "quantityAvailable": 438,
+    "quantityReserved": 3,
+    "updatedAt": "2025-12-21T17:49:10Z"
+  },
+  {
+    "productId": 94,
+    "quantityAvailable": 41,
+    "quantityReserved": 21,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 95,
+    "quantityAvailable": 7,
+    "quantityReserved": 4,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 96,
+    "quantityAvailable": 373,
+    "quantityReserved": 27,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 97,
+    "quantityAvailable": 461,
+    "quantityReserved": 21,
+    "updatedAt": "2025-12-20T17:49:10Z"
+  },
+  {
+    "productId": 98,
+    "quantityAvailable": 247,
+    "quantityReserved": 23,
+    "updatedAt": "2025-11-24T17:49:10Z"
+  },
+  {
+    "productId": 99,
+    "quantityAvailable": 438,
+    "quantityReserved": 16,
+    "updatedAt": "2025-12-08T17:49:10Z"
+  },
+  {
+    "productId": 100,
+    "quantityAvailable": 436,
+    "quantityReserved": 45,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 101,
+    "quantityAvailable": 293,
+    "quantityReserved": 34,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 102,
+    "quantityAvailable": 483,
+    "quantityReserved": 24,
+    "updatedAt": "2025-11-24T17:49:10Z"
+  },
+  {
+    "productId": 103,
+    "quantityAvailable": 107,
+    "quantityReserved": 11,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 104,
+    "quantityAvailable": 46,
+    "quantityReserved": 40,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 105,
+    "quantityAvailable": 17,
+    "quantityReserved": 7,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 106,
+    "quantityAvailable": 456,
+    "quantityReserved": 40,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 107,
+    "quantityAvailable": 159,
+    "quantityReserved": 32,
+    "updatedAt": "2025-12-01T17:49:10Z"
+  },
+  {
+    "productId": 108,
+    "quantityAvailable": 127,
+    "quantityReserved": 25,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 109,
+    "quantityAvailable": 65,
+    "quantityReserved": 0,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 110,
+    "quantityAvailable": 445,
+    "quantityReserved": 11,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 111,
+    "quantityAvailable": 101,
+    "quantityReserved": 40,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 112,
+    "quantityAvailable": 114,
+    "quantityReserved": 30,
+    "updatedAt": "2025-11-23T17:49:10Z"
+  },
+  {
+    "productId": 113,
+    "quantityAvailable": 36,
+    "quantityReserved": 7,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 114,
+    "quantityAvailable": 296,
+    "quantityReserved": 44,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 115,
+    "quantityAvailable": 160,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 116,
+    "quantityAvailable": 355,
+    "quantityReserved": 29,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 117,
+    "quantityAvailable": 489,
+    "quantityReserved": 42,
+    "updatedAt": "2025-11-25T17:49:10Z"
+  },
+  {
+    "productId": 118,
+    "quantityAvailable": 78,
+    "quantityReserved": 37,
+    "updatedAt": "2025-12-07T17:49:10Z"
+  },
+  {
+    "productId": 119,
+    "quantityAvailable": 10,
+    "quantityReserved": 4,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 120,
+    "quantityAvailable": 239,
+    "quantityReserved": 2,
+    "updatedAt": "2025-12-04T17:49:10Z"
+  },
+  {
+    "productId": 121,
+    "quantityAvailable": 229,
+    "quantityReserved": 4,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 122,
+    "quantityAvailable": 425,
+    "quantityReserved": 29,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 123,
+    "quantityAvailable": 265,
+    "quantityReserved": 49,
+    "updatedAt": "2025-12-21T17:49:10Z"
+  },
+  {
+    "productId": 124,
+    "quantityAvailable": 158,
+    "quantityReserved": 23,
+    "updatedAt": "2025-11-24T17:49:10Z"
+  },
+  {
+    "productId": 125,
+    "quantityAvailable": 331,
+    "quantityReserved": 5,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 126,
+    "quantityAvailable": 2,
+    "quantityReserved": 0,
+    "updatedAt": "2025-12-21T17:49:10Z"
+  },
+  {
+    "productId": 127,
+    "quantityAvailable": 465,
+    "quantityReserved": 39,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 128,
+    "quantityAvailable": 186,
+    "quantityReserved": 17,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 129,
+    "quantityAvailable": 377,
+    "quantityReserved": 38,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 130,
+    "quantityAvailable": 167,
+    "quantityReserved": 26,
+    "updatedAt": "2025-11-30T17:49:10Z"
+  },
+  {
+    "productId": 131,
+    "quantityAvailable": 227,
+    "quantityReserved": 40,
+    "updatedAt": "2025-12-02T17:49:10Z"
+  },
+  {
+    "productId": 132,
+    "quantityAvailable": 338,
+    "quantityReserved": 9,
+    "updatedAt": "2025-11-25T17:49:10Z"
+  },
+  {
+    "productId": 133,
+    "quantityAvailable": 239,
+    "quantityReserved": 2,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 134,
+    "quantityAvailable": 283,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 135,
+    "quantityAvailable": 196,
+    "quantityReserved": 39,
+    "updatedAt": "2025-12-17T17:49:10Z"
+  },
+  {
+    "productId": 136,
+    "quantityAvailable": 234,
+    "quantityReserved": 8,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 137,
+    "quantityAvailable": 86,
+    "quantityReserved": 0,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 138,
+    "quantityAvailable": 115,
+    "quantityReserved": 41,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 139,
+    "quantityAvailable": 401,
+    "quantityReserved": 49,
+    "updatedAt": "2025-12-15T17:49:10Z"
+  },
+  {
+    "productId": 140,
+    "quantityAvailable": 447,
+    "quantityReserved": 0,
+    "updatedAt": "2025-12-20T17:49:10Z"
+  },
+  {
+    "productId": 141,
+    "quantityAvailable": 37,
+    "quantityReserved": 25,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 142,
+    "quantityAvailable": 152,
+    "quantityReserved": 8,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 143,
+    "quantityAvailable": 148,
+    "quantityReserved": 5,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 144,
+    "quantityAvailable": 141,
+    "quantityReserved": 47,
+    "updatedAt": "2025-12-05T17:49:10Z"
+  },
+  {
+    "productId": 145,
+    "quantityAvailable": 116,
+    "quantityReserved": 21,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 146,
+    "quantityAvailable": 492,
+    "quantityReserved": 1,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 147,
+    "quantityAvailable": 169,
+    "quantityReserved": 10,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 148,
+    "quantityAvailable": 373,
+    "quantityReserved": 31,
+    "updatedAt": "2025-11-28T17:49:10Z"
+  },
+  {
+    "productId": 149,
+    "quantityAvailable": 157,
+    "quantityReserved": 46,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 150,
+    "quantityAvailable": 30,
+    "quantityReserved": 0,
+    "updatedAt": "2025-12-10T17:49:10Z"
+  },
+  {
+    "productId": 151,
+    "quantityAvailable": 213,
+    "quantityReserved": 35,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 152,
+    "quantityAvailable": 359,
+    "quantityReserved": 29,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 153,
+    "quantityAvailable": 270,
+    "quantityReserved": 18,
+    "updatedAt": "2025-11-23T17:49:10Z"
+  },
+  {
+    "productId": 154,
+    "quantityAvailable": 489,
+    "quantityReserved": 28,
+    "updatedAt": "2025-12-05T17:49:10Z"
+  },
+  {
+    "productId": 155,
+    "quantityAvailable": 394,
+    "quantityReserved": 29,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 156,
+    "quantityAvailable": 310,
+    "quantityReserved": 50,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 157,
+    "quantityAvailable": 264,
+    "quantityReserved": 38,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 158,
+    "quantityAvailable": 391,
+    "quantityReserved": 10,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 159,
+    "quantityAvailable": 213,
+    "quantityReserved": 37,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 160,
+    "quantityAvailable": 67,
+    "quantityReserved": 47,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 161,
+    "quantityAvailable": 93,
+    "quantityReserved": 42,
+    "updatedAt": "2025-12-07T17:49:10Z"
+  },
+  {
+    "productId": 162,
+    "quantityAvailable": 292,
+    "quantityReserved": 31,
+    "updatedAt": "2025-11-27T17:49:10Z"
+  },
+  {
+    "productId": 163,
+    "quantityAvailable": 316,
+    "quantityReserved": 5,
+    "updatedAt": "2025-12-20T17:49:10Z"
+  },
+  {
+    "productId": 164,
+    "quantityAvailable": 0,
+    "quantityReserved": 0,
+    "updatedAt": "2025-11-25T17:49:10Z"
+  },
+  {
+    "productId": 165,
+    "quantityAvailable": 332,
+    "quantityReserved": 15,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 166,
+    "quantityAvailable": 282,
+    "quantityReserved": 45,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 167,
+    "quantityAvailable": 435,
+    "quantityReserved": 48,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 168,
+    "quantityAvailable": 485,
+    "quantityReserved": 16,
+    "updatedAt": "2025-11-29T17:49:10Z"
+  },
+  {
+    "productId": 169,
+    "quantityAvailable": 409,
+    "quantityReserved": 20,
+    "updatedAt": "2025-11-25T17:49:10Z"
+  },
+  {
+    "productId": 170,
+    "quantityAvailable": 307,
+    "quantityReserved": 24,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 171,
+    "quantityAvailable": 489,
+    "quantityReserved": 7,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 172,
+    "quantityAvailable": 138,
+    "quantityReserved": 36,
+    "updatedAt": "2025-11-26T17:49:10Z"
+  },
+  {
+    "productId": 173,
+    "quantityAvailable": 150,
+    "quantityReserved": 8,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 174,
+    "quantityAvailable": 72,
+    "quantityReserved": 34,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 175,
+    "quantityAvailable": 476,
+    "quantityReserved": 41,
+    "updatedAt": "2025-12-08T17:49:10Z"
+  },
+  {
+    "productId": 176,
+    "quantityAvailable": 347,
+    "quantityReserved": 35,
+    "updatedAt": "2025-12-14T17:49:10Z"
+  },
+  {
+    "productId": 177,
+    "quantityAvailable": 358,
+    "quantityReserved": 12,
+    "updatedAt": "2025-12-12T17:49:10Z"
+  },
+  {
+    "productId": 178,
+    "quantityAvailable": 483,
+    "quantityReserved": 24,
+    "updatedAt": "2025-12-21T17:49:10Z"
+  },
+  {
+    "productId": 179,
+    "quantityAvailable": 408,
+    "quantityReserved": 22,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 180,
+    "quantityAvailable": 496,
+    "quantityReserved": 42,
+    "updatedAt": "2025-12-20T17:49:10Z"
+  },
+  {
+    "productId": 181,
+    "quantityAvailable": 340,
+    "quantityReserved": 42,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 182,
+    "quantityAvailable": 375,
+    "quantityReserved": 7,
+    "updatedAt": "2025-12-17T17:49:10Z"
+  },
+  {
+    "productId": 183,
+    "quantityAvailable": 242,
+    "quantityReserved": 26,
+    "updatedAt": "2025-12-05T17:49:10Z"
+  },
+  {
+    "productId": 184,
+    "quantityAvailable": 42,
+    "quantityReserved": 20,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 185,
+    "quantityAvailable": 104,
+    "quantityReserved": 28,
+    "updatedAt": "2025-12-01T17:49:10Z"
+  },
+  {
+    "productId": 186,
+    "quantityAvailable": 279,
+    "quantityReserved": 13,
+    "updatedAt": "2025-11-23T17:49:10Z"
+  },
+  {
+    "productId": 187,
+    "quantityAvailable": 119,
+    "quantityReserved": 43,
+    "updatedAt": "2025-11-30T17:49:10Z"
+  },
+  {
+    "productId": 188,
+    "quantityAvailable": 347,
+    "quantityReserved": 26,
+    "updatedAt": "2025-11-22T17:49:10Z"
+  },
+  {
+    "productId": 189,
+    "quantityAvailable": 353,
+    "quantityReserved": 23,
+    "updatedAt": "2025-11-25T17:49:10Z"
+  },
+  {
+    "productId": 190,
+    "quantityAvailable": 452,
+    "quantityReserved": 12,
+    "updatedAt": "2025-12-11T17:49:10Z"
+  },
+  {
+    "productId": 191,
+    "quantityAvailable": 116,
+    "quantityReserved": 29,
+    "updatedAt": "2025-12-15T17:49:10Z"
+  },
+  {
+    "productId": 192,
+    "quantityAvailable": 52,
+    "quantityReserved": 35,
+    "updatedAt": "2025-12-03T17:49:10Z"
+  },
+  {
+    "productId": 193,
+    "quantityAvailable": 27,
+    "quantityReserved": 24,
+    "updatedAt": "2025-12-09T17:49:10Z"
+  },
+  {
+    "productId": 194,
+    "quantityAvailable": 498,
+    "quantityReserved": 7,
+    "updatedAt": "2025-12-16T17:49:10Z"
+  },
+  {
+    "productId": 195,
+    "quantityAvailable": 85,
+    "quantityReserved": 1,
+    "updatedAt": "2025-12-13T17:49:10Z"
+  },
+  {
+    "productId": 196,
+    "quantityAvailable": 48,
+    "quantityReserved": 10,
+    "updatedAt": "2025-12-02T17:49:10Z"
+  },
+  {
+    "productId": 197,
+    "quantityAvailable": 293,
+    "quantityReserved": 5,
+    "updatedAt": "2025-12-18T17:49:10Z"
+  },
+  {
+    "productId": 198,
+    "quantityAvailable": 379,
+    "quantityReserved": 32,
+    "updatedAt": "2025-12-19T17:49:10Z"
+  },
+  {
+    "productId": 199,
+    "quantityAvailable": 439,
+    "quantityReserved": 49,
+    "updatedAt": "2025-12-21T17:49:10Z"
+  },
+  {
+    "productId": 200,
+    "quantityAvailable": 239,
+    "quantityReserved": 23,
+    "updatedAt": "2025-12-17T17:49:10Z"
+  }
+]

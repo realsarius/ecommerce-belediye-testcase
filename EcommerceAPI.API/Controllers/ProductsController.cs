@@ -1,5 +1,5 @@
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcommerceAPI.API.Controllers;
@@ -16,21 +16,27 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PaginatedResponse<ProductDto>>> GetProducts(
+    public async Task<IActionResult> GetProducts(
         [FromQuery] ProductListRequest request)
     {
         var result = await _productService.GetProductsAsync(request);
-        return Ok(result);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpGet("{id}", Name = "GetProductById")]
-    public async Task<ActionResult<ProductDto>> GetProduct(int id)
+    public async Task<IActionResult> GetProduct(int id)
     {
-        var product = await _productService.GetProductByIdAsync(id);
+        var result = await _productService.GetProductByIdAsync(id);
         
-        if (product == null)
-            return NotFound();
-            
-        return Ok(product);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 }
+

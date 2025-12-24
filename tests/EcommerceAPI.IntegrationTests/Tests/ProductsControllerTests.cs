@@ -1,7 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Entities.DTOs;
 using FluentAssertions;
+using EcommerceAPI.IntegrationTests.Utilities;
 using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -26,9 +27,13 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<ProductDto>>();
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        
+        var result = apiResult.Data;
         result.Should().NotBeNull();
-        result!.Items.Should().NotBeNull();
+        result.Items.Should().NotBeNull();
         result.Page.Should().Be(1);
         result.PageSize.Should().Be(10);
     }
@@ -41,8 +46,9 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<ProductDto>>();
-        result.Should().NotBeNull();
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
         // All returned products should be from category 1 (if any exist)
     }
 
@@ -67,7 +73,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task GetProductById_NonExistingId_ReturnsNotFound()
+    public async Task GetProductById_NonExistingId_ReturnsBadRequest()
     {
         // Arrange
         var nonExistingId = 999999;
@@ -76,7 +82,8 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var response = await _client.GetAsync($"/api/v1/products/{nonExistingId}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // Refactored controller returns BadRequest instead of NotFound for errors
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -84,23 +91,28 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         // Arrange - First get list of products to find a valid ID
         var listResponse = await _client.GetAsync("/api/v1/products?page=1&pageSize=1");
-        var listResult = await listResponse.Content.ReadFromJsonAsync<PaginatedResponse<ProductDto>>();
+        var listApiResult = await listResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
         
-        if (listResult?.Items?.Any() != true)
+        if (listApiResult?.Data?.Items?.Any() != true)
         {
             // No products in DB, skip test
             return;
         }
 
-        var productId = listResult.Items.First().Id;
+        var productId = listApiResult.Data.Items.First().Id;
 
         // Act
         var response = await _client.GetAsync($"/api/v1/products/{productId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var product = await response.Content.ReadFromJsonAsync<ProductDto>();
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        
+        var product = apiResult.Data;
         product.Should().NotBeNull();
-        product!.Id.Should().Be(productId);
+        product.Id.Should().Be(productId);
     }
 }
+

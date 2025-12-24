@@ -1,26 +1,46 @@
 using FluentAssertions;
 using Moq;
-using EcommerceAPI.Business.Services.Concrete;
-using EcommerceAPI.Business.Services.Abstract; 
-using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Business.Concrete;
+using EcommerceAPI.Business.Abstract; 
+using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.Core.DTOs;
-using EcommerceAPI.Core.Enums;
+using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Core.Exceptions;
+using EcommerceAPI.DataAccess.Abstract;
+using Microsoft.Extensions.Options;
+using EcommerceAPI.Business.Settings;
+using System.Threading.Tasks;
 
 namespace EcommerceAPI.UnitTests;
 
-public class PaymentServiceTests
+public class IyzicoPaymentManagerTests
 {
-    private readonly Mock<IOrderRepository> _orderRepo;
-    private readonly Mock<IUnitOfWork> _uow;
-    private readonly PaymentService _paymentService;
+    private readonly Mock<IOrderDal> _orderDalMock;
+    private readonly Mock<IPaymentDal> _paymentDalMock;
+    private readonly Mock<IOptions<IyzicoSettings>> _optionsMock;
+    private readonly Mock<IUnitOfWork> _uowMock;
+    private readonly IyzicoPaymentManager _paymentManager;
 
-    public PaymentServiceTests()
+    public IyzicoPaymentManagerTests()
     {
-        _orderRepo = new Mock<IOrderRepository>();
-        _uow = new Mock<IUnitOfWork>();
-        _paymentService = new PaymentService(_orderRepo.Object, _uow.Object);
+        _orderDalMock = new Mock<IOrderDal>();
+        _paymentDalMock = new Mock<IPaymentDal>();
+        _uowMock = new Mock<IUnitOfWork>();
+        _optionsMock = new Mock<IOptions<IyzicoSettings>>();
+        
+        _optionsMock.Setup(o => o.Value).Returns(new IyzicoSettings 
+        { 
+            ApiKey = "test", 
+            SecretKey = "test", 
+            BaseUrl = "https://sandbox-api.iyzipay.com" 
+        });
+
+        _paymentManager = new IyzicoPaymentManager(
+            _orderDalMock.Object,
+            _uowMock.Object,
+            _optionsMock.Object
+        );
     }
 
     [Fact]
@@ -46,30 +66,31 @@ public class PaymentServiceTests
             Id = orderId,
             UserId = userId,
             Status = OrderStatus.Paid,
+            TotalAmount = 100,
+            Currency = "TRY",
             Payment = new Payment
             {
                 Status = PaymentStatus.Success,
                 IdempotencyKey = idempotencyKey,
                 Amount = 100,
+                Currency = "TRY",
                 PaymentProviderId = "PAY-EXISTING"
             }
         };
 
-        _orderRepo.Setup(x => x.GetByIdWithDetailsAsync(orderId))
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(orderId))
             .ReturnsAsync(existingOrder);
 
         // Act
-        var result = await _paymentService.ProcessPaymentAsync(userId, request);
+        var result = await _paymentManager.ProcessPaymentAsync(userId, request);
 
         // Assert
-        result.Status.Should().Be(PaymentStatus.Success.ToString());
+        result.Success.Should().BeTrue();
+        result.Data.Status.Should().Be(PaymentStatus.Success.ToString());
         
-        
-        // Verify we implied it's the existing one: Logic returns early.
-        // We can verify that Update/Save was NOT called for idempotency return?
-        // Code: if (idempotency match) return MapToDto.
-        // So Update/Save shouldn't be called.
-        _orderRepo.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
-        _uow.Verify(x => x.SaveChangesAsync(), Times.Never);
+        // Verify idempotency logic returns existing payment without processing new one
+        _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 }
+

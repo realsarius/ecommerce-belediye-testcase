@@ -5,6 +5,7 @@ import {
   Package,
   FolderTree,
   ShoppingBag,
+  Ticket,
   ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/common/button';
@@ -14,6 +15,7 @@ const sidebarItems = [
   { href: '/admin/products', label: 'Ürünler', icon: Package },
   { href: '/admin/categories', label: 'Kategoriler', icon: FolderTree },
   { href: '/admin/orders', label: 'Siparişler', icon: ShoppingBag },
+  { href: '/admin/coupons', label: 'Kuponlar', icon: Ticket },
 ];
 
 export function AdminLayout() {

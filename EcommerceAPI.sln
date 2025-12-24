@@ -9,13 +9,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Business", "Ec
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Core", "EcommerceAPI.Core\EcommerceAPI.Core.csproj", "{72A84B34-0D16-4AC0-91F3-9CD68F910219}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Data", "EcommerceAPI.Data\EcommerceAPI.Data.csproj", "{DD7665A7-7F7E-4639-8672-D039A3AC613E}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{78381FF8-1B50-4C69-A3D6-64BC489BB2E4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.UnitTests", "tests\EcommerceAPI.UnitTests\EcommerceAPI.UnitTests.csproj", "{0B27887A-B318-4970-877E-FD1F456660F3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.IntegrationTests", "tests\EcommerceAPI.IntegrationTests\EcommerceAPI.IntegrationTests.csproj", "{9521378A-E2D5-4209-9654-D3F8B73581C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Seeder", "EcommerceAPI.Seeder\EcommerceAPI.Seeder.csproj", "{621360C3-6E0E-4B62-871F-8288354C8209}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Entities", "EcommerceAPI.Entities\EcommerceAPI.Entities.csproj", "{DF7AAE60-723E-4102-A14A-2C0AA3802EA1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.DataAccess", "EcommerceAPI.DataAccess\EcommerceAPI.DataAccess.csproj", "{0F2BBDC8-E6EF-4276-8EB1-C8591DC915F0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -38,10 +42,6 @@ Global
 		{72A84B34-0D16-4AC0-91F3-9CD68F910219}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{72A84B34-0D16-4AC0-91F3-9CD68F910219}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{72A84B34-0D16-4AC0-91F3-9CD68F910219}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DD7665A7-7F7E-4639-8672-D039A3AC613E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0B27887A-B318-4970-877E-FD1F456660F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0B27887A-B318-4970-877E-FD1F456660F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B27887A-B318-4970-877E-FD1F456660F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -50,6 +50,18 @@ Global
 		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9521378A-E2D5-4209-9654-D3F8B73581C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{621360C3-6E0E-4B62-871F-8288354C8209}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{621360C3-6E0E-4B62-871F-8288354C8209}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{621360C3-6E0E-4B62-871F-8288354C8209}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{621360C3-6E0E-4B62-871F-8288354C8209}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DF7AAE60-723E-4102-A14A-2C0AA3802EA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF7AAE60-723E-4102-A14A-2C0AA3802EA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DF7AAE60-723E-4102-A14A-2C0AA3802EA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF7AAE60-723E-4102-A14A-2C0AA3802EA1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F2BBDC8-E6EF-4276-8EB1-C8591DC915F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F2BBDC8-E6EF-4276-8EB1-C8591DC915F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F2BBDC8-E6EF-4276-8EB1-C8591DC915F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F2BBDC8-E6EF-4276-8EB1-C8591DC915F0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0B27887A-B318-4970-877E-FD1F456660F3} = {78381FF8-1B50-4C69-A3D6-64BC489BB2E4}

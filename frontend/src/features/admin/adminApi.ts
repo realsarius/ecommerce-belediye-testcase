@@ -14,10 +14,12 @@ export const adminApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCategories: builder.query<Category[], void>({
       query: () => '/categories',
+      transformResponse: (response: { data: Category[] }) => response.data,
       providesTags: ['Categories'],
     }),
     getAdminCategories: builder.query<Category[], void>({
       query: () => '/admin/categories',
+      transformResponse: (response: { data: Category[] }) => response.data,
       providesTags: ['Categories'],
     }),
     createCategory: builder.mutation<Category, CreateCategoryRequest>({
@@ -26,6 +28,7 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: { data: Category }) => response.data,
       invalidatesTags: ['Categories'],
     }),
     updateCategory: builder.mutation<Category, { id: number; data: UpdateCategoryRequest }>({
@@ -34,6 +37,7 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
+      transformResponse: (response: { data: Category }) => response.data,
       invalidatesTags: ['Categories'],
     }),
     deleteCategory: builder.mutation<void, number>({
@@ -55,19 +59,36 @@ export const adminApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Addresses'],
     }),
+    deleteAddress: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/shippingaddress/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Addresses'],
+    }),
+    updateAddress: builder.mutation<ShippingAddress, { id: number; data: CreateShippingAddressRequest }>({
+      query: ({ id, data }) => ({
+        url: `/shippingaddress/${id}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Addresses'],
+    }),
     getAdminOrders: builder.query<Order[], void>({
-      query: () => '/adminorders',
+      query: () => '/admin/orders',
+      transformResponse: (response: { data: Order[] }) => response.data,
       providesTags: ['Orders'],
     }),
     updateOrderStatus: builder.mutation<Order, { id: number; status: string }>({
       query: ({ id, status }) => ({
-        url: `/adminorders/${id}/status`,
+        url: `/admin/orders/${id}/status`,
         method: 'PATCH',
         body: JSON.stringify(status),
         headers: {
           'Content-Type': 'application/json',
         },
       }),
+      transformResponse: (response: { data: Order }) => response.data,
       invalidatesTags: ['Orders'],
     }),
   }),
@@ -81,6 +102,8 @@ export const {
   useDeleteCategoryMutation,
   useGetAddressesQuery,
   useCreateAddressMutation,
+  useDeleteAddressMutation,
+  useUpdateAddressMutation,
   useGetAdminOrdersQuery,
   useUpdateOrderStatusMutation,
 } = adminApi;

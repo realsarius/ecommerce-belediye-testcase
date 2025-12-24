@@ -31,7 +31,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
     }
   };
 
-  const cartItemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
     <Sheet>
@@ -52,7 +52,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
         </SheetHeader>
 
         <ScrollArea className="flex-1 p-6">
-          {(!cart || cart.items.length === 0) ? (
+          {(!cart || !cart.items || cart.items.length === 0) ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
               <ShoppingBag className="h-12 w-12 text-muted-foreground opacity-20" />
               <p className="text-muted-foreground">Sepetiniz şu an boş.</p>
@@ -63,7 +63,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
           ) : (
             <div className="space-y-6">
               {cart.items.map((item) => (
-                <div key={item.productId} className="flex gap-4">
+                <div key={item.productId} className="flex gap-4 items-start">
                   <div className="h-20 w-20 bg-muted rounded flex items-center justify-center flex-shrink-0">
                     <Package className="h-8 w-8 text-muted-foreground" />
                   </div>
@@ -74,27 +74,25 @@ export function CartDrawer({ children }: CartDrawerProps) {
                     <p className="text-xs text-muted-foreground mb-2">
                       SKU: {item.productSKU}
                     </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold">
-                        {item.quantity} x {item.unitPrice.toLocaleString('tr-TR')} ₺
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleRemove(item.productId)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <p className="text-sm font-bold">
+                      {item.quantity} x {item.unitPrice.toLocaleString('tr-TR')} ₺
+                    </p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 flex-shrink-0"
+                    onClick={() => handleRemove(item.productId)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
             </div>
           )}
         </ScrollArea>
 
-        {cart && cart.items.length > 0 && (
+        {cart && cart.items && cart.items.length > 0 && (
           <div className="p-6 border-t bg-muted/30">
             <div className="space-y-4">
               <div className="flex items-center justify-between font-semibold">

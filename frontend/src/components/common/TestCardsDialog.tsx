@@ -31,6 +31,29 @@ const turkishCards = [
   { bank: 'Halkbank MC', number: '5818 7758 1877 2285' },
 ];
 
+// Iyzico Sandbox Test Kartları
+const iyzicoSuccessCards = [
+  { result: 'Başarılı (iptal/iade yapılamaz)', number: '5406 6700 0000 0009', color: 'bg-green-500' },
+];
+
+const iyzicoErrorCards = [
+  { error: 'Yetersiz bakiye', number: '4111 1111 1111 1129', color: 'bg-red-500' },
+  { error: 'İşlem reddedildi', number: '4129 1111 1111 1111', color: 'bg-red-500' },
+  { error: 'Geçersiz işlem', number: '4128 1111 1111 1112', color: 'bg-red-500' },
+  { error: 'Kayıp kart', number: '4127 1111 1111 1113', color: 'bg-red-500' },
+  { error: 'Çalıntı kart', number: '4126 1111 1111 1114', color: 'bg-red-500' },
+  { error: 'Süresi dolmuş kart', number: '4125 1111 1111 1115', color: 'bg-red-500' },
+  { error: 'Geçersiz CVC', number: '4124 1111 1111 1116', color: 'bg-red-500' },
+  { error: 'Kart sahibine izin verilmedi', number: '4123 1111 1111 1117', color: 'bg-red-500' },
+  { error: 'Terminale izin verilmedi', number: '4122 1111 1111 1118', color: 'bg-red-500' },
+  { error: 'Dolandırıcılık şüphesi', number: '4121 1111 1111 1119', color: 'bg-red-500' },
+  { error: 'Kart geri alınmalı', number: '4120 1111 1111 1110', color: 'bg-red-500' },
+  { error: 'Genel hata', number: '4130 1111 1111 1118', color: 'bg-red-500' },
+  { error: 'mdStatus 0', number: '4131 1111 1111 1117', color: 'bg-orange-500' },
+  { error: 'mdStatus 4', number: '4141 1111 1111 1115', color: 'bg-orange-500' },
+  { error: '3D Secure başlatılamadı', number: '4151 1111 1111 1112', color: 'bg-orange-500' },
+];
+
 interface TestCardsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -125,6 +148,75 @@ export function TestCardsDialog({ open, onOpenChange }: TestCardsDialogProps) {
                     onClick={() => copyToClipboard(card.number, index + 100)}
                   >
                     {copiedIndex === index + 100 ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Separator />
+
+          {/* Iyzico Sandbox Başarılı Kart */}
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              ✅ Iyzico Sandbox - Başarılı Ödeme
+            </h3>
+            <div className="grid gap-2">
+              {iyzicoSuccessCards.map((card, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge className={`${card.color} text-white`}>
+                      {card.result}
+                    </Badge>
+                    <code className="font-mono text-sm">{card.number}</code>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(card.number, index + 200)}
+                  >
+                    {copiedIndex === index + 200 ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Iyzico Sandbox Hata Kartları */}
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              ❌ Iyzico Sandbox - Hatalı Kartlar (Test Senaryoları)
+            </h3>
+            <div className="grid gap-2">
+              {iyzicoErrorCards.map((card, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge className={`${card.color} text-white text-xs`}>
+                      {card.error}
+                    </Badge>
+                    <code className="font-mono text-sm">{card.number}</code>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(card.number, index + 300)}
+                  >
+                    {copiedIndex === index + 300 ? (
                       <Check className="h-4 w-4 text-green-500" />
                     ) : (
                       <Copy className="h-4 w-4" />

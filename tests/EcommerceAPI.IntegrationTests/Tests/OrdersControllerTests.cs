@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Xunit;
@@ -70,12 +70,14 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var orders = await response.Content.ReadFromJsonAsync<List<OrderDto>>();
-        orders.Should().NotBeNull();
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<List<OrderDto>>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.Should().NotBeNull();
     }
 
     [Fact]
-    public async Task GetOrderById_NonExistingOrder_ReturnsNotFound()
+    public async Task GetOrderById_NonExistingOrder_ReturnsBadRequest()
     {
         // Arrange
         var client = _factory.CreateClient().AsCustomer(userId: 12);
@@ -85,11 +87,11 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.GetAsync($"/api/v1/orders/{nonExistingOrderId}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
-    public async Task CancelOrder_NonExistingOrder_ReturnsNotFound()
+    public async Task CancelOrder_NonExistingOrder_ReturnsBadRequest()
     {
         // Arrange
         var client = _factory.CreateClient().AsCustomer(userId: 13);
@@ -99,7 +101,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsync($"/api/v1/orders/{nonExistingOrderId}/cancel", null);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // Note: Full checkout flow test requires seeded products and careful setup
@@ -124,8 +126,13 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        var order = await response.Content.ReadFromJsonAsync<OrderDto>();
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<OrderDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        
+        var order = apiResult.Data;
         order.Should().NotBeNull();
-        order!.Status.Should().Be("PendingPayment");
+        order.Status.Should().Be("PendingPayment");
     }
+
 }

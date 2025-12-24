@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -27,57 +27,64 @@ public class CartController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<CartDto>> GetCart()
+    public async Task<IActionResult> GetCart()
     {
         var userId = GetUserId();
-        var cart = await _cartService.GetCartAsync(userId);
-        return Ok(cart);
+        var result = await _cartService.GetCartAsync(userId);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpPost("items")]
-    [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CartDto>> AddToCart([FromBody] AddToCartRequest request)
+    public async Task<IActionResult> AddToCart([FromBody] AddToCartRequest request)
     {
         var userId = GetUserId();
-        var cart = await _cartService.AddToCartAsync(userId, request);
-        return Ok(cart);
+        var result = await _cartService.AddToCartAsync(userId, request);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpPut("items/{productId}")]
-    [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CartDto>> UpdateCartItem(int productId, [FromBody] UpdateCartItemRequest request)
+    public async Task<IActionResult> UpdateCartItem(int productId, [FromBody] UpdateCartItemRequest request)
     {
         var userId = GetUserId();
-        var cart = await _cartService.UpdateCartItemAsync(userId, productId, request);
-        return Ok(cart);
+        var result = await _cartService.UpdateCartItemAsync(userId, productId, request);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpDelete("items/{productId}")]
-    [ProducesResponseType(typeof(CartDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CartDto>> RemoveFromCart(int productId)
+    public async Task<IActionResult> RemoveFromCart(int productId)
     {
         var userId = GetUserId();
-        var cart = await _cartService.RemoveFromCartAsync(userId, productId);
-        return Ok(cart);
+        var result = await _cartService.RemoveFromCartAsync(userId, productId);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpDelete]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ClearCart()
     {
         var userId = GetUserId();
         var result = await _cartService.ClearCartAsync(userId);
         
-        if (!result)
-            return NotFound(new { message = "Sepet bulunamadı" });
-        
-        return NoContent();
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 }
+

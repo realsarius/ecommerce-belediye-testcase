@@ -8,7 +8,7 @@ import {
 } from '@/components/common/dialog';
 import { Badge } from '@/components/common/badge';
 import { Separator } from '@/components/common/separator';
-import { Users, Copy, Check, Shield, ShoppingBag, LogIn, Loader2 } from 'lucide-react';
+import { Users, Copy, Check, Shield, ShoppingBag, Store, LogIn, Loader2 } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { toast } from 'sonner';
 import { useLoginMutation } from '@/features/auth/authApi';
@@ -24,6 +24,15 @@ const testUsers = [
     icon: Shield,
     color: 'bg-red-500',
     hoverColor: 'hover:bg-red-600',
+  },
+  {
+    role: 'Seller',
+    email: 'testseller@test.com',
+    password: 'Test123!',
+    description: 'Satıcı hesabı - Ürün ve sipariş yönetimi',
+    icon: Store,
+    color: 'bg-amber-500',
+    hoverColor: 'hover:bg-amber-600',
   },
   {
     role: 'Customer',

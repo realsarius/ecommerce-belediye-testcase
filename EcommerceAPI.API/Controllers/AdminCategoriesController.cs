@@ -1,5 +1,5 @@
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +7,7 @@ namespace EcommerceAPI.API.Controllers;
 
 [ApiController]
 [Route("api/v1/admin/categories")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Seller")]
 public class AdminCategoriesController : ControllerBase
 {
     private readonly ICategoryService _categoryService;
@@ -18,71 +18,52 @@ public class AdminCategoriesController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<CategoryDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CategoryDto>>> GetAllCategories()
+    public async Task<IActionResult> GetAllCategories()
     {
-        var categories = await _categoryService.GetAllCategoriesAsync(includeInactive: true);
-        return Ok(categories);
+        var result = await _categoryService.GetAllCategoriesAsync(includeInactive: true);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<CategoryDto>> CreateCategory([FromBody] CreateCategoryRequest request)
+    public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequest request)
     {
-        try
+        var result = await _categoryService.CreateCategoryAsync(request);
+        if (result.Success)
         {
-            var category = await _categoryService.CreateCategoryAsync(request);
             return CreatedAtRoute(
                 routeName: "GetCategoryById",
-                routeValues: new { id = category.Id },
-                value: category);
+                routeValues: new { id = result.Data.Id },
+                value: result);
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return BadRequest(result);
     }
 
     [HttpPut("{id}")]
-    [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CategoryDto>> UpdateCategory(int id, [FromBody] UpdateCategoryRequest request)
+    public async Task<IActionResult> UpdateCategory(int id, [FromBody] UpdateCategoryRequest request)
     {
-        try
+        var result = await _categoryService.UpdateCategoryAsync(id, request);
+        
+        if (result.Success)
         {
-            var category = await _categoryService.UpdateCategoryAsync(id, request);
-            
-            if (category == null)
-                return NotFound(new { message = "Kategori bulunamadı" });
-            
-            return Ok(category);
+            return Ok(result);
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return BadRequest(result);
     }
 
     [HttpDelete("{id}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteCategory(int id)
     {
-        try
+        var result = await _categoryService.DeleteCategoryAsync(id);
+        
+        if (result.Success)
         {
-            var result = await _categoryService.DeleteCategoryAsync(id);
-            
-            if (!result)
-                return NotFound(new { message = "Kategori bulunamadı" });
-            
-            return NoContent();
+            return Ok(result);
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return BadRequest(result);    
     }
 }
+

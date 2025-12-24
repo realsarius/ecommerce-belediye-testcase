@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { CouponsCheatDialog } from '@/components/common/CouponsCheatDialog';
 
 interface DevToolsContextType {
   isDevToolsEnabled: boolean;
   enableDevTools: () => void;
   disableDevTools: () => void;
+  openCouponsDialog: () => void;
 }
 
 const DevToolsContext = createContext<DevToolsContextType | null>(null);
@@ -24,12 +26,15 @@ interface DevToolsProviderProps {
 // GTA San Andreas style cheat codes 🎮
 const ENABLE_CODE = 'LEAVEMEALONE';
 const DISABLE_CODE = 'AEZAKMI';
+const COUPONS_CODE = 'ALOVELYDAY';
 
 export function DevToolsProvider({ children }: DevToolsProviderProps) {
   const [isDevToolsEnabled, setIsDevToolsEnabled] = useState(() => {
     // localStorage'dan başlangıç değerini al
     return localStorage.getItem('devToolsEnabled') === 'true';
   });
+  
+  const [showCouponsDialog, setShowCouponsDialog] = useState(false);
   
   // useRef ile buffer tutarak çift render'ı önle
   const inputBufferRef = useRef('');
@@ -57,7 +62,7 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
     // Sadece harf tuşlarını kabul et
     if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
       // En uzun kod kadar buffer tut
-      const maxLength = Math.max(ENABLE_CODE.length, DISABLE_CODE.length);
+      const maxLength = Math.max(ENABLE_CODE.length, DISABLE_CODE.length, COUPONS_CODE.length);
       inputBufferRef.current = (inputBufferRef.current + e.key.toUpperCase()).slice(-maxLength);
       
       // Timeout'u sıfırla
@@ -87,6 +92,24 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
         inputBufferRef.current = '';
         return;
       }
+
+      // ALOVELYDAY - Kuponları göster
+      if (inputBufferRef.current.endsWith(COUPONS_CODE)) {
+        if (!isDevToolsEnabled) {
+          // DevTools kapalıysa önce açalım mı? Yoksa bağımsız mı çalışsın?
+          // GTA mantığı: her şifre bağımsızdır. Ama bu bir "Dev Tool" şifresi.
+          // Kullanıcının "Dev Tools biliyorsun" demesinden bağımsız da çalışabileceğini anlıyorum.
+          // Ama genelde DevTools açıkken olması daha mantıklı. 
+          // Yine de "Cheat" olduğu için direkt çalışsın.
+          enableDevTools(); // Otomatik açalım
+        }
+        setShowCouponsDialog(true);
+        toast.success('🎫 Coupon Cheat Activated!', {
+          description: 'ALOVELYDAY - Kupon listesi açıldı!',
+        });
+        inputBufferRef.current = '';
+        return;
+      }
     }
   }, [enableDevTools, disableDevTools]);
 
@@ -101,8 +124,14 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
   }, [handleKeyDown]);
 
   return (
-    <DevToolsContext.Provider value={{ isDevToolsEnabled, enableDevTools, disableDevTools }}>
+    <DevToolsContext.Provider value={{
+      isDevToolsEnabled,
+      enableDevTools,
+      disableDevTools,
+      openCouponsDialog: () => setShowCouponsDialog(true)
+    }}>
       {children}
+      <CouponsCheatDialog open={showCouponsDialog} onOpenChange={setShowCouponsDialog} />
     </DevToolsContext.Provider>
   );
 }

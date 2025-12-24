@@ -10,14 +10,17 @@ export const ordersApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: { data: Order }) => response.data,
       invalidatesTags: ['Cart', 'Orders'],
     }),
     getOrders: builder.query<Order[], void>({
       query: () => '/orders',
+      transformResponse: (response: { data: Order[] }) => response.data,
       providesTags: ['Orders'],
     }),
     getOrder: builder.query<Order, number>({
       query: (id) => `/orders/${id}`,
+      transformResponse: (response: { data: Order }) => response.data,
       providesTags: (_result, _error, id) => [{ type: 'Order', id }],
     }),
     cancelOrder: builder.mutation<Order, number>({
@@ -25,6 +28,7 @@ export const ordersApi = baseApi.injectEndpoints({
         url: `/orders/${id}/cancel`,
         method: 'POST',
       }),
+      transformResponse: (response: { data: Order }) => response.data,
       invalidatesTags: ['Orders'],
     }),
     processPayment: builder.mutation<Payment, ProcessPaymentRequest>({
@@ -33,6 +37,7 @@ export const ordersApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: { data: Payment }) => response.data,
       invalidatesTags: ['Orders'],
     }),
   }),

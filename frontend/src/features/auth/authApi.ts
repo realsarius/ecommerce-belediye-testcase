@@ -4,6 +4,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   RefreshTokenRequest,
+  User,
 } from './types';
 
 export const authApi = baseApi.injectEndpoints({
@@ -14,6 +15,7 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: credentials,
       }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
     }),
     register: builder.mutation<AuthResponse, RegisterRequest>({
       query: (data) => ({
@@ -21,6 +23,7 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
     }),
     refresh: builder.mutation<AuthResponse, RefreshTokenRequest>({
       query: (data) => ({
@@ -28,6 +31,7 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
     }),
     revoke: builder.mutation<void, RefreshTokenRequest>({
       query: (data) => ({
@@ -36,8 +40,9 @@ export const authApi = baseApi.injectEndpoints({
         body: data,
       }),
     }),
-    getMe: builder.query<AuthResponse, void>({
+    getMe: builder.query<User, void>({
       query: () => '/auth/me',
+      transformResponse: (response: { data: User }) => response.data,
     }),
   }),
 });

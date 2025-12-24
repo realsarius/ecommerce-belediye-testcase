@@ -1,5 +1,5 @@
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcommerceAPI.API.Controllers;
@@ -16,23 +16,26 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<CategoryDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
+    public async Task<IActionResult> GetCategories()
     {
-        var categories = await _categoryService.GetAllCategoriesAsync(includeInactive: false);
-        return Ok(categories);
+        var result = await _categoryService.GetAllCategoriesAsync(includeInactive: false);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 
     [HttpGet("{id}", Name = "GetCategoryById")]
-    [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CategoryDto>> GetCategory(int id)
+    public async Task<IActionResult> GetCategory(int id)
     {
-        var category = await _categoryService.GetCategoryByIdAsync(id);
+        var result = await _categoryService.GetCategoryByIdAsync(id);
         
-        if (category == null)
-            return NotFound(new { message = "Kategori bulunamadı" });
-        
-        return Ok(category);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 }
+

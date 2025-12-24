@@ -1,9 +1,10 @@
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.Data;
-using EcommerceAPI.Data.Repositories;
+using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.EntityFrameworkCore;
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Business.Services.Concrete;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Business.Mappers;
 using EcommerceAPI.Business.Settings;
 using EcommerceAPI.API.Middleware;
@@ -18,6 +19,10 @@ using RedisRateLimiting;
 using RedisRateLimiting.AspNetCore;
 using System.Threading.RateLimiting;
 using StackExchange.Redis;
+using EcommerceAPI.DataAccess;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using EcommerceAPI.Business.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +32,11 @@ builder.Host.UseSerilog((context, configuration) =>
 // ---- Serilog ----
 
 builder.Services.AddControllers();
+
+// ---- FluentValidation ----
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
+// ---- FluentValidation ----
 
 // ---- CORS ----
 builder.Services.AddCors(options =>
@@ -65,21 +75,35 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-builder.Services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
+// Data Access Layer (DAL) Registrations
+builder.Services.AddScoped<IProductDal, EfProductDal>();
+builder.Services.AddScoped<IOrderDal, EfOrderDal>();
+builder.Services.AddScoped<ICategoryDal, EfCategoryDal>();
+builder.Services.AddScoped<ICartDal, EfCartDal>();
+builder.Services.AddScoped<IInventoryDal, EfInventoryDal>();
+builder.Services.AddScoped<IUserDal, EfUserDal>();
+builder.Services.AddScoped<IRoleDal, EfRoleDal>();
+builder.Services.AddScoped<IRefreshTokenDal, EfRefreshTokenDal>();
+builder.Services.AddScoped<IPaymentDal, EfPaymentDal>();
+builder.Services.AddScoped<IShippingAddressDal, EfShippingAddressDal>();
+builder.Services.AddScoped<ICouponDal, EfCouponDal>();
+builder.Services.AddScoped<ISellerProfileDal, EfSellerProfileDal>();
+
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<ICartRepository, CartRepository>();
-builder.Services.AddScoped<ICartService, CartService>();
+
+// Business Layer Registrations
+builder.Services.AddScoped<IProductService, ProductManager>();
+builder.Services.AddScoped<IOrderService, OrderManager>();
+builder.Services.AddScoped<ICategoryService, CategoryManager>();
+builder.Services.AddScoped<ICartService, CartManager>();
+builder.Services.AddScoped<IInventoryService, InventoryManager>();
+builder.Services.AddScoped<IAuthService, AuthManager>();
+builder.Services.AddScoped<IPaymentService, IyzicoPaymentManager>();
+builder.Services.AddScoped<IShippingAddressService, ShippingAddressManager>();
+builder.Services.AddScoped<ICouponService, CouponManager>();
+builder.Services.AddScoped<ISellerProfileService, SellerProfileManager>();
+
 builder.Services.AddScoped<ICartMapper, CartMapper>();
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<IInventoryService, InventoryService>();
-builder.Services.AddScoped<IPaymentService, IyzicoPaymentService>();
-builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
-builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 // ---- KVKK Encryption Services ----
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
@@ -167,7 +191,7 @@ if (rateLimitingEnabled)
 }
 // ---- Redis Rate Limiting ----
 
-// ---- Redis Cache ----
+// ---- Reuse Redis Cache section ----
 
 // ---- Hangfire ----
 // Hangfire sadece non-Test ortamında çalışır (Integration testleri için devre dışı)
@@ -295,7 +319,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
-
 
 public partial class Program { }

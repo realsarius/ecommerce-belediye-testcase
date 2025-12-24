@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using EcommerceAPI.Business.Services.Abstract;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -29,13 +29,16 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(PaymentDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PaymentDto>> ProcessPayment([FromBody] ProcessPaymentRequest request)
+    public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request)
     {
         var userId = GetUserId();
-        var payment = await _paymentService.ProcessPaymentAsync(userId, request);
-        return Ok(payment);
+        var result = await _paymentService.ProcessPaymentAsync(userId, request);
+        
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
     }
 }
+

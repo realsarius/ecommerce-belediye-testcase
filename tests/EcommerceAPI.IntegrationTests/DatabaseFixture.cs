@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Respawn;
 using Respawn.Graph;
-using EcommerceAPI.Data;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EcommerceAPI.IntegrationTests;

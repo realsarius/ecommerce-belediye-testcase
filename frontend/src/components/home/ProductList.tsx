@@ -1,11 +1,10 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ShoppingCart, Package } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
-import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { setPage } from '@/features/products/productsSlice';
+import { useAppSelector } from '@/app/hooks';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -22,8 +21,17 @@ export const ProductList = ({
   isAddingToCart,
   handleAddToCart,
 }: ProductListProps) => {
-  const dispatch = useAppDispatch();
+  const [, setSearchParams] = useSearchParams();
   const { page } = useAppSelector((state) => state.products);
+
+  const handlePageChange = (newPage: number) => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set('page', newPage.toString());
+      return p;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   if (isLoading) {
     return (
@@ -41,7 +49,7 @@ export const ProductList = ({
     );
   }
 
-  if (productsData?.items.length === 0) {
+  if (productsData?.items?.length === 0) {
     return (
       <div className="text-center py-12">
         <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -53,7 +61,7 @@ export const ProductList = ({
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {productsData?.items.map((product) => (
+        {productsData?.items?.map((product) => (
           <Card key={product.id} className="overflow-hidden group">
             <div className="relative h-48 bg-muted flex items-center justify-center">
               <Package className="h-16 w-16 text-muted-foreground" />
@@ -96,7 +104,7 @@ export const ProductList = ({
           <Button
             variant="outline"
             disabled={!productsData.hasPreviousPage}
-            onClick={() => dispatch(setPage(page - 1))}
+            onClick={() => handlePageChange(page - 1)}
           >
             Önceki
           </Button>
@@ -106,7 +114,7 @@ export const ProductList = ({
           <Button
             variant="outline"
             disabled={!productsData.hasNextPage}
-            onClick={() => dispatch(setPage(page + 1))}
+            onClick={() => handlePageChange(page + 1)}
           >
             Sonraki
           </Button>

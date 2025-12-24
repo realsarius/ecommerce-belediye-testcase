@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import {
   DropdownMenu,
@@ -25,11 +25,11 @@ export function Header() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
-  const { isDevToolsEnabled } = useDevTools();
+  const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
 
-  const cartItemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   const handleLogout = () => {
     dispatch(logout());
@@ -56,11 +56,7 @@ export function Header() {
               Siparişlerim
             </Link>
           )}
-          {user?.role === 'Admin' && (
-            <Link to="/admin" className="text-sm font-medium hover:text-primary transition-colors">
-              Admin Panel
-            </Link>
-          )}
+
         </nav>
 
         {/* Right Side */}
@@ -88,7 +84,7 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">
                   <Wrench className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dev Tools</span>
+                  {/* <span className="hidden sm:inline">Dev Tools</span> */}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -99,6 +95,11 @@ export function Header() {
                 <DropdownMenuItem onClick={() => setShowTestUsers(true)}>
                   <Users className="mr-2 h-4 w-4" />
                   Kullanıcılar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={openCouponsDialog}>
+                  <Ticket className="mr-2 h-4 w-4" />
+                  Kuponlar
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -113,20 +114,73 @@ export function Header() {
                   <User className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+              <DropdownMenuContent align="end" className="w-64">
+                {/* User Info Header */}
+                <div className="px-3 py-3 bg-muted/50">
+                  <p className="text-sm font-semibold">{user?.firstName} {user?.lastName}</p>
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
-                <DropdownMenuSeparator />
+                
+                {/* Siparişlerim Section */}
+                <div className="px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Siparişlerim</p>
+                </div>
                 <DropdownMenuItem asChild>
-                  <Link to="/orders">Siparişlerim</Link>
+                  <Link to="/orders" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    Tüm Siparişlerim
+                  </Link>
                 </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                {/* Hesabım Section */}
+                <div className="px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hesabım</p>
+                </div>
+                <DropdownMenuItem asChild>
+                  <Link to="/account" className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" />
+                    Kullanıcı Bilgilerim
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account/addresses" className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    Adres Bilgilerim
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/help" className="flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-primary" />
+                    Yardım
+                  </Link>
+                </DropdownMenuItem>
+                
                 {user?.role === 'Admin' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin">Admin Panel</Link>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center gap-2">
+                        <Wrench className="h-4 w-4 text-primary" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
                 )}
+                
+                {user?.role === 'Seller' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/seller" className="flex items-center gap-2">
+                        <Store className="h-4 w-4 text-amber-600" />
+                        Satıcı Paneli
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
@@ -162,17 +216,45 @@ export function Header() {
                     <Link to="/cart" className="text-lg font-medium">
                       Sepetim ({cartItemCount})
                     </Link>
-                    <Link to="/orders" className="text-lg font-medium">
-                      Siparişlerim
-                    </Link>
-                    {user?.role === 'Admin' && (
-                      <Link to="/admin" className="text-lg font-medium">
-                        Admin Panel
+                    <div className="border-t pt-4">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Siparişlerim</p>
+                      <Link to="/orders" className="text-lg font-medium">
+                        Tüm Siparişlerim
                       </Link>
+                    </div>
+                    <div className="border-t pt-4">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Hesabım</p>
+                      <div className="flex flex-col space-y-3">
+                        <Link to="/account" className="text-lg font-medium">
+                          Kullanıcı Bilgilerim
+                        </Link>
+                        <Link to="/account/addresses" className="text-lg font-medium">
+                          Adres Bilgilerim
+                        </Link>
+                        <Link to="/help" className="text-lg font-medium">
+                          Yardım
+                        </Link>
+                      </div>
+                    </div>
+                    {user?.role === 'Admin' && (
+                      <div className="border-t pt-4">
+                        <Link to="/admin" className="text-lg font-medium">
+                          Admin Panel
+                        </Link>
+                      </div>
                     )}
-                    <Button variant="destructive" onClick={handleLogout}>
-                      Çıkış Yap
-                    </Button>
+                    {user?.role === 'Seller' && (
+                      <div className="border-t pt-4">
+                        <Link to="/seller" className="text-lg font-medium text-amber-600">
+                          Satıcı Paneli
+                        </Link>
+                      </div>
+                    )}
+                    <div className="border-t pt-4">
+                      <Button variant="destructive" onClick={handleLogout} className="w-full">
+                        Çıkış Yap
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <>

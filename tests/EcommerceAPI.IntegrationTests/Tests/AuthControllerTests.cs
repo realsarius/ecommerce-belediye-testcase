@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using EcommerceAPI.Core.DTOs;
+using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Xunit;
@@ -46,9 +46,11 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         if (response.StatusCode == HttpStatusCode.OK)
         {
-            var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
+            var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<AuthResponse>>();
+            apiResult.Should().NotBeNull();
+            apiResult!.Success.Should().BeTrue();
+            apiResult.Data.Should().NotBeNull();
+            apiResult.Data.Success.Should().BeTrue();
         }
     }
 

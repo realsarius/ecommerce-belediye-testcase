@@ -87,4 +87,9 @@ public static class HttpClientAuthExtensions
         client.DefaultRequestHeaders.Remove(TestAuthHandler.RoleHeader);
         return client;
     }
+
+    public static HttpClient AsSeller(this HttpClient client, int userId = 1)
+    {
+        return client.AsUser(userId, "Seller");
+    }
 }
