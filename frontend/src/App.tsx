@@ -4,6 +4,7 @@ import { store } from './app/store';
 import { Toaster } from '@/components/common/sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { AdminLayout } from '@/components/layout/AdminLayout';
+import { SellerLayout } from '@/components/layout/SellerLayout';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { DevToolsProvider } from '@/components/common/DevToolsProvider';
@@ -26,6 +27,12 @@ import AdminCoupons from '@/pages/admin/CouponsAdmin';
 import Account from '@/pages/Account';
 import Addresses from '@/pages/Addresses';
 import Help from '@/pages/Help';
+
+// Seller Pages
+import SellerDashboard from '@/pages/seller/Dashboard';
+import SellerProducts from '@/pages/seller/Products';
+import SellerProductForm from '@/pages/seller/ProductForm';
+import SellerProfile from '@/pages/seller/Profile';
 
 function App() {
   return (
@@ -110,6 +117,22 @@ function App() {
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="coupons" element={<AdminCoupons />} />
               </Route>
+
+              {/* Seller routes */}
+              <Route
+                path="/seller"
+                element={
+                  <ProtectedRoute requiredRole="Seller">
+                    <SellerLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<SellerDashboard />} />
+                <Route path="products" element={<SellerProducts />} />
+                <Route path="products/new" element={<SellerProductForm />} />
+                <Route path="products/:id" element={<SellerProductForm />} />
+                <Route path="profile" element={<SellerProfile />} />
+              </Route>
             </Routes>
             <Toaster position="top-right" richColors closeButton style={{ top: '80px' }} />
           </BrowserRouter>
@@ -120,3 +143,4 @@ function App() {
 }
 
 export default App;
+
