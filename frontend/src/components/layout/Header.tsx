@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import {
   DropdownMenu,
@@ -56,11 +56,7 @@ export function Header() {
               Siparişlerim
             </Link>
           )}
-          {user?.role === 'Admin' && (
-            <Link to="/admin" className="text-sm font-medium hover:text-primary transition-colors">
-              Admin Panel
-            </Link>
-          )}
+
         </nav>
 
         {/* Right Side */}
@@ -88,7 +84,7 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">
                   <Wrench className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dev Tools</span>
+                  {/* <span className="hidden sm:inline">Dev Tools</span> */}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -173,6 +169,18 @@ export function Header() {
                   </>
                 )}
                 
+                {user?.role === 'Seller' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/seller" className="flex items-center gap-2">
+                        <Store className="h-4 w-4 text-amber-600" />
+                        Satıcı Paneli
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
@@ -232,6 +240,13 @@ export function Header() {
                       <div className="border-t pt-4">
                         <Link to="/admin" className="text-lg font-medium">
                           Admin Panel
+                        </Link>
+                      </div>
+                    )}
+                    {user?.role === 'Seller' && (
+                      <div className="border-t pt-4">
+                        <Link to="/seller" className="text-lg font-medium text-amber-600">
+                          Satıcı Paneli
                         </Link>
                       </div>
                     )}
