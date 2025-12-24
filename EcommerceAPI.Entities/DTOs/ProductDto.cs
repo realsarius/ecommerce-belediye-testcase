@@ -13,4 +13,6 @@ public class ProductDto : IDto
     public int CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public int StockQuantity { get; set; }
+    public int? SellerId { get; set; }
+    public string? SellerBrandName { get; set; }
 }
