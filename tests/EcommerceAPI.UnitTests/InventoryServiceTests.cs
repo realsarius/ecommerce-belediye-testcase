@@ -6,23 +6,39 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.DataAccess.Abstract;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Core.Utilities.Results;
+using StackExchange.Redis;
 
 namespace EcommerceAPI.UnitTests;
 
 public class InventoryManagerTests
 {
     private readonly Mock<IInventoryDal> _inventoryDalMock;
-    private readonly Mock<IUnitOfWork> _uowMock;
-    private readonly Mock<ILogger<InventoryManager>> _loggerMock;
+    private readonly Mock<IConnectionMultiplexer> _redisMock;
     private readonly InventoryManager _inventoryManager;
 
     public InventoryManagerTests()
     {
         _inventoryDalMock = new Mock<IInventoryDal>();
-        _uowMock = new Mock<IUnitOfWork>();
-        _loggerMock = new Mock<ILogger<InventoryManager>>();
+        _redisMock = new Mock<IConnectionMultiplexer>();
         
-        _inventoryManager = new InventoryManager(_inventoryDalMock.Object);
+        // Mock Redis Database for distributed locking
+        var mockDatabase = new Mock<IDatabase>();
+        mockDatabase.Setup(x => x.LockTakeAsync(
+            It.IsAny<RedisKey>(), 
+            It.IsAny<RedisValue>(), 
+            It.IsAny<TimeSpan>(), 
+            It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true);
+        mockDatabase.Setup(x => x.LockReleaseAsync(
+            It.IsAny<RedisKey>(), 
+            It.IsAny<RedisValue>(), 
+            It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true);
+            
+        _redisMock.Setup(x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
+            .Returns(mockDatabase.Object);
+        
+        _inventoryManager = new InventoryManager(_inventoryDalMock.Object, _redisMock.Object);
     }
 
     [Fact]
