@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<ShippingAddress> ShippingAddresses => Set<ShippingAddress>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new OrderItemConfiguration());
         modelBuilder.ApplyConfiguration(new PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new SellerProfileConfiguration());
         
         // Şifreleme gerektiren konfigürasyonlar (KVKK uyumlu)
         if (_encryptionService != null)

@@ -37,6 +37,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.HasIndex(p => p.CategoryId);
         builder.HasIndex(p => p.IsActive);
         builder.HasIndex(p => p.Price);
+        builder.HasIndex(p => p.SellerId);
         
         // Relationships
         builder.HasOne(p => p.Category)

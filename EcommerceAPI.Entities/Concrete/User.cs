@@ -13,6 +13,7 @@ public class User : BaseEntity
     
     // Navigation properties
     public Role Role { get; set; } = null!;
+    public SellerProfile? SellerProfile { get; set; }
     public ICollection<Order> Orders { get; set; } = new List<Order>();
     public Cart? Cart { get; set; }
     public ICollection<InventoryMovement> InventoryMovements { get; set; } = new List<InventoryMovement>();
