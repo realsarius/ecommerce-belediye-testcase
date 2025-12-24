@@ -52,6 +52,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new SellerProfileConfiguration());
+        modelBuilder.ApplyConfiguration(new CouponConfiguration());
         
         // Şifreleme gerektiren konfigürasyonlar (KVKK uyumlu)
         if (_encryptionService != null)

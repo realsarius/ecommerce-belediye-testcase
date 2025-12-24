@@ -25,4 +25,12 @@ public class EfCategoryDal : EfEntityRepositoryBase<Category, AppDbContext>, ICa
             .AsNoTracking()
             .ToListAsync();
     }
+
+    public async Task<IList<Category>> GetAllWithProductsAsync()
+    {
+        return await _dbSet
+            .Include(c => c.Products)
+            .AsNoTracking()
+            .ToListAsync();
+    }
 }

@@ -33,9 +33,8 @@ public class CategoryManager : ICategoryService
         IList<Category> categories;
         if (includeInactive)
         {
-             // GetAllWithProductCountAsync benzeri bir metod ICategoryDal'da olmalıydı
-             // Şimdilik GetListAsync kullanıyoruz
-             categories = await _categoryDal.GetListAsync();
+             // Tüm kategorileri Products ile birlikte getir
+             categories = await _categoryDal.GetAllWithProductsAsync();
         }
         else
         {
