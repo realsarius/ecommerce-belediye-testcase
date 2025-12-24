@@ -24,12 +24,35 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using EcommerceAPI.Business.Validators;
 
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+using Serilog.Sinks.Elasticsearch;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- Serilog ----
+// ---- Serilog with Elasticsearch ----
+var elasticsearchUrl = builder.Configuration["Elasticsearch:Url"] 
+                       ?? Environment.GetEnvironmentVariable("ELASTICSEARCH_URL") 
+                       ?? "http://localhost:9200";
+
 builder.Host.UseSerilog((context, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
-// ---- Serilog ----
+{
+    configuration.ReadFrom.Configuration(context.Configuration);
+    
+    // Programmatic Elasticsearch configuration (overrides appsettings if needed)
+    if (!builder.Environment.IsEnvironment("Test"))
+    {
+        configuration.WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri(elasticsearchUrl))
+        {
+            IndexFormat = $"ecommerce-logs-{DateTime.UtcNow:yyyy.MM.dd}",
+            AutoRegisterTemplate = true,
+            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv7,
+            NumberOfShards = 1,
+            NumberOfReplicas = 0,
+            MinimumLogEventLevel = Serilog.Events.LogEventLevel.Information
+        });
+    }
+});
+// ---- Serilog with Elasticsearch ----
 
 builder.Services.AddControllers();
 
@@ -104,6 +127,10 @@ builder.Services.AddScoped<ICouponService, CouponManager>();
 builder.Services.AddScoped<ISellerProfileService, SellerProfileManager>();
 
 builder.Services.AddScoped<ICartMapper, CartMapper>();
+
+// ---- Audit Logging Service ----
+builder.Services.AddScoped<IAuditService, ElasticAuditService>();
+// ---- Audit Logging Service ----
 
 // ---- KVKK Encryption Services ----
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();

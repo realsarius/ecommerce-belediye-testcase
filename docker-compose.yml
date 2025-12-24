@@ -222,7 +222,60 @@ services:
       - "com.ecommerce.environment=production"
       - "com.ecommerce.service=frontend"
 
+  # Elasticsearch - Audit Log Storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: ecommerce-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=ecommerce-cluster
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=logging"
+
+  # Kibana - Log Visualization Dashboard
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: ecommerce-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=ecommerce-kibana
+    ports:
+      - "5601:5601"
+    networks:
+      - ecommerce-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=logging-ui"
+
 volumes:
+  elasticsearch_data:
+    driver: local
+    labels:
+      - "com.ecommerce.service=logging"
   postgres_dev_data:
     driver: local
     labels:
