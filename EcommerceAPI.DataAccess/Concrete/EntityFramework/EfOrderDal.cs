@@ -64,4 +64,16 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .AsNoTracking()
             .ToListAsync();
     }
+
+    public async Task<IList<Order>> GetAllOrdersWithDetailsAsync()
+    {
+        return await _dbSet
+            .Include(o => o.User)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+            .Include(o => o.Payment)
+            .OrderByDescending(o => o.CreatedAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
 }

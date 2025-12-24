@@ -75,13 +75,13 @@ export const adminApi = baseApi.injectEndpoints({
       invalidatesTags: ['Addresses'],
     }),
     getAdminOrders: builder.query<Order[], void>({
-      query: () => '/adminorders',
+      query: () => '/admin/orders',
       transformResponse: (response: { data: Order[] }) => response.data,
       providesTags: ['Orders'],
     }),
     updateOrderStatus: builder.mutation<Order, { id: number; status: string }>({
       query: ({ id, status }) => ({
-        url: `/adminorders/${id}/status`,
+        url: `/admin/orders/${id}/status`,
         method: 'PATCH',
         body: JSON.stringify(status),
         headers: {

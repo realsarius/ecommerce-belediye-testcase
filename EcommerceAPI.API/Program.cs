@@ -20,6 +20,9 @@ using RedisRateLimiting.AspNetCore;
 using System.Threading.RateLimiting;
 using StackExchange.Redis;
 using EcommerceAPI.DataAccess;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using EcommerceAPI.Business.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +32,11 @@ builder.Host.UseSerilog((context, configuration) =>
 // ---- Serilog ----
 
 builder.Services.AddControllers();
+
+// ---- FluentValidation ----
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
+// ---- FluentValidation ----
 
 // ---- CORS ----
 builder.Services.AddCors(options =>

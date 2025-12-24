@@ -220,10 +220,8 @@ public class OrderManager : IOrderService
 
     public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync()
     {
-
-        var orders = await _orderDal.GetListAsync(); // Include yok :(
-
-        return new ErrorDataResult<List<OrderDto>>("Bu metod henüz implement edilmedi."); 
+        var orders = await _orderDal.GetAllOrdersWithDetailsAsync();
+        return new SuccessDataResult<List<OrderDto>>(orders.Select(MapToDto).ToList());
     }
 
     public async Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status)

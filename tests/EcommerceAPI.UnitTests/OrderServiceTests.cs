@@ -19,10 +19,7 @@ public class OrderManagerTests
     private readonly Mock<IInventoryService> _inventoryServiceMock;
     private readonly Mock<ICartService> _cartServiceMock;
     private readonly Mock<IUnitOfWork> _uowMock;
-    private readonly Mock<IPaymentService> _paymentServiceMock; // Added as it might be needed if constructor changes, though current OrderManager doesn't seem to use it in ctor shown above?
-    // Wait, viewing OrderManager above: 
-    // public OrderManager(IOrderDal orderDal, ICartDal cartDal, IInventoryService inventoryService, ICartService cartService, IUnitOfWork unitOfWork)
-    // It DOES NOT have IPaymentService in constructor in the file I viewed.
+    private readonly Mock<ICouponService> _couponServiceMock;
 
     private readonly OrderManager _orderManager;
 
@@ -33,13 +30,15 @@ public class OrderManagerTests
         _inventoryServiceMock = new Mock<IInventoryService>();
         _cartServiceMock = new Mock<ICartService>();
         _uowMock = new Mock<IUnitOfWork>();
+        _couponServiceMock = new Mock<ICouponService>();
 
         _orderManager = new OrderManager(
             _orderDalMock.Object,
             _cartDalMock.Object,
             _inventoryServiceMock.Object,
             _cartServiceMock.Object,
-            _uowMock.Object
+            _uowMock.Object,
+            _couponServiceMock.Object
         );
     }
 
@@ -90,9 +89,10 @@ public class OrderManagerTests
 
         // Assert
         capturedOrder.Should().NotBeNull();
-        capturedOrder.TotalAmount.Should().Be(125);
+        // 125 (subtotal) + 29.90 (shipping for orders under 1000 TL) = 154.90
+        capturedOrder.TotalAmount.Should().Be(154.90m);
         result.Success.Should().BeTrue();
-        result.Data.TotalAmount.Should().Be(125);
+        result.Data.TotalAmount.Should().Be(154.90m);
         
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
