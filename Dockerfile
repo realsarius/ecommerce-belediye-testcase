@@ -10,7 +10,8 @@ WORKDIR /src
 
 COPY ["EcommerceAPI.API/EcommerceAPI.API.csproj", "EcommerceAPI.API/"]
 COPY ["EcommerceAPI.Business/EcommerceAPI.Business.csproj", "EcommerceAPI.Business/"]
-COPY ["EcommerceAPI.Data/EcommerceAPI.Data.csproj", "EcommerceAPI.Data/"]
+COPY ["EcommerceAPI.DataAccess/EcommerceAPI.DataAccess.csproj", "EcommerceAPI.DataAccess/"]
+COPY ["EcommerceAPI.Entities/EcommerceAPI.Entities.csproj", "EcommerceAPI.Entities/"]
 COPY ["EcommerceAPI.Core/EcommerceAPI.Core.csproj", "EcommerceAPI.Core/"]
 
 RUN dotnet restore "EcommerceAPI.API/EcommerceAPI.API.csproj"
