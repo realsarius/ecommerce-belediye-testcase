@@ -37,7 +37,7 @@ public class RedisDistributedLockService : IDistributedLockService
     public async Task<T> ExecuteWithLockAsync<T>(
         string resourceKey, 
         Func<Task<T>> callback, 
-        int lockTimeoutSeconds = 10) where T : IResult
+        int lockTimeoutSeconds = Constants.InfrastructureConstants.Redis.DefaultLockTimeoutSeconds) where T : IResult
     {
         var db = _redis.GetDatabase();
         var token = Guid.NewGuid().ToString();
@@ -45,36 +45,40 @@ public class RedisDistributedLockService : IDistributedLockService
 
         _logger.LogDebug("Attempting to acquire lock for resource: {ResourceKey}", resourceKey);
 
-        // Kilidi almaya çalış
-        if (await db.LockTakeAsync(resourceKey, token, lockTimeout))
+        try
         {
-            try
+            // Kilidi almaya çalış
+            if (await db.LockTakeAsync(resourceKey, token, lockTimeout))
             {
-                _logger.LogDebug("Lock acquired for resource: {ResourceKey}, Token: {Token}", resourceKey, token);
-                
-                // Callback'i çalıştır (kritik bölge)
-                return await callback();
+                try
+                {
+                    _logger.LogDebug("Lock acquired for resource: {ResourceKey}, Token: {Token}", resourceKey, token);
+                    
+                    // Callback'i çalıştır (kritik bölge)
+                    return await callback();
+                }
+                finally
+                {
+                    // Kilidi serbest bırak
+                    await db.LockReleaseAsync(resourceKey, token);
+                    _logger.LogDebug("Lock released for resource: {ResourceKey}", resourceKey);
+                }
             }
-            finally
+            else
             {
-                // Kilidi serbest bırak
-                await db.LockReleaseAsync(resourceKey, token);
-                _logger.LogDebug("Lock released for resource: {ResourceKey}", resourceKey);
+                _logger.LogWarning("Failed to acquire lock for resource: {ResourceKey}. System is busy.", resourceKey);
+                return (T)(IResult)new ErrorResult(Constants.InfrastructureConstants.Redis.SystemBusyMessage, Constants.InfrastructureConstants.Redis.SystemBusyCode);
             }
         }
-        else
+        catch (Exception ex)
         {
-            _logger.LogWarning("Failed to acquire lock for resource: {ResourceKey}. System is busy.", resourceKey);
-            
-            // Generic constraint nedeniyle ErrorResult dönemiyoruz, runtime cast gerekiyor
-            // Burada T'nin IResult olduğunu biliyoruz, ama SuccessResult/ErrorResult dönebilmek için
-            // caller'ın IResult dönen bir callback sağlaması gerekiyor
-            return (T)(IResult)new ErrorResult(LockFailedMessage);
+            _logger.LogError(ex, "Redis lock error for resource: {ResourceKey}", resourceKey);
+            return (T)(IResult)new ErrorResult(Constants.InfrastructureConstants.Redis.SystemBusyMessage, Constants.InfrastructureConstants.Redis.SystemBusyCode, ex.Message);
         }
     }
 
     /// <inheritdoc />
-    public async Task<string?> TryAcquireLockAsync(string resourceKey, int lockTimeoutSeconds = 10)
+    public async Task<string?> TryAcquireLockAsync(string resourceKey, int lockTimeoutSeconds = Constants.InfrastructureConstants.Redis.DefaultLockTimeoutSeconds)
     {
         var db = _redis.GetDatabase();
         var token = Guid.NewGuid().ToString();
@@ -82,14 +86,22 @@ public class RedisDistributedLockService : IDistributedLockService
 
         _logger.LogDebug("Attempting to acquire lock for resource: {ResourceKey}", resourceKey);
 
-        if (await db.LockTakeAsync(resourceKey, token, lockTimeout))
+        try 
         {
-            _logger.LogDebug("Lock acquired for resource: {ResourceKey}, Token: {Token}", resourceKey, token);
-            return token;
-        }
+            if (await db.LockTakeAsync(resourceKey, token, lockTimeout))
+            {
+                _logger.LogDebug("Lock acquired for resource: {ResourceKey}, Token: {Token}", resourceKey, token);
+                return token;
+            }
 
-        _logger.LogWarning("Failed to acquire lock for resource: {ResourceKey}", resourceKey);
-        return null;
+            _logger.LogWarning("Failed to acquire lock for resource: {ResourceKey}", resourceKey);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Redis error in TryAcquireLockAsync for resource: {ResourceKey}", resourceKey);
+            return null; 
+        }
     }
 
     /// <inheritdoc />

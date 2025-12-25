@@ -192,6 +192,141 @@ public class SeedRunner
 
         _logger.LogInformation("✅ {Count} stok kaydı eklendi.", inventoryDtos.Count);
     }
+
+    private async Task SeedRolesAsync()
+    {
+        if (await _context.Roles.AnyAsync())
+        {
+            _logger.LogInformation("👥 Roller zaten mevcut, atlanıyor...");
+            return;
+        }
+
+        var roles = new List<Role>
+        {
+            new Role { Id = 1, Name = "Admin", Description = "System Administrator", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Role { Id = 2, Name = "Customer", Description = "Standard Customer", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+        };
+
+        foreach (var role in roles)
+        {
+            await _context.Database.ExecuteSqlRawAsync(
+                @"INSERT INTO ""TBL_Roles"" (""Id"", ""Name"", ""Description"", ""CreatedAt"", ""UpdatedAt"") 
+                  VALUES ({0}, {1}, {2}, {3}, {4})",
+                role.Id, role.Name, role.Description, role.CreatedAt, role.UpdatedAt);
+        }
+
+        _logger.LogInformation("✅ {Count} rol eklendi.", roles.Count);
+    }
+
+    private async Task SeedUsersAsync()
+    {
+        if (await _context.Users.AnyAsync())
+        {
+            _logger.LogInformation("👤 Kullanıcılar zaten mevcut, atlanıyor...");
+            return;
+        }
+
+        var passwordHash = _hashingService.Hash("123456");
+
+        var users = new List<User>
+        {
+            new User 
+            { 
+                Id = 1, 
+                FirstName = "Admin", 
+                LastName = "User", 
+                Email = "admin@ecommerce.com", 
+                EmailHash = _hashingService.Hash("admin@ecommerce.com"),
+                PasswordHash = passwordHash,
+                RoleId = 1,
+                CreatedAt = DateTime.UtcNow, 
+                UpdatedAt = DateTime.UtcNow 
+            },
+            new User 
+            { 
+                Id = 2, 
+                FirstName = "Test", 
+                LastName = "Customer", 
+                Email = "customer@ecommerce.com", 
+                EmailHash = _hashingService.Hash("customer@ecommerce.com"),
+                PasswordHash = passwordHash,
+                RoleId = 2,
+                CreatedAt = DateTime.UtcNow, 
+                UpdatedAt = DateTime.UtcNow 
+            }
+        };
+
+        foreach (var user in users)
+        {
+            await _context.Database.ExecuteSqlRawAsync(
+                @"INSERT INTO ""TBL_Users"" (""Id"", ""FirstName"", ""LastName"", ""Email"", ""EmailHash"", ""PasswordHash"", ""RoleId"", ""CreatedAt"", ""UpdatedAt"") 
+                  VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})",
+                user.Id, user.FirstName, user.LastName, user.Email, user.EmailHash, user.PasswordHash, user.RoleId, user.CreatedAt, user.UpdatedAt);
+        }
+
+        _logger.LogInformation("✅ {Count} kullanıcı eklendi.", users.Count);
+    }
+
+    private async Task SeedShippingAddressesAsync()
+    {
+        if (await _context.ShippingAddresses.AnyAsync())
+        {
+            _logger.LogInformation("📍 Adresler zaten mevcut, atlanıyor...");
+            return;
+        }
+
+        var address = new ShippingAddress
+        {
+            Id = 1,
+            UserId = 2,
+            Title = "Ev Adresim",
+            FullName = "Test Customer",
+            Phone = "5551234567",
+            City = "İstanbul",
+            District = "Kadıköy",
+            AddressLine = "Bağdat Cd. No:1",
+            PostalCode = "34700",
+            IsDefault = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _context.Database.ExecuteSqlRawAsync(
+            @"INSERT INTO ""TBL_ShippingAddresses"" (""Id"", ""UserId"", ""Title"", ""FullName"", ""Phone"", ""City"", ""District"", ""AddressLine"", ""PostalCode"", ""IsDefault"", ""CreatedAt"", ""UpdatedAt"") 
+              VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11})",
+            address.Id, address.UserId, address.Title, address.FullName, address.Phone, address.City, address.District, address.AddressLine, address.PostalCode, address.IsDefault, address.CreatedAt, address.UpdatedAt);
+
+        _logger.LogInformation("✅ 1 örnek adres eklendi.");
+    }
+
+    private async Task ResetSequencesAsync()
+    {
+        _logger.LogInformation("🔄 Sequence'ler resetleniyor...");
+
+        var tables = new[] 
+        { 
+            "TBL_Categories", 
+            "TBL_Products", 
+            "TBL_Roles", 
+            "TBL_Users", 
+            "TBL_ShippingAddresses" 
+        };
+
+        foreach (var table in tables)
+        {
+            var seqName = $"{table}_Id_seq";
+            var sql = $"SELECT setval(pg_get_serial_sequence('\"{table}\"', 'Id'), coalesce(max(\"Id\"), 0) + 1, false) FROM \"{table}\";";
+            
+            try 
+            {
+                await _context.Database.ExecuteSqlRawAsync(sql);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "⚠️  {Table} için sequence resetlenemedi. Sequence adı farklı olabilir.", table);
+            }
+        }
+    }
 }
 
 // Seed DTO'ları

@@ -21,7 +21,7 @@ namespace EcommerceAPI.Infrastructure.Services;
 public class RedisCartCacheService : ICartCacheService
 {
     private readonly IConnectionMultiplexer _redis;
-    private static readonly TimeSpan CartExpiration = TimeSpan.FromDays(7);
+    private static readonly TimeSpan CartExpiration = TimeSpan.FromDays(Constants.InfrastructureConstants.Redis.CartCacheDays);
 
     public RedisCartCacheService(IConnectionMultiplexer redis)
     {

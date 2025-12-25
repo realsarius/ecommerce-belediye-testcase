@@ -51,10 +51,14 @@ public class IyzicoPaymentService : IPaymentService
         var order = await _orderDal.GetByIdWithDetailsAsync(request.OrderId);
 
         if (order == null || order.UserId != userId)
-            return new ErrorDataResult<PaymentDto>($"Sipariş bulunamadı: {request.OrderId}");
+            return new ErrorDataResult<PaymentDto>(
+                Constants.InfrastructureConstants.Payment.OrderNotFoundCode, 
+                $"Sipariş bulunamadı: {request.OrderId}");
 
         if (order.Payment == null)
-            return new ErrorDataResult<PaymentDto>("Bu siparişe ait ödeme kaydı bulunamadı.");
+            return new ErrorDataResult<PaymentDto>(
+                Constants.InfrastructureConstants.Payment.PaymentRecordNotFoundCode,
+                "Bu siparişe ait ödeme kaydı bulunamadı.");
 
         // Generate idempotency key if not provided
         var idempotencyKey = string.IsNullOrEmpty(request.IdempotencyKey) 
@@ -69,7 +73,9 @@ public class IyzicoPaymentService : IPaymentService
         }
 
         if (order.Payment.Status == PaymentStatus.Success)
-            return new ErrorDataResult<PaymentDto>("Bu sipariş için ödeme zaten alınmış.");
+            return new ErrorDataResult<PaymentDto>(
+                Constants.InfrastructureConstants.Payment.AlreadyPaidCode,
+                "Bu sipariş için ödeme zaten alınmış.");
 
         // Iyzico API isteği
         var iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
@@ -97,7 +103,11 @@ public class IyzicoPaymentService : IPaymentService
             return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
         }
         
-        return new ErrorDataResult<PaymentDto>(MapToDto(order.Payment), order.Payment.ErrorMessage ?? "Ödeme başarısız");
+        return new ErrorDataResult<PaymentDto>(
+            MapToDto(order.Payment), 
+            order.Payment.ErrorMessage ?? Constants.InfrastructureConstants.Payment.DefaultErrorMessage,
+            order.Payment.Status == PaymentStatus.Failed ? Constants.InfrastructureConstants.Payment.DefaultErrorCode : null,
+            iyzicoPayment.ErrorMessage);
     }
 
     private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request)
