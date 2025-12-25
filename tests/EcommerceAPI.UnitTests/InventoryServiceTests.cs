@@ -16,6 +16,7 @@ public class InventoryManagerTests
     private readonly Mock<IInventoryDal> _inventoryDalMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly InventoryManager _inventoryManager;
 
     public InventoryManagerTests()
@@ -23,6 +24,7 @@ public class InventoryManagerTests
         _inventoryDalMock = new Mock<IInventoryDal>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _auditServiceMock = new Mock<IAuditService>();
+        _unitOfWorkMock = new Mock<IUnitOfWork>();
         
         _lockServiceMock
             .Setup(x => x.ExecuteWithLockAsync(
@@ -34,7 +36,8 @@ public class InventoryManagerTests
         _inventoryManager = new InventoryManager(
             _inventoryDalMock.Object,
             _lockServiceMock.Object,
-            _auditServiceMock.Object
+            _auditServiceMock.Object,
+            _unitOfWorkMock.Object
         );
     }
 

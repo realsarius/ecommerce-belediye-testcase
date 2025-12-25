@@ -23,6 +23,7 @@ public class OrderManager : IOrderService
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
+    private const int OrderTimeoutMinutes = 30;
 
     public OrderManager(
         IOrderDal orderDal,
@@ -56,16 +57,18 @@ public class OrderManager : IOrderService
         var couponData = couponResult.Data;
 
         var order = CreateOrderEntity(userId, request, cartDto, subtotal, shippingCost, couponData);
-        
-        await _orderDal.AddAsync(order);
 
+        await _unitOfWork.BeginTransactionAsync();
         try
         {
+            await _orderDal.AddAsync(order);
             await ProcessStockAndCouponUsageAsync(order, cartDto, userId, couponData.Id);
             await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
         }
         catch (Exception ex)
         {
+            await _unitOfWork.RollbackTransactionAsync();
             return new ErrorDataResult<OrderDto>($"Sipariş oluşturulamadı: {ex.Message}");
         }
 
@@ -111,6 +114,7 @@ public class OrderManager : IOrderService
         if (order.Status != OrderStatus.PendingPayment)
              return new ErrorDataResult<OrderDto>("Sadece ödeme bekleyen siparişler iptal edilebilir.");
 
+        var previousStatus = order.Status;
         order.Status = OrderStatus.Cancelled;
         order.CancelledAt = DateTime.UtcNow;
 
@@ -130,14 +134,14 @@ public class OrderManager : IOrderService
             userId.ToString(),
             "CancelOrder",
             "Order",
-            new { OrderId = order.Id, OrderNumber = order.OrderNumber });
+            new { OrderId = order.Id, OrderNumber = order.OrderNumber, PreviousStatus = previousStatus.ToString(), NewStatus = OrderStatus.Cancelled.ToString() });
 
         return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş iptal edildi.");
     }
 
     public async Task<IResult> CancelExpiredOrdersAsync()
     {
-        var expiryTime = DateTime.UtcNow.AddMinutes(-30);
+        var expiryTime = DateTime.UtcNow.AddMinutes(-OrderTimeoutMinutes);
         var expiredOrders = await _orderDal.GetExpiredPendingOrdersAsync(expiryTime);
 
         if (!expiredOrders.Any()) return new SuccessResult();

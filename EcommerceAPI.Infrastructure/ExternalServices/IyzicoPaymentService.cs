@@ -56,9 +56,13 @@ public class IyzicoPaymentService : IPaymentService
         if (order.Payment == null)
             return new ErrorDataResult<PaymentDto>("Bu siparişe ait ödeme kaydı bulunamadı.");
 
+        // Generate idempotency key if not provided
+        var idempotencyKey = string.IsNullOrEmpty(request.IdempotencyKey) 
+            ? $"{order.OrderNumber}-{userId}-{DateTime.UtcNow:yyyyMMddHHmmss}" 
+            : request.IdempotencyKey;
+
         // Idempotency kontrolü
-        if (!string.IsNullOrEmpty(request.IdempotencyKey) &&
-            order.Payment.IdempotencyKey == request.IdempotencyKey &&
+        if (order.Payment.IdempotencyKey == idempotencyKey &&
             order.Payment.Status == PaymentStatus.Success)
         {
             return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
@@ -83,10 +87,7 @@ public class IyzicoPaymentService : IPaymentService
             order.Payment.ErrorMessage = iyzicoPayment.ErrorMessage ?? "Ödeme işlemi başarısız oldu.";
         }
 
-        if (!string.IsNullOrEmpty(request.IdempotencyKey))
-        {
-            order.Payment.IdempotencyKey = request.IdempotencyKey;
-        }
+        order.Payment.IdempotencyKey = idempotencyKey;
 
         _orderDal.Update(order);
         await _unitOfWork.SaveChangesAsync();

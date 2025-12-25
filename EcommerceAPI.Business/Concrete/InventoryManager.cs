@@ -16,12 +16,18 @@ public class InventoryManager : IInventoryService
     private readonly IInventoryDal _inventoryDal;
     private readonly IDistributedLockService _lockService;
     private readonly IAuditService _auditService;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public InventoryManager(IInventoryDal inventoryDal, IDistributedLockService lockService, IAuditService auditService)
+    public InventoryManager(
+        IInventoryDal inventoryDal, 
+        IDistributedLockService lockService, 
+        IAuditService auditService,
+        IUnitOfWork unitOfWork)
     {
         _inventoryDal = inventoryDal;
         _lockService = lockService;
         _auditService = auditService;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<IResult> DecreaseStockAsync(int productId, int quantity, int userId, string reason)
@@ -41,6 +47,7 @@ public class InventoryManager : IInventoryService
                 return new ErrorResult($"Stok yetersiz. Mevcut: {inventory.QuantityAvailable}, İstenen: {quantity}");
             }
 
+            var oldStock = inventory.QuantityAvailable;
             inventory.QuantityAvailable -= quantity;
             _inventoryDal.Update(inventory);
 
@@ -53,12 +60,14 @@ public class InventoryManager : IInventoryService
                 Notes = $"Stok düşüldü. Miktar: {quantity}"
             };
             await _inventoryDal.AddMovementAsync(movement);
+            
+            await _unitOfWork.SaveChangesAsync();
 
             await _auditService.LogActionAsync(
                 userId.ToString(),
                 "DecreaseStock",
                 "Inventory",
-                new { ProductId = productId, Quantity = quantity, NewStock = inventory.QuantityAvailable, Reason = reason });
+                new { ProductId = productId, Quantity = quantity, OldStock = oldStock, NewStock = inventory.QuantityAvailable, Reason = reason });
 
             return new SuccessResult();
         });
@@ -76,6 +85,7 @@ public class InventoryManager : IInventoryService
                 return new ErrorResult("Stok kaydı bulunamadı.");
             }
 
+            var oldStock = inventory.QuantityAvailable;
             inventory.QuantityAvailable += quantity;
             _inventoryDal.Update(inventory);
 
@@ -88,12 +98,14 @@ public class InventoryManager : IInventoryService
                 Notes = $"Stok eklendi. Miktar: {quantity}"
             };
             await _inventoryDal.AddMovementAsync(movement);
+            
+            await _unitOfWork.SaveChangesAsync();
 
             await _auditService.LogActionAsync(
                 userId.ToString(),
                 "IncreaseStock",
                 "Inventory",
-                new { ProductId = productId, Quantity = quantity, NewStock = inventory.QuantityAvailable, Reason = reason });
+                new { ProductId = productId, Quantity = quantity, OldStock = oldStock, NewStock = inventory.QuantityAvailable, Reason = reason });
 
             return new SuccessResult();
         });
