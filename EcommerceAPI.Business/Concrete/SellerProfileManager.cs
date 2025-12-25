@@ -4,8 +4,7 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
-using Microsoft.EntityFrameworkCore;
+
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -15,28 +14,23 @@ public class SellerProfileManager : ISellerProfileService
     private readonly ISellerProfileDal _sellerProfileDal;
     private readonly IUserDal _userDal;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly AppDbContext _context;
     private readonly ILogger<SellerProfileManager> _logger;
 
     public SellerProfileManager(
         ISellerProfileDal sellerProfileDal,
         IUserDal userDal,
         IUnitOfWork unitOfWork,
-        AppDbContext context,
         ILogger<SellerProfileManager> logger)
     {
         _sellerProfileDal = sellerProfileDal;
         _userDal = userDal;
         _unitOfWork = unitOfWork;
-        _context = context;
         _logger = logger;
     }
 
     public async Task<IDataResult<SellerProfileDto>> GetByUserIdAsync(int userId)
     {
-        var profile = await _context.SellerProfiles
-            .Include(sp => sp.User)
-            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        var profile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(userId);
 
         if (profile == null)
             return new ErrorDataResult<SellerProfileDto>("Satıcı profili bulunamadı");
@@ -46,9 +40,7 @@ public class SellerProfileManager : ISellerProfileService
 
     public async Task<IDataResult<SellerProfileDto>> GetByIdAsync(int profileId)
     {
-        var profile = await _context.SellerProfiles
-            .Include(sp => sp.User)
-            .FirstOrDefaultAsync(sp => sp.Id == profileId);
+        var profile = await _sellerProfileDal.GetByIdWithDetailsAsync(profileId);
 
         if (profile == null)
             return new ErrorDataResult<SellerProfileDto>("Satıcı profili bulunamadı");
@@ -58,10 +50,8 @@ public class SellerProfileManager : ISellerProfileService
 
     public async Task<IDataResult<SellerProfileDto>> CreateAsync(int userId, CreateSellerProfileRequest request)
     {
-        // Check if user exists and is a Seller
-        var user = await _context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        var user = await _userDal.GetByIdWithRoleAsync(userId);
             
         if (user == null)
             return new ErrorDataResult<SellerProfileDto>("Kullanıcı bulunamadı");
@@ -69,7 +59,7 @@ public class SellerProfileManager : ISellerProfileService
         if (user.Role?.Name != "Seller")
             return new ErrorDataResult<SellerProfileDto>("Sadece Seller rolündeki kullanıcılar profil oluşturabilir");
 
-        // Check if profile already exists
+
         var existingProfile = await _sellerProfileDal.GetAsync(sp => sp.UserId == userId);
         if (existingProfile != null)
             return new ErrorDataResult<SellerProfileDto>("Bu kullanıcının zaten bir satıcı profili mevcut");
@@ -94,9 +84,7 @@ public class SellerProfileManager : ISellerProfileService
 
     public async Task<IDataResult<SellerProfileDto>> UpdateAsync(int userId, UpdateSellerProfileRequest request)
     {
-        var profile = await _context.SellerProfiles
-            .Include(sp => sp.User)
-            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        var profile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(userId);
 
         if (profile == null)
             return new ErrorDataResult<SellerProfileDto>("Satıcı profili bulunamadı");

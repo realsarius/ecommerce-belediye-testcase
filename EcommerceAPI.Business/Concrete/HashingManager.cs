@@ -20,13 +20,13 @@ public class HashingService : IHashingService
         if (string.IsNullOrEmpty(input))
             return string.Empty;
 
-        // Pepper + input kombinasyonu
+
         var combined = _pepper + input;
         var bytes = Encoding.UTF8.GetBytes(combined);
         
         var hashBytes = SHA256.HashData(bytes);
         
-        // Hex string olarak döndür
+
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 

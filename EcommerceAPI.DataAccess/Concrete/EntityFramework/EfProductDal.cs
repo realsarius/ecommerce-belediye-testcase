@@ -78,4 +78,48 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
     }
+
+    public async Task<(IEnumerable<Product> Items, int TotalCount)> GetPagedForSellerAsync(
+        int page, int pageSize, int sellerId, int? categoryId = null, decimal? minPrice = null,
+        decimal? maxPrice = null, string? search = null, string? sortBy = null, bool sortDescending = false)
+    {
+        var query = _dbSet.Include(p => p.Category)
+                          .Include(p => p.Inventory)
+                          .Include(p => p.Seller)
+                          .Where(p => p.SellerId == sellerId)
+                          .AsNoTracking()
+                          .AsQueryable();
+
+        if (categoryId.HasValue)
+            query = query.Where(p => p.CategoryId == categoryId);
+
+        if (minPrice.HasValue)
+            query = query.Where(p => p.Price >= minPrice);
+
+        if (maxPrice.HasValue)
+            query = query.Where(p => p.Price <= maxPrice);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchTerm = search.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(searchTerm) 
+                                  || p.Description.ToLower().Contains(searchTerm));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        query = sortBy?.ToLower() switch
+        {
+            "price" => sortDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price),
+            "name" => sortDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
+            _ => sortDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
+        };
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
+    }
 }

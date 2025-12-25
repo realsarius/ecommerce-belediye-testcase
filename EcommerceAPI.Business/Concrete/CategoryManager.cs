@@ -3,6 +3,7 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Core.Utilities.Results;
 
@@ -13,27 +14,28 @@ public class CategoryManager : ICategoryService
     private readonly ICategoryDal _categoryDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CategoryManager> _logger;
+    private readonly IAuditService _auditService;
 
     public CategoryManager(
         ICategoryDal categoryDal,
         IUnitOfWork unitOfWork,
-        ILogger<CategoryManager> logger)
+        ILogger<CategoryManager> logger,
+        IAuditService auditService)
     {
         _categoryDal = categoryDal;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditService = auditService;
     }
 
     public async Task<IDataResult<IEnumerable<CategoryDto>>> GetAllCategoriesAsync(bool includeInactive = false)
     {
-        // Not: ProductCount gibi alanlar için Include veya Projection gerekebilir.
-        // Base repository sadece entity döner.
-        // Eğer includeInactive true ise tümünü, false ise sadece aktifleri getir.
+
         
         IList<Category> categories;
         if (includeInactive)
         {
-             // Tüm kategorileri Products ile birlikte getir
+
              categories = await _categoryDal.GetAllWithProductsAsync();
         }
         else
@@ -46,8 +48,7 @@ public class CategoryManager : ICategoryService
 
     public async Task<IDataResult<CategoryDto>> GetCategoryByIdAsync(int id)
     {
-        // GetByIdWithProductsAsync benzeri bir metod ICategoryDal'da olmalıydı
-        // Şimdilik GetAsync kullanıyoruz
+
         var category = await _categoryDal.GetAsync(c => c.Id == id);
         
         if (category == null)
@@ -76,6 +77,12 @@ public class CategoryManager : ICategoryService
         await _unitOfWork.SaveChangesAsync();
 
         _logger.LogInformation("Yeni kategori oluşturuldu: {CategoryId} - {CategoryName}", category.Id, category.Name);
+
+        await _auditService.LogActionAsync(
+            "Admin",
+            "CreateCategory",
+            "Category",
+            new { CategoryId = category.Id, CategoryName = category.Name });
 
         return new SuccessDataResult<CategoryDto>(MapToDto(category), "Kategori başarıyla oluşturuldu.");
     }
@@ -110,7 +117,12 @@ public class CategoryManager : ICategoryService
 
         _logger.LogInformation("Kategori güncellendi: {CategoryId} - {CategoryName}", category.Id, category.Name);
 
-        // Güncel halini tekrar çekmeye gerek olmayabilir ama map için iyi olur
+        await _auditService.LogActionAsync(
+            "Admin",
+            "UpdateCategory",
+            "Category",
+            new { CategoryId = category.Id, CategoryName = category.Name });
+
         return new SuccessDataResult<CategoryDto>(MapToDto(category), "Kategori güncellendi.");
     }
 
@@ -121,13 +133,7 @@ public class CategoryManager : ICategoryService
         if (category == null)
             return new ErrorResult("Kategori bulunamadı.");
 
-        // HasProducts kontrolü için ICategoryDal'da metod veya generic repository count'u kullanılabilir
-        // Şimdilik Product repository'den bakamıyoruz, Category üzerinde product count yoksa.
-        // Base repository CountAsync var.
-        // var hasProducts = await _productDal.CountAsync(p => p.CategoryId == id && p.IsActive) > 0; 
-        // Ancak burada ProductDal inject etmedik. Category üzerinden Products include edilerek bakılabilir.
-        
-        // Şimdilik bu kontrolü atlıyorum veya Dal metodu eklenmesini not ediyorum.
+
 
         category.IsActive = false;
         category.UpdatedAt = DateTime.UtcNow;
@@ -136,6 +142,12 @@ public class CategoryManager : ICategoryService
         await _unitOfWork.SaveChangesAsync();
 
         _logger.LogInformation("Kategori silindi (soft delete): {CategoryId} - {CategoryName}", category.Id, category.Name);
+
+        await _auditService.LogActionAsync(
+            "Admin",
+            "DeleteCategory",
+            "Category",
+            new { CategoryId = category.Id, CategoryName = category.Name });
 
         return new SuccessResult("Kategori silindi.");
     }

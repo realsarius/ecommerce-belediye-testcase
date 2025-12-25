@@ -12,7 +12,7 @@ public class SellerProfileDto : IDto
     public bool IsVerified { get; set; }
     public DateTime CreatedAt { get; set; }
     
-    // User info for display
+
     public string SellerFirstName { get; set; } = string.Empty;
     public string SellerLastName { get; set; } = string.Empty;
 }

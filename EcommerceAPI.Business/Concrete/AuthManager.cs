@@ -4,6 +4,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -20,6 +21,7 @@ public class AuthManager : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IHashingService _hashingService;
+    private readonly IAuditService _auditService;
 
     public AuthManager(
         IUserDal userDal,
@@ -27,7 +29,8 @@ public class AuthManager : IAuthService
         IRefreshTokenDal refreshTokenDal,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
-        IHashingService hashingService)
+        IHashingService hashingService,
+        IAuditService auditService)
     {
         _userDal = userDal;
         _roleDal = roleDal;
@@ -35,22 +38,19 @@ public class AuthManager : IAuthService
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _hashingService = hashingService;
+        _auditService = auditService;
     }
 
     public async Task<IDataResult<AuthResponse>> RegisterAsync(RegisterRequest request)
     {
-        // Email hash'i oluştur (arama için)
         var emailHash = _hashingService.Hash(request.Email.ToLowerInvariant().Trim());
         
-        // Email kontrolü
-        // IEntityRepository GetListAsync kullanıyoruz. filter null değil.
         var existingUsers = await _userDal.GetListAsync(u => u.EmailHash == emailHash);
         if (existingUsers.Any())
         {
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Bu email zaten kayıtlı" });
         }
 
-        // Customer rolünü bul
         var roles = await _roleDal.GetListAsync(r => r.Name == "Customer");
         var customerRole = roles.FirstOrDefault();
         
@@ -59,7 +59,6 @@ public class AuthManager : IAuthService
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Rol bulunamadı" });
         }
 
-        // Kullanıcı oluştur
         var user = new User
         {
             Email = request.Email,
@@ -72,6 +71,12 @@ public class AuthManager : IAuthService
 
         await _userDal.AddAsync(user);
         await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            user.Id.ToString(),
+            "Register",
+            "User",
+            new { UserId = user.Id, Email = user.Email });
 
         return new SuccessDataResult<AuthResponse>(new AuthResponse { Success = true, Message = "Kayıt başarılı" });
     }
@@ -110,6 +115,12 @@ public class AuthManager : IAuthService
 
         await _refreshTokenDal.AddAsync(refreshTokenEntity);
         await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            user.Id.ToString(),
+            "Login",
+            "User",
+            new { UserId = user.Id, Role = role?.Name ?? "Customer" });
 
         return new SuccessDataResult<AuthResponse>(new AuthResponse
         {
@@ -153,7 +164,7 @@ public class AuthManager : IAuthService
                 {
                     childToken.IsRevoked = true;
                     childToken.RevokedReason = "Attempted reuse of ancestor token";
-                    _refreshTokenDal.Update(childToken); // Explicit update
+                    _refreshTokenDal.Update(childToken);
                     await _unitOfWork.SaveChangesAsync();
                 }
             }
@@ -228,6 +239,13 @@ public class AuthManager : IAuthService
         _refreshTokenDal.Update(existingToken);
         
         await _unitOfWork.SaveChangesAsync();
+        
+        await _auditService.LogActionAsync(
+            existingToken.UserId.ToString(),
+            "Logout",
+            "User",
+            new { UserId = existingToken.UserId });
+        
         return new SuccessResult("Token iptal edildi");
     }
 
