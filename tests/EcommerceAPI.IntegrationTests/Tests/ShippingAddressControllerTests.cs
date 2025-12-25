@@ -50,7 +50,7 @@ public class ShippingAddressControllerTests : IClassFixture<CustomWebApplication
 
         var response = await authenticatedClient.PostAsJsonAsync("/api/v1/ShippingAddress", createRequest);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
         
         var createdAddress = await response.Content.ReadFromJsonAsync<ShippingAddressDto>();
         createdAddress.Should().NotBeNull();

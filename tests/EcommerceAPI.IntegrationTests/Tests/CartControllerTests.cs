@@ -68,7 +68,7 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory>
         }
         else
         {
-            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
     }
 

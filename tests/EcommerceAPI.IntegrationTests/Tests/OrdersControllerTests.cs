@@ -27,7 +27,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
             PaymentMethod = "CreditCard"
         };
 
-        var response = await anonymousClient.PostAsJsonAsync("/api/v1/orders/checkout", checkoutRequest);
+        var response = await anonymousClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -45,7 +45,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
             PaymentMethod = "CreditCard"
         };
 
-        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/orders/checkout", checkoutRequest);
+        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -81,7 +81,8 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 13);
         var nonExistingOrderId = 999999;
 
-        var response = await authenticatedClient.PostAsync($"/api/v1/orders/{nonExistingOrderId}/cancel", null);
+        var cancelRequest = new UpdateOrderStatusRequest { Status = "Cancelled" };
+        var response = await authenticatedClient.PatchAsJsonAsync($"/api/v1/orders/{nonExistingOrderId}/status", cancelRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -99,7 +100,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
             PaymentMethod = "CreditCard"
         };
 
-        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/orders/checkout", checkoutRequest);
+        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<OrderDto>>();

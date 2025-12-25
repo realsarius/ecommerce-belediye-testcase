@@ -1,7 +1,9 @@
 using FluentAssertions;
 using Moq;
 using EcommerceAPI.Business.Concrete;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.DataAccess.Abstract;
 using Microsoft.Extensions.Logging;
@@ -12,17 +14,28 @@ namespace EcommerceAPI.UnitTests;
 public class InventoryManagerTests
 {
     private readonly Mock<IInventoryDal> _inventoryDalMock;
-    private readonly Mock<IUnitOfWork> _uowMock;
-    private readonly Mock<ILogger<InventoryManager>> _loggerMock;
+    private readonly Mock<IDistributedLockService> _lockServiceMock;
+    private readonly Mock<IAuditService> _auditServiceMock;
     private readonly InventoryManager _inventoryManager;
 
     public InventoryManagerTests()
     {
         _inventoryDalMock = new Mock<IInventoryDal>();
-        _uowMock = new Mock<IUnitOfWork>();
-        _loggerMock = new Mock<ILogger<InventoryManager>>();
+        _lockServiceMock = new Mock<IDistributedLockService>();
+        _auditServiceMock = new Mock<IAuditService>();
         
-        _inventoryManager = new InventoryManager(_inventoryDalMock.Object);
+        _lockServiceMock
+            .Setup(x => x.ExecuteWithLockAsync(
+                It.IsAny<string>(),
+                It.IsAny<Func<Task<IResult>>>(),
+                It.IsAny<int>()))
+            .Returns<string, Func<Task<IResult>>, int>((key, callback, timeout) => callback());
+        
+        _inventoryManager = new InventoryManager(
+            _inventoryDalMock.Object,
+            _lockServiceMock.Object,
+            _auditServiceMock.Object
+        );
     }
 
     [Fact]

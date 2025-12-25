@@ -79,7 +79,6 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
     [MemberData(nameof(GetIyzicoErrorCardsTestData))]
     public async Task ProcessPayment_IyzicoErrorCard_ReturnsExpectedError(
         string cardNumber, 
-        string expectedErrorContains, 
         string description)
     {
         var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);
@@ -125,7 +124,7 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         foreach (var card in ErrorCards)
         {
-            yield return new object[] { card.Number, card.ExpectedError, card.Description };
+            yield return new object[] { card.Number, card.Description };
         }
     }
 
@@ -141,7 +140,7 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         await TestPaymentWithCard("4124111111111116", "Cvc");
     }
 
-    [Fact(Skip = "Requires real order")]  
+    [Fact(Skip = "Requires real order")]
     public async Task ProcessPayment_StolenCard_ReturnsError()
     {
         await TestPaymentWithCard("4126111111111114", "Çalıntı");
