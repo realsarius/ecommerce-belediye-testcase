@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -11,10 +13,18 @@ namespace EcommerceAPI.IntegrationTests.Tests;
 public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
+    private const int TestUserId = 60;
 
     public CreditCardsControllerTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
+    }
+
+    private async Task EnsureTestUserExistsAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await TestDataSeeder.EnsureUserAsync(db, TestUserId);
     }
 
     private async Task<CreditCardDto?> CreateCardAsync(HttpClient client)
@@ -46,7 +56,9 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task AddCard_ValidRequest_ReturnsCreated()
     {
-        var client = _factory.CreateClient().AsCustomer(userId: 60);
+        await EnsureTestUserExistsAsync();
+        var client = _factory.CreateClient().AsCustomer(userId: TestUserId);
+        
         var request = new AddCreditCardRequest
         {
             CardHolderName = "Test User",
@@ -71,11 +83,13 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task DeleteCard_Existing_ReturnsOk()
     {
-        var client = _factory.CreateClient().AsCustomer(userId: 60);
+        await EnsureTestUserExistsAsync();
+        var client = _factory.CreateClient().AsCustomer(userId: TestUserId);
+        
         var card = await CreateCardAsync(client);
         card.Should().NotBeNull("Setup failed: Card could not be created");
 
-        var response = await client.DeleteAsync($"/api/v1/creditcards/{card.Id}");
+        var response = await client.DeleteAsync($"/api/v1/creditcards/{card!.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -83,13 +97,15 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public async Task SetDefault_ExistingCard_ReturnsOk()
     {
-        var client = _factory.CreateClient().AsCustomer(userId: 60);
+        await EnsureTestUserExistsAsync();
+        var client = _factory.CreateClient().AsCustomer(userId: TestUserId);
+        
         var card = await CreateCardAsync(client);
         card.Should().NotBeNull("Setup failed: Card could not be created");
 
         var request = new SetDefaultCreditCardRequest { IsDefault = true };
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/creditcards/{card.Id}", request);
+        var response = await client.PatchAsJsonAsync($"/api/v1/creditcards/{card!.Id}", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
