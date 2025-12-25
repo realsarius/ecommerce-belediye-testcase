@@ -138,7 +138,8 @@ if (!builder.Environment.IsEnvironment("Test"))
     builder.Services.AddHangfireServer();
 }
 
-var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] ?? "default-development-key-min-32-chars";
+var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] 
+    ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable is required. Application cannot start without it.");
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

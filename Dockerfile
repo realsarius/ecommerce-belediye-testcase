@@ -13,6 +13,8 @@ COPY ["EcommerceAPI.Business/EcommerceAPI.Business.csproj", "EcommerceAPI.Busine
 COPY ["EcommerceAPI.DataAccess/EcommerceAPI.DataAccess.csproj", "EcommerceAPI.DataAccess/"]
 COPY ["EcommerceAPI.Entities/EcommerceAPI.Entities.csproj", "EcommerceAPI.Entities/"]
 COPY ["EcommerceAPI.Core/EcommerceAPI.Core.csproj", "EcommerceAPI.Core/"]
+COPY ["EcommerceAPI.Infrastructure/EcommerceAPI.Infrastructure.csproj", "EcommerceAPI.Infrastructure/"]
+COPY ["EcommerceAPI.Seeder/EcommerceAPI.Seeder.csproj", "EcommerceAPI.Seeder/"]
 
 RUN dotnet restore "EcommerceAPI.API/EcommerceAPI.API.csproj"
 

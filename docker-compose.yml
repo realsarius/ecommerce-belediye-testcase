@@ -3,6 +3,8 @@ services:
   postgres-dev:
     image: postgres:16-alpine
     container_name: ecommerce-db-dev
+    profiles:
+      - dev
     environment:
       POSTGRES_DB: ${DATABASE_DEV_NAME}
       POSTGRES_USER: ${DATABASE_DEV_USER}
@@ -25,10 +27,12 @@ services:
       - "com.ecommerce.environment=development"
       - "com.ecommerce.service=database"
 
-  # PostgreSQL 16 Alpine Test Datbase
+  # PostgreSQL 16 Alpine Test Database
   postgres-test:
     image: postgres:16-alpine
     container_name: ecommerce-db-test
+    profiles:
+      - test
     environment:
       POSTGRES_DB: ${DATABASE_TEST_NAME}
       POSTGRES_USER: ${DATABASE_TEST_USER}
@@ -55,6 +59,8 @@ services:
   postgres-prod:
     image: postgres:16-alpine
     container_name: ecommerce-db-prod
+    profiles:
+      - prod
     environment:
       POSTGRES_DB: ${DATABASE_PROD_NAME}
       POSTGRES_USER: ${DATABASE_PROD_USER}
@@ -80,6 +86,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: ecommerce-pgadmin
+    profiles:
+      - dev
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
@@ -94,8 +102,6 @@ services:
       - ecommerce-network
     depends_on:
       - postgres-dev
-      - postgres-test
-      - postgres-prod
     restart: unless-stopped
     labels:
       - "com.ecommerce.service=admin-panel"
@@ -104,6 +110,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ecommerce-redis
+    profiles:
+      - dev
     ports:
       - "6379:6379"
     volumes:
@@ -124,6 +132,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: ecommerce-api-dev
+    profiles:
+      - dev
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:80
@@ -143,6 +153,21 @@ services:
       - "5000:80"
     volumes:
       - .:/app
+      # Exclude build artifacts to prevent NuGet path conflicts
+      - /app/EcommerceAPI.API/obj
+      - /app/EcommerceAPI.API/bin
+      - /app/EcommerceAPI.Business/obj
+      - /app/EcommerceAPI.Business/bin
+      - /app/EcommerceAPI.Core/obj
+      - /app/EcommerceAPI.Core/bin
+      - /app/EcommerceAPI.DataAccess/obj
+      - /app/EcommerceAPI.DataAccess/bin
+      - /app/EcommerceAPI.Entities/obj
+      - /app/EcommerceAPI.Entities/bin
+      - /app/EcommerceAPI.Infrastructure/obj
+      - /app/EcommerceAPI.Infrastructure/bin
+      - /app/EcommerceAPI.Seeder/obj
+      - /app/EcommerceAPI.Seeder/bin
     networks:
       - ecommerce-network
     depends_on:
@@ -158,6 +183,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ecommerce-api-prod
+    profiles:
+      - prod
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:80
@@ -191,6 +218,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     container_name: ecommerce-frontend-dev
+    profiles:
+      - dev
     environment:
       VITE_API_URL: http://localhost:5000/api/v1
     ports:
@@ -213,6 +242,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: ecommerce-frontend-prod
+    profiles:
+      - prod
     ports:
       - "80:80"
     networks:
@@ -228,6 +259,8 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: ecommerce-elasticsearch
+    profiles:
+      - logging
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -259,6 +292,8 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: ecommerce-kibana
+    profiles:
+      - logging
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - SERVER_NAME=ecommerce-kibana

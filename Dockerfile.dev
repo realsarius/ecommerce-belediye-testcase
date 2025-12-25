@@ -13,4 +13,4 @@ EXPOSE 443
 ENV ASPNETCORE_ENVIRONMENT=Development
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 
-ENTRYPOINT ["dotnet", "watch", "run", "--project", "EcommerceAPI.API/EcommerceAPI.API.csproj", "--urls", "http://+:80"]
+ENTRYPOINT ["sh", "-c", "dotnet restore EcommerceAPI.sln && dotnet watch run --project EcommerceAPI.API/EcommerceAPI.API.csproj --urls http://+:80"]

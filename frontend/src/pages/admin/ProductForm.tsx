@@ -85,12 +85,8 @@ export default function ProductForm() {
   useEffect(() => {
     // Kategoriler ve ürün yüklendiğinde formu doldur
     if (product && isEdit && categories) {
-      console.log('DEBUG: Full Product:', JSON.stringify(product));
-      console.log('DEBUG: Full Categories:', JSON.stringify(categories));
-      
-      // Fallback for case sensitivity
+
       const rawCatId = product.categoryId ?? (product as any).CategoryId;
-      console.log('DEBUG: Resolved rawCatId:', rawCatId, typeof rawCatId);
 
       reset({
         name: product.name,

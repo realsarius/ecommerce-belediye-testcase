@@ -45,7 +45,6 @@ public class DbInitializer
             await _context.SaveChangesAsync();
             
 
-            // Password: Test123! (BCrypt hash)
             var passwordHash = "$2a$11$rBNlWqg/4V2Jw!YfG8dfU.K8dGcjlKQMZ3m0H7kXPnHWvnBN6jQFW";
 
 
