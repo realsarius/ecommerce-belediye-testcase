@@ -43,9 +43,10 @@ export interface Payment {
 
 export interface ProcessPaymentRequest {
   orderId: number;
-  cardHolderName: string;
-  cardNumber: string;
-  expiryDate: string;
+  savedCardId?: number;  // Kayıtlı kart ile ödeme için
+  cardHolderName?: string;
+  cardNumber?: string;
+  expiryDate?: string;
   cvv: string;
   idempotencyKey?: string;
 }

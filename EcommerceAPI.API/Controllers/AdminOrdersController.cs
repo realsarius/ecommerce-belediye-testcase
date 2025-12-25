@@ -40,8 +40,3 @@ public class AdminOrdersController : ControllerBase
     }
 }
 
-public class UpdateOrderStatusRequest
-{
-    public string Status { get; set; } = string.Empty;
-}
-

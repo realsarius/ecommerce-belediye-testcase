@@ -1,118 +1,101 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.Concrete;
-using EcommerceAPI.DataAccess.Abstract; // IDal interface'leri burada
+using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
-using StackExchange.Redis;
+using EcommerceAPI.Core.Utilities.Redis;
+using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
+/// <summary>
+/// Inventory management service.
+/// </summary>
 public class InventoryManager : IInventoryService
 {
     private readonly IInventoryDal _inventoryDal;
-    private readonly IConnectionMultiplexer _redis;
+    private readonly IDistributedLockService _lockService;
+    private readonly IAuditService _auditService;
 
-    public InventoryManager(IInventoryDal inventoryDal, IConnectionMultiplexer redis)
+    public InventoryManager(IInventoryDal inventoryDal, IDistributedLockService lockService, IAuditService auditService)
     {
         _inventoryDal = inventoryDal;
-        _redis = redis;
+        _lockService = lockService;
+        _auditService = auditService;
     }
 
     public async Task<IResult> DecreaseStockAsync(int productId, int quantity, int userId, string reason)
     {
-        var db = _redis.GetDatabase();
-        var lockKey = $"lock:product:{productId}";
-        var token = Guid.NewGuid().ToString();
+        var lockKey = RedisKeys.ProductLock(productId);
 
-        // 1. Kilidi almaya çalış (10 saniyelik kilit)
-        if (await db.LockTakeAsync(lockKey, token, TimeSpan.FromSeconds(10)))
+        return await _lockService.ExecuteWithLockAsync<IResult>(lockKey, async () =>
         {
-            try
+            var inventory = await _inventoryDal.GetByProductIdAsync(productId);
+            if (inventory == null)
             {
-                // --- KRİTİK BÖLGE BAŞLANGICI ---
-                
-                var inventory = await _inventoryDal.GetByProductIdAsync(productId);
-                if (inventory == null)
-                {
-                    return new ErrorResult("Stok kaydı bulunamadı.");
-                }
-
-                if (inventory.QuantityAvailable < quantity)
-                {
-                    return new ErrorResult($"Stok yetersiz. Mevcut: {inventory.QuantityAvailable}, İstenen: {quantity}");
-                }
-
-                inventory.QuantityAvailable -= quantity;
-                _inventoryDal.Update(inventory);
-
-                // Audit kaydı
-                var movement = new InventoryMovement
-                {
-                    ProductId = productId,
-                    UserId = userId,
-                    Delta = -quantity,
-                    Reason = reason,
-                    Notes = $"Stok düşüldü. Miktar: {quantity}"
-                };
-                await _inventoryDal.AddMovementAsync(movement);
-                
-                // --- KRİTİK BÖLGE BİTİŞİ ---
-                
-                return new SuccessResult();
+                return new ErrorResult("Stok kaydı bulunamadı.");
             }
-            finally
+
+            if (inventory.QuantityAvailable < quantity)
             {
-                // 2. İş bitince kilidi serbest bırak
-                await db.LockReleaseAsync(lockKey, token);
+                return new ErrorResult($"Stok yetersiz. Mevcut: {inventory.QuantityAvailable}, İstenen: {quantity}");
             }
-        }
-        else
-        {
-            return new ErrorResult("Sistem yoğunluğu nedeniyle işlem gerçekleştirilemedi. Lütfen tekrar deneyin.");
-        }
+
+            inventory.QuantityAvailable -= quantity;
+            _inventoryDal.Update(inventory);
+
+            var movement = new InventoryMovement
+            {
+                ProductId = productId,
+                UserId = userId,
+                Delta = -quantity,
+                Reason = reason,
+                Notes = $"Stok düşüldü. Miktar: {quantity}"
+            };
+            await _inventoryDal.AddMovementAsync(movement);
+
+            await _auditService.LogActionAsync(
+                userId.ToString(),
+                "DecreaseStock",
+                "Inventory",
+                new { ProductId = productId, Quantity = quantity, NewStock = inventory.QuantityAvailable, Reason = reason });
+
+            return new SuccessResult();
+        });
     }
 
     public async Task<IResult> IncreaseStockAsync(int productId, int quantity, int userId, string reason)
     {
-        // IncreaseStock için de lock eklenebilir ama şu an öncelik DecreaseStock (overselling koruması)
-        // Tutarlılık için buraya da ekliyoruz.
-        var db = _redis.GetDatabase();
-        var lockKey = $"lock:product:{productId}";
-        var token = Guid.NewGuid().ToString();
+        var lockKey = RedisKeys.ProductLock(productId);
 
-        if (await db.LockTakeAsync(lockKey, token, TimeSpan.FromSeconds(10)))
+        return await _lockService.ExecuteWithLockAsync<IResult>(lockKey, async () =>
         {
-            try 
+            var inventory = await _inventoryDal.GetByProductIdAsync(productId);
+            if (inventory == null)
             {
-                 var inventory = await _inventoryDal.GetByProductIdAsync(productId);
-                if (inventory == null)
-                {
-                    return new ErrorResult("Stok kaydı bulunamadı.");
-                }
-
-                inventory.QuantityAvailable += quantity;
-                _inventoryDal.Update(inventory);
-
-                // Audit kaydı burada
-                var movement = new InventoryMovement
-                {
-                    ProductId = productId,
-                    UserId = userId,
-                    Delta = quantity,
-                    Reason = reason,
-                    Notes = $"Stok eklendi. Miktar: {quantity}"
-                };
-                await _inventoryDal.AddMovementAsync(movement);
-
-                return new SuccessResult();
+                return new ErrorResult("Stok kaydı bulunamadı.");
             }
-            finally
+
+            inventory.QuantityAvailable += quantity;
+            _inventoryDal.Update(inventory);
+
+            var movement = new InventoryMovement
             {
-                 await db.LockReleaseAsync(lockKey, token);
-            }
-        }
-        else 
-        {
-             return new ErrorResult("Sistem yoğunluğu nedeniyle işlem gerçekleştirilemedi. Lütfen tekrar deneyin.");
-        }
+                ProductId = productId,
+                UserId = userId,
+                Delta = quantity,
+                Reason = reason,
+                Notes = $"Stok eklendi. Miktar: {quantity}"
+            };
+            await _inventoryDal.AddMovementAsync(movement);
+
+            await _auditService.LogActionAsync(
+                userId.ToString(),
+                "IncreaseStock",
+                "Inventory",
+                new { ProductId = productId, Quantity = quantity, NewStock = inventory.QuantityAvailable, Reason = reason });
+
+            return new SuccessResult();
+        });
     }
 }

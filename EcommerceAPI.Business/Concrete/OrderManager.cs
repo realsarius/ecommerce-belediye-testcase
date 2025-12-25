@@ -5,139 +5,63 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using Microsoft.EntityFrameworkCore;
+using EcommerceAPI.Business.Extensions;
 
 namespace EcommerceAPI.Business.Concrete;
 
 public class OrderManager : IOrderService
 {
     private readonly IOrderDal _orderDal;
+    private readonly IProductDal _productDal;
     private readonly IInventoryService _inventoryService;
     private readonly ICartService _cartService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICouponService _couponService;
+    private readonly IAuditService _auditService;
+
+    private const decimal FreeShippingThreshold = 1000m;
+    private const decimal ShippingCost = 29.90m;
 
     public OrderManager(
         IOrderDal orderDal,
+        IProductDal productDal,
         IInventoryService inventoryService,
         ICartService cartService,
         IUnitOfWork unitOfWork,
-        ICouponService couponService)
+        ICouponService couponService,
+        IAuditService auditService)
     {
         _orderDal = orderDal;
+        _productDal = productDal;
         _inventoryService = inventoryService;
         _cartService = cartService;
         _unitOfWork = unitOfWork;
         _couponService = couponService;
+        _auditService = auditService;
     }
 
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
-        // Redis'e geçiş: Cart verisini servisten çek (DTO olarak gelir)
-        var cartResult = await _cartService.GetCartAsync(userId);
-        if (!cartResult.Success)
-             return new ErrorDataResult<OrderDto>(cartResult.Message);
-
+        var cartResult = await ValidateCartAndStockAsync(userId);
+        if (!cartResult.Success) return new ErrorDataResult<OrderDto>(cartResult.Message);
         var cartDto = cartResult.Data;
-        
-        if (cartDto == null || !cartDto.Items.Any())
-            return new ErrorDataResult<OrderDto>("Sepetiniz boş. Sipariş oluşturmak için sepete ürün ekleyin.");
 
-        // Stok kontrolü (Pre-check)
-        // DTO içindeki AvailableStock, CartManager'da anlık olarak DB'den çekilip dolduruldu.
-        foreach (var item in cartDto.Items)
-        {
-            if (item.Quantity > item.AvailableStock)
-                return new ErrorDataResult<OrderDto>($"Stok yetersiz: {item.ProductName}");
-        }
-
-        // Ara toplam hesapla (veya DTO'dan al: cartDto.TotalAmount)
         var subtotal = cartDto.TotalAmount;
+        var shippingCost = CalculateShippingCost(subtotal);
         
-        // Kargo Hesaplama (1000 TL üzeri ücretsiz)
-        decimal shippingCost = subtotal >= 1000 ? 0 : 29.90m;
+        var couponResult = await ValidateCouponAsync(request.CouponCode, subtotal);
+        if (!couponResult.Success) return new ErrorDataResult<OrderDto>(couponResult.Message);
+        var couponData = couponResult.Data;
+
+        var order = CreateOrderEntity(userId, request, cartDto, subtotal, shippingCost, couponData);
         
-        // Kupon validasyonu
-        int? couponId = null;
-        string? couponCode = null;
-        decimal discountAmount = 0;
-        
-        if (!string.IsNullOrEmpty(request.CouponCode))
-        {
-            var couponResult = await _couponService.ValidateCouponAsync(request.CouponCode, subtotal);
-            if (!couponResult.Success)
-                return new ErrorDataResult<OrderDto>("Kupon doğrulanamadı.");
-            
-            var validation = couponResult.Data!;
-            if (!validation.IsValid)
-                return new ErrorDataResult<OrderDto>(validation.ErrorMessage ?? "Geçersiz kupon kodu.");
-            
-            couponId = validation.Coupon!.Id;
-            couponCode = validation.Coupon.Code; // Snapshot
-            discountAmount = validation.DiscountAmount;
-        }
-
-        var order = new Order
-        {
-            UserId = userId,
-            OrderNumber = GenerateOrderNumber(),
-            Status = OrderStatus.PendingPayment,
-            ShippingAddress = request.ShippingAddress,
-            Notes = request.Notes ?? string.Empty,
-            TotalAmount = subtotal - discountAmount + shippingCost, // Kargo dahil
-            CouponId = couponId,
-            CouponCode = couponCode,
-            DiscountAmount = discountAmount
-        };
-
-        foreach (var cartItem in cartDto.Items)
-        {
-            order.OrderItems.Add(new OrderItem
-            {
-                ProductId = cartItem.ProductId,
-                Quantity = cartItem.Quantity,
-                // PriceSnapshot artık UnitPrice'dan geliyor (CartManager güncel fiyatı veriyor)
-                PriceSnapshot = cartItem.UnitPrice 
-            });
-        }
-
-        order.Payment = new Payment
-        {
-            Amount = order.TotalAmount,
-            Status = PaymentStatus.Pending,
-            PaymentMethod = request.PaymentMethod,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
-
         await _orderDal.AddAsync(order);
 
         try
         {
-            // Stok düşürme
-            foreach (var cartItem in cartDto.Items)
-            {
-                var stockResult = await _inventoryService.DecreaseStockAsync(
-                    cartItem.ProductId, 
-                    cartItem.Quantity, 
-                    userId, 
-                    $"Satış - Sipariş No: {order.OrderNumber}");
-                
-                if (!stockResult.Success)
-                     throw new Exception(stockResult.Message);
-            }
-
-            // Kupon kullanım sayısını artır (transaction içinde)
-            if (couponId.HasValue)
-            {
-                var usageResult = await _couponService.IncrementUsageAsync(couponId.Value);
-                if (!usageResult.Success)
-                    throw new Exception("Kupon kullanımı kaydedilemedi.");
-            }
-
-            var clearCartResult = await _cartService.ClearCartAsync(userId);
-             if (!clearCartResult.Success)
-                 throw new Exception(clearCartResult.Message);
-
+            await ProcessStockAndCouponUsageAsync(order, cartDto, userId, couponData.Id);
             await _unitOfWork.SaveChangesAsync();
         }
         catch (Exception ex)
@@ -146,7 +70,14 @@ public class OrderManager : IOrderService
         }
 
         var createdOrder = await _orderDal.GetByIdWithDetailsAsync(order.Id);
-        return new SuccessDataResult<OrderDto>(MapToDto(createdOrder!), "Sipariş başarıyla oluşturuldu.");
+        
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "CreateOrder",
+            "Order",
+            new { OrderId = order.Id, OrderNumber = order.OrderNumber, TotalAmount = order.TotalAmount, ItemCount = order.OrderItems.Count });
+        
+        return new SuccessDataResult<OrderDto>(createdOrder!.ToDto(), "Sipariş başarıyla oluşturuldu.");
     }
 
     public async Task<IDataResult<OrderDto>> GetOrderAsync(int userId, int orderId)
@@ -156,17 +87,22 @@ public class OrderManager : IOrderService
         if (order == null || order.UserId != userId)
             return new ErrorDataResult<OrderDto>("Sipariş bulunamadı.");
 
-        return new SuccessDataResult<OrderDto>(MapToDto(order));
+        return new SuccessDataResult<OrderDto>(order.ToDto());
     }
 
     public async Task<IDataResult<List<OrderDto>>> GetUserOrdersAsync(int userId)
     {
         var orders = await _orderDal.GetUserOrdersAsync(userId);
-        return new SuccessDataResult<List<OrderDto>>(orders.Select(MapToDto).ToList());
+        return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
     }
 
-    public async Task<IDataResult<OrderDto>> CancelOrderAsync(int userId, int orderId)
+    public async Task<IDataResult<OrderDto>> CancelOrderAsync(int userId, int orderId, string? status = null)
     {
+        if (!string.IsNullOrEmpty(status) && status != "Cancelled")
+        {
+            return new ErrorDataResult<OrderDto>("Only 'Cancelled' status is supported via this endpoint logic currently.");
+        }
+
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
 
         if (order == null || order.UserId != userId)
@@ -190,7 +126,13 @@ public class OrderManager : IOrderService
         _orderDal.Update(order);
         await _unitOfWork.SaveChangesAsync();
 
-        return new SuccessDataResult<OrderDto>(MapToDto(order), "Sipariş iptal edildi.");
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "CancelOrder",
+            "Order",
+            new { OrderId = order.Id, OrderNumber = order.OrderNumber });
+
+        return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş iptal edildi.");
     }
 
     public async Task<IResult> CancelExpiredOrdersAsync()
@@ -225,7 +167,7 @@ public class OrderManager : IOrderService
     public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync()
     {
         var orders = await _orderDal.GetAllOrdersWithDetailsAsync();
-        return new SuccessDataResult<List<OrderDto>>(orders.Select(MapToDto).ToList());
+        return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
     }
 
     public async Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status)
@@ -238,11 +180,206 @@ public class OrderManager : IOrderService
             return new ErrorDataResult<OrderDto>($"Geçersiz sipariş durumu: {status}");
         }
 
+        var previousStatus = order.Status;
         order.Status = orderStatus;
         _orderDal.Update(order);
         await _unitOfWork.SaveChangesAsync();
 
-        return new SuccessDataResult<OrderDto>(MapToDto(order), "Sipariş durumu güncellendi.");
+        await _auditService.LogActionAsync(
+            "System",
+            "UpdateOrderStatus",
+            "Order",
+            new { OrderId = order.Id, OrderNumber = order.OrderNumber, PreviousStatus = previousStatus.ToString(), NewStatus = orderStatus.ToString() });
+
+        return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş durumu güncellendi.");
+    }
+
+    public async Task<IDataResult<OrderDto>> UpdateOrderItemsAsync(int userId, int orderId, UpdateOrderItemsRequest request)
+    {
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        
+        var validationResult = ValidateOrderForUpdate(order, userId);
+        if (!validationResult.Success) return new ErrorDataResult<OrderDto>(validationResult.Message);
+
+        if (request.Items == null || !request.Items.Any())
+            return new ErrorDataResult<OrderDto>("Sipariş en az bir ürün içermelidir.");
+
+        var products = await LoadProductsForUpdateAsync(request.Items);
+        if (products.Count != request.Items.Select(i => i.ProductId).Distinct().Count())
+            return new ErrorDataResult<OrderDto>("Bazı ürünler bulunamadı.");
+
+        var existingItems = order.OrderItems.ToDictionary(oi => oi.ProductId, oi => oi);
+        var newItems = request.Items.ToDictionary(i => i.ProductId, i => i);
+
+        var (itemsToRemove, itemsToAdd, itemsToUpdate) = IdentifyChanges(existingItems, newItems);
+
+        var stockValidation = ValidateStockAvailability(products, newItems, itemsToAdd, itemsToUpdate, existingItems);
+        if (!stockValidation.Success) return new ErrorDataResult<OrderDto>(stockValidation.Message);
+
+        try
+        {
+            await ProcessOrderUpdatesAsync(order, userId, itemsToRemove, itemsToAdd, itemsToUpdate, newItems, existingItems, products);
+            RecalculateOrderTotals(order);
+            
+            _orderDal.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            return new ErrorDataResult<OrderDto>($"Sipariş güncellenemedi: {ex.Message}");
+        }
+
+        var updatedOrder = await _orderDal.GetByIdWithDetailsAsync(order.Id);
+        
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "UpdateOrderItems",
+            "Order",
+            new { OrderId = order.Id, OrderNumber = order.OrderNumber, NewTotalAmount = order.TotalAmount });
+        
+        return new SuccessDataResult<OrderDto>(updatedOrder!.ToDto(), "Sipariş güncellendi.");
+    }
+
+
+
+    private IResult ValidateOrderForUpdate(Order? order, int userId)
+    {
+        if (order == null || order.UserId != userId)
+            return new ErrorResult("Sipariş bulunamadı.");
+
+        if (order.Status != OrderStatus.PendingPayment)
+            return new ErrorResult("Sadece ödeme bekleyen siparişler düzenlenebilir.");
+
+        return new SuccessResult();
+    }
+
+    private async Task<Dictionary<int, Product>> LoadProductsForUpdateAsync(List<UpdateOrderItemDto> items)
+    {
+        var products = new Dictionary<int, Product>();
+        foreach (var item in items)
+        {
+            var product = await _productDal.GetWithInventoryAsync(item.ProductId);
+            if (product != null) products[item.ProductId] = product;
+        }
+        return products;
+    }
+
+    private (List<int> Removed, List<int> Added, List<int> Updated) IdentifyChanges(
+        Dictionary<int, OrderItem> existingItems,
+        Dictionary<int, UpdateOrderItemDto> newItems)
+    {
+        var removed = existingItems.Keys.Except(newItems.Keys).ToList();
+        var added = newItems.Keys.Except(existingItems.Keys).ToList();
+        var updated = existingItems.Keys.Intersect(newItems.Keys).ToList();
+        return (removed, added, updated);
+    }
+
+    private IResult ValidateStockAvailability(
+        Dictionary<int, Product> products,
+        Dictionary<int, UpdateOrderItemDto> newItems,
+        List<int> addedIds,
+        List<int> updatedIds,
+        Dictionary<int, OrderItem> existingItems)
+    {
+        foreach (var productId in addedIds)
+        {
+            var requestedQty = newItems[productId].Quantity;
+            var availableStock = products[productId].Inventory?.QuantityAvailable ?? 0;
+            if (requestedQty > availableStock)
+                return new ErrorResult($"Stok yetersiz: {products[productId].Name}");
+        }
+
+        foreach (var productId in updatedIds)
+        {
+            var existingQty = existingItems[productId].Quantity;
+            var requestedQty = newItems[productId].Quantity;
+            var qtyDiff = requestedQty - existingQty;
+            
+            if (qtyDiff > 0)
+            {
+                var availableStock = products[productId].Inventory?.QuantityAvailable ?? 0;
+                if (qtyDiff > availableStock)
+                    return new ErrorResult($"Stok yetersiz: {products[productId].Name}");
+            }
+        }
+        return new SuccessResult();
+    }
+
+    private async Task ProcessOrderUpdatesAsync(
+        Order order,
+        int userId,
+        List<int> itemsToRemove,
+        List<int> itemsToAdd,
+        List<int> itemsToUpdate,
+        Dictionary<int, UpdateOrderItemDto> newItems,
+        Dictionary<int, OrderItem> existingItems,
+        Dictionary<int, Product> products)
+    {
+
+        foreach (var productId in itemsToRemove)
+        {
+            var item = existingItems[productId];
+            await _inventoryService.IncreaseStockAsync(
+                productId, item.Quantity, userId,
+                $"Sipariş Düzenleme (Ürün Çıkarıldı) - Sipariş No: {order.OrderNumber}");
+            order.OrderItems.Remove(item);
+        }
+
+
+        foreach (var productId in itemsToAdd)
+        {
+            var qty = newItems[productId].Quantity;
+            var product = products[productId];
+            
+            var stockResult = await _inventoryService.DecreaseStockAsync(
+                productId, qty, userId,
+                $"Sipariş Düzenleme (Ürün Eklendi) - Sipariş No: {order.OrderNumber}");
+            
+            if (!stockResult.Success) throw new Exception(stockResult.Message);
+
+            order.OrderItems.Add(new OrderItem
+            {
+                ProductId = productId,
+                Quantity = qty,
+                PriceSnapshot = product.Price
+            });
+        }
+
+
+        foreach (var productId in itemsToUpdate)
+        {
+            var existingQty = existingItems[productId].Quantity;
+            var requestedQty = newItems[productId].Quantity;
+            var qtyDiff = requestedQty - existingQty;
+
+            if (qtyDiff > 0)
+            {
+                var stockResult = await _inventoryService.DecreaseStockAsync(
+                    productId, qtyDiff, userId,
+                    $"Sipariş Düzenleme (Miktar Artırıldı) - Sipariş No: {order.OrderNumber}");
+                if (!stockResult.Success) throw new Exception(stockResult.Message);
+            }
+            else if (qtyDiff < 0)
+            {
+                await _inventoryService.IncreaseStockAsync(
+                    productId, Math.Abs(qtyDiff), userId,
+                    $"Sipariş Düzenleme (Miktar Azaltıldı) - Sipariş No: {order.OrderNumber}");
+            }
+
+            existingItems[productId].Quantity = requestedQty;
+        }
+    }
+
+    private void RecalculateOrderTotals(Order order)
+    {
+        decimal subtotal = order.OrderItems.Sum(oi => oi.PriceSnapshot * oi.Quantity);
+        decimal shippingCost = subtotal >= FreeShippingThreshold ? 0 : ShippingCost;
+        order.TotalAmount = subtotal - order.DiscountAmount + shippingCost;
+
+        if (order.Payment != null)
+        {
+            order.Payment.Amount = order.TotalAmount;
+        }
     }
 
     private static string GenerateOrderNumber()
@@ -250,41 +387,104 @@ public class OrderManager : IOrderService
         return $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
     }
 
-    private static OrderDto MapToDto(Order order)
+
+
+    private async Task<IDataResult<CartDto>> ValidateCartAndStockAsync(int userId)
     {
-        return new OrderDto
+        var cartResult = await _cartService.GetCartAsync(userId);
+        if (!cartResult.Success) return new ErrorDataResult<CartDto>(cartResult.Message);
+
+        var cartDto = cartResult.Data;
+        if (cartDto == null || !cartDto.Items.Any())
+            return new ErrorDataResult<CartDto>("Sepetiniz boş. Sipariş oluşturmak için sepete ürün ekleyin.");
+
+        foreach (var item in cartDto.Items)
         {
-            Id = order.Id,
-            OrderNumber = order.OrderNumber,
-            Status = order.Status.ToString(),
-            TotalAmount = order.TotalAmount,
-            Currency = order.Currency,
-            ShippingAddress = order.ShippingAddress,
-            CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}" : "Bilinmiyor",
-            Notes = order.Notes,
-            CreatedAt = order.CreatedAt,
-            CancelledAt = order.CancelledAt,
-            CouponCode = order.CouponCode,
-            DiscountAmount = order.DiscountAmount,
-            Items = order.OrderItems.Select(oi => new OrderItemDto
-            {
-                Id = oi.Id,
-                ProductId = oi.ProductId,
-                ProductName = oi.Product?.Name ?? string.Empty,
-                ProductSKU = oi.Product?.SKU ?? string.Empty,
-                Quantity = oi.Quantity,
-                PriceSnapshot = oi.PriceSnapshot,
-                LineTotal = oi.Quantity * oi.PriceSnapshot
-            }).ToList(),
-            Payment = order.Payment != null ? new PaymentDto
-            {
-                Id = order.Payment.Id,
-                Amount = order.Payment.Amount,
-                Currency = order.Payment.Currency,
-                Status = order.Payment.Status.ToString(),
-                PaymentMethod = order.Payment.PaymentMethod,
-                CreatedAt = order.Payment.CreatedAt
-            } : null
+            if (item.Quantity > item.AvailableStock)
+                return new ErrorDataResult<CartDto>($"Stok yetersiz: {item.ProductName}");
+        }
+
+        return new SuccessDataResult<CartDto>(cartDto);
+    }
+
+    private decimal CalculateShippingCost(decimal subtotal)
+    {
+        return subtotal >= FreeShippingThreshold ? 0 : ShippingCost;
+    }
+
+    private async Task<IDataResult<(int? Id, string? Code, decimal Amount)>> ValidateCouponAsync(string? couponCode, decimal subtotal)
+    {
+        if (string.IsNullOrEmpty(couponCode))
+            return new SuccessDataResult<(int? Id, string? Code, decimal Amount)>((null, null, 0));
+
+        var couponResult = await _couponService.ValidateCouponAsync(couponCode, subtotal);
+        if (!couponResult.Success)
+            return new ErrorDataResult<(int? Id, string? Code, decimal Amount)>("Kupon doğrulanamadı.");
+        
+        var validation = couponResult.Data!;
+        if (!validation.IsValid)
+            return new ErrorDataResult<(int? Id, string? Code, decimal Amount)>(validation.ErrorMessage ?? "Geçersiz kupon kodu.");
+        
+        return new SuccessDataResult<(int? Id, string? Code, decimal Amount)>((validation.Coupon!.Id, validation.Coupon.Code, validation.DiscountAmount));
+    }
+
+    private Order CreateOrderEntity(int userId, CheckoutRequest request, CartDto cartDto, decimal subtotal, decimal shippingCost, (int? Id, string? Code, decimal Amount) couponData)
+    {
+        var order = new Order
+        {
+            UserId = userId,
+            OrderNumber = GenerateOrderNumber(),
+            Status = OrderStatus.PendingPayment,
+            ShippingAddress = request.ShippingAddress,
+            Notes = request.Notes ?? string.Empty,
+            TotalAmount = subtotal - couponData.Amount + shippingCost,
+            CouponId = couponData.Id,
+            CouponCode = couponData.Code,
+            DiscountAmount = couponData.Amount
         };
+
+        foreach (var cartItem in cartDto.Items)
+        {
+            order.OrderItems.Add(new OrderItem
+            {
+                ProductId = cartItem.ProductId,
+                Quantity = cartItem.Quantity,
+                PriceSnapshot = cartItem.UnitPrice 
+            });
+        }
+
+        order.Payment = new Payment
+        {
+            Amount = order.TotalAmount,
+            Status = PaymentStatus.Pending,
+            PaymentMethod = request.PaymentMethod,
+            IdempotencyKey = Guid.NewGuid().ToString()
+        };
+
+        return order;
+    }
+
+    private async Task ProcessStockAndCouponUsageAsync(Order order, CartDto cartDto, int userId, int? couponId)
+    {
+        foreach (var cartItem in cartDto.Items)
+        {
+            var stockResult = await _inventoryService.DecreaseStockAsync(
+                cartItem.ProductId, 
+                cartItem.Quantity, 
+                userId, 
+                $"Satış - Sipariş No: {order.OrderNumber}");
+            
+            if (!stockResult.Success)
+                 throw new Exception(stockResult.Message);
+        }
+
+        if (couponId.HasValue)
+        {
+            var usageResult = await _couponService.IncrementUsageAsync(couponId.Value);
+            if (!usageResult.Success)
+                throw new Exception("Kupon kullanımı kaydedilemedi.");
+        }
     }
 }
+
+
