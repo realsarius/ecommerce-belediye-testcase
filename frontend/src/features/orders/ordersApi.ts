@@ -39,7 +39,7 @@ export const ordersApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: Payment }) => response.data,
-      invalidatesTags: ['Orders'],
+      invalidatesTags: ['Cart', 'Orders'],
     }),
     updateOrderItems: builder.mutation<Order, { orderId: number; items: { productId: number; quantity: number }[] }>({
       query: ({ orderId, items }) => ({
