@@ -35,11 +35,11 @@ public class PaymentWebhookController : ControllerBase
 
         try
         {
-            // Signature boş ise ve development ortamında değilsek reject et
+
             if (string.IsNullOrEmpty(signature))
             {
                 _logger.LogWarning("Webhook rejected: Missing X-IYZ-SIGNATURE-V3 header");
-                // Development'ta test için geçici olarak kabul edebiliriz, productionda return BadRequest() yap
+
             }
 
             var result = await _paymentService.ProcessWebhookAsync(request, signature ?? string.Empty);
@@ -87,7 +87,7 @@ public class PaymentWebhookController : ControllerBase
         {
             var result = await _paymentService.VerifyAndFinalizePaymentAsync(token, conversationId);
 
-            // Frontend'e yönlendirme
+
             var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000";
             
             if (result.Success)

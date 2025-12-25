@@ -22,7 +22,7 @@ import {
 import { ArrowLeft, Loader2, Save, Store } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Zod validation schema
+
 const productSchema = z.object({
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
   description: z.string().max(2000, 'Açıklama çok uzun').optional().or(z.literal('')),
@@ -123,7 +123,7 @@ export default function SellerProductForm() {
     }
   };
 
-  // No profile check
+
   if (!profileLoading && !profile) {
     return (
       <div>

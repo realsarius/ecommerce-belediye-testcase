@@ -3,8 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useRegisterMutation } from '@/features/auth/authApi';
-import { setCredentials } from '@/features/auth/authSlice';
-import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { useAppSelector } from '@/app/hooks';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
@@ -33,11 +32,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function Register() {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [register, { isLoading }] = useRegisterMutation();
 
-  // Redirect if already authenticated
+
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
@@ -53,16 +51,9 @@ export default function Register() {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       const result = await register(data).unwrap();
-      if (result.success && result.token && result.user) {
-        dispatch(
-          setCredentials({
-            user: result.user,
-            token: result.token,
-            refreshToken: result.refreshToken || '',
-          })
-        );
-        toast.success('Kayıt başarılı!');
-        navigate('/', { replace: true });
+      if (result.success) {
+        toast.success('Kayıt başarılı! Giriş yapabilirsiniz.');
+        navigate('/login', { replace: true });
       } else {
         toast.error(result.message || 'Kayıt başarısız');
       }
@@ -147,7 +138,7 @@ export default function Register() {
               )}
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+          <CardFooter className="flex flex-col space-y-4 pt-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Kayıt Ol

@@ -9,10 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/common/dropdown-menu';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/common/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/common/sheet';
 import { Badge } from '@/components/common/badge';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { logout } from '@/features/auth/authSlice';
+import { useRevokeMutation } from '@/features/auth/authApi';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { CartDrawer } from '@/components/common/CartDrawer';
@@ -21,17 +22,26 @@ import { TestCardsDialog } from '@/components/common/TestCardsDialog';
 import { TestUsersDialog } from '@/components/common/TestUsersDialog';
 
 export function Header() {
-  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user, refreshToken } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
+  const [revoke] = useRevokeMutation();
 
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+
+    if (refreshToken) {
+      try {
+        await revoke({ refreshToken }).unwrap();
+      } catch {
+
+      }
+    }
     dispatch(logout());
     navigate('/');
   };
@@ -52,9 +62,14 @@ export function Header() {
             Ürünler
           </Link>
           {isAuthenticated && (
-            <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
-              Siparişlerim
-            </Link>
+            <>
+              <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
+                Siparişlerim
+              </Link>
+              <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
+                Sepetim
+              </Link>
+            </>
           )}
 
         </nav>
@@ -207,7 +222,9 @@ export function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-72">
-              <nav className="flex flex-col space-y-4 mt-8">
+              <SheetTitle className="sr-only">Mobil Menü</SheetTitle>
+              <SheetDescription className="sr-only">Site navigasyon menüsü</SheetDescription>
+              <nav className="flex flex-col space-y-4 mt-8 px-4">
                 <Link to="/" className="text-lg font-medium">
                   Ürünler
                 </Link>

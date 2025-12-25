@@ -6,8 +6,10 @@ import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useGetMeQuery } from '@/features/auth/authApi';
 import { setUser } from '@/features/auth/authSlice';
 import { useEffect } from 'react';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 export function MainLayout() {
+  usePageTitle();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   
