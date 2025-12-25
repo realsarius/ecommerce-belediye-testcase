@@ -12,6 +12,5 @@ public class CreditCard : BaseEntity
     public string CvvEncrypted { get; set; } = string.Empty;
     public bool IsDefault { get; set; } = false;
     
-    // Navigation property
     public User User { get; set; } = null!;
 }

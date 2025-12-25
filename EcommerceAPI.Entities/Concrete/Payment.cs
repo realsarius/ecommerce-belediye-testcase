@@ -13,6 +13,5 @@ public class Payment : BaseEntity
     public string IdempotencyKey { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }
     
-    // Navigation properties
     public Order Order { get; set; } = null!;
 }

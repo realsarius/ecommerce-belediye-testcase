@@ -208,7 +208,7 @@ public class OrderManager : IOrderService
         if (products.Count != request.Items.Select(i => i.ProductId).Distinct().Count())
             return new ErrorDataResult<OrderDto>("Bazı ürünler bulunamadı.");
 
-        var existingItems = order.OrderItems.ToDictionary(oi => oi.ProductId, oi => oi);
+        var existingItems = order!.OrderItems.ToDictionary(oi => oi.ProductId, oi => oi);
         var newItems = request.Items.ToDictionary(i => i.ProductId, i => i);
 
         var (itemsToRemove, itemsToAdd, itemsToUpdate) = IdentifyChanges(existingItems, newItems);

@@ -11,7 +11,6 @@ public class User : BaseEntity
     public string LastName { get; set; } = string.Empty;
     public int RoleId { get; set; }
     
-    // Navigation properties
     public Role Role { get; set; } = null!;
     public SellerProfile? SellerProfile { get; set; }
     public ICollection<Order> Orders { get; set; } = new List<Order>();

@@ -14,6 +14,5 @@ public class Coupon : BaseEntity
     public bool IsActive { get; set; } = true;
     public string? Description { get; set; }
     
-    // Navigation properties
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

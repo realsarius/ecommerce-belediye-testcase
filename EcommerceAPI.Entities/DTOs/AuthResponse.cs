@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.Entities;
+
 namespace EcommerceAPI.Entities.DTOs;
 
 public class AuthResponse : IDto

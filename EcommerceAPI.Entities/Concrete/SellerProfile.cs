@@ -8,7 +8,6 @@ public class SellerProfile : BaseEntity
     public string? LogoUrl { get; set; }
     public bool IsVerified { get; set; } = false;
     
-    // Navigation properties
     public User User { get; set; } = null!;
     public ICollection<Product> Products { get; set; } = new List<Product>();
 }

@@ -4,7 +4,7 @@ namespace EcommerceAPI.Entities.Concrete;
 
 public class Inventory : IEntity
 {
-    public int ProductId { get; set; } // Primary Key and foreign key
+    public int ProductId { get; set; }
     public int QuantityAvailable { get; set; }
     public int QuantityReserved { get; set; }
     

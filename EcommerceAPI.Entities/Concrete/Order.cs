@@ -17,7 +17,6 @@ public class Order : BaseEntity
     public string? CouponCode { get; set; }
     public decimal DiscountAmount { get; set; }
     
-    // Navigation properties
     public User User { get; set; } = null!;
     public Coupon? Coupon { get; set; }
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
