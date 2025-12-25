@@ -138,6 +138,7 @@ services:
       REDIS_CONNECTION_STRING: redis:6379
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       HASH_PEPPER: ${HASH_PEPPER}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
     ports:
       - "5000:80"
     volumes:
@@ -171,6 +172,7 @@ services:
       REDIS_CONNECTION_STRING: redis:6379
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       HASH_PEPPER: ${HASH_PEPPER}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
     ports:
       - "5001:80"
     networks:

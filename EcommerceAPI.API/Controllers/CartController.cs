@@ -6,10 +6,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EcommerceAPI.API.Controllers;
 
-[ApiController]
+/// <summary>
+/// Cart management endpoints.
+/// </summary>
 [Route("api/v1/[controller]")]
 [Authorize]
-public class CartController : ControllerBase
+public class CartController : BaseApiController
 {
     private readonly ICartService _cartService;
 
@@ -31,11 +33,7 @@ public class CartController : ControllerBase
     {
         var userId = GetUserId();
         var result = await _cartService.GetCartAsync(userId);
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-        return BadRequest(result);
+        return HandleResult(result);
     }
 
     [HttpPost("items")]
@@ -43,11 +41,7 @@ public class CartController : ControllerBase
     {
         var userId = GetUserId();
         var result = await _cartService.AddToCartAsync(userId, request);
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-        return BadRequest(result);
+        return HandleResult(result);
     }
 
     [HttpPut("items/{productId}")]
@@ -55,11 +49,7 @@ public class CartController : ControllerBase
     {
         var userId = GetUserId();
         var result = await _cartService.UpdateCartItemAsync(userId, productId, request);
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-        return BadRequest(result);
+        return HandleResult(result);
     }
 
     [HttpDelete("items/{productId}")]
@@ -67,11 +57,7 @@ public class CartController : ControllerBase
     {
         var userId = GetUserId();
         var result = await _cartService.RemoveFromCartAsync(userId, productId);
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-        return BadRequest(result);
+        return HandleResult(result);
     }
 
     [HttpDelete]
@@ -79,12 +65,6 @@ public class CartController : ControllerBase
     {
         var userId = GetUserId();
         var result = await _cartService.ClearCartAsync(userId);
-        
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-        return BadRequest(result);
+        return HandleResult(result);
     }
 }
-
