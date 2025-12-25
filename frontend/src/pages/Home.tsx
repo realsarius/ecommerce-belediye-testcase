@@ -16,19 +16,19 @@ export default function Home() {
   const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   
-  // Redux state
+
   const { page, search, categoryId, sortBy, sortDesc } = useAppSelector((state) => state.products);
 
-  // URL -> State Sync (İlk açılış ve Navigasyon değişimleri)
+
   useEffect(() => {
-    // URL'den oku
+
     const urlCategoryId = searchParams.get('categoryId') || '';
     const urlSearch = searchParams.get('q') || '';
     const urlSortBy = searchParams.get('sort') || 'createdAt';
     const urlOrder = searchParams.get('order') || 'desc';
     const urlPage = parseInt(searchParams.get('page') || '1');
 
-    // State ile karşılaştır ve farklıysa güncelle (Dispatch)
+
     if (urlCategoryId !== categoryId) dispatch(setCategoryId(urlCategoryId));
     if (urlSearch !== search) dispatch(setSearch(urlSearch));
     if (urlSortBy !== sortBy) dispatch(setSortBy(urlSortBy));
@@ -39,7 +39,7 @@ export default function Home() {
     if (urlPage !== page) dispatch(setPage(urlPage));
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); // Sadece searchParams değişince çalışır
+  }, [searchParams]);
 
 
 
@@ -61,14 +61,14 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Sidebar Filters */}
-        <aside className="w-full lg:w-72 flex-shrink-0">
+        <aside className="w-full lg:w-64 xl:w-72 flex-shrink-0">
           <HomeFilters categories={categories} />
         </aside>
 
         {/* Product Grid */}
-        <main className="flex-1">
+        <main className="flex-1 w-full">
           <ProductList
             isLoading={isLoading}
             productsData={productsData}

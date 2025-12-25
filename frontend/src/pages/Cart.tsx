@@ -133,7 +133,62 @@ export default function Cart() {
           {cart.items.map((item) => (
             <Card key={item.productId}>
               <CardContent className="p-4">
-                <div className="flex items-center gap-4">
+                {/* Mobile Layout */}
+                <div className="md:hidden space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm leading-tight">{item.productName}</h3>
+                      <p className="text-primary font-bold mt-1">
+                        {item.unitPrice.toLocaleString('tr-TR')} ₺
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemove(item.productId)}
+                      className="text-destructive hover:text-destructive -mt-1 -mr-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}
+                        disabled={item.quantity <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) =>
+                          handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1)
+                        }
+                        className="w-14 text-center"
+                        min={1}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="font-bold text-lg">
+                      {item.totalPrice.toLocaleString('tr-TR')} ₺
+                    </p>
+                  </div>
+                </div>
+
+                {/* Desktop Layout */}
+                <div className="hidden md:flex items-center gap-4">
                   <div className="h-20 w-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
                     <Package className="h-8 w-8 text-muted-foreground" />
                   </div>

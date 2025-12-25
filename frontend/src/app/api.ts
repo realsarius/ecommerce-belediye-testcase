@@ -5,7 +5,7 @@ interface AuthState {
 }
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
+  baseUrl: import.meta.env.VITE_API_URL || '/api/v1',
   prepareHeaders: (headers, { getState }) => {
     const state = getState() as { auth: AuthState };
     const token = state.auth.token;
@@ -20,6 +20,6 @@ const baseQuery = fetchBaseQuery({
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Products', 'Product', 'Cart', 'Orders', 'Order', 'Categories', 'Addresses', 'Coupons', 'Coupon', 'SellerProfile', 'SellerProducts'],
+  tagTypes: ['Products', 'Product', 'Cart', 'Orders', 'Order', 'Categories', 'Addresses', 'CreditCards', 'Coupons', 'Coupon', 'SellerProfile', 'SellerProducts'],
   endpoints: () => ({}),
 });

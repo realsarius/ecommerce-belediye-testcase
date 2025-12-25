@@ -23,7 +23,6 @@ export const productsApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: Product }) => response.data,
       providesTags: (_result, _error, id) => [{ type: 'Product', id }],
     }),
-    // Admin endpoints
     createProduct: builder.mutation<Product, CreateProductRequest>({
       query: (data) => ({
         url: '/admin/products',

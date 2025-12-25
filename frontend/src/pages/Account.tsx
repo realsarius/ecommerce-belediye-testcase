@@ -32,7 +32,7 @@ export default function Account() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // TODO: API entegrasyonu yapılacak
+
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsSaving(false);
     setIsEditing(false);

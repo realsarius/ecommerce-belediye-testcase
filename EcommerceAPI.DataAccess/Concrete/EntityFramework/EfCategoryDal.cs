@@ -13,7 +13,7 @@ public class EfCategoryDal : EfEntityRepositoryBase<Category, AppDbContext>, ICa
 
     public async Task<Category?> GetByNameAsync(string name)
     {
-        // AsNoTracking() metodu, verilerin sadece okunacağı durumlarda Change Tracker mekanizmasını devre dışı bırakarak performans artışı sağlar.
+
         return await _dbSet.AsNoTracking().FirstOrDefaultAsync(c => c.Name == name);
     }
 
@@ -22,6 +22,14 @@ public class EfCategoryDal : EfEntityRepositoryBase<Category, AppDbContext>, ICa
         return await _dbSet
             .Include(c => c.Products)
             .Where(c => c.IsActive)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<IList<Category>> GetAllWithProductsAsync()
+    {
+        return await _dbSet
+            .Include(c => c.Products)
             .AsNoTracking()
             .ToListAsync();
     }

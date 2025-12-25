@@ -21,7 +21,7 @@ import {
 import { ArrowLeft, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Zod validation schema
+
 const productSchema = z.object({
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
   description: z.string().max(2000, 'Açıklama çok uzun').optional().or(z.literal('')),
@@ -85,12 +85,8 @@ export default function ProductForm() {
   useEffect(() => {
     // Kategoriler ve ürün yüklendiğinde formu doldur
     if (product && isEdit && categories) {
-      console.log('DEBUG: Full Product:', JSON.stringify(product));
-      console.log('DEBUG: Full Categories:', JSON.stringify(categories));
-      
-      // Fallback for case sensitivity
+
       const rawCatId = product.categoryId ?? (product as any).CategoryId;
-      console.log('DEBUG: Resolved rawCatId:', rawCatId, typeof rawCatId);
 
       reset({
         name: product.name,
@@ -107,23 +103,31 @@ export default function ProductForm() {
 
   const onSubmit = async (data: ProductFormData) => {
     try {
-      const payload = {
-        name: data.name,
-        description: data.description || '',
-        sku: data.sku,
-        price: data.price,
-        currency: data.currency,
-        // String'i number'a çeviriyoruz
-        categoryId: parseInt(data.categoryId as unknown as string, 10),
-        stockQuantity: data.stockQuantity,
-        isActive: data.isActive,
-      };
-
       if (isEdit) {
-        await updateProduct({ id: productId, data: payload }).unwrap();
+        const updatePayload = {
+          name: data.name,
+          description: data.description || '',
+          sku: data.sku,
+          price: data.price,
+          currency: data.currency,
+          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          stockQuantity: data.stockQuantity,
+          isActive: data.isActive,
+        };
+        await updateProduct({ id: productId, data: updatePayload }).unwrap();
         toast.success('Ürün güncellendi');
       } else {
-        await createProduct(payload).unwrap();
+        const createPayload = {
+          name: data.name,
+          description: data.description || '',
+          sku: data.sku,
+          price: data.price,
+          currency: data.currency,
+          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          initialStock: data.stockQuantity,
+          isActive: data.isActive,
+        };
+        await createProduct(createPayload).unwrap();
         toast.success('Ürün oluşturuldu');
       }
       navigate('/admin/products');

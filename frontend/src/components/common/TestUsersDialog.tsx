@@ -73,14 +73,14 @@ export function TestUsersDialog({ open, onOpenChange }: TestUsersDialogProps) {
     try {
       setLoggingInIndex(index);
       
-      // Mevcut kullanıcı varsa logout yap
+
       if (isAuthenticated) {
         dispatch(logout());
-        // Kısa bir bekleme - logout işleminin tamamlanması için
+
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // Yeni kullanıcı ile login
+
       const result = await login({ email, password }).unwrap();
       
       if (result.success && result.token && result.user) {

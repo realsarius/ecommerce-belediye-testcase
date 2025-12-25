@@ -14,7 +14,7 @@ public class OrderDto : IDto
     public DateTime CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     
-    // Kupon bilgileri
+
     public string? CouponCode { get; set; }
     public decimal DiscountAmount { get; set; }
     

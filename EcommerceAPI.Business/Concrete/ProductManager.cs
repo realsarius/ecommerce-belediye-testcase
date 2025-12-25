@@ -5,10 +5,11 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Parameters;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using EcommerceAPI.Business.Extensions;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -18,8 +19,8 @@ public class ProductManager : IProductService
     private readonly IInventoryDal _inventoryDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICacheService _cacheService;
-    private readonly AppDbContext _context;
     private readonly ILogger<ProductManager> _logger;
+    private readonly IAuditService _auditService;
     private readonly int _productListCacheTTL;
 
     public ProductManager(
@@ -27,16 +28,16 @@ public class ProductManager : IProductService
         IInventoryDal inventoryDal,
         IUnitOfWork unitOfWork,
         ICacheService cacheService,
-        AppDbContext context,
         ILogger<ProductManager> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IAuditService auditService)
     {
         _productDal = productDal;
         _inventoryDal = inventoryDal;
         _unitOfWork = unitOfWork;
         _cacheService = cacheService;
-        _context = context;
         _logger = logger;
+        _auditService = auditService;
         _productListCacheTTL = configuration.GetValue<int>("Cache:ProductListTTLMinutes", 5);
     }
 
@@ -44,7 +45,7 @@ public class ProductManager : IProductService
     {
         var cacheKey = BuildProductListCacheKey(request);
 
-        // Cache'den kontrol et
+
         var cachedResult = await _cacheService.GetAsync<PaginatedResponse<ProductDto>>(cacheKey);
         if (cachedResult != null)
         {
@@ -65,7 +66,7 @@ public class ProductManager : IProductService
             request.SortBy,
             request.SortDescending
         );
-        var productDtos = items.Select(MapToDto).ToList();
+        var productDtos = items.Select(p => p.ToDto()).ToList();
 
         var result = new PaginatedResponse<ProductDto>
         {
@@ -82,43 +83,20 @@ public class ProductManager : IProductService
 
     public async Task<IDataResult<PaginatedResponse<ProductDto>>> GetProductsForSellerAsync(ProductListRequest request, int sellerId)
     {
-        // Seller'ın kendi ürünlerini filtrele (cache'siz - seller admin paneli için)
-        var query = _context.Products
-            .Include(p => p.Category)
-            .Include(p => p.Inventory)
-            .Include(p => p.Seller)
-            .Where(p => p.SellerId == sellerId);
-
-        // Opsiyonel filtreler
-        if (request.CategoryId.HasValue)
-            query = query.Where(p => p.CategoryId == request.CategoryId.Value);
-
-        if (!string.IsNullOrEmpty(request.Search))
-            query = query.Where(p => p.Name.Contains(request.Search) || p.Description.Contains(request.Search));
-
-        if (request.MinPrice.HasValue)
-            query = query.Where(p => p.Price >= request.MinPrice.Value);
-
-        if (request.MaxPrice.HasValue)
-            query = query.Where(p => p.Price <= request.MaxPrice.Value);
-
-        // Sıralama
-        query = request.SortBy?.ToLower() switch
-        {
-            "price" => request.SortDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price),
-            "name" => request.SortDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
-            _ => request.SortDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
-        };
-
-        var totalCount = await query.CountAsync();
-        var items = await query
-            .Skip((request.Page - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .ToListAsync();
+        var (items, totalCount) = await _productDal.GetPagedForSellerAsync(
+            request.Page, 
+            request.PageSize, 
+            sellerId, 
+            request.CategoryId, 
+            request.MinPrice, 
+            request.MaxPrice, 
+            request.Search, 
+            request.SortBy, 
+            request.SortDescending);
 
         var result = new PaginatedResponse<ProductDto>
         {
-            Items = items.Select(MapToDto).ToList(),
+            Items = items.Select(p => p.ToDto()).ToList(),
             Page = request.Page,
             PageSize = request.PageSize,
             TotalCount = totalCount
@@ -134,7 +112,7 @@ public class ProductManager : IProductService
         if (product == null || !product.IsActive)
             return new ErrorDataResult<ProductDto>("Product not found");
 
-        return new SuccessDataResult<ProductDto>(MapToDto(product));
+        return new SuccessDataResult<ProductDto>(product.ToDto());
     }
 
     public async Task<IDataResult<ProductDto>> CreateProductAsync(CreateProductRequest request, int? sellerId = null)
@@ -146,7 +124,7 @@ public class ProductManager : IProductService
             Price = request.Price,
             SKU = request.SKU,
             CategoryId = request.CategoryId,
-            SellerId = sellerId, // Seller eklediğinde kendi ID'si atanır, Admin için null
+            SellerId = sellerId,
             IsActive = true,
             Currency = "TRY"
         };
@@ -164,10 +142,19 @@ public class ProductManager : IProductService
 
         await _unitOfWork.SaveChangesAsync();
 
+
+        await _cacheService.RemoveByPatternAsync("products:");
+
         _logger.LogInformation("Product created: {ProductId} by Seller: {SellerId}", product.Id, sellerId?.ToString() ?? "Admin");
 
+        await _auditService.LogActionAsync(
+            sellerId?.ToString() ?? "Admin",
+            "CreateProduct",
+            "Product",
+            new { ProductId = product.Id, ProductName = product.Name, Price = product.Price, SKU = product.SKU });
+
         product.Inventory = inventory;
-        return new SuccessDataResult<ProductDto>(MapToDto(product), "Ürün başarıyla oluşturuldu");
+        return new SuccessDataResult<ProductDto>(product.ToDto(), "Ürün başarıyla oluşturuldu");
     }
 
     public async Task<IDataResult<ProductDto>> UpdateProductAsync(int id, UpdateProductRequest request, int? sellerId = null)
@@ -177,7 +164,7 @@ public class ProductManager : IProductService
         if (product == null)
             return new ErrorDataResult<ProductDto>("Ürün bulunamadı");
 
-        // Seller ise sadece kendi ürününü güncelleyebilir
+
         if (sellerId.HasValue && product.SellerId != sellerId)
             return new ErrorDataResult<ProductDto>("Bu ürünü düzenleme yetkiniz yok");
 
@@ -189,10 +176,31 @@ public class ProductManager : IProductService
         product.UpdatedAt = DateTime.UtcNow;
 
         _productDal.Update(product);
+
+
+        if (request.StockQuantity.HasValue)
+        {
+            var inventory = await _inventoryDal.GetByProductIdAsync(id);
+            if (inventory != null)
+            {
+                inventory.QuantityAvailable = request.StockQuantity.Value;
+                _inventoryDal.Update(inventory);
+            }
+        }
+
         await _unitOfWork.SaveChangesAsync();
 
+
+        await _cacheService.RemoveByPatternAsync("products:");
+
+        await _auditService.LogActionAsync(
+            sellerId?.ToString() ?? "Admin",
+            "UpdateProduct",
+            "Product",
+            new { ProductId = product.Id, ProductName = product.Name, Price = product.Price, StockQuantity = request.StockQuantity });
+
         var updatedProduct = await _productDal.GetByIdWithDetailsAsync(id);
-        return new SuccessDataResult<ProductDto>(MapToDto(updatedProduct!), "Ürün başarıyla güncellendi");
+        return new SuccessDataResult<ProductDto>(updatedProduct!.ToDto(), "Ürün başarıyla güncellendi");
     }
 
     public async Task<IResult> DeleteProductAsync(int id, int? sellerId = null)
@@ -202,7 +210,7 @@ public class ProductManager : IProductService
         if (product == null)
             return new ErrorResult("Ürün bulunamadı");
 
-        // Seller ise sadece kendi ürününü silebilir
+
         if (sellerId.HasValue && product.SellerId != sellerId)
             return new ErrorResult("Bu ürünü silme yetkiniz yok");
 
@@ -211,6 +219,15 @@ public class ProductManager : IProductService
 
         _productDal.Update(product);
         await _unitOfWork.SaveChangesAsync();
+
+
+        await _cacheService.RemoveByPatternAsync("products:");
+
+        await _auditService.LogActionAsync(
+            sellerId?.ToString() ?? "Admin",
+            "DeleteProduct",
+            "Product",
+            new { ProductId = product.Id, ProductName = product.Name });
 
         return new SuccessResult("Ürün başarıyla silindi");
     }
@@ -241,6 +258,12 @@ public class ProductManager : IProductService
         await _inventoryDal.AddMovementAsync(movement);
         await _unitOfWork.SaveChangesAsync();
 
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "UpdateStock",
+            "Inventory",
+            new { ProductId = productId, Delta = request.Delta, NewQuantity = newQuantity, Reason = request.Reason });
+
         return new SuccessResult("Stok başarıyla güncellendi");
     }
 
@@ -255,22 +278,5 @@ public class ProductManager : IProductService
         return $"products:{request.Page}:{request.PageSize}:{request.CategoryId}:{request.MinPrice}:{request.MaxPrice}:{request.Search}:{request.InStock}:{request.SortBy}:{request.SortDescending}";
     }
 
-    private static ProductDto MapToDto(Product p)
-    {
-        return new ProductDto
-        {
-            Id = p.Id,
-            Name = p.Name,
-            Description = p.Description,
-            Price = p.Price,
-            Currency = p.Currency,
-            SKU = p.SKU,
-            IsActive = p.IsActive,
-            CategoryId = p.CategoryId,
-            CategoryName = p.Category?.Name ?? string.Empty,
-            StockQuantity = p.Inventory?.QuantityAvailable ?? 0,
-            SellerId = p.SellerId,
-            SellerBrandName = p.Seller?.BrandName
-        };
-    }
+
 }

@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { useGetAddressesQuery, useCreateAddressMutation } from '@/features/admin/adminApi';
 import { useCheckoutMutation, useProcessPaymentMutation } from '@/features/orders/ordersApi';
+import { useGetCreditCardsQuery, useAddCreditCardMutation } from '@/features/creditCards/creditCardsApi';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
 import { Separator } from '@/components/common/separator';
 import { Skeleton } from '@/components/common/skeleton';
+import { Checkbox } from '@/components/common/checkbox';
 import {
   Select,
   SelectContent,
@@ -38,6 +40,8 @@ export default function Checkout() {
   const [createAddress, { isLoading: isCreatingAddress }] = useCreateAddressMutation();
   const [checkout, { isLoading: isCheckingOut }] = useCheckoutMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
+  const { data: savedCards } = useGetCreditCardsQuery();
+  const [addCreditCard] = useAddCreditCardMutation();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressDialog, setShowAddressDialog] = useState(false);
@@ -62,14 +66,18 @@ export default function Checkout() {
     cvc: '',
   });
 
-  // Coupon state
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string>('');
+  const [saveCardForLater, setSaveCardForLater] = useState(false);
+  const [cardAlias, setCardAlias] = useState('');
+
+
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
   const [validateCoupon, { isLoading: isValidatingCoupon }] = useValidateCouponMutation();
 
   const isLoading = isCartLoading || isAddressLoading;
   
-  // Auto-apply coupon from cart
+
   useEffect(() => {
     if (cart && location.state?.couponCode && !appliedCoupon && !isValidatingCoupon) {
       validateCoupon({
@@ -92,27 +100,27 @@ export default function Checkout() {
   // Yönlendirme yapılıyor mu? (race condition önlemek için)
   const isNavigatingRef = useRef(false);
   
-  // BIGBANG cheat code buffer
+
   const cheatCodeBuffer = useRef('');
   const CHEAT_CODE = 'BIGBANG';
   
-  // BIGBANG cheat code listener
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Sadece harf tuşlarını al
+
       if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
         cheatCodeBuffer.current += e.key.toUpperCase();
         
-        // Buffer'ı son 7 karakterle sınırla (BIGBANG uzunluğu)
+
         if (cheatCodeBuffer.current.length > CHEAT_CODE.length) {
           cheatCodeBuffer.current = cheatCodeBuffer.current.slice(-CHEAT_CODE.length);
         }
         
-        // BIGBANG yazıldı mı kontrol et
+
         if (cheatCodeBuffer.current === CHEAT_CODE) {
           cheatCodeBuffer.current = '';
           
-          // Ödeme bilgilerini doldur
+
           setPaymentForm({
             cardHolderName: 'BERKAN SÖZER',
             cardNumber: '9792 0303 9444 0796',
@@ -121,13 +129,13 @@ export default function Checkout() {
             cvc: '654',
           });
           
-          // Teslimat adresi kontrolü
+
           if (addresses && addresses.length > 0) {
-            // İlk adresi seç
+
             setSelectedAddressId(addresses[0].id.toString());
             toast.success('🎮 BIGBANG! Ödeme bilgileri ve adres otomatik dolduruldu!');
           } else {
-            // Yeni adres formunu aç ve doldur
+
             setAddressForm({
               title: 'Ev',
               fullName: 'Ahmet Yılmaz',
@@ -149,7 +157,7 @@ export default function Checkout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [addresses]);
   
-  // Sepet snapshot'ı güncelle (sadece sepet doluyken)
+
   const displayCart = cartSnapshot || cart;
 
   const handleAddressSubmit = async () => {
@@ -173,7 +181,7 @@ export default function Checkout() {
     }
   };
 
-  // Luhn algoritması ile kart numarası doğrulama
+
   const validateCardNumber = (cardNumber: string): boolean => {
     const digits = cardNumber.replace(/\s/g, '');
     if (digits.length < 13 || digits.length > 19) return false;
@@ -201,14 +209,23 @@ export default function Checkout() {
       toast.error('Lütfen teslimat adresi seçin');
       return;
     }
-    if (!paymentForm.cardNumber || !paymentForm.expireMonth || !paymentForm.expireYear || !paymentForm.cvc) {
-      toast.error('Lütfen kart bilgilerini doldurun');
-      return;
-    }
+    const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
 
-    if (!validateCardNumber(paymentForm.cardNumber)) {
-      toast.error('Kart numarası geçersizdir');
-      return;
+    if (!isUsingSavedCard) {
+      if (!paymentForm.cardNumber || !paymentForm.expireMonth || !paymentForm.expireYear || !paymentForm.cvc) {
+        toast.error('Lütfen kart bilgilerini doldurun');
+        return;
+      }
+
+      if (!validateCardNumber(paymentForm.cardNumber)) {
+        toast.error('Kart numarası geçersizdir');
+        return;
+      }
+    } else {
+       if (!paymentForm.cvc) {
+         toast.error('Lütfen CVV kodunu giriniz');
+         return;
+       }
     }
 
     if (paymentForm.cvc.length < 3) {
@@ -241,17 +258,38 @@ export default function Checkout() {
         setPendingOrderId(order.id);
       }
 
+
+      
       const paymentResult = await processPayment({
         orderId: orderIdToUse,
-        cardHolderName: paymentForm.cardHolderName,
-        cardNumber: paymentForm.cardNumber.replace(/\s/g, ''),
-        expiryDate: `${paymentForm.expireMonth}/${paymentForm.expireYear.slice(-2)}`,
+        savedCardId: isUsingSavedCard ? parseInt(selectedSavedCardId) : undefined,
+        cardHolderName: isUsingSavedCard ? undefined : paymentForm.cardHolderName,
+        cardNumber: isUsingSavedCard ? undefined : paymentForm.cardNumber.replace(/\s/g, ''),
+        expiryDate: isUsingSavedCard ? undefined : `${paymentForm.expireMonth}/${paymentForm.expireYear.slice(-2)}`,
         cvv: paymentForm.cvc,
       }).unwrap();
 
       if (paymentResult.status !== 'Success') {
         toast.error(paymentResult.errorMessage || 'Ödeme işlemi başarısız oldu. Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
+        navigate('/cart');
         return;
+      }
+
+
+      if (saveCardForLater && (!selectedSavedCardId || selectedSavedCardId === 'new')) {
+        try {
+          await addCreditCard({
+            cardAlias: cardAlias || 'Kartım',
+            cardHolderName: paymentForm.cardHolderName,
+            cardNumber: paymentForm.cardNumber.replace(/\s/g, ''),
+            expireMonth: paymentForm.expireMonth,
+            expireYear: paymentForm.expireYear,
+            cvv: paymentForm.cvc,
+          }).unwrap();
+          toast.success('Kart bilgileriniz kaydedildi');
+        } catch {
+          // Silent fail - don't block checkout success
+        }
       }
 
       isNavigatingRef.current = true;
@@ -267,6 +305,7 @@ export default function Checkout() {
           const err = error as { data?: { message?: string } };
           toast.error((err.data?.message || 'Ödeme işlemi başarısız') + ' Lütfen tekrar deneyin.');
         }
+        navigate('/cart');
         return;
       }
 
@@ -279,7 +318,7 @@ export default function Checkout() {
     }
   };
 
-  // Sepet boşsa ve loading değilse cart'a yönlendir
+
   useEffect(() => {
     if (!isLoading && !pendingOrderId && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
       navigate('/cart');
@@ -311,7 +350,7 @@ export default function Checkout() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* Shipping Address */}
+
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -347,7 +386,7 @@ export default function Checkout() {
             </CardContent>
           </Card>
 
-          {/* Payment */}
+
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -356,70 +395,163 @@ export default function Checkout() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Kart Üzerindeki İsim</Label>
-                <Input
-                  placeholder="KAMURAN OLTACI"
-                  value={paymentForm.cardHolderName}
-                  onChange={(e) =>
-                    setPaymentForm({ ...paymentForm, cardHolderName: e.target.value.toUpperCase() })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Kart Numarası</Label>
-                <Input
-                  placeholder="4111 1111 1111 1111"
-                  value={paymentForm.cardNumber}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 16);
-                    const formatted = value.replace(/(\d{4})/g, '$1 ').trim();
-                    setPaymentForm({ ...paymentForm, cardNumber: formatted });
-                  }}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
+
+              {savedCards && savedCards.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Ay</Label>
+                  <Label>Kayıtlı Kartlarım</Label>
                   <Select
-                    value={paymentForm.expireMonth}
-                    onValueChange={(v) => setPaymentForm({ ...paymentForm, expireMonth: v })}
+                    value={selectedSavedCardId}
+                    onValueChange={(value) => {
+                      setSelectedSavedCardId(value);
+                      if (value && value !== 'new') {
+                        const card = savedCards.find(c => c.id.toString() === value);
+                        if (card) {
+                          setPaymentForm({
+                            cardHolderName: card.cardHolderName,
+                            cardNumber: `•••• •••• •••• ${card.last4Digits}`,
+                            expireMonth: card.expireMonth.padStart(2, '0'),
+                            expireYear: card.expireYear,
+                            cvc: '',
+                          });
+                        }
+                      } else {
+                        setPaymentForm({
+                          cardHolderName: '',
+                          cardNumber: '',
+                          expireMonth: '',
+                          expireYear: '',
+                          cvc: '',
+                        });
+                      }
+                    }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Ay" />
+                      <SelectValue placeholder="Kayıtlı kart seçin veya yeni kart girin" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <SelectItem key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                          {String(i + 1).padStart(2, '0')}
+                      <SelectItem value="new">+ Yeni kart ile öde</SelectItem>
+                      {savedCards.map((card) => (
+                        <SelectItem key={card.id} value={card.id.toString()}>
+                          {card.cardAlias} - •••• {card.last4Digits}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              )}
+              
+
+              {(!savedCards || savedCards.length === 0 || selectedSavedCardId === 'new' || selectedSavedCardId === '') && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Kart Üzerindeki İsim</Label>
+                    <Input
+                      placeholder="KAMURAN OLTACI"
+                      value={paymentForm.cardHolderName}
+                      onChange={(e) =>
+                        setPaymentForm({ ...paymentForm, cardHolderName: e.target.value.toUpperCase() })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Kart Numarası</Label>
+                    <Input
+                      placeholder="4111 1111 1111 1111"
+                      value={paymentForm.cardNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 16);
+                        const formatted = value.replace(/(\d{4})/g, '$1 ').trim();
+                        setPaymentForm({ ...paymentForm, cardNumber: formatted });
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Ay</Label>
+                      <Select
+                        value={paymentForm.expireMonth}
+                        onValueChange={(v) => setPaymentForm({ ...paymentForm, expireMonth: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ay" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 12 }, (_, i) => (
+                            <SelectItem key={i + 1} value={String(i + 1).padStart(2, '0')}>
+                              {String(i + 1).padStart(2, '0')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Yıl</Label>
+                      <Select
+                        value={paymentForm.expireYear}
+                        onValueChange={(v) => setPaymentForm({ ...paymentForm, expireYear: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Yıl" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 10 }, (_, i) => {
+                            const year = new Date().getFullYear() + i;
+                            return (
+                              <SelectItem key={year} value={String(year)}>
+                                {year}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CVC</Label>
+                      <Input
+                        placeholder="123"
+                        maxLength={4}
+                        value={paymentForm.cvc}
+                        onChange={(e) =>
+                          setPaymentForm({ ...paymentForm, cvc: e.target.value.replace(/\D/g, '') })
+                        }
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Save for later checkbox */}
+                  <div className="space-y-3 pt-2 border-t">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="saveCard"
+                        checked={saveCardForLater}
+                        onCheckedChange={(checked) => setSaveCardForLater(!!checked)}
+                      />
+                      <label htmlFor="saveCard" className="text-sm cursor-pointer">
+                        Bu kartı sonraki alışverişlerim için kaydet
+                      </label>
+                    </div>
+                    {saveCardForLater && (
+                      <div className="space-y-2">
+                        <Label>Kart Takma Adı</Label>
+                        <Input
+                          placeholder="Bonus Kartım, Akbank vb."
+                          value={cardAlias}
+                          onChange={(e) => setCardAlias(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Test kartı: 4111 1111 1111 1111, herhangi bir tarih ve CVC
+                  </p>
+                </>
+              )}
+              
+
+              {selectedSavedCardId && selectedSavedCardId !== 'new' && (
                 <div className="space-y-2">
-                  <Label>Yıl</Label>
-                  <Select
-                    value={paymentForm.expireYear}
-                    onValueChange={(v) => setPaymentForm({ ...paymentForm, expireYear: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Yıl" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 10 }, (_, i) => {
-                        const year = new Date().getFullYear() + i;
-                        return (
-                          <SelectItem key={year} value={String(year)}>
-                            {year}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>CVC</Label>
+                  <Label>Güvenlik Kodu (CVV)</Label>
                   <Input
                     placeholder="123"
                     maxLength={4}
@@ -427,17 +559,18 @@ export default function Checkout() {
                     onChange={(e) =>
                       setPaymentForm({ ...paymentForm, cvc: e.target.value.replace(/\D/g, '') })
                     }
+                    className="max-w-[120px]"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Kartınızın arkasındaki 3 haneli güvenlik kodu
+                  </p>
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Test kartı: 4111 1111 1111 1111, herhangi bir tarih ve CVC
-              </p>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Order Summary */}
+
         <div>
           <Card className="sticky top-24">
             <CardHeader>
@@ -462,7 +595,7 @@ export default function Checkout() {
               ))}
               <Separator />
               
-              {/* Kupon Girişi */}
+
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -561,7 +694,7 @@ export default function Checkout() {
         </div>
       </div>
 
-      {/* Add Address Dialog */}
+
       <Dialog open={showAddressDialog} onOpenChange={setShowAddressDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>

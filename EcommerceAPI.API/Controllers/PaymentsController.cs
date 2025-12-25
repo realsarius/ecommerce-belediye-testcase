@@ -14,10 +14,12 @@ namespace EcommerceAPI.API.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
+    private readonly ICartService _cartService;
 
-    public PaymentsController(IPaymentService paymentService)
+    public PaymentsController(IPaymentService paymentService, ICartService cartService)
     {
         _paymentService = paymentService;
+        _cartService = cartService;
     }
 
     private int GetUserId()
@@ -36,7 +38,8 @@ public class PaymentsController : ControllerBase
         
         if (result.Success)
         {
-            return Ok(result);
+            await _cartService.ClearCartAsync(userId);
+            return Created("", result);
         }
         return BadRequest(result);
     }

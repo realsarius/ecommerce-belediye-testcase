@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation } from '@/features/orders/ordersApi';
+import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, useUpdateOrderItemsMutation } from '@/features/orders/ordersApi';
+import { useGetProductsQuery } from '@/features/products/productsApi';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
@@ -23,9 +24,10 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
-import { ArrowLeft, Package, MapPin, CreditCard, XCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, CreditCard, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import type { OrderStatus } from '@/features/orders/types';
+import type { OrderStatus, OrderItem } from '@/features/orders/types';
+import type { Product } from '@/features/products/types';
 
 const statusColors: Record<OrderStatus, string> = {
   PendingPayment: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
@@ -47,6 +49,13 @@ const statusLabels: Record<OrderStatus, string> = {
   Refunded: 'İade Edildi',
 };
 
+interface EditableOrderItem {
+  productId: number;
+  productName: string;
+  quantity: number;
+  priceSnapshot: number;
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = parseInt(id || '0');
@@ -54,8 +63,9 @@ export default function OrderDetail() {
   const { data: order, isLoading, error } = useGetOrderQuery(orderId);
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
+  const [updateOrderItems, { isLoading: isUpdatingOrder }] = useUpdateOrderItemsMutation();
   
-  // Retry payment dialog state
+
   const [showRetryDialog, setShowRetryDialog] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     cardHolderName: '',
@@ -65,7 +75,33 @@ export default function OrderDetail() {
     cvc: '',
   });
 
-  // Luhn algoritması ile kart numarası doğrulama
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editableItems, setEditableItems] = useState<EditableOrderItem[]>([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductSearch, setShowProductSearch] = useState(false);
+  
+
+  const { data: productsData } = useGetProductsQuery(
+    { search: productSearch, pageSize: 10, inStock: true },
+    { skip: !showProductSearch || productSearch.length < 2 }
+  );
+
+
+  useEffect(() => {
+    if (showEditDialog && order) {
+      setEditableItems(
+        order.items.map((item: OrderItem) => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          priceSnapshot: item.priceSnapshot,
+        }))
+      );
+    }
+  }, [showEditDialog, order]);
+
+
   const validateCardNumber = (cardNumber: string): boolean => {
     const digits = cardNumber.replace(/\s/g, '');
     if (digits.length < 13 || digits.length > 19) return false;
@@ -144,6 +180,73 @@ export default function OrderDetail() {
     }
   };
 
+
+  const handleQuantityChange = (productId: number, delta: number) => {
+    setEditableItems(items =>
+      items.map(item =>
+        item.productId === productId
+          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+          : item
+      )
+    );
+  };
+
+  const handleRemoveItem = (productId: number) => {
+    if (editableItems.length <= 1) {
+      toast.error('Sipariş en az bir ürün içermelidir');
+      return;
+    }
+    setEditableItems(items => items.filter(item => item.productId !== productId));
+  };
+
+  const handleAddProduct = (product: Product) => {
+    const existingItem = editableItems.find(item => item.productId === product.id);
+    if (existingItem) {
+      handleQuantityChange(product.id, 1);
+    } else {
+      setEditableItems([
+        ...editableItems,
+        {
+          productId: product.id,
+          productName: product.name,
+          quantity: 1,
+          priceSnapshot: product.price,
+        },
+      ]);
+    }
+    setProductSearch('');
+    setShowProductSearch(false);
+    toast.success(`${product.name} eklendi`);
+  };
+
+  const handleSaveOrderItems = async () => {
+    if (editableItems.length === 0) {
+      toast.error('Sipariş en az bir ürün içermelidir');
+      return;
+    }
+
+    try {
+      await updateOrderItems({
+        orderId,
+        items: editableItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      }).unwrap();
+      setShowEditDialog(false);
+      toast.success('Sipariş güncellendi');
+    } catch (err: unknown) {
+      const error = err as { data?: { message?: string } };
+      toast.error(error.data?.message || 'Sipariş güncellenemedi');
+    }
+  };
+
+  const calculateEditTotal = () => {
+    const subtotal = editableItems.reduce((sum, item) => sum + item.priceSnapshot * item.quantity, 0);
+    const shipping = subtotal >= 1000 ? 0 : 29.90;
+    return { subtotal, shipping, total: subtotal + shipping };
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -175,6 +278,7 @@ export default function OrderDetail() {
   }
 
   const canCancel = ['PendingPayment', 'Paid', 'Processing'].includes(order.status);
+  const canEdit = order.status === 'PendingPayment';
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -208,7 +312,15 @@ export default function OrderDetail() {
           {/* Order Items */}
           <Card>
             <CardHeader>
-              <CardTitle>Ürünler</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Ürünler</CardTitle>
+                {canEdit && (
+                  <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Düzenle
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {order.items.map((item, index) => (
@@ -235,17 +347,19 @@ export default function OrderDetail() {
             </CardContent>
           </Card>
 
-          {/* Cancel Button */}
-          {canCancel && (
-            <Button
-              variant="destructive"
-              onClick={handleCancel}
-              disabled={isCancelling}
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Siparişi İptal Et
-            </Button>
-          )}
+          {/* Action Buttons */}
+          <div className="flex gap-4">
+            {canCancel && (
+              <Button
+                variant="destructive"
+                onClick={handleCancel}
+                disabled={isCancelling}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Siparişi İptal Et
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -392,6 +506,143 @@ export default function OrderDetail() {
             <Button onClick={handleRetryPayment} disabled={isProcessingPayment}>
               {isProcessingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ödemeyi Tamamla
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Order Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Siparişi Düzenle</DialogTitle>
+            <DialogDescription>
+              Sipariş #{order.id} ürünlerini düzenleyin. Ürün ekleyebilir, çıkarabilir veya miktarları değiştirebilirsiniz.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Add Product Section */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Yeni Ürün Ekle</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Ürün ara..."
+                  className="pl-9"
+                  value={productSearch}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setShowProductSearch(e.target.value.length >= 2);
+                  }}
+                  onFocus={() => setShowProductSearch(productSearch.length >= 2)}
+                />
+              </div>
+              {showProductSearch && productsData && productsData.items.length > 0 && (
+                <div className="border rounded-lg mt-2 max-h-48 overflow-y-auto">
+                  {productsData.items.map((product) => (
+                    <button
+                      key={product.id}
+                      className="w-full px-4 py-2 text-left hover:bg-muted flex items-center justify-between"
+                      onClick={() => handleAddProduct(product)}
+                    >
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {product.price.toLocaleString('tr-TR')} ₺ • Stok: {product.stockQuantity}
+                        </p>
+                      </div>
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Current Items */}
+            <div className="space-y-3">
+              <Label>Sipariş Ürünleri</Label>
+              {editableItems.map((item) => (
+                <div key={item.productId} className="flex items-center gap-4 p-3 border rounded-lg">
+                  <div className="h-12 w-12 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                    <Package className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{item.productName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {item.priceSnapshot.toLocaleString('tr-TR')} ₺
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleQuantityChange(item.productId, -1)}
+                      disabled={item.quantity <= 1}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleQuantityChange(item.productId, 1)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="font-bold w-24 text-right">
+                    {(item.priceSnapshot * item.quantity).toLocaleString('tr-TR')} ₺
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => handleRemoveItem(item.productId)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <Separator />
+
+            {/* Totals */}
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ara Toplam</span>
+                <span>{calculateEditTotal().subtotal.toLocaleString('tr-TR')} ₺</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Kargo</span>
+                <span>
+                  {calculateEditTotal().shipping === 0 ? (
+                    <span className="text-green-600">Ücretsiz</span>
+                  ) : (
+                    `${calculateEditTotal().shipping.toLocaleString('tr-TR')} ₺`
+                  )}
+                </span>
+              </div>
+              <Separator />
+              <div className="flex justify-between text-lg font-bold">
+                <span>Toplam</span>
+                <span>{calculateEditTotal().total.toLocaleString('tr-TR')} ₺</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              İptal
+            </Button>
+            <Button onClick={handleSaveOrderItems} disabled={isUpdatingOrder}>
+              {isUpdatingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Değişiklikleri Kaydet
             </Button>
           </DialogFooter>
         </DialogContent>

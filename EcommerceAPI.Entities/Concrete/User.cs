@@ -18,4 +18,5 @@ public class User : BaseEntity
     public Cart? Cart { get; set; }
     public ICollection<InventoryMovement> InventoryMovements { get; set; } = new List<InventoryMovement>();
     public ICollection<ShippingAddress> ShippingAddresses { get; set; } = new List<ShippingAddress>();
+    public ICollection<CreditCard> CreditCards { get; set; } = new List<CreditCard>();
 }

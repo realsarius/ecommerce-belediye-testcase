@@ -6,7 +6,7 @@ export const ordersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     checkout: builder.mutation<Order, CheckoutRequest>({
       query: (data) => ({
-        url: '/orders/checkout',
+        url: '/orders',
         method: 'POST',
         body: data,
       }),
@@ -25,8 +25,9 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
     cancelOrder: builder.mutation<Order, number>({
       query: (id) => ({
-        url: `/orders/${id}/cancel`,
-        method: 'POST',
+        url: `/orders/${id}/status`,
+        method: 'PATCH',
+        body: { status: 'Cancelled' },
       }),
       transformResponse: (response: { data: Order }) => response.data,
       invalidatesTags: ['Orders'],
@@ -40,6 +41,15 @@ export const ordersApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: Payment }) => response.data,
       invalidatesTags: ['Orders'],
     }),
+    updateOrderItems: builder.mutation<Order, { orderId: number; items: { productId: number; quantity: number }[] }>({
+      query: ({ orderId, items }) => ({
+        url: `/orders/${orderId}/items`,
+        method: 'PUT',
+        body: { items },
+      }),
+      transformResponse: (response: { data: Order }) => response.data,
+      invalidatesTags: (_result, _error, { orderId }) => [{ type: 'Order', id: orderId }, 'Orders'],
+    }),
   }),
 });
 
@@ -49,4 +59,5 @@ export const {
   useGetOrderQuery,
   useCancelOrderMutation,
   useProcessPaymentMutation,
+  useUpdateOrderItemsMutation,
 } = ordersApi;

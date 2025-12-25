@@ -9,7 +9,6 @@ import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { DevToolsProvider } from '@/components/common/DevToolsProvider';
 
-// Pages
 import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -26,9 +25,9 @@ import AdminOrders from '@/pages/admin/OrdersAdmin';
 import AdminCoupons from '@/pages/admin/CouponsAdmin';
 import Account from '@/pages/Account';
 import Addresses from '@/pages/Addresses';
+import CreditCards from '@/pages/CreditCards';
 import Help from '@/pages/Help';
 
-// Seller Pages
 import SellerDashboard from '@/pages/seller/Dashboard';
 import SellerProducts from '@/pages/seller/Products';
 import SellerProductForm from '@/pages/seller/ProductForm';
@@ -48,7 +47,6 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/products/:id" element={<ProductDetail />} />
                 
-                {/* Protected customer routes */}
                 <Route
                   path="/cart"
                   element={
@@ -97,10 +95,17 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/account/credit-cards"
+                  element={
+                    <ProtectedRoute>
+                      <CreditCards />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/help" element={<Help />} />
               </Route>
 
-              {/* Admin routes */}
               <Route
                 path="/admin"
                 element={
@@ -118,7 +123,6 @@ function App() {
                 <Route path="coupons" element={<AdminCoupons />} />
               </Route>
 
-              {/* Seller routes */}
               <Route
                 path="/seller"
                 element={

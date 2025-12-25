@@ -45,7 +45,7 @@ public class ShippingAddressController : ControllerBase
         
         if (result.Success)
         {
-            return Ok(result.Data);
+            return Created("", result.Data);
         }
         return BadRequest(result);
     }

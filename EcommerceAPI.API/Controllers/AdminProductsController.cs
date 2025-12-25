@@ -34,9 +34,6 @@ public class AdminProductsController : ControllerBase
         return (userId, roleClaim?.Value);
     }
 
-    /// <summary>
-    /// Seller ise kendi ürünlerini, Admin ise tüm ürünleri listeler
-    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetProducts([FromQuery] ProductListRequest request)
     {
@@ -44,7 +41,6 @@ public class AdminProductsController : ControllerBase
         
         if (role == "Seller" && userId.HasValue)
         {
-            // Seller'ın SellerProfile ID'sini al
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);
             if (!profileResult.Success || profileResult.Data == null)
                 return Ok(new { data = new PaginatedResponse<ProductDto> { Items = new List<ProductDto>(), TotalCount = 0 } });
@@ -53,7 +49,6 @@ public class AdminProductsController : ControllerBase
             return Ok(result);
         }
         
-        // Admin tüm ürünleri görür
         var allProducts = await _productService.GetProductsAsync(request);
         return Ok(allProducts);
     }
@@ -64,7 +59,6 @@ public class AdminProductsController : ControllerBase
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
         
-        // Seller ise SellerId ata
         if (role == "Seller" && userId.HasValue)
         {
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);
@@ -92,7 +86,6 @@ public class AdminProductsController : ControllerBase
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
         
-        // Seller ise ownership kontrolü için sellerId geç
         if (role == "Seller" && userId.HasValue)
         {
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);
@@ -117,7 +110,6 @@ public class AdminProductsController : ControllerBase
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
         
-        // Seller ise ownership kontrolü için sellerId geç
         if (role == "Seller" && userId.HasValue)
         {
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);
@@ -144,7 +136,6 @@ public class AdminProductsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized(new { message = "Geçersiz kullanıcı oturumu" });
 
-        // Seller ise kendi ürününün stoğunu güncelleyebilir
         if (role == "Seller")
         {
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);

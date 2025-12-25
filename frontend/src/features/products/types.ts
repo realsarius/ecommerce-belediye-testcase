@@ -34,6 +34,7 @@ export interface CreateProductRequest {
   sku: string;
   isActive: boolean;
   categoryId: number;
+  initialStock: number;
 }
 
 export interface UpdateProductRequest {
@@ -44,6 +45,7 @@ export interface UpdateProductRequest {
   sku?: string;
   isActive?: boolean;
   categoryId?: number;
+  stockQuantity?: number;
 }
 
 export interface UpdateStockRequest {

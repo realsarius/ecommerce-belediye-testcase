@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="cartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#374151"/>
+      <stop offset="100%" style="stop-color:#1F2937"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="url(#cartGradient)"/>
+  
+  <!-- Shopping cart icon -->
+  <g fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Cart body -->
+    <path d="M25 30 L32 30 L40 55 L70 55 L78 38 L36 38"/>
+    <!-- Cart basket -->
+    <path d="M40 55 L42 65 L68 65 L70 55"/>
+    <!-- Wheels -->
+    <circle cx="46" cy="72" r="5" fill="white"/>
+    <circle cx="64" cy="72" r="5" fill="white"/>
+    <!-- Handle -->
+    <path d="M25 30 L20 25"/>
+  </g>
+  
+  <!-- Plus sign for adding items -->
+  <circle cx="75" cy="28" r="12" fill="#6B7280"/>
+  <path d="M75 22 L75 34 M69 28 L81 28" stroke="white" stroke-width="3" stroke-linecap="round"/>
+</svg>
