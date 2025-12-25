@@ -1,11 +1,9 @@
 namespace EcommerceAPI.Core.Utilities.Results;
 
-/// <summary>
-/// Hatalı sonuç.
-/// </summary>
 public class ErrorResult : Result
 {
-    public ErrorResult(string message) : base(false, message)
+    public ErrorResult(string message, string? errorCode = null, object? details = null) 
+        : base(false, message, errorCode, details)
     {
     }
 

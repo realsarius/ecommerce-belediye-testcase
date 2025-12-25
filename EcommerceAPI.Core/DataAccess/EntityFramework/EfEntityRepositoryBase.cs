@@ -4,10 +4,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.Core.DataAccess.EntityFramework;
 
-/// <summary>
-/// Generic Entity Framework repository base class.
-/// Tüm EF repository'leri bu sınıftan türer.
-/// </summary>
 public class EfEntityRepositoryBase<TEntity, TContext> : IEntityRepository<TEntity>
     where TEntity : class, IEntity, new()
     where TContext : DbContext

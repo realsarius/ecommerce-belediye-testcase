@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+using EcommerceAPI.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;

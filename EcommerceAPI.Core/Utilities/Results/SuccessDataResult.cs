@@ -1,11 +1,8 @@
 namespace EcommerceAPI.Core.Utilities.Results;
 
-/// <summary>
-/// Başarılı data içeren sonuç.
-/// </summary>
 public class SuccessDataResult<T> : DataResult<T>
 {
-    public SuccessDataResult(T data, string message) : base(data, true, message)
+    public SuccessDataResult(T data, string message) : base(data, true, message, null, null)
     {
     }
 
@@ -13,7 +10,7 @@ public class SuccessDataResult<T> : DataResult<T>
     {
     }
 
-    public SuccessDataResult(string message) : base(default!, true, message)
+    public SuccessDataResult(string message) : base(default!, true, message, null, null)
     {
     }
 

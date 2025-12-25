@@ -6,10 +6,6 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -22,6 +18,7 @@ public class AuthManager : IAuthService
     private readonly IConfiguration _configuration;
     private readonly IHashingService _hashingService;
     private readonly IAuditService _auditService;
+    private readonly ITokenHelper _tokenHelper;
 
     public AuthManager(
         IUserDal userDal,
@@ -30,7 +27,8 @@ public class AuthManager : IAuthService
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
         IHashingService hashingService,
-        IAuditService auditService)
+        IAuditService auditService,
+        ITokenHelper tokenHelper)
     {
         _userDal = userDal;
         _roleDal = roleDal;
@@ -39,6 +37,7 @@ public class AuthManager : IAuthService
         _configuration = configuration;
         _hashingService = hashingService;
         _auditService = auditService;
+        _tokenHelper = tokenHelper;
     }
 
     public async Task<IDataResult<AuthResponse>> RegisterAsync(RegisterRequest request)
@@ -96,11 +95,11 @@ public class AuthManager : IAuthService
 
         var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
 
-        var token = GenerateJwtToken(user, role?.Name ?? "Customer");
+        var token = _tokenHelper.GenerateAccessToken(user.Id, user.Email, role?.Name ?? "Customer", user.FirstName, user.LastName);
         var expiry = DateTime.UtcNow.AddMinutes(
             int.Parse(_configuration["JWT_EXPIRATION_MINUTES"] ?? "60"));
 
-        var refreshToken = GenerateRefreshToken();
+        var refreshToken = _tokenHelper.GenerateRefreshToken();
         var hashedRefreshToken = _hashingService.Hash(refreshToken);
         
         var refreshTokenEntity = new RefreshToken
@@ -174,7 +173,7 @@ public class AuthManager : IAuthService
         if (existingToken.ExpiresAt < DateTime.UtcNow)
              return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Token süresi dolmuş" });
 
-        var newRefreshToken = GenerateRefreshToken();
+        var newRefreshToken = _tokenHelper.GenerateRefreshToken();
         var newHashedRefreshToken = _hashingService.Hash(newRefreshToken);
 
         existingToken.IsUsed = true;
@@ -200,7 +199,7 @@ public class AuthManager : IAuthService
         
         var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
 
-         var newAccessToken = GenerateJwtToken(user, role?.Name ?? "Customer");
+         var newAccessToken = _tokenHelper.GenerateAccessToken(user.Id, user.Email, role?.Name ?? "Customer", user.FirstName, user.LastName);
          var expiry = DateTime.UtcNow.AddMinutes(
             int.Parse(_configuration["JWT_EXPIRATION_MINUTES"] ?? "60"));
 
@@ -266,41 +265,5 @@ public class AuthManager : IAuthService
             LastName = user.LastName,
             Role = role?.Name ?? "Customer"
         });
-    }
-
-    private string GenerateRefreshToken()
-    {
-        var randomNumber = new byte[32];
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
-    }
-
-    private string GenerateJwtToken(User user, string role)
-    {
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_configuration["JWT_SECRET_KEY"] ?? "default-key"));
-        
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, role),
-            new Claim(ClaimTypes.GivenName, user.FirstName),
-            new Claim(ClaimTypes.Surname, user.LastName)
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["JWT_ISSUER"],
-            audience: _configuration["JWT_AUDIENCE"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(
-                int.Parse(_configuration["JWT_EXPIRATION_MINUTES"] ?? "60")),
-            signingCredentials: credentials
-        );
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

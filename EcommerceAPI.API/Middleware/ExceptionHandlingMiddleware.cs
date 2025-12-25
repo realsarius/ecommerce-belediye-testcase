@@ -39,7 +39,7 @@ public class ExceptionHandlingMiddleware
         {
             case NotFoundException notFoundEx:
                 response.StatusCode = (int)HttpStatusCode.NotFound;
-                errorResponse.ErrorCode = notFoundEx.ErrorCode;
+                errorResponse.ErrorCode = notFoundEx.ErrorCode ?? "RESOURCE_NOT_FOUND";
                 errorResponse.Message = notFoundEx.Message;
                 errorResponse.Details = new { notFoundEx.ResourceType, notFoundEx.ResourceId };
                 _logger.LogWarning("Resource not found: {ResourceType} with ID {ResourceId}", 
@@ -48,7 +48,7 @@ public class ExceptionHandlingMiddleware
 
             case InsufficientStockException stockEx:
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
-                errorResponse.ErrorCode = stockEx.ErrorCode;
+                errorResponse.ErrorCode = stockEx.ErrorCode ?? "INSUFFICIENT_STOCK";
                 errorResponse.Message = stockEx.Message;
                 errorResponse.Details = new 
                 { 
@@ -62,9 +62,16 @@ public class ExceptionHandlingMiddleware
 
             case Core.Exceptions.ValidationException validationEx:
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
-                errorResponse.ErrorCode = validationEx.ErrorCode;
+                errorResponse.ErrorCode = validationEx.ErrorCode ?? "VALIDATION_ERROR";
                 errorResponse.Message = validationEx.Message;
                 errorResponse.Details = validationEx.Errors;
+                break;
+
+            case BusinessException businessEx:
+                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                errorResponse.ErrorCode = businessEx.ErrorCode ?? "BUSINESS_ERROR";
+                errorResponse.Message = businessEx.Message;
+                _logger.LogWarning("Business exception: {Message}", businessEx.Message);
                 break;
 
             case DomainException domainEx:

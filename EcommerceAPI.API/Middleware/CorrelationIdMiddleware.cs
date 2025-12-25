@@ -1,15 +1,18 @@
 using Serilog.Context;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.API.Middleware;
 
 public class CorrelationIdMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
     private const string CorrelationIdHeader = "X-Correlation-Id";
 
-    public CorrelationIdMiddleware(RequestDelegate next)
+    public CorrelationIdMiddleware(RequestDelegate next, ICorrelationIdProvider correlationIdProvider)
     {
         _next = next;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -20,6 +23,7 @@ public class CorrelationIdMiddleware
         }
 
         context.Items["CorrelationId"] = correlationId.ToString();
+        _correlationIdProvider.SetCorrelationId(correlationId.ToString());
 
         context.Response.OnStarting(() =>
         {

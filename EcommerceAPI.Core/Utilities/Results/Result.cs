@@ -1,21 +1,21 @@
 namespace EcommerceAPI.Core.Utilities.Results;
 
-/// <summary>
-/// Temel sonuç sınıfı.
-/// </summary>
 public class Result : IResult
 {
-    public Result(bool success, string message) : this(success)
-    {
-        Message = message;
-    }
-
-    public Result(bool success)
+    public Result(bool success, string message, string? errorCode = null, object? details = null)
     {
         Success = success;
-        Message = string.Empty;
+        Message = message;
+        ErrorCode = errorCode;
+        Details = details;
+    }
+
+    public Result(bool success) : this(success, string.Empty)
+    {
     }
 
     public bool Success { get; }
     public string Message { get; }
+    public string? ErrorCode { get; }
+    public object? Details { get; }
 }

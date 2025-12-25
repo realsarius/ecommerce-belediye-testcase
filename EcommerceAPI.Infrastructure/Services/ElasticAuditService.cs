@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+using Microsoft.Extensions.Logging;
 
-namespace EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+namespace EcommerceAPI.Infrastructure.Services;
 
 /// <summary>
 /// Elasticsearch tabanlı Audit Log servisi.

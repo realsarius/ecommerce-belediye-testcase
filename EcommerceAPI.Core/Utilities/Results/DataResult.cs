@@ -1,11 +1,9 @@
 namespace EcommerceAPI.Core.Utilities.Results;
 
-/// <summary>
-/// Data içeren sonuç sınıfı.
-/// </summary>
 public class DataResult<T> : Result, IDataResult<T>
 {
-    public DataResult(T data, bool success, string message) : base(success, message)
+    public DataResult(T data, bool success, string message, string? errorCode = null, object? details = null) 
+        : base(success, message, errorCode, details)
     {
         Data = data;
     }

@@ -1,11 +1,9 @@
 namespace EcommerceAPI.Core.Utilities.Results;
 
-/// <summary>
-/// Hatalı data içeren sonuç.
-/// </summary>
 public class ErrorDataResult<T> : DataResult<T>
 {
-    public ErrorDataResult(T data, string message) : base(data, false, message)
+    public ErrorDataResult(T data, string message, string? errorCode = null, object? details = null) 
+        : base(data, false, message, errorCode, details)
     {
     }
 
@@ -13,7 +11,8 @@ public class ErrorDataResult<T> : DataResult<T>
     {
     }
 
-    public ErrorDataResult(string message) : base(default!, false, message)
+    public ErrorDataResult(string message, string? errorCode = null, object? details = null) 
+        : base(default!, false, message, errorCode, details)
     {
     }
 
