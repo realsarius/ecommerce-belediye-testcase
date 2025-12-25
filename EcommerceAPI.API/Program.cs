@@ -4,6 +4,8 @@ using EcommerceAPI.Infrastructure;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.DataAccess;
 using EcommerceAPI.Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using EcommerceAPI.Seeder;
 using EcommerceAPI.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -196,10 +198,28 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-        var hashingService = services.GetRequiredService<IHashingService>();
-        var logger = services.GetRequiredService<ILogger<DbInitializer>>();
-        var initializer = new DbInitializer(context, hashingService, logger);
-        await initializer.InitializeAsync();
+        await context.Database.MigrateAsync();
+
+        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
+        {
+            var logger = services.GetRequiredService<ILogger<SeedRunner>>();
+            var hashingService = services.GetRequiredService<IHashingService>();
+            
+            var seedPath = Path.Combine(AppContext.BaseDirectory, "seed-data");
+            if (!Directory.Exists(seedPath))
+            {
+                var probe = Path.Combine(Directory.GetCurrentDirectory(), "..", "seed-data");
+                if (Directory.Exists(probe)) seedPath = probe;
+                else
+                {
+                    probe = Path.Combine(Directory.GetCurrentDirectory(), "seed-data");
+                    if (Directory.Exists(probe)) seedPath = probe;
+                }
+            }
+
+            var seeder = new SeedRunner(context, logger, seedPath, hashingService);
+            await seeder.RunAsync(seed: true);
+        }
     }
     catch (Exception ex)
     {

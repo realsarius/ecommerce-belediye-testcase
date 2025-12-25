@@ -7,7 +7,7 @@
   },
   {
     "productId": 2,
-    "quantityAvailable": 216,
+    "quantityAvailable": 0,
     "quantityReserved": 31,
     "updatedAt": "2025-12-18T17:49:10Z"
   },
@@ -25,8 +25,8 @@
   },
   {
     "productId": 5,
-    "quantityAvailable": 322,
-    "quantityReserved": 28,
+    "quantityAvailable": 0,
+    "quantityReserved": 0,
     "updatedAt": "2025-12-15T17:49:10Z"
   },
   {

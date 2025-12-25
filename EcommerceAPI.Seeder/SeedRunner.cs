@@ -4,6 +4,7 @@ using EcommerceAPI.DataAccess;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using EcommerceAPI.Core.Interfaces;
 
 namespace EcommerceAPI.Seeder;
 
@@ -12,12 +13,14 @@ public class SeedRunner
     private readonly AppDbContext _context;
     private readonly ILogger<SeedRunner> _logger;
     private readonly string _seedDataPath;
+    private readonly IHashingService _hashingService;
 
-    public SeedRunner(AppDbContext context, ILogger<SeedRunner> logger, string seedDataPath)
+    public SeedRunner(AppDbContext context, ILogger<SeedRunner> logger, string seedDataPath, IHashingService hashingService)
     {
         _context = context;
         _logger = logger;
         _seedDataPath = seedDataPath;
+        _hashingService = hashingService;
     }
 
     public async Task RunAsync(bool reset = false, bool seed = false)
@@ -54,9 +57,15 @@ public class SeedRunner
 
     private async Task SeedAllAsync()
     {
+        await SeedRolesAsync();
+        await SeedUsersAsync();
+        await SeedShippingAddressesAsync();
+        
         await SeedCategoriesAsync();
         await SeedProductsAsync();
         await SeedInventoriesAsync();
+
+        await ResetSequencesAsync();
     }
 
     private async Task SeedCategoriesAsync()
