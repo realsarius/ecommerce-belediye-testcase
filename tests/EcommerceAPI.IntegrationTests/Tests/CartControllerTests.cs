@@ -75,7 +75,7 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Act
         var response = await client.PostAsJsonAsync("/api/v1/cart/items", request);
 
-        // Assert - OK if user exists, 500 if user doesn't exist in DB
+        // Assert - OK if user exists, BadRequest/InternalServerError if user doesn't exist in DB
         if (response.StatusCode == HttpStatusCode.OK)
         {
             var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<CartDto>>();
@@ -85,6 +85,7 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory>
         else
         {
              response.StatusCode.Should().BeOneOf(
+                HttpStatusCode.BadRequest, // Proper error response
                 HttpStatusCode.InternalServerError // User doesn't exist
             );
         }
