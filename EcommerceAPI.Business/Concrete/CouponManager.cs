@@ -4,8 +4,8 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
-
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -13,11 +13,13 @@ public class CouponManager : ICouponService
 {
     private readonly ICouponDal _couponDal;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditService _auditService;
 
-    public CouponManager(ICouponDal couponDal, IUnitOfWork unitOfWork)
+    public CouponManager(ICouponDal couponDal, IUnitOfWork unitOfWork, IAuditService auditService)
     {
         _couponDal = couponDal;
         _unitOfWork = unitOfWork;
+        _auditService = auditService;
     }
 
     public async Task<IDataResult<List<CouponDto>>> GetAllAsync()
@@ -38,7 +40,7 @@ public class CouponManager : ICouponService
 
     public async Task<IDataResult<CouponDto>> CreateAsync(CreateCouponRequest request)
     {
-        // Check if code already exists
+
         var existing = await _couponDal.GetByCodeAsync(request.Code);
         if (existing != null)
             return new ErrorDataResult<CouponDto>("Bu kupon kodu zaten kullanılıyor.");
@@ -58,6 +60,13 @@ public class CouponManager : ICouponService
 
         await _couponDal.AddAsync(coupon);
         await _unitOfWork.SaveChangesAsync();
+        
+        await _auditService.LogActionAsync(
+            "Admin",
+            "CreateCoupon",
+            "Coupon",
+            new { CouponId = coupon.Id, Code = coupon.Code, Type = coupon.Type.ToString(), Value = coupon.Value });
+        
         return new SuccessDataResult<CouponDto>(MapToDto(coupon), "Kupon başarıyla oluşturuldu.");
     }
 
@@ -67,7 +76,7 @@ public class CouponManager : ICouponService
         if (coupon == null)
             return new ErrorDataResult<CouponDto>("Kupon bulunamadı.");
 
-        // Check if new code conflicts with existing
+
         if (!string.IsNullOrEmpty(request.Code) && request.Code.ToUpper() != coupon.Code)
         {
             var existing = await _couponDal.GetByCodeAsync(request.Code);
@@ -87,6 +96,13 @@ public class CouponManager : ICouponService
         coupon.UpdatedAt = DateTime.UtcNow;
         _couponDal.Update(coupon);
         await _unitOfWork.SaveChangesAsync();
+        
+        await _auditService.LogActionAsync(
+            "Admin",
+            "UpdateCoupon",
+            "Coupon",
+            new { CouponId = coupon.Id, Code = coupon.Code });
+        
         return new SuccessDataResult<CouponDto>(MapToDto(coupon), "Kupon başarıyla güncellendi.");
     }
 
@@ -98,6 +114,13 @@ public class CouponManager : ICouponService
 
         _couponDal.Delete(coupon);
         await _unitOfWork.SaveChangesAsync();
+        
+        await _auditService.LogActionAsync(
+            "Admin",
+            "DeleteCoupon",
+            "Coupon",
+            new { CouponId = coupon.Id, Code = coupon.Code });
+        
         return new SuccessResult("Kupon başarıyla silindi.");
     }
 
@@ -165,6 +188,12 @@ public class CouponManager : ICouponService
         coupon.UpdatedAt = DateTime.UtcNow;
         _couponDal.Update(coupon);
         await _unitOfWork.SaveChangesAsync();
+        
+        await _auditService.LogActionAsync(
+            "System",
+            "UseCoupon",
+            "Coupon",
+            new { CouponId = coupon.Id, Code = coupon.Code, UsedCount = coupon.UsedCount });
         
         return new SuccessResult();
     }

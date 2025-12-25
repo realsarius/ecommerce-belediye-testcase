@@ -22,7 +22,7 @@ import {
 import { ArrowLeft, Loader2, Save, Store } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Zod validation schema
+
 const productSchema = z.object({
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
   description: z.string().max(2000, 'Açıklama çok uzun').optional().or(z.literal('')),
@@ -98,22 +98,31 @@ export default function SellerProductForm() {
 
   const onSubmit = async (data: ProductFormData) => {
     try {
-      const payload = {
-        name: data.name,
-        description: data.description || '',
-        sku: data.sku,
-        price: data.price,
-        currency: 'TRY',
-        categoryId: parseInt(data.categoryId as unknown as string, 10),
-        initialStock: data.initialStock,
-        isActive: data.isActive,
-      };
-
       if (isEdit) {
-        await updateProduct({ id: productId, data: payload }).unwrap();
+        const updatePayload = {
+          name: data.name,
+          description: data.description || '',
+          sku: data.sku,
+          price: data.price,
+          currency: 'TRY',
+          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          stockQuantity: data.initialStock, // Form uses initialStock field name for stock input
+          isActive: data.isActive,
+        };
+        await updateProduct({ id: productId, data: updatePayload }).unwrap();
         toast.success('Ürün güncellendi');
       } else {
-        await createProduct(payload).unwrap();
+        const createPayload = {
+          name: data.name,
+          description: data.description || '',
+          sku: data.sku,
+          price: data.price,
+          currency: 'TRY',
+          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          initialStock: data.initialStock,
+          isActive: data.isActive,
+        };
+        await createProduct(createPayload).unwrap();
         toast.success('Ürün oluşturuldu');
       }
       navigate('/seller/products');
@@ -123,7 +132,7 @@ export default function SellerProductForm() {
     }
   };
 
-  // No profile check
+
   if (!profileLoading && !profile) {
     return (
       <div>
@@ -217,8 +226,14 @@ export default function SellerProductForm() {
                       control={control}
                       render={({ field }) => (
                         <Select
+                          key={product?.categoryId ? `cat-${product.categoryId}` : 'cat-empty'}
                           value={field.value ? field.value.toString() : ""}
-                          onValueChange={field.onChange}
+                          onValueChange={(val) => {
+                              if (!val && product?.categoryId) {
+                                return;
+                              }
+                              field.onChange(val);
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Kategori seçin" />
@@ -261,7 +276,7 @@ export default function SellerProductForm() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="stock">Başlangıç Stok</Label>
+                    <Label htmlFor="stock">Stok Miktarı</Label>
                     <Input
                       id="stock"
                       type="number"

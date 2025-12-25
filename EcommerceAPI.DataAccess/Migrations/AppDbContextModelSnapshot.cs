@@ -129,13 +129,15 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
@@ -144,7 +146,8 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<decimal?>("MinOrderAmount")
-                        .HasColumnType("numeric");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
@@ -159,11 +162,79 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasColumnType("integer");
 
                     b.Property<decimal>("Value")
-                        .HasColumnType("numeric");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Coupons");
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive", "ExpiresAt");
+
+                    b.ToTable("TBL_Coupons", (string)null);
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.CreditCard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CardAlias")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CardHolderName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CardNumberEncrypted")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CvvEncrypted")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ExpireMonthEncrypted")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ExpireYearEncrypted")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Last4Digits")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TBL_CreditCards", (string)null);
                 });
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Inventory", b =>
@@ -735,6 +806,17 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.CreditCard", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.User", "User")
+                        .WithMany("CreditCards")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Inventory", b =>
                 {
                     b.HasOne("EcommerceAPI.Entities.Concrete.Product", "Product")
@@ -920,6 +1002,8 @@ namespace EcommerceAPI.DataAccess.Migrations
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.User", b =>
                 {
                     b.Navigation("Cart");
+
+                    b.Navigation("CreditCards");
 
                     b.Navigation("InventoryMovements");
 

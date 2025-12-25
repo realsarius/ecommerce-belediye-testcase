@@ -9,4 +9,5 @@ public class UpdateProductRequest : IDto
     public decimal Price { get; set; }
     public int CategoryId { get; set; }
     public bool IsActive { get; set; } = true;
+    public int? StockQuantity { get; set; }
 }

@@ -38,7 +38,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
       <SheetTrigger asChild>
         {children}
       </SheetTrigger>
-      <SheetContent className="flex flex-col w-full sm:max-w-md p-0">
+      <SheetContent className="flex flex-col w-full sm:max-w-md p-0 overflow-hidden">
         <SheetHeader className="p-6 border-b">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2">
@@ -51,7 +51,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-6 min-h-0">
           {(!cart || !cart.items || cart.items.length === 0) ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
               <ShoppingBag className="h-12 w-12 text-muted-foreground opacity-20" />

@@ -4,6 +4,7 @@ using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.DataAccess.Abstract;
 using System.Threading.Tasks;
@@ -15,30 +16,33 @@ namespace EcommerceAPI.UnitTests;
 public class OrderManagerTests
 {
     private readonly Mock<IOrderDal> _orderDalMock;
-    private readonly Mock<ICartDal> _cartDalMock;
+    private readonly Mock<IProductDal> _productDalMock;
     private readonly Mock<IInventoryService> _inventoryServiceMock;
     private readonly Mock<ICartService> _cartServiceMock;
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICouponService> _couponServiceMock;
+    private readonly Mock<IAuditService> _auditServiceMock;
 
     private readonly OrderManager _orderManager;
 
     public OrderManagerTests()
     {
         _orderDalMock = new Mock<IOrderDal>();
-        _cartDalMock = new Mock<ICartDal>();
+        _productDalMock = new Mock<IProductDal>();
         _inventoryServiceMock = new Mock<IInventoryService>();
         _cartServiceMock = new Mock<ICartService>();
         _uowMock = new Mock<IUnitOfWork>();
         _couponServiceMock = new Mock<ICouponService>();
+        _auditServiceMock = new Mock<IAuditService>();
 
         _orderManager = new OrderManager(
             _orderDalMock.Object,
-            _cartDalMock.Object,
+            _productDalMock.Object,
             _inventoryServiceMock.Object,
             _cartServiceMock.Object,
             _uowMock.Object,
-            _couponServiceMock.Object
+            _couponServiceMock.Object,
+            _auditServiceMock.Object
         );
     }
 
@@ -53,16 +57,20 @@ public class OrderManagerTests
             PaymentMethod = "CreditCard"
         };
         
-        var cart = new Cart { UserId = userId, Items = new List<CartItem>() };
-        // Product setup for inventory check
-        var prod1 = new Product { Id = 1, Name = "P1", Inventory = new Inventory { QuantityAvailable = 10 } };
-        var prod2 = new Product { Id = 2, Name = "P2", Inventory = new Inventory { QuantityAvailable = 10 } };
+        // OrderManager artık CartService.GetCartAsync kullanıyor (CartDto döner)
+        var cartDto = new CartDto
+        {
+            Id = userId,
+            TotalAmount = 125, // 50*2 + 25*1
+            Items = new List<CartItemDto>
+            {
+                new CartItemDto { ProductId = 1, ProductName = "P1", Quantity = 2, UnitPrice = 50, AvailableStock = 10 },
+                new CartItemDto { ProductId = 2, ProductName = "P2", Quantity = 1, UnitPrice = 25, AvailableStock = 10 }
+            }
+        };
 
-        cart.Items.Add(new CartItem { ProductId = 1, Quantity = 2, PriceSnapshot = 50, Product = prod1 }); // 100
-        cart.Items.Add(new CartItem { ProductId = 2, Quantity = 1, PriceSnapshot = 25, Product = prod2 }); // 25
-        // Total should be 125
-
-        _cartDalMock.Setup(x => x.GetByUserIdWithItemsAsync(userId)).ReturnsAsync(cart);
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId))
+            .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
         
         // Mock InventoryService DecreaseStock
         _inventoryServiceMock.Setup(x => x.DecreaseStockAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))

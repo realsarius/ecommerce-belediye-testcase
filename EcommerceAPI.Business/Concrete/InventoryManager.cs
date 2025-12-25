@@ -1,71 +1,101 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.Concrete;
-using EcommerceAPI.DataAccess.Abstract; // IDal interface'leri burada
+using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
+using EcommerceAPI.Core.Utilities.Redis;
+using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
+/// <summary>
+/// Inventory management service.
+/// </summary>
 public class InventoryManager : IInventoryService
 {
     private readonly IInventoryDal _inventoryDal;
+    private readonly IDistributedLockService _lockService;
+    private readonly IAuditService _auditService;
 
-    public InventoryManager(IInventoryDal inventoryDal)
+    public InventoryManager(IInventoryDal inventoryDal, IDistributedLockService lockService, IAuditService auditService)
     {
         _inventoryDal = inventoryDal;
+        _lockService = lockService;
+        _auditService = auditService;
     }
 
     public async Task<IResult> DecreaseStockAsync(int productId, int quantity, int userId, string reason)
     {
-        var inventory = await _inventoryDal.GetByProductIdAsync(productId);
-        if (inventory == null)
-        {
-            return new ErrorResult("Stok kaydı bulunamadı.");
-        }
+        var lockKey = RedisKeys.ProductLock(productId);
 
-        if (inventory.QuantityAvailable < quantity)
+        return await _lockService.ExecuteWithLockAsync<IResult>(lockKey, async () =>
         {
-            return new ErrorResult($"Stok yetersiz. Mevcut: {inventory.QuantityAvailable}, İstenen: {quantity}");
-        }
+            var inventory = await _inventoryDal.GetByProductIdAsync(productId);
+            if (inventory == null)
+            {
+                return new ErrorResult("Stok kaydı bulunamadı.");
+            }
 
-        inventory.QuantityAvailable -= quantity;
-        _inventoryDal.Update(inventory);
+            if (inventory.QuantityAvailable < quantity)
+            {
+                return new ErrorResult($"Stok yetersiz. Mevcut: {inventory.QuantityAvailable}, İstenen: {quantity}");
+            }
 
-        // Audit kaydı
-        var movement = new InventoryMovement
-        {
-            ProductId = productId,
-            UserId = userId,
-            Delta = -quantity,
-            Reason = reason,
-            Notes = $"Stok düşüldü. Miktar: {quantity}"
-        };
-        await _inventoryDal.AddMovementAsync(movement);
-        
-        return new SuccessResult();
+            inventory.QuantityAvailable -= quantity;
+            _inventoryDal.Update(inventory);
+
+            var movement = new InventoryMovement
+            {
+                ProductId = productId,
+                UserId = userId,
+                Delta = -quantity,
+                Reason = reason,
+                Notes = $"Stok düşüldü. Miktar: {quantity}"
+            };
+            await _inventoryDal.AddMovementAsync(movement);
+
+            await _auditService.LogActionAsync(
+                userId.ToString(),
+                "DecreaseStock",
+                "Inventory",
+                new { ProductId = productId, Quantity = quantity, NewStock = inventory.QuantityAvailable, Reason = reason });
+
+            return new SuccessResult();
+        });
     }
 
     public async Task<IResult> IncreaseStockAsync(int productId, int quantity, int userId, string reason)
     {
-        var inventory = await _inventoryDal.GetByProductIdAsync(productId);
-        if (inventory == null)
+        var lockKey = RedisKeys.ProductLock(productId);
+
+        return await _lockService.ExecuteWithLockAsync<IResult>(lockKey, async () =>
         {
-            return new ErrorResult("Stok kaydı bulunamadı.");
-        }
+            var inventory = await _inventoryDal.GetByProductIdAsync(productId);
+            if (inventory == null)
+            {
+                return new ErrorResult("Stok kaydı bulunamadı.");
+            }
 
-        inventory.QuantityAvailable += quantity;
-        _inventoryDal.Update(inventory);
+            inventory.QuantityAvailable += quantity;
+            _inventoryDal.Update(inventory);
 
-        // Audit kaydı burada
-        var movement = new InventoryMovement
-        {
-            ProductId = productId,
-            UserId = userId,
-            Delta = quantity,
-            Reason = reason,
-            Notes = $"Stok eklendi. Miktar: {quantity}"
-        };
-        await _inventoryDal.AddMovementAsync(movement);
+            var movement = new InventoryMovement
+            {
+                ProductId = productId,
+                UserId = userId,
+                Delta = quantity,
+                Reason = reason,
+                Notes = $"Stok eklendi. Miktar: {quantity}"
+            };
+            await _inventoryDal.AddMovementAsync(movement);
 
-        return new SuccessResult();
+            await _auditService.LogActionAsync(
+                userId.ToString(),
+                "IncreaseStock",
+                "Inventory",
+                new { ProductId = productId, Quantity = quantity, NewStock = inventory.QuantityAvailable, Reason = reason });
+
+            return new SuccessResult();
+        });
     }
 }

@@ -44,14 +44,13 @@ public class DbInitializer
             await _context.Roles.AddRangeAsync(roles);
             await _context.SaveChangesAsync();
             
-            // users
-            // Password: Test123! (BCrypt hash)
+
             var passwordHash = "$2a$11$rBNlWqg/4V2Jw!YfG8dfU.K8dGcjlKQMZ3m0H7kXPnHWvnBN6jQFW";
-            // RoleId = 1 Admin, 2 Customer, 3 Seller
+
 
             var users = new List<User>
             {
-                // 1 Admin
+
                 new User
                 {
                     Id = 1,
@@ -63,7 +62,7 @@ public class DbInitializer
                     RoleId = 1, // Admin
                     CreatedAt = DateTime.UtcNow
                 },
-                // 2 Sellers
+
                 new User
                 {
                     Id = 2,
@@ -86,7 +85,7 @@ public class DbInitializer
                     RoleId = 3,
                     CreatedAt = DateTime.UtcNow
                 },
-                // 10 Customers
+
                 new User
                 {
                     Id = 4,
@@ -202,7 +201,7 @@ public class DbInitializer
             await _context.Users.AddRangeAsync(users);
             await _context.SaveChangesAsync();
             
-            // shipping addresses
+
             var addresses = new List<ShippingAddress>
             {
                 // Mehmet (Id=4) has 2 addresses
@@ -401,6 +400,14 @@ public class DbInitializer
             await _context.SaveChangesAsync();
             
             _logger.LogInformation("Database seeding completed successfully.");
+
+            await _context.Database.ExecuteSqlRawAsync(@"
+                SELECT setval(pg_get_serial_sequence('""TBL_Roles""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Roles"";
+                SELECT setval(pg_get_serial_sequence('""TBL_Users""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Users"";
+                SELECT setval(pg_get_serial_sequence('""TBL_ShippingAddresses""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_ShippingAddresses"";
+                SELECT setval(pg_get_serial_sequence('""TBL_Categories""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Categories"";
+                SELECT setval(pg_get_serial_sequence('""TBL_Products""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Products"";
+            ");
         }
         catch (Exception ex)
         {

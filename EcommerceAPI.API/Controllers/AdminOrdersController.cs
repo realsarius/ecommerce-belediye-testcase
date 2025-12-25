@@ -1,6 +1,7 @@
 using EcommerceAPI.Business.Abstract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EcommerceAPI.Entities.DTOs;
 
 namespace EcommerceAPI.API.Controllers;
 
@@ -38,10 +39,5 @@ public class AdminOrdersController : ControllerBase
         }
         return BadRequest(result);
     }
-}
-
-public class UpdateOrderStatusRequest
-{
-    public string Status { get; set; } = string.Empty;
 }
 

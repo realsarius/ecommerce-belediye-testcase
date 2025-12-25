@@ -1,36 +1,53 @@
 using EcommerceAPI.Business.Abstract;
-using EcommerceAPI.Business.Settings;
+using EcommerceAPI.Infrastructure.Settings;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Core.Utilities.Results;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
-using EcommerceAPI.Core.Interfaces;
 using Iyzipay;
 using Iyzipay.Model;
 using Iyzipay.Request;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace EcommerceAPI.Business.Concrete;
+namespace EcommerceAPI.Infrastructure.ExternalServices;
 
-public class IyzicoPaymentManager : IPaymentService
+/// <summary>
+/// Iyzico ödeme API'si ile entegrasyonu sağlayan servis.
+/// Bu sınıf Infrastructure katmanında yer alır çünkü:
+/// - Dış API ile doğrudan iletişim kurar
+/// - 3rd party paket bağımlılığı vardır (Iyzipay)
+/// - Business mantığından bağımsız, teknik implementasyondur
+/// </summary>
+public class IyzicoPaymentService : IPaymentService
 {
     private readonly IOrderDal _orderDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IyzicoSettings _settings;
+    private readonly ICreditCardService _creditCardService;
+    private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
 
-    public IyzicoPaymentManager(
+    public IyzicoPaymentService(
         IOrderDal orderDal,
         IUnitOfWork unitOfWork,
-        IOptions<IyzicoSettings> settings)
+        IOptions<IyzicoSettings> settings,
+        ICreditCardService creditCardService,
+        Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
     {
         _orderDal = orderDal;
         _unitOfWork = unitOfWork;
         _settings = settings.Value;
+        _creditCardService = creditCardService;
+        _logger = logger;
     }
 
     public async Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request)
     {
+        _logger.LogInformation("RAW PAYMENT REQUEST: User={UserId}, OrderId={OrderId}, SavedCardId={SavedCardId}, CardNoLen={CardLen}", 
+            userId, request.OrderId, request.SavedCardId, request.CardNumber?.Length ?? 0);
+
         var order = await _orderDal.GetByIdWithDetailsAsync(request.OrderId);
 
         if (order == null || order.UserId != userId)
@@ -82,7 +99,7 @@ public class IyzicoPaymentManager : IPaymentService
         return new ErrorDataResult<PaymentDto>(MapToDto(order.Payment), order.Payment.ErrorMessage ?? "Ödeme başarısız");
     }
 
-    private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(EcommerceAPI.Entities.Concrete.Order order, ProcessPaymentRequest request)
+    private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request)
     {
         var options = new Iyzipay.Options
         {
@@ -104,19 +121,56 @@ public class IyzicoPaymentManager : IPaymentService
             PaymentGroup = PaymentGroup.PRODUCT.ToString()
         };
 
-        // Kart bilgileri
+        // Kart bilgileri - kayıtlı kart veya yeni kart
+        string cardHolderName, cardNumber, expireMonth, expireYear;
+        
+        if (request.SavedCardId.HasValue)
+        {
+            // Kayıtlı kart kullan
+            var savedCardResult = await _creditCardService.GetDecryptedCardForPaymentAsync(order.UserId, request.SavedCardId.Value);
+            if (!savedCardResult.Success || savedCardResult.Data == null)
+            {
+                throw new InvalidOperationException("Kayıtlı kart bulunamadı veya yetkisiz erişim.");
+            }
+            
+            var savedCard = savedCardResult.Data;
+            cardHolderName = savedCard.CardHolderName;
+            cardNumber = savedCard.CardNumber?.Replace(" ", "") ?? "";
+            expireMonth = savedCard.ExpireMonth;
+            expireYear = savedCard.ExpireYear;
+
+            _logger.LogInformation("Kayıtlı kart kullanılıyor ID: {SavedCardId}", request.SavedCardId);
+            _logger.LogInformation("Kart No Length: {Length}, IsNumeric: {IsNumeric}", 
+                cardNumber.Length, 
+                cardNumber.All(char.IsDigit));
+            _logger.LogInformation("Expire: {Month}/{Year}", expireMonth, expireYear);
+
+            if (!cardNumber.All(char.IsDigit))
+            {
+                _logger.LogError("DECRYPTION HATASI: Kart numarası sadece rakamlardan oluşmuyor! Decrypted: {Decrypted}", 
+                    cardNumber.Length > 4 ? cardNumber.Substring(0, 4) + "***" : "INVALID");
+            }
+        }
+        else
+        {
+            // Yeni kart bilgileri
+            cardHolderName = request.CardHolderName ?? "Test User";
+            cardNumber = request.CardNumber?.Replace(" ", "") ?? "";
+            expireMonth = GetExpireMonth(request.ExpiryDate);
+            expireYear = GetExpireYear(request.ExpiryDate);
+        }
+        
         paymentRequest.PaymentCard = new PaymentCard
         {
-            CardHolderName = request.CardHolderName ?? "Test User",
-            CardNumber = request.CardNumber?.Replace(" ", "") ?? "",
-            ExpireMonth = GetExpireMonth(request.ExpiryDate),
-            ExpireYear = GetExpireYear(request.ExpiryDate),
+            CardHolderName = cardHolderName,
+            CardNumber = cardNumber,
+            ExpireMonth = expireMonth,
+            ExpireYear = expireYear,
             Cvc = request.CVV ?? "",
             RegisterCard = 0
         };
 
         // Alıcı bilgileri
-        // User'dan gelen veriler ile doldurulabilir
         paymentRequest.Buyer = new Buyer
         {
             Id = order.UserId.ToString(),
@@ -142,12 +196,10 @@ public class IyzicoPaymentManager : IPaymentService
         paymentRequest.ShippingAddress = address;
         paymentRequest.BillingAddress = address;
 
-        // Sepet ürünleri
-        // Sepet ürünlerinin fiyatlarını indirime göre oransal olarak ayarla
-        // Iyzico, "BasketItems toplamı eşittir PaidPrice" kuralını zorunlu tutar.
+        // Sepet ürünleri - Iyzico kuralı: BasketItems toplamı = PaidPrice
         var orderItemsList = order.OrderItems.ToList();
         var subtotal = orderItemsList.Sum(i => i.PriceSnapshot * i.Quantity);
-        var paidPrice = order.TotalAmount; // İndirimli tutar
+        var paidPrice = order.TotalAmount;
         
         var basketItems = new List<BasketItem>();
         decimal accumulatedAdjustedTotal = 0;
@@ -161,12 +213,11 @@ public class IyzicoPaymentManager : IPaymentService
             
             if (subtotal > 0)
             {
-               // (ItemTotal / Subtotal) * PaidPrice
-               adjustedPrice = (itemTotal / subtotal) * paidPrice;
+                adjustedPrice = (itemTotal / subtotal) * paidPrice;
             }
             else
             {
-               adjustedPrice = 0;
+                adjustedPrice = 0;
             }
 
             // Son eleman kontrolü (Kuruş farkını düzelt)
@@ -270,7 +321,6 @@ public class IyzicoPaymentManager : IPaymentService
         {
             if (order.Payment == null)
             {
-                 // Eğer payment kaydı yoksa ne yapmalı? Bu senaryoda olmamalı ama
                  await _unitOfWork.RollbackTransactionAsync();
                  return new ErrorResult("Payment record not found on order");
             }
@@ -356,17 +406,16 @@ public class IyzicoPaymentManager : IPaymentService
         }
     }
 
-
-    // iyzico X-IYZ-SIGNATURE-V3 doğrulaması
-    // Format: SECRET KEY + iyziEventType + paymentId + paymentConversationId + status
-    // Development: Boş signature kabul edilir (test için)
+    /// <summary>
+    /// iyzico X-IYZ-SIGNATURE-V3 doğrulaması
+    /// Format: SECRET KEY + iyziEventType + paymentId + paymentConversationId + status
+    /// Development: Boş signature kabul edilir (test için)
+    /// </summary>
     private bool ValidateSignature(IyzicoWebhookRequest request, string signatureHeader)
     {
         // Development mode: Signature yoksa bypass et
         if (string.IsNullOrEmpty(signatureHeader))
         {
-            // Production'da false dönmeli, development'da bypass
-            // ASPNETCORE_ENVIRONMENT 'Development' ise true
             var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
             return isDevelopment;
         }
@@ -377,8 +426,9 @@ public class IyzicoPaymentManager : IPaymentService
         return string.Equals(computedSignature, signatureHeader, StringComparison.OrdinalIgnoreCase);
     }
 
-
-    // HMAC-SHA256 hesaplayıp HEX olarak döndür
+    /// <summary>
+    /// HMAC-SHA256 hesaplayıp HEX olarak döndür
+    /// </summary>
     private string ComputeHmacSha256Hex(string data)
     {
         using var hmac = new System.Security.Cryptography.HMACSHA256(

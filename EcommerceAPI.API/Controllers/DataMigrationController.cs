@@ -39,7 +39,7 @@ public class DataMigrationController : ControllerBase
         {
             _logger.LogInformation("Order ShippingAddress şifreleme migration başlatılıyor...");
             
-            // Doğrudan SQL ile okuyarak şifrelenmemiş verileri al
+
             var orders = await _context.Orders
                 .FromSqlRaw("SELECT * FROM \"TBL_Orders\"")
                 .AsNoTracking()
@@ -53,23 +53,23 @@ public class DataMigrationController : ControllerBase
             {
                 try
                 {
-                    // Şifrelenmemiş mi kontrol et (Base64 formatı olan veriler zaten şifreli)
+
                     if (string.IsNullOrEmpty(order.ShippingAddress))
                     {
                         continue;
                     }
 
-                    // Zaten şifreli mi kontrol et (Base64 karakterleri ve uzunluk kontrolü)
+
                     if (IsLikelyEncrypted(order.ShippingAddress))
                     {
                         alreadyEncryptedCount++;
                         continue;
                     }
 
-                    // Plain text veriyi şifrele
+
                     var encryptedAddress = _encryptionService.Encrypt(order.ShippingAddress);
                     
-                    // Doğrudan SQL ile güncelle (EF ValueConverter bypass)
+
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE \"TBL_Orders\" SET \"ShippingAddress\" = {0} WHERE \"Id\" = {1}",
                         encryptedAddress, order.Id);
@@ -96,7 +96,7 @@ public class DataMigrationController : ControllerBase
                 encrypted = encryptedCount,
                 alreadyEncrypted = alreadyEncryptedCount,
                 errorCount = errors.Count,
-                errors = errors.Take(10) // İlk 10 hatayı göster
+
             });
         }
         catch (Exception ex)
@@ -114,11 +114,11 @@ public class DataMigrationController : ControllerBase
     {
         if (string.IsNullOrEmpty(value)) return false;
         
-        // Base64 formatı kontrolü
+
         // Şifreli veri: Nonce (12) + Tag (16) + Cipher = minimum ~40+ byte Base64
         if (value.Length < 40) return false;
         
-        // Base64 karakterleri kontrolü
+
         return value.All(c => 
             char.IsLetterOrDigit(c) || c == '+' || c == '/' || c == '=');
     }

@@ -21,9 +21,9 @@ if (!reset && !seed)
     return;
 }
 
-// Connection string (appsettings.json veya environment variable'dan)
+// Connection string (environment variable'dan - zorunlu)
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
-    ?? "Host=localhost;Port=5432;Database=ecommerce_dev;Username=ecommerce_dev_user;Password=dev_password";
+    ?? throw new InvalidOperationException("DATABASE_URL environment variable is required. Seeder cannot run without explicit database configuration.");
 
 // DbContext konfigürasyonu
 builder.Services.AddDbContext<AppDbContext>(options =>

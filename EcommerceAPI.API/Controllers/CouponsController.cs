@@ -16,7 +16,7 @@ public class CouponsController : ControllerBase
         _couponService = couponService;
     }
 
-    // Admin endpoints
+
 
     [HttpGet]
     [Authorize(Roles = "Admin")]
@@ -83,7 +83,7 @@ public class CouponsController : ControllerBase
         return BadRequest(result);
     }
 
-    // User endpoints
+
 
     [HttpPost("validate")]
     [Authorize]

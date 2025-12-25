@@ -1,7 +1,7 @@
 using EcommerceAPI.Core.Entities;
 namespace EcommerceAPI.Entities.DTOs;
 
-// iyzico Webhook payload
+
 public class IyzicoWebhookRequest : IDto
 {
     public string? IyziEventType { get; set; }

@@ -35,9 +35,9 @@ export const ProductList = ({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 place-items-center sm:place-items-stretch">
         {Array.from({ length: 8 }).map((_, i) => (
-          <Card key={i} className="overflow-hidden">
+          <Card key={i} className="overflow-hidden w-full max-w-sm">
             <Skeleton className="h-48 w-full" />
             <CardContent className="p-4">
               <Skeleton className="h-4 w-3/4 mb-2" />
@@ -60,9 +60,9 @@ export const ProductList = ({
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 place-items-center sm:place-items-stretch">
         {productsData?.items?.map((product) => (
-          <Card key={product.id} className="overflow-hidden group">
+          <Card key={product.id} className="overflow-hidden group w-full max-w-sm">
             <div className="relative h-48 bg-muted flex items-center justify-center">
               <Package className="h-16 w-16 text-muted-foreground" />
               {product.stockQuantity === 0 && (

@@ -1,32 +1,39 @@
 using FluentAssertions;
 using Moq;
-using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Business.Abstract; 
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
-using EcommerceAPI.Core.Exceptions;
 using EcommerceAPI.DataAccess.Abstract;
 using Microsoft.Extensions.Options;
-using EcommerceAPI.Business.Settings;
-using System.Threading.Tasks;
+using EcommerceAPI.Infrastructure.Settings;
+using EcommerceAPI.Infrastructure.ExternalServices;
 
 namespace EcommerceAPI.UnitTests;
 
-public class IyzicoPaymentManagerTests
+/// <summary>
+/// IyzicoPaymentService (eski IyzicoPaymentManager) için unit testler.
+/// 
+/// Not: Bu sınıf Infrastructure katmanına taşındı.
+/// IPaymentService interface'i üzerinden test edilir.
+/// </summary>
+public class IyzicoPaymentServiceTests
 {
     private readonly Mock<IOrderDal> _orderDalMock;
     private readonly Mock<IPaymentDal> _paymentDalMock;
     private readonly Mock<IOptions<IyzicoSettings>> _optionsMock;
     private readonly Mock<IUnitOfWork> _uowMock;
-    private readonly IyzicoPaymentManager _paymentManager;
+    private readonly Mock<ICreditCardService> _creditCardServiceMock;
+    private readonly IPaymentService _paymentService;
 
-    public IyzicoPaymentManagerTests()
+    public IyzicoPaymentServiceTests()
     {
         _orderDalMock = new Mock<IOrderDal>();
         _paymentDalMock = new Mock<IPaymentDal>();
         _uowMock = new Mock<IUnitOfWork>();
+        _uowMock = new Mock<IUnitOfWork>();
+        _creditCardServiceMock = new Mock<ICreditCardService>();
         _optionsMock = new Mock<IOptions<IyzicoSettings>>();
         
         _optionsMock.Setup(o => o.Value).Returns(new IyzicoSettings 
@@ -36,10 +43,12 @@ public class IyzicoPaymentManagerTests
             BaseUrl = "https://sandbox-api.iyzipay.com" 
         });
 
-        _paymentManager = new IyzicoPaymentManager(
+        _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
             _uowMock.Object,
-            _optionsMock.Object
+            _optionsMock.Object,
+            _creditCardServiceMock.Object,
+            new Mock<Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService>>().Object
         );
     }
 
@@ -82,7 +91,7 @@ public class IyzicoPaymentManagerTests
             .ReturnsAsync(existingOrder);
 
         // Act
-        var result = await _paymentManager.ProcessPaymentAsync(userId, request);
+        var result = await _paymentService.ProcessPaymentAsync(userId, request);
 
         // Assert
         result.Success.Should().BeTrue();
@@ -93,4 +102,3 @@ public class IyzicoPaymentManagerTests
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 }
-

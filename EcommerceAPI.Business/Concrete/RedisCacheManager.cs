@@ -1,5 +1,6 @@
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.Extensions.Caching.Distributed;
+using StackExchange.Redis;
 using System.Text.Json;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -7,10 +8,12 @@ namespace EcommerceAPI.Business.Concrete;
 public class RedisCacheService : ICacheService
 {
     private readonly IDistributedCache _cache;
+    private readonly IConnectionMultiplexer _redis;
 
-    public RedisCacheService(IDistributedCache cache)
+    public RedisCacheService(IDistributedCache cache, IConnectionMultiplexer redis)
     {
         _cache = cache;
+        _redis = redis;
     }
 
     public async Task<T?> GetAsync<T>(string key)
@@ -36,5 +39,18 @@ public class RedisCacheService : ICacheService
     public async Task RemoveAsync(string key)
     {
         await _cache.RemoveAsync(key);
+    }
+
+    public async Task RemoveByPatternAsync(string pattern)
+    {
+        var server = _redis.GetServer(_redis.GetEndPoints().First());
+        var db = _redis.GetDatabase();
+        
+        // IDistributedCache prefix ekleyebilir, bu yüzden hem başa hem sona wildcard ekliyoruz
+        var keys = server.Keys(pattern: "*" + pattern + "*").ToArray();
+        if (keys.Length > 0)
+        {
+            await db.KeyDeleteAsync(keys);
+        }
     }
 }

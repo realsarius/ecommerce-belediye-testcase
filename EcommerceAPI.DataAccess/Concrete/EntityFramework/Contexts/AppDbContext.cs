@@ -19,7 +19,7 @@ public class AppDbContext : DbContext
         _encryptionService = encryptionService;
     }
     
-    // DbSets
+
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<Category> Categories => Set<Category>();
@@ -35,12 +35,13 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
+    public DbSet<CreditCard> CreditCards => Set<CreditCard>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         
-        // Şifreleme gerektirmeyen konfigürasyonları otomatik uygula
+
         modelBuilder.ApplyConfiguration(new RoleConfiguration());
         modelBuilder.ApplyConfiguration(new CategoryConfiguration());
         modelBuilder.ApplyConfiguration(new ProductConfiguration());
@@ -52,19 +53,22 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new SellerProfileConfiguration());
+        modelBuilder.ApplyConfiguration(new CouponConfiguration());
         
-        // Şifreleme gerektiren konfigürasyonlar (KVKK uyumlu)
+
         if (_encryptionService != null)
         {
             modelBuilder.ApplyConfiguration(new UserConfiguration(_encryptionService));
             modelBuilder.ApplyConfiguration(new ShippingAddressConfiguration(_encryptionService));
             modelBuilder.ApplyConfiguration(new OrderConfiguration(_encryptionService));
+            modelBuilder.ApplyConfiguration(new CreditCardConfiguration(_encryptionService!));
         }
         else
         {
             modelBuilder.ApplyConfiguration(new UserConfigurationBasic());
             modelBuilder.ApplyConfiguration(new ShippingAddressConfigurationBasic());
             modelBuilder.ApplyConfiguration(new OrderConfigurationBasic());
+            modelBuilder.ApplyConfiguration(new CreditCardConfigurationBasic());
         }
     }
 }

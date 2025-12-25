@@ -26,9 +26,10 @@ public class OrdersController : ControllerBase
         return userId;
     }
 
-    [HttpPost("checkout")]
+    [HttpPost]
     public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request)
     {
+
         var userId = GetUserId();
         var result = await _orderService.CheckoutAsync(userId, request);
         
@@ -64,11 +65,24 @@ public class OrdersController : ControllerBase
         return BadRequest(result);
     }
 
-    [HttpPost("{id}/cancel")]
-    public async Task<IActionResult> CancelOrder(int id)
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> CancelOrder(int id, [FromBody] UpdateOrderStatusRequest request)
     {
         var userId = GetUserId();
-        var result = await _orderService.CancelOrderAsync(userId, id);
+
+        var result = await _orderService.CancelOrderAsync(userId, id, request.Status);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result);
+    }
+
+    [HttpPut("{id}/items")]
+    public async Task<IActionResult> UpdateOrderItems(int id, [FromBody] UpdateOrderItemsRequest request)
+    {
+        var userId = GetUserId();
+        var result = await _orderService.UpdateOrderItemsAsync(userId, id, request);
         if (result.Success)
         {
             return Ok(result);
@@ -76,4 +90,5 @@ public class OrdersController : ControllerBase
         return BadRequest(result);
     }
 }
+
 
