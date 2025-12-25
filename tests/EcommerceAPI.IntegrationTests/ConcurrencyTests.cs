@@ -65,7 +65,7 @@ public class ConcurrencyTests : IClassFixture<CustomWebApplicationFactory>
                 if (!addRes.IsSuccessStatusCode) return addRes;
 
                 // Checkout
-                return await client.PostAsJsonAsync("/api/v1/Orders/checkout", new 
+                return await client.PostAsJsonAsync("/api/v1/Orders", new 
                 { 
                     shippingAddress = "Test Address",
                     paymentMethod = "CreditCard",

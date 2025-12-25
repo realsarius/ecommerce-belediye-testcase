@@ -1,6 +1,7 @@
 using EcommerceAPI.Business.Abstract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EcommerceAPI.Entities.DTOs;
 
 namespace EcommerceAPI.API.Controllers;
 

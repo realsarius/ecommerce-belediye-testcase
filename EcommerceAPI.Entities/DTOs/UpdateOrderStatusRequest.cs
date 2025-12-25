@@ -1,4 +1,4 @@
-namespace EcommerceAPI.API.Controllers;
+namespace EcommerceAPI.Entities.DTOs;
 
 public class UpdateOrderStatusRequest
 {

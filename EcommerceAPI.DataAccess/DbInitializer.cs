@@ -400,6 +400,14 @@ public class DbInitializer
             await _context.SaveChangesAsync();
             
             _logger.LogInformation("Database seeding completed successfully.");
+
+            await _context.Database.ExecuteSqlRawAsync(@"
+                SELECT setval(pg_get_serial_sequence('""TBL_Roles""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Roles"";
+                SELECT setval(pg_get_serial_sequence('""TBL_Users""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Users"";
+                SELECT setval(pg_get_serial_sequence('""TBL_ShippingAddresses""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_ShippingAddresses"";
+                SELECT setval(pg_get_serial_sequence('""TBL_Categories""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Categories"";
+                SELECT setval(pg_get_serial_sequence('""TBL_Products""', 'Id'), COALESCE(MAX(""Id"") + 1, 1), false) FROM ""TBL_Products"";
+            ");
         }
         catch (Exception ex)
         {
