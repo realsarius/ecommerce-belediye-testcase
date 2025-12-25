@@ -11,4 +11,5 @@ public interface IOrderDal : IEntityRepository<Order>
     Task<IList<Order>> GetExpiredPendingOrdersAsync(DateTime expiryTime);
     Task<IList<Order>> GetUserOrdersWithDetailsAsync(int userId);
     Task<IList<Order>> GetAllOrdersWithDetailsAsync();
+    Task<IList<Order>> GetOrdersBySellerIdAsync(int sellerId);
 }

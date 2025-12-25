@@ -68,8 +68,13 @@ public class OrderManagerTests
 
         _cartServiceMock.Setup(x => x.GetCartAsync(userId))
             .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
-        _inventoryServiceMock.Setup(x => x.DecreaseStockAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+        
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
+            
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true, DiscountAmount = 0 }));
+
         _cartServiceMock.Setup(x => x.ClearCartAsync(userId)).ReturnsAsync(new SuccessResult());
 
         Order capturedOrder = null!;
@@ -83,9 +88,66 @@ public class OrderManagerTests
         var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
 
         capturedOrder.Should().NotBeNull();
-        capturedOrder.TotalAmount.Should().Be(154.90m);
+        capturedOrder.TotalAmount.Should().Be(154.90m); 
         result.Success.Should().BeTrue();
         result.Data.TotalAmount.Should().Be(154.90m);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Once);
+        _uowMock.Verify(x => x.CommitTransactionAsync(), Times.Once);
+        _cartServiceMock.Verify(x => x.ClearCartAsync(userId), Times.Once);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenReserveFails_ShouldReturnError()
+    {
+        var userId = 100;
+        var checkoutRequest = new CheckoutRequest();
+        var cartDto = new CartDto 
+        { 
+            Items = new List<CartItemDto> { new() { ProductId = 1, Quantity = 1, AvailableStock = 10 } } 
+        };
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId)).ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true }));
+
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new ErrorResult("Out of stock"));
+
+        var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Stok rezervasyon hatası");
+        _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
+        _uowMock.Verify(x => x.CommitTransactionAsync(), Times.Never);
+        _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenDbFails_ShouldRollback()
+    {
+        var userId = 100;
+        var cartDto = new CartDto 
+        { 
+            Items = new List<CartItemDto> { new() { ProductId = 1, Quantity = 1, AvailableStock = 10 } } 
+        };
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId)).ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true }));
+        
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+
+
+        _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
+            .ThrowsAsync(new Exception("DB Connection Failed"));
+
+        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest());
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Sipariş oluşturulamadı");
+        _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
+
+        _inventoryServiceMock.Verify(x => x.ReleaseStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
     }
 }

@@ -55,8 +55,8 @@ public class InventoryManagerTests
             QuantityAvailable = initialStock 
         };
 
-        _inventoryDalMock.Setup(x => x.GetByProductIdAsync(productId))
-            .ReturnsAsync(inventory);
+        _inventoryDalMock.Setup(x => x.GetByProductIdsAsync(It.IsAny<List<int>>()))
+            .ReturnsAsync(new List<Inventory> { inventory });
 
         var result = await _inventoryManager.DecreaseStockAsync(productId, decreaseAmount, userId, "Test Reason");
 
@@ -79,8 +79,8 @@ public class InventoryManagerTests
             QuantityAvailable = initialStock 
         };
 
-        _inventoryDalMock.Setup(x => x.GetByProductIdAsync(productId))
-            .ReturnsAsync(inventory);
+        _inventoryDalMock.Setup(x => x.GetByProductIdsAsync(It.IsAny<List<int>>()))
+            .ReturnsAsync(new List<Inventory> { inventory });
 
         var result = await _inventoryManager.IncreaseStockAsync(productId, increaseAmount, userId, "Test Return");
 

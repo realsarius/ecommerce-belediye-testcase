@@ -70,6 +70,14 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         return await _dbSet.Include(p => p.Inventory).AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
     }
 
+    public async Task<List<Product>> GetByIdsWithInventoryAsync(List<int> ids)
+    {
+        return await _dbSet.Include(p => p.Inventory)
+                           .Where(p => ids.Contains(p.Id))
+                           .AsNoTracking()
+                           .ToListAsync();
+    }
+
     public async Task<Product?> GetByIdWithDetailsAsync(int id)
     {
         return await _dbSet

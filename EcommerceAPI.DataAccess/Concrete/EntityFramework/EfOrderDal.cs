@@ -76,4 +76,17 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .AsNoTracking()
             .ToListAsync();
     }
+
+    public async Task<IList<Order>> GetOrdersBySellerIdAsync(int sellerId)
+    {
+        return await _dbSet
+            .Include(o => o.User)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+            .Include(o => o.Payment)
+            .Where(o => o.OrderItems.Any(oi => oi.Product.SellerId == sellerId))
+            .OrderByDescending(o => o.CreatedAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
 }

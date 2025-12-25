@@ -1,5 +1,6 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Business.Concrete;
+
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
 using EcommerceAPI.Core.Interfaces;
@@ -59,14 +60,12 @@ public static class DependencyInjection
                               ?? "https://sandbox-api.iyzipay.com";
         });
 
-        // Existing services
         services.AddScoped<IPaymentService, IyzicoPaymentService>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
         services.AddScoped<IAuditService, ElasticAuditService>();
 
-        // New service registrations from the instruction
-        services.AddScoped<ICacheService, RedisCacheService>();
+        services.AddScoped<ICacheService, RedisCacheManager>();
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();

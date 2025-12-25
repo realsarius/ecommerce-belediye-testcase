@@ -12,6 +12,7 @@ public interface IProductDal : IEntityRepository<Product>
         string? sortBy = null, bool sortDescending = false);
     Task<Product?> GetWithCategoryAsync(int id);
     Task<Product?> GetWithInventoryAsync(int id);
+    Task<List<Product>> GetByIdsWithInventoryAsync(List<int> ids);
     Task<Product?> GetByIdWithDetailsAsync(int id);
     Task<(IEnumerable<Product> Items, int TotalCount)> GetPagedForSellerAsync(
         int page, int pageSize, int sellerId, int? categoryId = null, decimal? minPrice = null,

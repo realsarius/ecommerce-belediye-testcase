@@ -29,7 +29,7 @@ public static class DependencyInjection
 
         services.AddScoped<ICartMapper, CartMapper>();
 
-        services.AddScoped<ICacheService, RedisCacheService>();
+
         services.AddSingleton<IEncryptionService, EncryptionService>();
         services.AddSingleton<IHashingService, HashingService>();
 

@@ -3,14 +3,14 @@ using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
 using System.Text.Json;
 
-namespace EcommerceAPI.Business.Concrete;
+namespace EcommerceAPI.Infrastructure.Services;
 
-public class RedisCacheService : ICacheService
+public class RedisCacheManager : ICacheService
 {
     private readonly IDistributedCache _cache;
     private readonly IConnectionMultiplexer _redis;
 
-    public RedisCacheService(IDistributedCache cache, IConnectionMultiplexer redis)
+    public RedisCacheManager(IDistributedCache cache, IConnectionMultiplexer redis)
     {
         _cache = cache;
         _redis = redis;

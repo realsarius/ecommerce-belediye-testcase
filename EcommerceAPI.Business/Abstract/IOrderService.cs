@@ -12,7 +12,8 @@ public interface IOrderService
     Task<IResult> CancelExpiredOrdersAsync();
 
     Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync();
-    Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status);
+    Task<IDataResult<List<OrderDto>>> GetOrdersForSellerAsync(int sellerId);
+    Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status, int? sellerId = null);
     Task<IDataResult<OrderDto>> UpdateOrderItemsAsync(int userId, int orderId, UpdateOrderItemsRequest request);
 }
 

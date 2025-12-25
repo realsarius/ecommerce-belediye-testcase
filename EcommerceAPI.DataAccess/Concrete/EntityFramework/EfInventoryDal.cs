@@ -16,6 +16,11 @@ public class EfInventoryDal : EfEntityRepositoryBase<Inventory, AppDbContext>, I
         return await _dbSet.FirstOrDefaultAsync(i => i.ProductId == productId);
     }
 
+    public async Task<List<Inventory>> GetByProductIdsAsync(List<int> productIds)
+    {
+        return await _dbSet.Where(i => productIds.Contains(i.ProductId)).ToListAsync();
+    }
+
     public async Task<IList<Inventory>> GetLowStockAsync(int threshold)
     {
         return await _dbSet
