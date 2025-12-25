@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Core ve Business katmanlarını referans al (interface'ler için) -->
+  <ItemGroup>
+    <ProjectReference Include="..\EcommerceAPI.Core\EcommerceAPI.Core.csproj" />
+    <ProjectReference Include="..\EcommerceAPI.Business\EcommerceAPI.Business.csproj" />
+    <ProjectReference Include="..\EcommerceAPI.Entities\EcommerceAPI.Entities.csproj" />
+    <ProjectReference Include="..\EcommerceAPI.DataAccess\EcommerceAPI.DataAccess.csproj" />
+  </ItemGroup>
+
+  <!-- Dış servis paketleri (Iyzico, Redis vb.) -->
+  <ItemGroup>
+    <PackageReference Include="Iyzipay" Version="2.1.67" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>
