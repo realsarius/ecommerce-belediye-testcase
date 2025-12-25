@@ -26,9 +26,8 @@ public class InventoryManagerTests
     }
 
     [Fact]
-    public async Task DecreaseStockAsync_ShouldDecreaseQuantity_WhenStockIsAvailable()
+    public async Task DecreaseStockAsync_ValidStock_ShouldDecreaseQuantity()
     {
-        // Arrange
         var productId = 1;
         var userId = 1;
         var initialStock = 10;
@@ -43,34 +42,16 @@ public class InventoryManagerTests
         _inventoryDalMock.Setup(x => x.GetByProductIdAsync(productId))
             .ReturnsAsync(inventory);
 
-        // Act
         var result = await _inventoryManager.DecreaseStockAsync(productId, decreaseAmount, userId, "Test Reason");
 
-        // Assert
         result.Success.Should().BeTrue();
         inventory.QuantityAvailable.Should().Be(initialStock - decreaseAmount);
-        
         _inventoryDalMock.Verify(x => x.Update(inventory), Times.Once);
-        // AddMovementAsync might not exist on Dal, likely logic is inside Manager to create movement and AddAsync?
-        // Or Dal has AddMovement? 
-        // Assuming Manager creates movement entity and calls Dal.AddMovement or similar if it's separate table?
-        // Wait, InventoryMovement is an entity. So Dal handling it?
-        // Let's assume Manager adds directly or via Dal?
-        // Checking InventoryManager typical implementation... usually it adds to IInventoryMovementDal? 
-        // OR InventoryDal handles it.
-        // If I assume InventoryDal has AddMovementAsync?
-        // But likely InventoryManager code adds InventoryMovement to context via UnitOfWork or Dal?
-        // Let's check if IInventoryDal has AddMovementAsync.
-        // Result: IInventoryDal usually extends IEntityRepository<Inventory>. 
-        // InventoryMovement is separate.
-        // So InventoryManager likely has IEntityRepository<InventoryMovement>? 
-        // Or InventoryDal handles both?
     }
 
     [Fact]
-    public async Task IncreaseStockAsync_ShouldIncreaseQuantity()
+    public async Task IncreaseStockAsync_ValidProduct_ShouldIncreaseQuantity()
     {
-        // Arrange
         var productId = 1;
         var userId = 1;
         var initialStock = 5;
@@ -85,14 +66,10 @@ public class InventoryManagerTests
         _inventoryDalMock.Setup(x => x.GetByProductIdAsync(productId))
             .ReturnsAsync(inventory);
 
-        // Act
         var result = await _inventoryManager.IncreaseStockAsync(productId, increaseAmount, userId, "Test Return");
 
-        // Assert
         result.Success.Should().BeTrue();
         inventory.QuantityAvailable.Should().Be(initialStock + increaseAmount);
-
         _inventoryDalMock.Verify(x => x.Update(inventory), Times.Once);
     }
 }
-

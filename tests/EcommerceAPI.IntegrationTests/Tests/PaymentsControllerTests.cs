@@ -7,27 +7,14 @@ using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
-/// <summary>
-/// Iyzico Sandbox kartları ile ödeme API'si entegrasyon testleri.
-/// Bu testler actual Iyzico API'sini çağırır ve beklenen hata mesajlarını doğrular.
-/// </summary>
 [Collection("Integration")]
 public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
 
-    public PaymentsControllerTests(CustomWebApplicationFactory factory)
-    {
-        _factory = factory;
-    }
-
-    #region Iyzico Sandbox Test Kartları
-
-    // Başarılı ödeme kartı
     public static readonly (string Number, string Description) SuccessCard = 
-        ("5406670000000009", "Başarılı (iptal/iade yapılamaz)");
+        ("5406670000000009", "Başarılı");
 
-    // Hatalı ödeme kartları - Iyzico Sandbox
     public static readonly IReadOnlyList<(string Number, string ExpectedError, string Description)> ErrorCards = new List<(string, string, string)>
     {
         ("4111111111111129", "Yetersiz bakiye", "Not sufficient funds"),
@@ -47,14 +34,16 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         ("4151111111111112", "3D Secure başlatılamadı", "3dsecure initialize failed"),
     };
 
-    #endregion
+    public PaymentsControllerTests(CustomWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
 
     [Fact]
     public async Task ProcessPayment_WithoutAuth_Returns401()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsAnonymous();
-        var request = new ProcessPaymentRequest
+        var anonymousClient = _factory.CreateClient().AsAnonymous();
+        var paymentRequest = new ProcessPaymentRequest
         {
             OrderId = 1,
             CardNumber = SuccessCard.Number,
@@ -63,40 +52,29 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
             CVV = "123"
         };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/v1/payments", request);
+        var response = await anonymousClient.PostAsJsonAsync("/api/v1/payments", paymentRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
     public async Task ProcessPayment_InvalidOrderId_ReturnsBadRequest()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsCustomer(userId: 10);
-        var request = new ProcessPaymentRequest
+        var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);
+        var paymentRequest = new ProcessPaymentRequest
         {
-            OrderId = 999999, // Non-existing order
+            OrderId = 999999,
             CardNumber = SuccessCard.Number,
             CardHolderName = "Test User",
             ExpiryDate = "12/26",
             CVV = "123"
         };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/v1/payments", request);
+        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/payments", paymentRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    #region Iyzico Error Cards Theory Tests
-
-    /// <summary>
-    /// Theory test: Iyzico hata kartları ile ödeme başarısız olmalı.
-    /// Her kart için beklenen hata mesajı döndürülmeli.
-    /// </summary>
     [Theory]
     [MemberData(nameof(GetIyzicoErrorCardsTestData))]
     public async Task ProcessPayment_IyzicoErrorCard_ReturnsExpectedError(
@@ -104,12 +82,10 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         string expectedErrorContains, 
         string description)
     {
-        // Arrange
-        var client = _factory.CreateClient().AsCustomer(userId: 10);
+        var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);
         
-        // First create an order via checkout (need cart with item)
-        await client.PostAsJsonAsync("/api/v1/cart/items", new AddToCartRequest { ProductId = 1, Quantity = 1 });
-        var checkoutResponse = await client.PostAsJsonAsync("/api/v1/orders/checkout", new CheckoutRequest
+        await authenticatedClient.PostAsJsonAsync("/api/v1/cart/items", new AddToCartRequest { ProductId = 1, Quantity = 1 });
+        var checkoutResponse = await authenticatedClient.PostAsJsonAsync("/api/v1/orders/checkout", new CheckoutRequest
         {
             ShippingAddress = "Test Address 123, Istanbul",
             PaymentMethod = "CreditCard"
@@ -117,7 +93,6 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         if (!checkoutResponse.IsSuccessStatusCode)
         {
-            // If checkout fails flag it but don't fail the test - it might be a seeding issue
             Assert.True(true, $"Checkout failed for card test: {description}. This is expected in unit-test-only mode.");
             return;
         }
@@ -134,18 +109,14 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
             CVV = "123"
         };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/v1/payments", paymentRequest);
+        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/payments", paymentRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest, 
             because: $"Card {cardNumber} should fail with: {description}");
         
         var result = await response.Content.ReadFromJsonAsync<ApiResult<PaymentDto>>();
         result.Should().NotBeNull();
         result!.Success.Should().BeFalse();
-        
-        // Hata mesajı null veya boş olmamalı
         result.Message.Should().NotBeNullOrEmpty(
             because: $"Error message should be returned for card: {description}");
     }
@@ -158,35 +129,31 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         }
     }
 
-    #endregion
-
-    #region Individual Error Card Tests (for explicit testing)
-
-    [Fact(Skip = "Requires real order - use Theory test instead")]
+    [Fact(Skip = "Requires real order")]
     public async Task ProcessPayment_InsufficientFunds_ReturnsError()
     {
         await TestPaymentWithCard("4111111111111129", "Yetersiz bakiye");
     }
 
-    [Fact(Skip = "Requires real order - use Theory test instead")]
+    [Fact(Skip = "Requires real order")]
     public async Task ProcessPayment_InvalidCvc_ReturnsError()
     {
         await TestPaymentWithCard("4124111111111116", "Cvc");
     }
 
-    [Fact(Skip = "Requires real order - use Theory test instead")]  
+    [Fact(Skip = "Requires real order")]  
     public async Task ProcessPayment_StolenCard_ReturnsError()
     {
         await TestPaymentWithCard("4126111111111114", "Çalıntı");
     }
 
-    [Fact(Skip = "Requires real order - use Theory test instead")]
+    [Fact(Skip = "Requires real order")]
     public async Task ProcessPayment_ExpiredCard_ReturnsError()
     {
         await TestPaymentWithCard("4125111111111115", "Süresi");
     }
 
-    [Fact(Skip = "Requires real order - use Theory test instead")]
+    [Fact(Skip = "Requires real order")]
     public async Task ProcessPayment_FraudSuspect_ReturnsError()
     {
         await TestPaymentWithCard("4121111111111119", "Dolandırıcılık");
@@ -194,25 +161,22 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
 
     private async Task TestPaymentWithCard(string cardNumber, string expectedErrorContains)
     {
-        var client = _factory.CreateClient().AsCustomer(userId: 10);
+        var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);
         
-        // This requires a valid order to exist
         var paymentRequest = new ProcessPaymentRequest
         {
-            OrderId = 1, // Assume order exists
+            OrderId = 1,
             CardNumber = cardNumber,
             CardHolderName = "Test User",
             ExpiryDate = "12/26",
             CVV = "123"
         };
 
-        var response = await client.PostAsJsonAsync("/api/v1/payments", paymentRequest);
+        var response = await authenticatedClient.PostAsJsonAsync("/api/v1/payments", paymentRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var result = await response.Content.ReadFromJsonAsync<ApiResult<PaymentDto>>();
         result!.Success.Should().BeFalse();
         result.Message.Should().Contain(expectedErrorContains);
     }
-
-    #endregion
 }

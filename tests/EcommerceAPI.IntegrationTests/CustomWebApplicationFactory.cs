@@ -16,7 +16,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // En kuvvetli override - Environment kesin "Test" olmalı
         builder.UseSetting(WebHostDefaults.EnvironmentKey, "Test");
         builder.UseEnvironment("Test");
 
@@ -39,7 +38,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            // Replace DbContext with test database
             var dbContextDescriptor = services.SingleOrDefault(d =>
                 d.ServiceType == typeof(DbContextOptions<AppDbContext>));
 
@@ -49,36 +47,31 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             var sp = services.BuildServiceProvider();
             var config = sp.GetRequiredService<IConfiguration>();
 
-            // CI override: prefer env var > config > fallback (local dev uses 5433, CI uses 5432)
-            var cs = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                      ?? config.GetConnectionString("DefaultConnection") 
                      ?? "Host=localhost;Port=5433;Database=ecommerce_test;Username=ecommerce_test_user;Password=test_password";
 
             services.AddDbContext<AppDbContext>(opt =>
-                opt.UseNpgsql(cs));
+                opt.UseNpgsql(connectionString));
 
-            // Replace JWT Authentication with TestAuthHandler
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = TestAuthHandler.AuthenticationScheme;
                 options.DefaultChallengeScheme = TestAuthHandler.AuthenticationScheme;
             })
             .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
-                TestAuthHandler.AuthenticationScheme, options => { });
+                TestAuthHandler.AuthenticationScheme, _ => { });
         });
     }
 }
 
-// helper for seeding test data
 public static class TestDataSeeder
 {
-    // Ensures user exists in db
     public static async Task<User> EnsureUserAsync(AppDbContext db, int userId, string role = "Customer")
     {
         var user = await db.Users.FindAsync(userId);
         if (user != null) return user;
 
-        // Ensure role exists
         var existingRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == role);
         if (existingRole == null)
         {
@@ -104,7 +97,6 @@ public static class TestDataSeeder
         return user;
     }
 
-    // Ensures category exists
     public static async Task<Category> EnsureCategoryAsync(AppDbContext db, int categoryId = 1, string name = "Test Category")
     {
         var category = await db.Categories.FindAsync(categoryId);
@@ -124,7 +116,6 @@ public static class TestDataSeeder
         return category;
     }
 
-    // Ensures product with stock exists
     public static async Task<Product> EnsureProductWithStockAsync(
         AppDbContext db, 
         int productId = 1, 

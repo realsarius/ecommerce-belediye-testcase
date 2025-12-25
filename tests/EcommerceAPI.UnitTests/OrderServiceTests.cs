@@ -20,7 +20,6 @@ public class OrderManagerTests
     private readonly Mock<ICartService> _cartServiceMock;
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICouponService> _couponServiceMock;
-
     private readonly OrderManager _orderManager;
 
     public OrderManagerTests()
@@ -43,58 +42,47 @@ public class OrderManagerTests
     }
 
     [Fact]
-    public async Task CheckoutAsync_ShouldCalculateTotalCorrectly()
+    public async Task CheckoutAsync_ValidCart_ShouldCalculateTotalCorrectly()
     {
-        // Arrange
         var userId = 100;
-        var request = new CheckoutRequest 
+        var checkoutRequest = new CheckoutRequest 
         { 
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard"
         };
         
-        var cart = new Cart { UserId = userId, Items = new List<CartItem>() };
-        // Product setup for inventory check
-        var prod1 = new Product { Id = 1, Name = "P1", Inventory = new Inventory { QuantityAvailable = 10 } };
-        var prod2 = new Product { Id = 2, Name = "P2", Inventory = new Inventory { QuantityAvailable = 10 } };
-
-        cart.Items.Add(new CartItem { ProductId = 1, Quantity = 2, PriceSnapshot = 50, Product = prod1 }); // 100
-        cart.Items.Add(new CartItem { ProductId = 2, Quantity = 1, PriceSnapshot = 25, Product = prod2 }); // 25
-        // Total should be 125
+        var productWithStock = new Product { Id = 1, Name = "P1", Inventory = new Inventory { QuantityAvailable = 10 } };
+        var secondProduct = new Product { Id = 2, Name = "P2", Inventory = new Inventory { QuantityAvailable = 10 } };
+        
+        var cart = new Cart 
+        { 
+            UserId = userId, 
+            Items = new List<CartItem>
+            {
+                new() { ProductId = 1, Quantity = 2, PriceSnapshot = 50, Product = productWithStock },
+                new() { ProductId = 2, Quantity = 1, PriceSnapshot = 25, Product = secondProduct }
+            }
+        };
 
         _cartDalMock.Setup(x => x.GetByUserIdWithItemsAsync(userId)).ReturnsAsync(cart);
-        
-        // Mock InventoryService DecreaseStock
         _inventoryServiceMock.Setup(x => x.DecreaseStockAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
-
-        // Mock CartService ClearCart
         _cartServiceMock.Setup(x => x.ClearCartAsync(userId)).ReturnsAsync(new SuccessResult());
 
-        // Mock AddAsync to capture the Order
         Order capturedOrder = null!;
         _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
-            .Callback<Order>(o => {
-                o.Id = 1; // Simulate DB ID generation
-                capturedOrder = o;
-            })
+            .Callback<Order>(o => { o.Id = 1; capturedOrder = o; })
             .ReturnsAsync((Order o) => o);
 
-        // GetByIdWithDetailsAsync is called at the end of CheckoutAsync to return the DTO
         _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()))
-            .ReturnsAsync(() => capturedOrder); 
+            .ReturnsAsync(() => capturedOrder);
 
-        // Act
-        var result = await _orderManager.CheckoutAsync(userId, request);
+        var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
 
-        // Assert
         capturedOrder.Should().NotBeNull();
-        // 125 (subtotal) + 29.90 (shipping for orders under 1000 TL) = 154.90
         capturedOrder.TotalAmount.Should().Be(154.90m);
         result.Success.Should().BeTrue();
         result.Data.TotalAmount.Should().Be(154.90m);
-        
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
 }
-

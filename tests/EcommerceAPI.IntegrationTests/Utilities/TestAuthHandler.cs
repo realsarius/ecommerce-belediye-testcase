@@ -6,10 +6,6 @@ using Microsoft.Extensions.Options;
 
 namespace EcommerceAPI.IntegrationTests.Utilities;
 
-// custom auth handler for integration tests
-// reads user info from request headers to simulate different users/roles
-// usage: client.DefaultRequestHeaders.Add("X-Test-UserId", "1");
-
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string AuthenticationScheme = "TestScheme";
@@ -55,8 +51,6 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
-
-// Extension methods for easy auth header setup
 
 public static class HttpClientAuthExtensions
 {

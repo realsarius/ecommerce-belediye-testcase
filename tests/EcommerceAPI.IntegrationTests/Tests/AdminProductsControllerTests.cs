@@ -7,8 +7,6 @@ using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
-// admin products controller tests - crud ops, stock, role checks
-
 [Collection("Integration")]
 public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -22,9 +20,8 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     [Fact]
     public async Task CreateProduct_WithoutAuth_Returns401()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsAnonymous();
-        var request = new CreateProductRequest
+        var anonymousClient = _factory.CreateClient().AsAnonymous();
+        var createRequest = new CreateProductRequest
         {
             Name = "Test Product",
             Description = "Test Description",
@@ -33,19 +30,16 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             SKU = "TEST-001"
         };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/v1/admin/products", request);
+        var response = await anonymousClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
     public async Task CreateProduct_AsCustomer_Returns403()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsCustomer(userId: 1);
-        var request = new CreateProductRequest
+        var customerClient = _factory.CreateClient().AsCustomer(userId: 1);
+        var createRequest = new CreateProductRequest
         {
             Name = "Test Product",
             Description = "Test Description",
@@ -54,19 +48,16 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             SKU = "TEST-002"
         };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/v1/admin/products", request);
+        var response = await customerClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
-    public async Task CreateProduct_AsAdmin_ReturnsCreated()
+    public async Task CreateProduct_AsAdmin_ReturnsCreatedOrError()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsAdmin(userId: 1);
-        var request = new CreateProductRequest
+        var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
+        var createRequest = new CreateProductRequest
         {
             Name = $"Admin Test Product {Guid.NewGuid():N}",
             Description = "Created by admin test",
@@ -75,25 +66,21 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             SKU = $"ADM-{Guid.NewGuid():N}"[..12]
         };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/v1/admin/products", request);
+        var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
 
-        // Assert - May fail for various reasons: category doesn't exist, admin user not in DB
         response.StatusCode.Should().BeOneOf(
             HttpStatusCode.Created, 
-            HttpStatusCode.BadRequest, // If category doesn't exist
-            HttpStatusCode.InternalServerError // Admin user not in DB
+            HttpStatusCode.BadRequest,
+            HttpStatusCode.InternalServerError
         );
     }
 
     [Fact]
-    public async Task UpdateProduct_AsAdmin_ReturnsOk()
+    public async Task UpdateProduct_AsAdmin_ReturnsOkOrError()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsAdmin(userId: 1);
+        var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
         
-        // First, get an existing product
-        var productsResponse = await client.GetAsync("/api/v1/products?page=1&pageSize=1");
+        var productsResponse = await adminClient.GetAsync("/api/v1/products?page=1&pageSize=1");
         var productsApiResult = await productsResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
         
         if (productsApiResult?.Data?.Items?.Any() != true) return;
@@ -108,40 +95,33 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             IsActive = true
         };
 
-        // Act
-        var response = await client.PutAsJsonAsync($"/api/v1/admin/products/{productId}", updateRequest);
+        var response = await adminClient.PutAsJsonAsync($"/api/v1/admin/products/{productId}", updateRequest);
 
-        // Assert - 500 may occur if Admin user doesn't exist in DB
         response.StatusCode.Should().BeOneOf(
             HttpStatusCode.OK, 
             HttpStatusCode.NotFound,
             HttpStatusCode.BadRequest,
-            HttpStatusCode.InternalServerError // Admin user not in DB
+            HttpStatusCode.InternalServerError
         );
     }
 
     [Fact]
     public async Task DeleteProduct_AsAdmin_NonExisting_ReturnsBadRequest()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsAdmin(userId: 1);
+        var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
         var nonExistingId = 999999;
 
-        // Act
-        var response = await client.DeleteAsync($"/api/v1/admin/products/{nonExistingId}");
+        var response = await adminClient.DeleteAsync($"/api/v1/admin/products/{nonExistingId}");
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
-    public async Task UpdateStock_AsAdmin_ReturnsOk()
+    public async Task UpdateStock_AsAdmin_ReturnsOkOrError()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsAdmin(userId: 1);
+        var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
         
-        // Get an existing product
-        var productsResponse = await client.GetAsync("/api/v1/products?page=1&pageSize=1");
+        var productsResponse = await adminClient.GetAsync("/api/v1/products?page=1&pageSize=1");
         var productsApiResult = await productsResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
         
         if (productsApiResult?.Data?.Items?.Any() != true) return;
@@ -153,34 +133,27 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             Reason = "Integration test stock update"
         };
 
-        // Act
-        var response = await client.PatchAsJsonAsync($"/api/v1/admin/products/{productId}/stock", stockRequest);
+        var response = await adminClient.PatchAsJsonAsync($"/api/v1/admin/products/{productId}/stock", stockRequest);
 
-        // Assert - 500 may occur if Admin user doesn't exist in DB
-        // Also could be 400 if product invalid
         response.StatusCode.Should().BeOneOf(
             HttpStatusCode.OK, 
             HttpStatusCode.BadRequest,
-            HttpStatusCode.InternalServerError // Admin user not in DB
+            HttpStatusCode.InternalServerError
         );
     }
-
 
     [Fact]
     public async Task UpdateStock_AsCustomer_Returns403()
     {
-        // Arrange
-        var client = _factory.CreateClient().AsCustomer(userId: 1);
+        var customerClient = _factory.CreateClient().AsCustomer(userId: 1);
         var stockRequest = new UpdateStockRequest
         {
             Delta = 10,
             Reason = "Should fail"
         };
 
-        // Act
-        var response = await client.PatchAsJsonAsync("/api/v1/admin/products/1/stock", stockRequest);
+        var response = await customerClient.PatchAsJsonAsync("/api/v1/admin/products/1/stock", stockRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }

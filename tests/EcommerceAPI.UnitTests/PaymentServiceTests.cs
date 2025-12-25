@@ -46,12 +46,11 @@ public class IyzicoPaymentManagerTests
     [Fact]
     public async Task ProcessPaymentAsync_ShouldBeIdempotent_WhenCalledWithSameKey()
     {
-        // Arrange
         var userId = 1;
         var orderId = 10;
         var idempotencyKey = "unique-key-123";
         
-        var request = new ProcessPaymentRequest 
+        var paymentRequest = new ProcessPaymentRequest 
         { 
             OrderId = orderId, 
             CardHolderName = "Test", 
@@ -81,14 +80,11 @@ public class IyzicoPaymentManagerTests
         _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(orderId))
             .ReturnsAsync(existingOrder);
 
-        // Act
-        var result = await _paymentManager.ProcessPaymentAsync(userId, request);
+        var result = await _paymentManager.ProcessPaymentAsync(userId, paymentRequest);
 
-        // Assert
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(PaymentStatus.Success.ToString());
         
-        // Verify idempotency logic returns existing payment without processing new one
         _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
