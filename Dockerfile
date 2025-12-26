@@ -25,8 +25,11 @@ RUN dotnet build "EcommerceAPI.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "EcommerceAPI.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+COPY --from=build /src/seed-data ./seed-data
 
 ENTRYPOINT ["dotnet", "EcommerceAPI.API.dll"]

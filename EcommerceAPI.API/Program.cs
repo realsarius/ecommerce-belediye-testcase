@@ -205,17 +205,17 @@ using (var scope = app.Services.CreateScope())
             var logger = services.GetRequiredService<ILogger<SeedRunner>>();
             var hashingService = services.GetRequiredService<IHashingService>();
             
-            var seedPath = Path.Combine(AppContext.BaseDirectory, "seed-data");
-            if (!Directory.Exists(seedPath))
+            var possiblePaths = new[]
             {
-                var probe = Path.Combine(Directory.GetCurrentDirectory(), "..", "seed-data");
-                if (Directory.Exists(probe)) seedPath = probe;
-                else
-                {
-                    probe = Path.Combine(Directory.GetCurrentDirectory(), "seed-data");
-                    if (Directory.Exists(probe)) seedPath = probe;
-                }
-            }
+                Path.Combine(AppContext.BaseDirectory, "seed-data"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "seed-data"),
+                Path.Combine(Directory.GetCurrentDirectory(), "seed-data")
+            };
+            
+            var seedPath = possiblePaths.FirstOrDefault(Directory.Exists) 
+                ?? Path.Combine(AppContext.BaseDirectory, "seed-data");
+            
+            logger.LogInformation("📁 Seed data path: {SeedPath}, Exists: {Exists}", seedPath, Directory.Exists(seedPath));
 
             var seeder = new SeedRunner(context, logger, seedPath, hashingService);
             await seeder.RunAsync(seed: true);
