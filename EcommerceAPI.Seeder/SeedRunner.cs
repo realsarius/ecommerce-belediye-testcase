@@ -229,9 +229,8 @@ public class SeedRunner
             return;
         }
 
-        var passwordHash = _hashingService.Hash("Test123!");
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword("Test123!");
 
-        // KVKK için şifrelenen kullanıcı verileri
         var usersData = new[]
         {
             (Id: 1, FirstName: "Admin", LastName: "User", Email: "testadmin@test.com", RoleId: 1),
@@ -241,7 +240,6 @@ public class SeedRunner
 
         foreach (var userData in usersData)
         {
-            // KVKK için email, isim ve soyismi şifrele
             var encryptedEmail = _encryptionService.Encrypt(userData.Email);
             var encryptedFirstName = _encryptionService.Encrypt(userData.FirstName);
             var encryptedLastName = _encryptionService.Encrypt(userData.LastName);
