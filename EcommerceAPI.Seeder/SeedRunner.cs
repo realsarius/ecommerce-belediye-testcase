@@ -14,13 +14,15 @@ public class SeedRunner
     private readonly ILogger<SeedRunner> _logger;
     private readonly string _seedDataPath;
     private readonly IHashingService _hashingService;
+    private readonly IEncryptionService _encryptionService;
 
-    public SeedRunner(AppDbContext context, ILogger<SeedRunner> logger, string seedDataPath, IHashingService hashingService)
+    public SeedRunner(AppDbContext context, ILogger<SeedRunner> logger, string seedDataPath, IHashingService hashingService, IEncryptionService encryptionService)
     {
         _context = context;
         _logger = logger;
         _seedDataPath = seedDataPath;
         _hashingService = hashingService;
+        _encryptionService = encryptionService;
     }
 
     public async Task RunAsync(bool reset = false, bool seed = false)
@@ -203,8 +205,9 @@ public class SeedRunner
 
         var roles = new List<Role>
         {
-            new Role { Id = 1, Name = "Admin", Description = "System Administrator", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
-            new Role { Id = 2, Name = "Customer", Description = "Standard Customer", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+            new Role { Id = 1, Name = "Admin", Description = "Tüm yetkilere sahip yönetici hesabı", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Role { Id = 2, Name = "Customer", Description = "Standart müşteri hesabı", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Role { Id = 3, Name = "Seller", Description = "Satıcı hesabı - Ürün ve sipariş yönetimi", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
         };
 
         foreach (var role in roles)
@@ -226,45 +229,31 @@ public class SeedRunner
             return;
         }
 
-        var passwordHash = _hashingService.Hash("123456");
+        var passwordHash = _hashingService.Hash("Test123!");
 
-        var users = new List<User>
+        // KVKK için şifrelenen kullanıcı verileri
+        var usersData = new[]
         {
-            new User 
-            { 
-                Id = 1, 
-                FirstName = "Admin", 
-                LastName = "User", 
-                Email = "admin@ecommerce.com", 
-                EmailHash = _hashingService.Hash("admin@ecommerce.com"),
-                PasswordHash = passwordHash,
-                RoleId = 1,
-                CreatedAt = DateTime.UtcNow, 
-                UpdatedAt = DateTime.UtcNow 
-            },
-            new User 
-            { 
-                Id = 2, 
-                FirstName = "Test", 
-                LastName = "Customer", 
-                Email = "customer@ecommerce.com", 
-                EmailHash = _hashingService.Hash("customer@ecommerce.com"),
-                PasswordHash = passwordHash,
-                RoleId = 2,
-                CreatedAt = DateTime.UtcNow, 
-                UpdatedAt = DateTime.UtcNow 
-            }
+            (Id: 1, FirstName: "Admin", LastName: "User", Email: "testadmin@test.com", RoleId: 1),
+            (Id: 2, FirstName: "Test", LastName: "Customer", Email: "customer@test.com", RoleId: 2),
+            (Id: 3, FirstName: "Test", LastName: "Seller", Email: "testseller@test.com", RoleId: 3)
         };
 
-        foreach (var user in users)
+        foreach (var userData in usersData)
         {
+            // KVKK için email, isim ve soyismi şifrele
+            var encryptedEmail = _encryptionService.Encrypt(userData.Email);
+            var encryptedFirstName = _encryptionService.Encrypt(userData.FirstName);
+            var encryptedLastName = _encryptionService.Encrypt(userData.LastName);
+            var emailHash = _hashingService.Hash(userData.Email.ToLowerInvariant().Trim());
+
             await _context.Database.ExecuteSqlRawAsync(
                 @"INSERT INTO ""TBL_Users"" (""Id"", ""FirstName"", ""LastName"", ""Email"", ""EmailHash"", ""PasswordHash"", ""RoleId"", ""CreatedAt"", ""UpdatedAt"") 
                   VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})",
-                user.Id, user.FirstName, user.LastName, user.Email, user.EmailHash, user.PasswordHash, user.RoleId, user.CreatedAt, user.UpdatedAt);
+                userData.Id, encryptedFirstName, encryptedLastName, encryptedEmail, emailHash, passwordHash, userData.RoleId, DateTime.UtcNow, DateTime.UtcNow);
         }
 
-        _logger.LogInformation("✅ {Count} kullanıcı eklendi.", users.Count);
+        _logger.LogInformation("✅ {Count} kullanıcı eklendi.", usersData.Length);
     }
 
     private async Task SeedShippingAddressesAsync()

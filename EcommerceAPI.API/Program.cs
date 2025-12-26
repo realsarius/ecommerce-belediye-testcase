@@ -204,6 +204,7 @@ using (var scope = app.Services.CreateScope())
         {
             var logger = services.GetRequiredService<ILogger<SeedRunner>>();
             var hashingService = services.GetRequiredService<IHashingService>();
+            var encryptionService = services.GetRequiredService<IEncryptionService>();
             
             var possiblePaths = new[]
             {
@@ -217,7 +218,7 @@ using (var scope = app.Services.CreateScope())
             
             logger.LogInformation("📁 Seed data path: {SeedPath}, Exists: {Exists}", seedPath, Directory.Exists(seedPath));
 
-            var seeder = new SeedRunner(context, logger, seedPath, hashingService);
+            var seeder = new SeedRunner(context, logger, seedPath, hashingService, encryptionService);
             await seeder.RunAsync(seed: true);
         }
     }
