@@ -173,6 +173,10 @@ services:
     depends_on:
       postgres-dev:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     restart: unless-stopped
     labels:
       - "com.ecommerce.environment=development"
@@ -206,6 +210,10 @@ services:
       - ecommerce-network
     depends_on:
       postgres-prod:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     restart: unless-stopped
     labels:
