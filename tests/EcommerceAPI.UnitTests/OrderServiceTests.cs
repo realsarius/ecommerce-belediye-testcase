@@ -10,6 +10,7 @@ using EcommerceAPI.DataAccess.Abstract;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using EcommerceAPI.Core.Utilities.Results;
+using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -22,6 +23,7 @@ public class OrderManagerTests
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICouponService> _couponServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
+    private readonly Mock<ILogger<OrderManager>> _loggerMock;
     private readonly OrderManager _orderManager;
 
     public OrderManagerTests()
@@ -33,6 +35,7 @@ public class OrderManagerTests
         _uowMock = new Mock<IUnitOfWork>();
         _couponServiceMock = new Mock<ICouponService>();
         _auditServiceMock = new Mock<IAuditService>();
+        _loggerMock = new Mock<ILogger<OrderManager>>();
 
         _orderManager = new OrderManager(
             _orderDalMock.Object,
@@ -41,7 +44,8 @@ public class OrderManagerTests
             _cartServiceMock.Object,
             _uowMock.Object,
             _couponServiceMock.Object,
-            _auditServiceMock.Object
+            _auditServiceMock.Object,
+            _loggerMock.Object
         );
     }
 

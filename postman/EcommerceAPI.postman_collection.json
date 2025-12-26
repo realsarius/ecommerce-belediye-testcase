@@ -1,0 +1,1330 @@
+{
+  "info": {
+    "_postman_id": "ecommerce-api-collection",
+    "name": "EcommerceAPI - Complete Collection",
+    "description": "E-Commerce API için kapsamlı Postman collection. Tüm endpoint'ler, örnek request/response'lar ve otomatik token yönetimi içerir.\n\n## Kullanım\n1. Environment'ı import edin veya değişkenleri ayarlayın\n2. İlk önce 'Auth > Register' veya 'Auth > Login' çalıştırın\n3. Token otomatik olarak kaydedilecektir\n4. Diğer endpoint'leri test edin\n\n## Test Kartları (Iyzico Sandbox)\n- Başarılı: 5406670000000009\n- Yetersiz Bakiye: 4111111111111129\n- Çalıntı Kart: 4126111111111114",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "103",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Kimlik doğrulama işlemleri",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    console.log('Kayıt başarılı!');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@test.com\",\n  \"password\": \"Demo123!\",\n  \"firstName\": \"Demo\",\n  \"lastName\": \"User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Yeni kullanıcı kaydı oluşturur."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.token) {",
+                  "        pm.collectionVariables.set('token', jsonData.data.token);",
+                  "        pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "        console.log('Token kaydedildi!');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@test.com\",\n  \"password\": \"Demo123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Kullanıcı girişi yapar ve JWT token döner. Token otomatik olarak collection variable'a kaydedilir."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.token) {",
+                  "        pm.collectionVariables.set('token', jsonData.data.token);",
+                  "        pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "        console.log('Token yenilendi!');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh token kullanarak yeni access token alır."
+          }
+        },
+        {
+          "name": "Revoke Token (Logout)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/revoke",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "revoke"]
+            },
+            "description": "Refresh token'ı iptal eder (logout)."
+          }
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Oturum açmış kullanıcının bilgilerini döner."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products (Public)",
+      "description": "Herkesin erişebildiği ürün endpoint'leri",
+      "item": [
+        {
+          "name": "Get Products (Paginated)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" },
+                { "key": "categoryId", "value": "1", "disabled": true },
+                { "key": "searchTerm", "value": "telefon", "disabled": true },
+                { "key": "minPrice", "value": "100", "disabled": true },
+                { "key": "maxPrice", "value": "5000", "disabled": true }
+              ]
+            },
+            "description": "Sayfalanmış ürün listesi. Opsiyonel filtreler: categoryId, searchTerm, minPrice, maxPrice"
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            },
+            "description": "Belirli bir ürünün detaylarını getirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories (Public)",
+      "description": "Herkesin erişebildiği kategori endpoint'leri",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["categories"]
+            },
+            "description": "Tüm aktif kategorileri listeler."
+          }
+        },
+        {
+          "name": "Get Category by ID",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["categories", "1"]
+            },
+            "description": "Belirli bir kategorinin detaylarını getirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "description": "Sepet işlemleri (Auth gerekli)",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart"]
+            },
+            "description": "Kullanıcının sepetini getirir."
+          }
+        },
+        {
+          "name": "Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 103,\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items"]
+            },
+            "description": "Sepete ürün ekler."
+          }
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/items/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items", "{{productId}}"]
+            },
+            "description": "Sepetteki ürün miktarını günceller."
+          }
+        },
+        {
+          "name": "Remove from Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items", "{{productId}}"]
+            },
+            "description": "Sepetten ürün çıkarır."
+          }
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart"]
+            },
+            "description": "Sepeti tamamen temizler."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "description": "Sipariş işlemleri (Auth gerekli)",
+      "item": [
+        {
+          "name": "Checkout (Create Order)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('orderId', jsonData.data.id);",
+                  "        console.log('Order ID kaydedildi: ' + jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingAddress\": \"Örnek Mahalle, Test Sokak No:1, Kadıköy, İstanbul\",\n  \"paymentMethod\": \"CreditCard\",\n  \"couponCode\": \"\",\n  \"notes\": \"Lütfen zile basmayın\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Sepetteki ürünlerle sipariş oluşturur. Order ID otomatik kaydedilir."
+          }
+        },
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Kullanıcının tüm siparişlerini listeler."
+          }
+        },
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}"]
+            },
+            "description": "Belirli bir siparişin detaylarını getirir."
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "status"]
+            },
+            "description": "Siparişi iptal eder."
+          }
+        },
+        {
+          "name": "Update Order Items",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"productId\": 103, \"quantity\": 2 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "items"]
+            },
+            "description": "Sipariş kalemlerini günceller (sadece PendingPayment durumunda)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "description": "Ödeme işlemleri (Auth gerekli)",
+      "item": [
+        {
+          "name": "Process Payment (Success Card)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"5406670000000009\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\",\n  \"idempotencyKey\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments"]
+            },
+            "description": "Başarılı ödeme testi. Iyzico Sandbox başarılı kart: 5406670000000009"
+          }
+        },
+        {
+          "name": "Process Payment (Insufficient Funds)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"4111111111111129\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments"]
+            },
+            "description": "Yetersiz bakiye hata testi. Kart: 4111111111111129"
+          }
+        },
+        {
+          "name": "Process Payment (Stolen Card)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"4126111111111114\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments"]
+            },
+            "description": "Çalıntı kart hata testi. Kart: 4126111111111114"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shipping Addresses",
+      "description": "Teslimat adresleri (Auth gerekli)",
+      "item": [
+        {
+          "name": "Get My Addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shippingaddress",
+              "host": ["{{baseUrl}}"],
+              "path": ["shippingaddress"]
+            },
+            "description": "Kullanıcının kayıtlı adreslerini listeler."
+          }
+        },
+        {
+          "name": "Create Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Ev Adresim\",\n  \"fullName\": \"Demo User\",\n  \"phone\": \"5551234567\",\n  \"city\": \"İstanbul\",\n  \"district\": \"Kadıköy\",\n  \"addressLine\": \"Bağdat Caddesi No:123\",\n  \"postalCode\": \"34700\",\n  \"isDefault\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shippingaddress",
+              "host": ["{{baseUrl}}"],
+              "path": ["shippingaddress"]
+            },
+            "description": "Yeni adres ekler."
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"İş Adresim\",\n  \"fullName\": \"Demo User\",\n  \"phone\": \"5559876543\",\n  \"city\": \"İstanbul\",\n  \"district\": \"Şişli\",\n  \"addressLine\": \"Büyükdere Caddesi No:456\",\n  \"postalCode\": \"34394\",\n  \"isDefault\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shippingaddress/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["shippingaddress", "1"]
+            },
+            "description": "Mevcut adresi günceller."
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shippingaddress/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["shippingaddress", "1"]
+            },
+            "description": "Adresi siler."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Credit Cards",
+      "description": "Kayıtlı kart işlemleri (Auth gerekli)",
+      "item": [
+        {
+          "name": "Get My Cards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/creditcards",
+              "host": ["{{baseUrl}}"],
+              "path": ["creditcards"]
+            },
+            "description": "Kullanıcının kayıtlı kartlarını listeler."
+          }
+        },
+        {
+          "name": "Add Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardHolderName\": \"Demo User\",\n  \"cardNumber\": \"5406670000000009\",\n  \"expiryMonth\": \"12\",\n  \"expiryYear\": \"2026\",\n  \"isDefault\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/creditcards",
+              "host": ["{{baseUrl}}"],
+              "path": ["creditcards"]
+            },
+            "description": "Yeni kart ekler (şifrelenmiş saklanır)."
+          }
+        },
+        {
+          "name": "Set Default Card",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isDefault\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/creditcards/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["creditcards", "1"]
+            },
+            "description": "Kartı varsayılan olarak ayarlar."
+          }
+        },
+        {
+          "name": "Delete Card",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/creditcards/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["creditcards", "1"]
+            },
+            "description": "Kartı siler."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coupons",
+      "description": "Kupon işlemleri",
+      "item": [
+        {
+          "name": "Get Active Coupons",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/coupons/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["coupons", "active"]
+            },
+            "description": "Aktif kuponları listeler (Auth gerekli)."
+          }
+        },
+        {
+          "name": "Validate Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WELCOME10\",\n  \"orderTotal\": 500.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/coupons/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["coupons", "validate"]
+            },
+            "description": "Kupon kodunu doğrular ve indirim tutarını döner."
+          }
+        },
+        {
+          "name": "Get All Coupons (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/coupons",
+              "host": ["{{baseUrl}}"],
+              "path": ["coupons"]
+            },
+            "description": "Tüm kuponları listeler (Admin rolü gerekli)."
+          }
+        },
+        {
+          "name": "Get Coupon by ID (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/coupons/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["coupons", "1"]
+            },
+            "description": "Belirli bir kuponun detaylarını getirir (Admin rolü gerekli)."
+          }
+        },
+        {
+          "name": "Create Coupon (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NEWYEAR25\",\n  \"type\": \"Percentage\",\n  \"value\": 25,\n  \"minOrderAmount\": 100,\n  \"maxUsageCount\": 1000,\n  \"expiresAt\": \"2025-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/coupons",
+              "host": ["{{baseUrl}}"],
+              "path": ["coupons"]
+            },
+            "description": "Yeni kupon oluşturur (Admin rolü gerekli)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller Profile",
+      "description": "Satıcı profil işlemleri (Seller rolü gerekli)",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "profile"]
+            },
+            "description": "Satıcının kendi profilini getirir."
+          }
+        },
+        {
+          "name": "Create Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brandName\": \"Demo Mağaza\",\n  \"description\": \"Kaliteli ürünler, uygun fiyatlar\",\n  \"logoUrl\": \"https://example.com/logo.png\",\n  \"contactEmail\": \"info@demostore.com\",\n  \"contactPhone\": \"5551234567\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/seller/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "profile"]
+            },
+            "description": "Satıcı profili oluşturur."
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brandName\": \"Demo Mağaza v2\",\n  \"description\": \"Güncellenmiş açıklama\",\n  \"logoUrl\": \"https://example.com/new-logo.png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/seller/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "profile"]
+            },
+            "description": "Satıcı profilini günceller."
+          }
+        },
+        {
+          "name": "Check Profile Exists",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/profile/exists",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "profile", "exists"]
+            },
+            "description": "Satıcı profilinin olup olmadığını kontrol eder."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Products",
+      "description": "Admin/Seller ürün yönetimi",
+      "item": [
+        {
+          "name": "Get Products (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Admin: Tüm ürünler, Seller: Kendi ürünleri."
+          }
+        },
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Ürün\",\n  \"description\": \"Bu bir test ürünüdür\",\n  \"price\": 999.99,\n  \"currency\": \"TRY\",\n  \"categoryId\": 1,\n  \"initialStock\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products"]
+            },
+            "description": "Yeni ürün oluşturur."
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Güncellenmiş Ürün\",\n  \"description\": \"Güncellenmiş açıklama\",\n  \"price\": 1199.99,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products", "{{productId}}"]
+            },
+            "description": "Ürünü günceller."
+          }
+        },
+        {
+          "name": "Update Stock",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityChange\": 50,\n  \"reason\": \"Yeni stok girişi\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/{{productId}}/stock",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products", "{{productId}}", "stock"]
+            },
+            "description": "Stok miktarını artırır/azaltır. Negatif değer stok düşürür."
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products", "{{productId}}"]
+            },
+            "description": "Ürünü siler (soft delete)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Categories",
+      "description": "Admin kategori yönetimi",
+      "item": [
+        {
+          "name": "Get All Categories (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories"]
+            },
+            "description": "Tüm kategorileri listeler (inaktifler dahil)."
+          }
+        },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yeni Kategori\",\n  \"description\": \"Kategori açıklaması\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories"]
+            },
+            "description": "Yeni kategori oluşturur."
+          }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Güncellenmiş Kategori\",\n  \"description\": \"Yeni açıklama\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories", "1"]
+            },
+            "description": "Kategoriyi günceller."
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories", "1"]
+            },
+            "description": "Kategoriyi siler."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Orders",
+      "description": "Admin/Seller sipariş yönetimi",
+      "item": [
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders"]
+            },
+            "description": "Admin: Tüm siparişler, Seller: Kendi ürünlerini içeren siparişler."
+          }
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Shipped\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders", "{{orderId}}", "status"]
+            },
+            "description": "Sipariş durumunu günceller. Geçerli durumlar: PendingPayment, Paid, Processing, Shipped, Delivered, Cancelled"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Sellers",
+      "description": "Admin satıcı yönetimi",
+      "item": [
+        {
+          "name": "Get Seller by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sellers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "sellers", "1"]
+            },
+            "description": "Belirli bir satıcının profil bilgilerini getirir (Admin rolü gerekli)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Full E-Commerce Flow",
+      "description": "Tam bir e-ticaret akışını test eden senaryo",
+      "item": [
+        {
+          "name": "1. Register New User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "var timestamp = Date.now();",
+                  "pm.collectionVariables.set('testEmail', 'flow_' + timestamp + '@test.com');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"Flow123!\",\n  \"firstName\": \"Flow\",\n  \"lastName\": \"Test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "2. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('token', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"Flow123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "3. Browse Products",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=1&pageSize=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 103,\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items"]
+            }
+          }
+        },
+        {
+          "name": "5. View Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart"]
+            }
+          }
+        },
+        {
+          "name": "6. Checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('orderId', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingAddress\": \"Test Mahallesi, Flow Sokak No:1, İstanbul\",\n  \"paymentMethod\": \"CreditCard\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            }
+          }
+        },
+        {
+          "name": "7. Process Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"5406670000000009\",\n  \"cardHolderName\": \"Flow Test\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments"]
+            }
+          }
+        },
+        {
+          "name": "8. View Order (Should be Paid)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

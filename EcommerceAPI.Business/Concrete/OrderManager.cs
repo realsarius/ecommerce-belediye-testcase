@@ -7,6 +7,7 @@ using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Business.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -19,6 +20,7 @@ public class OrderManager : IOrderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICouponService _couponService;
     private readonly IAuditService _auditService;
+    private readonly ILogger<OrderManager> _logger;
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
@@ -31,7 +33,8 @@ public class OrderManager : IOrderService
         ICartService cartService,
         IUnitOfWork unitOfWork,
         ICouponService couponService,
-        IAuditService auditService)
+        IAuditService auditService,
+        ILogger<OrderManager> logger)
     {
         _orderDal = orderDal;
         _productDal = productDal;
@@ -40,6 +43,7 @@ public class OrderManager : IOrderService
         _unitOfWork = unitOfWork;
         _couponService = couponService;
         _auditService = auditService;
+        _logger = logger;
     }
 
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
@@ -178,8 +182,7 @@ public class OrderManager : IOrderService
             }
             catch (Exception ex)
             {
-
-                Console.WriteLine($"Error canceling order {order.Id}: {ex.Message}");
+                _logger.LogError(ex, "Sipariş iptal edilirken hata: OrderId={OrderId}", order.Id);
             }
         }
         

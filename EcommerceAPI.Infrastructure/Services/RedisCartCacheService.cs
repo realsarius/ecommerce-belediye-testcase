@@ -5,18 +5,7 @@ using StackExchange.Redis;
 namespace EcommerceAPI.Infrastructure.Services;
 
 /// <summary>
-/// Redis tabanlı sepet cache implementasyonu.
-/// Redis Hash veri yapısını kullanarak kullanıcı sepetlerini yönetir.
-/// 
-/// Veri Yapısı:
-/// - Key: cart:user:{userId}
-/// - Field: productId
-/// - Value: quantity
-/// 
-/// Özellikler:
-/// - Atomic işlemler (HashIncrement)
-/// - Otomatik expiration (7 gün)
-/// - Yüksek performanslı okuma/yazma
+/// Redis Hash yapısı ile sepet cache yönetimi. Key: cart:user:{userId}
 /// </summary>
 public class RedisCartCacheService : ICartCacheService
 {
@@ -45,7 +34,7 @@ public class RedisCartCacheService : ICartCacheService
             }
         }
 
-        // Sepet süresini ötele
+        // Sliding expiration: sepete erişildikçe süre uzat
         if (result.Count > 0)
         {
             await db.KeyExpireAsync(cartKey, CartExpiration);

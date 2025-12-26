@@ -46,7 +46,6 @@ public class RedisCacheManager : ICacheService
         var server = _redis.GetServer(_redis.GetEndPoints().First());
         var db = _redis.GetDatabase();
         
-        // IDistributedCache prefix ekleyebilir, bu yüzden hem başa hem sona wildcard ekliyoruz
         var keys = server.Keys(pattern: "*" + pattern + "*").ToArray();
         if (keys.Length > 0)
         {

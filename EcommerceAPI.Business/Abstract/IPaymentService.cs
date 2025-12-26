@@ -4,10 +4,7 @@ using EcommerceAPI.Core.Utilities.Results;
 namespace EcommerceAPI.Business.Abstract;
 
 /// <summary>
-/// Ödeme işlemleri için servis interface'i.
-/// 
-/// Not: Bu interface Business katmanında yer alır çünkü DTO'lara bağımlıdır.
-/// Implementasyon Infrastructure katmanında (IyzicoPaymentService) yapılır.
+/// Ödeme işlemleri servisi. Implementasyon: IyzicoPaymentService.
 /// </summary>
 public interface IPaymentService
 {

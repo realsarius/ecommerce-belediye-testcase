@@ -6,23 +6,13 @@ using StackExchange.Redis;
 namespace EcommerceAPI.Infrastructure.Services;
 
 /// <summary>
-/// Redis tabanlı Distributed Lock (Dağıtık Kilit) implementasyonu.
-/// StackExchange.Redis'in LockTake/LockRelease mekanizmasını kullanır.
-/// 
-/// Özellikler:
-/// - Atomic lock alma ve bırakma
-/// - Token tabanlı güvenlik (yalnızca kilidi alan serbest bırakabilir)
-/// - Otomatik timeout ile deadlock önleme
-/// - Retry mekanizması (opsiyonel)
+/// Redis distributed lock. Race condition önleme için LockTake/LockRelease kullanır.
 /// </summary>
 public class RedisDistributedLockService : IDistributedLockService
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisDistributedLockService> _logger;
     
-    /// <summary>
-    /// Varsayılan kilit başarısızlık mesajı
-    /// </summary>
     private const string LockFailedMessage = "Sistem yoğunluğu nedeniyle işlem gerçekleştirilemedi. Lütfen tekrar deneyin.";
 
     public RedisDistributedLockService(
@@ -47,19 +37,16 @@ public class RedisDistributedLockService : IDistributedLockService
 
         try
         {
-            // Kilidi almaya çalış
             if (await db.LockTakeAsync(resourceKey, token, lockTimeout))
             {
                 try
                 {
                     _logger.LogDebug("Lock acquired for resource: {ResourceKey}, Token: {Token}", resourceKey, token);
                     
-                    // Callback'i çalıştır (kritik bölge)
                     return await callback();
                 }
                 finally
                 {
-                    // Kilidi serbest bırak
                     await db.LockReleaseAsync(resourceKey, token);
                     _logger.LogDebug("Lock released for resource: {ResourceKey}", resourceKey);
                 }

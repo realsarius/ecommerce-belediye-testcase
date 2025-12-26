@@ -15,11 +15,7 @@ using Microsoft.Extensions.Options;
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Iyzico ödeme API'si ile entegrasyonu sağlayan servis.
-/// Bu sınıf Infrastructure katmanında yer alır çünkü:
-/// - Dış API ile doğrudan iletişim kurar
-/// - 3rd party paket bağımlılığı vardır (Iyzipay)
-/// - Business mantığından bağımsız, teknik implementasyondur
+/// Iyzico ödeme API entegrasyonu.
 /// </summary>
 public class IyzicoPaymentService : IPaymentService
 {
