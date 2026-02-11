@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-const SITE_NAME = 'Belediye E-Ticaret';
+const SITE_NAME = 'E-Ticaret';
 
 const pageTitles: Record<string, string> = {
   '/': 'Ana Sayfa',
@@ -40,13 +40,13 @@ export function usePageTitle(customTitle?: string) {
     } else {
       // Check for exact match first
       const exactMatch = pageTitles[location.pathname];
-      
+
       if (exactMatch) {
         title = `${exactMatch} | ${SITE_NAME}`;
       } else {
         // Check for dynamic routes (e.g., /products/:id, /orders/:id)
         const pathParts = location.pathname.split('/').filter(Boolean);
-        
+
         if (pathParts[0] === 'products' && pathParts.length === 2) {
           title = `Ürün Detayı | ${SITE_NAME}`;
         } else if (pathParts[0] === 'orders' && pathParts.length === 2) {

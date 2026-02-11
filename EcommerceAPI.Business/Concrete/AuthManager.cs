@@ -6,6 +6,10 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using Microsoft.Extensions.Configuration;
+using EcommerceAPI.Core.Aspects.Autofac.Validation;
+using EcommerceAPI.Business.Validators;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Business.Constants;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -40,6 +44,7 @@ public class AuthManager : IAuthService
         _tokenHelper = tokenHelper;
     }
 
+    [ValidationAspect(typeof(RegisterRequestValidator))]
     public async Task<IDataResult<AuthResponse>> RegisterAsync(RegisterRequest request)
     {
         var emailHash = _hashingService.Hash(request.Email.ToLowerInvariant().Trim());
@@ -47,7 +52,7 @@ public class AuthManager : IAuthService
         var existingUsers = await _userDal.GetListAsync(u => u.EmailHash == emailHash);
         if (existingUsers.Any())
         {
-            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Bu email zaten kayıtlı" });
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserAlreadyExists });
         }
 
         var roles = await _roleDal.GetListAsync(r => r.Name == "Customer");
@@ -77,9 +82,10 @@ public class AuthManager : IAuthService
             "User",
             new { UserId = user.Id, Email = user.Email });
 
-        return new SuccessDataResult<AuthResponse>(new AuthResponse { Success = true, Message = "Kayıt başarılı" });
+        return new SuccessDataResult<AuthResponse>(new AuthResponse { Success = true, Message = Messages.UserRegistered });
     }
 
+    [ValidationAspect(typeof(LoginRequestValidator))]
     public async Task<IDataResult<AuthResponse>> LoginAsync(LoginRequest request)
     {
         var emailHash = _hashingService.Hash(request.Email.ToLowerInvariant().Trim());
@@ -88,10 +94,10 @@ public class AuthManager : IAuthService
         var user = users.FirstOrDefault();
 
         if (user == null)
-            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Email veya şifre hatalı" });
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Email veya şifre hatalı" });
+             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.PasswordError });
 
         var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
 
@@ -124,7 +130,7 @@ public class AuthManager : IAuthService
         return new SuccessDataResult<AuthResponse>(new AuthResponse
         {
             Success = true,
-            Message = "Giriş başarılı",
+            Message = Messages.SuccessfulLogin,
             Token = token,
             RefreshToken = refreshToken,
             RefreshTokenExpiration = refreshTokenEntity.ExpiresAt,
@@ -140,6 +146,7 @@ public class AuthManager : IAuthService
         });
     }
 
+    [ValidationAspect(typeof(RefreshTokenRequestValidator))]
     public async Task<IDataResult<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request)
     {
         var hashedToken = _hashingService.Hash(request.RefreshToken);
@@ -148,10 +155,10 @@ public class AuthManager : IAuthService
         var existingToken = tokens.FirstOrDefault();
 
         if (existingToken == null)
-             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Geçersiz token" });
+             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.TokenInvalid });
 
         if (existingToken.IsRevoked)
-             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Geçersiz token" });
+             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.TokenInvalid });
 
         if (existingToken.IsUsed)
         {
@@ -167,11 +174,11 @@ public class AuthManager : IAuthService
                     await _unitOfWork.SaveChangesAsync();
                 }
             }
-            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Geçersiz token (Reuse detected)" });
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.TokenInvalid + " (Reuse detected)" });
         }
 
         if (existingToken.ExpiresAt < DateTime.UtcNow)
-             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Token süresi dolmuş" });
+             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.TokenExpired });
 
         var newRefreshToken = _tokenHelper.GenerateRefreshToken();
         var newHashedRefreshToken = _hashingService.Hash(newRefreshToken);
@@ -195,7 +202,7 @@ public class AuthManager : IAuthService
         var user = await _userDal.GetAsync(u => u.Id == existingToken.UserId);
         
         if (user == null)
-             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = "Kullanıcı bulunamadı" });
+             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
         
         var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
 
@@ -208,7 +215,7 @@ public class AuthManager : IAuthService
         return new SuccessDataResult<AuthResponse>(new AuthResponse
         {
             Success = true,
-            Message = "Token yenilendi",
+            Message = Messages.TokenRefreshed,
             Token = newAccessToken,
             RefreshToken = newRefreshToken,
             RefreshTokenExpiration = newRefreshTokenEntity.ExpiresAt,
@@ -224,6 +231,7 @@ public class AuthManager : IAuthService
         });
     }
 
+    [LogAspect]
     public async Task<IResult> RevokeTokenAsync(string token)
     {
         var hashedToken = _hashingService.Hash(token);
@@ -231,7 +239,7 @@ public class AuthManager : IAuthService
         var existingToken = tokens.FirstOrDefault();
 
         if (existingToken == null)
-            return new ErrorResult("Token bulunamadı");
+            return new ErrorResult(Messages.RefreshTokenNotFound);
 
         existingToken.IsRevoked = true;
         existingToken.RevokedReason = "User logout";
@@ -245,9 +253,10 @@ public class AuthManager : IAuthService
             "User",
             new { UserId = existingToken.UserId });
         
-        return new SuccessResult("Token iptal edildi");
+        return new SuccessResult(Messages.TokenRevoked);
     }
 
+    [LogAspect]
     public async Task<IDataResult<UserDto>> GetUserByIdAsync(int userId)
     {
         var user = await _userDal.GetAsync(u => u.Id == userId);

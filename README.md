@@ -63,7 +63,8 @@ docker compose down
 | **Core & Architecture** | .NET 8, Clean Architecture, RESTful API | Modülerlik, test edilebilirlik, katmanlı mimari
 | **Frontend** | React, Redux Toolkit, Shadcn/ui, Zod, Tailwind CSS, Vite | SPA, state yönetimi |
 | **Data Access** | Entity Framework Core 8, PostgreSQL 16 | ORM, Migration yönetimi |
-| **Dependency Injection** | .NET Built-in DI | Bağımlılık yönetimi ve loose coupling |
+| **Dependency Injection & AOP** | Autofac | Gelişmiş DI, Interception, Aspect-Oriented Programming (Log, Cache, Validation, Transaction) |
+| **Validation** | FluentValidation | Nesne doğrulama ve iş kuralları (AOP entegreli) |
 | **Caching & Performance** | Redis 7, Distributed Cache | Önbellekleme, sepet yönetimi ve distributed lock |
 | **Logging & Monitoring** | Serilog, Elasticsearch, Kibana | Yapılandırılmış loglama, merkezi log yönetimi |
 | **Auth** | JWT, BCrypt | Token tabanlı kimlik doğrulama ve parola hash'leme |

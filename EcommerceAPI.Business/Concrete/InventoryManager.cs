@@ -5,12 +5,11 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Core.Utilities.Redis;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Business.Constants;
 
 namespace EcommerceAPI.Business.Concrete;
 
-/// <summary>
-/// Stok yönetimi. SaveChangesAsync çağırmaz; çağıran (OrderManager) transaction commit yapar.
-/// </summary>
 public class InventoryManager : IInventoryService
 {
     private readonly IInventoryDal _inventoryDal;
@@ -30,16 +29,19 @@ public class InventoryManager : IInventoryService
         _unitOfWork = unitOfWork;
     }
 
+    [LogAspect]
     public async Task<IResult> DecreaseStockAsync(int productId, int quantity, int userId, string reason)
     {
         return await BulkAdjustStocksAsync(new Dictionary<int, int> { { productId, -quantity } }, userId, reason);
     }
 
+    [LogAspect]
     public async Task<IResult> IncreaseStockAsync(int productId, int quantity, int userId, string reason)
     {
         return await BulkAdjustStocksAsync(new Dictionary<int, int> { { productId, quantity } }, userId, reason);
     }
 
+    [LogAspect]
     public async Task<IResult> ReserveStocksAsync(Dictionary<int, int> productQuantities, int userId, string reason)
     {
         // Reserve = Decrease
@@ -47,6 +49,7 @@ public class InventoryManager : IInventoryService
         return await BulkAdjustStocksAsync(adjustments, userId, reason);
     }
 
+    [LogAspect]
     public async Task ReleaseStocksAsync(Dictionary<int, int> productQuantities, int userId, string reason)
     {
         // Release = Increase
@@ -54,6 +57,7 @@ public class InventoryManager : IInventoryService
         await BulkAdjustStocksAsync(adjustments, userId, reason);
     }
 
+    [LogAspect]
     public async Task<IResult> BulkAdjustStocksAsync(Dictionary<int, int> quantityChanges, int userId, string reason)
     {
         var productIds = quantityChanges.Keys.ToList();
@@ -68,7 +72,7 @@ public class InventoryManager : IInventoryService
         {
             if (!inventoryMap.TryGetValue(productId, out var inventory))
             {
-                return new ErrorResult($"Stok kaydı bulunamadı: Product {productId}");
+                return new ErrorResult($"{Messages.StockNotFound}: Product {productId}");
             }
 
             var delta = quantityChanges[productId];
@@ -79,7 +83,7 @@ public class InventoryManager : IInventoryService
             {
                 if (delta < 0 && inventory.QuantityAvailable + delta < 0)
                 {
-                    return new ErrorResult($"Stok yetersiz: {inventory.Product?.Name ?? productId.ToString()}. Mevcut: {inventory.QuantityAvailable}");
+                    return new ErrorResult($"{Messages.StockInsufficient}: {inventory.Product?.Name ?? productId.ToString()}. Mevcut: {inventory.QuantityAvailable}");
                 }
 
                 var oldStock = inventory.QuantityAvailable;

@@ -6,6 +6,9 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Caching;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Business.Constants;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -22,6 +25,8 @@ public class CouponManager : ICouponService
         _auditService = auditService;
     }
 
+    [LogAspect]
+    [CacheAspect(duration: 60)]
     public async Task<IDataResult<List<CouponDto>>> GetAllAsync()
     {
         var coupons = await _couponDal.GetListAsync();
@@ -29,21 +34,24 @@ public class CouponManager : ICouponService
         return new SuccessDataResult<List<CouponDto>>(couponDtos);
     }
 
+    [LogAspect]
     public async Task<IDataResult<CouponDto>> GetByIdAsync(int id)
     {
         var coupon = await _couponDal.GetAsync(c => c.Id == id);
         if (coupon == null)
-            return new ErrorDataResult<CouponDto>("Kupon bulunamadı.");
+            return new ErrorDataResult<CouponDto>(Messages.CouponNotFound);
         
         return new SuccessDataResult<CouponDto>(MapToDto(coupon));
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetAllAsync")]
     public async Task<IDataResult<CouponDto>> CreateAsync(CreateCouponRequest request)
     {
 
         var existing = await _couponDal.GetByCodeAsync(request.Code);
         if (existing != null)
-            return new ErrorDataResult<CouponDto>("Bu kupon kodu zaten kullanılıyor.");
+            return new ErrorDataResult<CouponDto>(Messages.CouponAlreadyExists);
 
         var coupon = new Coupon
         {
@@ -67,21 +75,23 @@ public class CouponManager : ICouponService
             "Coupon",
             new { CouponId = coupon.Id, Code = coupon.Code, Type = coupon.Type.ToString(), Value = coupon.Value });
         
-        return new SuccessDataResult<CouponDto>(MapToDto(coupon), "Kupon başarıyla oluşturuldu.");
+        return new SuccessDataResult<CouponDto>(MapToDto(coupon), Messages.CouponCreated);
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetAllAsync")]
     public async Task<IDataResult<CouponDto>> UpdateAsync(int id, UpdateCouponRequest request)
     {
         var coupon = await _couponDal.GetAsync(c => c.Id == id);
         if (coupon == null)
-            return new ErrorDataResult<CouponDto>("Kupon bulunamadı.");
+            return new ErrorDataResult<CouponDto>(Messages.CouponNotFound);
 
 
         if (!string.IsNullOrEmpty(request.Code) && request.Code.ToUpper() != coupon.Code)
         {
             var existing = await _couponDal.GetByCodeAsync(request.Code);
             if (existing != null)
-                return new ErrorDataResult<CouponDto>("Bu kupon kodu zaten kullanılıyor.");
+                return new ErrorDataResult<CouponDto>(Messages.CouponAlreadyExists);
             coupon.Code = request.Code.ToUpper().Trim();
         }
 
@@ -103,14 +113,16 @@ public class CouponManager : ICouponService
             "Coupon",
             new { CouponId = coupon.Id, Code = coupon.Code });
         
-        return new SuccessDataResult<CouponDto>(MapToDto(coupon), "Kupon başarıyla güncellendi.");
+        return new SuccessDataResult<CouponDto>(MapToDto(coupon), Messages.CouponUpdated);
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetAllAsync")]
     public async Task<IResult> DeleteAsync(int id)
     {
         var coupon = await _couponDal.GetAsync(c => c.Id == id);
         if (coupon == null)
-            return new ErrorResult("Kupon bulunamadı.");
+            return new ErrorResult(Messages.CouponNotFound);
 
         _couponDal.Delete(coupon);
         await _unitOfWork.SaveChangesAsync();
@@ -121,9 +133,10 @@ public class CouponManager : ICouponService
             "Coupon",
             new { CouponId = coupon.Id, Code = coupon.Code });
         
-        return new SuccessResult("Kupon başarıyla silindi.");
+        return new SuccessResult(Messages.CouponDeleted);
     }
 
+    [LogAspect]
     public async Task<IDataResult<CouponValidationResult>> ValidateCouponAsync(string code, decimal orderTotal)
     {
         var result = new CouponValidationResult
@@ -135,31 +148,31 @@ public class CouponManager : ICouponService
         var coupon = await _couponDal.GetByCodeAsync(code);
         if (coupon == null)
         {
-            result.ErrorMessage = "Kupon kodu bulunamadı.";
+            result.ErrorMessage = Messages.CouponNotFound;
             return new SuccessDataResult<CouponValidationResult>(result);
         }
 
         if (!coupon.IsActive)
         {
-            result.ErrorMessage = "Bu kupon aktif değil.";
+            result.ErrorMessage = Messages.CouponInactive;
             return new SuccessDataResult<CouponValidationResult>(result);
         }
 
         if (coupon.ExpiresAt <= DateTime.UtcNow)
         {
-            result.ErrorMessage = "Bu kuponun süresi dolmuş.";
+            result.ErrorMessage = Messages.CouponExpired;
             return new SuccessDataResult<CouponValidationResult>(result);
         }
 
         if (coupon.UsageLimit > 0 && coupon.UsedCount >= coupon.UsageLimit)
         {
-            result.ErrorMessage = "Bu kuponun kullanım limiti dolmuş.";
+            result.ErrorMessage = Messages.CouponUsageLimitExceeded;
             return new SuccessDataResult<CouponValidationResult>(result);
         }
 
         if (coupon.MinOrderAmount.HasValue && orderTotal < coupon.MinOrderAmount.Value)
         {
-            result.ErrorMessage = $"Bu kupon için minimum sipariş tutarı {coupon.MinOrderAmount.Value:N2} TL'dir.";
+            result.ErrorMessage = $"{Messages.CouponMinAmountNotMet} ({coupon.MinOrderAmount.Value:N2} TL)";
             return new SuccessDataResult<CouponValidationResult>(result);
         }
 
@@ -178,11 +191,12 @@ public class CouponManager : ICouponService
         return new SuccessDataResult<CouponValidationResult>(result);
     }
 
+    [LogAspect]
     public async Task<IResult> IncrementUsageAsync(int couponId)
     {
         var coupon = await _couponDal.GetAsync(c => c.Id == couponId);
         if (coupon == null)
-            return new ErrorResult("Kupon bulunamadı.");
+            return new ErrorResult(Messages.CouponNotFound);
 
         coupon.UsedCount++;
         coupon.UpdatedAt = DateTime.UtcNow;

@@ -3,6 +3,10 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Validation;
+using EcommerceAPI.Business.Validators;
+using EcommerceAPI.Business.Constants;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -22,6 +26,7 @@ public class CartManager : ICartService
         _productDal = productDal;
     }
 
+    [LogAspect]
     public async Task<IDataResult<CartDto>> GetCartAsync(int userId)
     {
         var cartItems = await _cartCache.GetCartItemsAsync(userId);
@@ -71,12 +76,14 @@ public class CartManager : ICartService
         return new SuccessDataResult<CartDto>(cartDto);
     }
 
+    [LogAspect]
+    [ValidationAspect(typeof(AddToCartRequestValidator))]
     public async Task<IDataResult<CartDto>> AddToCartAsync(int userId, AddToCartRequest request)
     {
         var product = await _productDal.GetByIdWithDetailsAsync(request.ProductId);
         
         if (product == null || !product.IsActive)
-            return new ErrorDataResult<CartDto>("Ürün bulunamadı veya aktif değil");
+            return new ErrorDataResult<CartDto>(Messages.ProductNotFound);
 
         var availableStock = product.Inventory?.QuantityAvailable ?? 0;
         
@@ -84,42 +91,46 @@ public class CartManager : ICartService
         var totalRequestedQuantity = request.Quantity + currentQty;
         
         if (totalRequestedQuantity > availableStock)
-            return new ErrorDataResult<CartDto>($"Stok yetersiz. Talep edilen: {totalRequestedQuantity}, Mevcut: {availableStock}");
+            return new ErrorDataResult<CartDto>($"{Messages.StockInsufficient}. Talep edilen: {totalRequestedQuantity}, Mevcut: {availableStock}");
 
         await _cartCache.IncrementItemQuantityAsync(userId, request.ProductId, request.Quantity);
         
         return await GetCartAsync(userId);
     }
 
+    [LogAspect]
+    [ValidationAspect(typeof(UpdateCartItemRequestValidator))]
     public async Task<IDataResult<CartDto>> UpdateCartItemAsync(int userId, int productId, UpdateCartItemRequest request)
     {
         var product = await _productDal.GetByIdWithDetailsAsync(productId);
         if (product == null || !product.IsActive)
-            return new ErrorDataResult<CartDto>("Ürün bulunamadı.");
+            return new ErrorDataResult<CartDto>(Messages.ProductNotFound);
 
         var availableStock = product.Inventory?.QuantityAvailable ?? 0;
         
         if (request.Quantity > availableStock)
-            return new ErrorDataResult<CartDto>($"Stok yetersiz. Talep edilen: {request.Quantity}, Mevcut: {availableStock}");
+            return new ErrorDataResult<CartDto>($"{Messages.StockInsufficient}. Talep edilen: {request.Quantity}, Mevcut: {availableStock}");
 
         if (!await _cartCache.ItemExistsAsync(userId, productId))
-            return new ErrorDataResult<CartDto>("Ürün sepette bulunamadı");
+            return new ErrorDataResult<CartDto>(Messages.ProductNotFound);
 
         await _cartCache.SetItemQuantityAsync(userId, productId, request.Quantity);
 
         return await GetCartAsync(userId);
     }
 
+    [LogAspect]
     public async Task<IDataResult<CartDto>> RemoveFromCartAsync(int userId, int productId)
     {
         if (!await _cartCache.ItemExistsAsync(userId, productId))
-            return new ErrorDataResult<CartDto>("Ürün sepette bulunamadı");
+            return new ErrorDataResult<CartDto>(Messages.ProductNotFound);
 
         await _cartCache.RemoveItemAsync(userId, productId);
         
         return await GetCartAsync(userId);
     }
 
+    [LogAspect]
     public async Task<IResult> ClearCartAsync(int userId)
     {
         await _cartCache.ClearCartAsync(userId);

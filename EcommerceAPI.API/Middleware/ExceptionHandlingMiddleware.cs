@@ -8,11 +8,13 @@ public class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger, IWebHostEnvironment env)
     {
         _next = next;
         _logger = logger;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -91,6 +93,12 @@ public class ExceptionHandlingMiddleware
                 response.StatusCode = (int)HttpStatusCode.InternalServerError;
                 errorResponse.ErrorCode = "INTERNAL_ERROR";
                 errorResponse.Message = "Beklenmeyen bir hata oluştu";
+
+                if (_env.IsDevelopment() || _env.IsEnvironment("Test"))
+                {
+                    errorResponse.Details = exception.ToString();
+                }
+
                 _logger.LogError(exception, "Unhandled exception occurred");
                 break;
         }

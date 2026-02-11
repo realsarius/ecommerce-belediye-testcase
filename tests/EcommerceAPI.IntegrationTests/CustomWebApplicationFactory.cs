@@ -34,9 +34,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 { "JWT_AUDIENCE", "EcommerceAPI" },
                 { "Iyzico:ApiKey", "sandbox-test" },
                 { "Iyzico:SecretKey", "sandbox-test" },
-                { "ENCRYPTION_KEY", "12345678901234567890123456789012" }, // 32-char key for AES-256
+                { "ENCRYPTION_KEY", "12345678901234567890123456789012" },
                 { "HASH_PEPPER", "test-pepper-value" },
-                { "RateLimiting:Enabled", "false" }, // Disable rate limiting in tests
+                { "RateLimiting:Enabled", "false" },
                 { "ConnectionStrings:DefaultConnection", "Host=localhost;Port=5433;Database=ecommerce_test;Username=ecommerce_test_user;Password=test_password" }
             });
         });

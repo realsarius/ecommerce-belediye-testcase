@@ -14,8 +14,8 @@ public class Result : IResult
     {
     }
 
-    public bool Success { get; }
-    public string Message { get; }
-    public string? ErrorCode { get; }
-    public object? Details { get; }
+    public bool Success { get; private set; }
+    public string Message { get; private set; }
+    public string? ErrorCode { get; private set; }
+    public object? Details { get; private set; }
 }

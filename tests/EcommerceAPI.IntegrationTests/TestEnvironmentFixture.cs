@@ -1,8 +1,5 @@
 namespace EcommerceAPI.IntegrationTests;
 
-// ortam değişkenlerini set eden fixture
-// WebApplicationFactory calismadan once env ayarlanmis olur
-
 public class TestEnvironmentFixture
 {
     public TestEnvironmentFixture()

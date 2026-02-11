@@ -4,8 +4,9 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Core.Interfaces;
-
 using Microsoft.Extensions.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Caching;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -28,6 +29,8 @@ public class SellerProfileManager : ISellerProfileService
         _logger = logger;
     }
 
+    [LogAspect]
+    [CacheAspect(duration: 30)]
     public async Task<IDataResult<SellerProfileDto>> GetByUserIdAsync(int userId)
     {
         var profile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(userId);
@@ -38,6 +41,8 @@ public class SellerProfileManager : ISellerProfileService
         return new SuccessDataResult<SellerProfileDto>(MapToDto(profile));
     }
 
+    [LogAspect]
+    [CacheAspect(duration: 30)]
     public async Task<IDataResult<SellerProfileDto>> GetByIdAsync(int profileId)
     {
         var profile = await _sellerProfileDal.GetByIdWithDetailsAsync(profileId);
@@ -48,6 +53,9 @@ public class SellerProfileManager : ISellerProfileService
         return new SuccessDataResult<SellerProfileDto>(MapToDto(profile));
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetByUserIdAsync")]
+    [CacheRemoveAspect("GetByIdAsync")]
     public async Task<IDataResult<SellerProfileDto>> CreateAsync(int userId, CreateSellerProfileRequest request)
     {
 
@@ -82,6 +90,9 @@ public class SellerProfileManager : ISellerProfileService
         return new SuccessDataResult<SellerProfileDto>(MapToDto(profile), "Satıcı profili oluşturuldu");
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetByUserIdAsync")]
+    [CacheRemoveAspect("GetByIdAsync")]
     public async Task<IDataResult<SellerProfileDto>> UpdateAsync(int userId, UpdateSellerProfileRequest request)
     {
         var profile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(userId);
@@ -108,6 +119,9 @@ public class SellerProfileManager : ISellerProfileService
         return new SuccessDataResult<SellerProfileDto>(MapToDto(profile), "Satıcı profili güncellendi");
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetByUserIdAsync")]
+    [CacheRemoveAspect("GetByIdAsync")]
     public async Task<IResult> DeleteAsync(int userId)
     {
         var profile = await _sellerProfileDal.GetAsync(sp => sp.UserId == userId);
@@ -123,6 +137,7 @@ public class SellerProfileManager : ISellerProfileService
         return new SuccessResult("Satıcı profili silindi");
     }
 
+    [LogAspect]
     public async Task<bool> HasProfileAsync(int userId)
     {
         return await _sellerProfileDal.ExistsAsync(sp => sp.UserId == userId);

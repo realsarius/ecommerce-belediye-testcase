@@ -23,7 +23,6 @@ interface DevToolsProviderProps {
   children: ReactNode;
 }
 
-
 const ENABLE_CODE = 'LEAVEMEALONE';
 const DISABLE_CODE = 'AEZAKMI';
 const COUPONS_CODE = 'ALOVELYDAY';
@@ -33,9 +32,9 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
 
     return localStorage.getItem('devToolsEnabled') === 'true';
   });
-  
+
   const [showCouponsDialog, setShowCouponsDialog] = useState(false);
-  
+
 
   const inputBufferRef = useRef('');
   const timeoutRef = useRef<number | null>(null);
@@ -64,7 +63,7 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
 
       const maxLength = Math.max(ENABLE_CODE.length, DISABLE_CODE.length, COUPONS_CODE.length);
       inputBufferRef.current = (inputBufferRef.current + e.key.toUpperCase()).slice(-maxLength);
-      
+
 
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -72,21 +71,21 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
       timeoutRef.current = window.setTimeout(() => {
         inputBufferRef.current = '';
       }, 3000);
-      
+
 
       if (inputBufferRef.current.endsWith(ENABLE_CODE)) {
         enableDevTools();
-        toast.success('🎮 Cheat Activated!', {
+        toast.success('Cheat Activated!', {
           description: 'LEAVEMEALONE - Dev Tools aktif edildi!',
         });
         inputBufferRef.current = '';
         return;
       }
-      
+
 
       if (inputBufferRef.current.endsWith(DISABLE_CODE)) {
         disableDevTools();
-        toast.success('🎮 Cheat Deactivated!', {
+        toast.success('Cheat Deactivated!', {
           description: 'AEZAKMI - Dev Tools devre dışı bırakıldı!',
         });
         inputBufferRef.current = '';
@@ -100,7 +99,7 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
           enableDevTools(); // Otomatik açalım
         }
         setShowCouponsDialog(true);
-        toast.success('🎫 Coupon Cheat Activated!', {
+        toast.success('Coupon Cheat Activated!', {
           description: 'ALOVELYDAY - Kupon listesi açıldı!',
         });
         inputBufferRef.current = '';

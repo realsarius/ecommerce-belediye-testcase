@@ -232,14 +232,14 @@ export function TestCardsDialog({ open, onOpenChange }: TestCardsDialogProps) {
           {/* Bilgi Kutusu */}
           <div className="bg-muted p-4 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              <strong>💡 İpucu:</strong> Son kullanma tarihi için herhangi bir gelecek tarih 
+              <strong>💡 İpucu:</strong> Son kullanma tarihi için herhangi bir gelecek tarih
               (örn: 12/26) ve CVC için 3 haneli herhangi bir sayı (örn: 123) kullanabilirsiniz.
             </p>
           </div>
 
           <p className="text-xs text-center text-muted-foreground">
-            GTA San Andreas tarzı cheat code: <kbd className="px-1 py-0.5 bg-muted rounded text-xs font-mono">LEAVEMEALONE</kbd> aktif, 
-            <kbd className="px-1 py-0.5 bg-muted rounded text-xs font-mono ml-1">AEZAKMI</kbd> devre dışı 🎮
+            GTA San Andreas tarzı cheat code: <kbd className="px-1 py-0.5 bg-muted rounded text-xs font-mono">LEAVEMEALONE</kbd> aktif,
+            <kbd className="px-1 py-0.5 bg-muted rounded text-xs font-mono ml-1">AEZAKMI</kbd> devre dışı
           </p>
         </div>
       </DialogContent>

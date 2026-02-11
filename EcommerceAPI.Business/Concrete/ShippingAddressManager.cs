@@ -4,6 +4,9 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Caching;
+using EcommerceAPI.Business.Constants;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -18,6 +21,8 @@ public class ShippingAddressManager : IShippingAddressService
         _unitOfWork = unitOfWork;
     }
 
+    [LogAspect]
+    [CacheAspect(duration: 60)]
     public async Task<IDataResult<List<ShippingAddressDto>>> GetUserAddressesAsync(int userId)
     {
         var addresses = await _shippingAddressDal.GetListAsync(a => a.UserId == userId);
@@ -38,6 +43,8 @@ public class ShippingAddressManager : IShippingAddressService
         return new SuccessDataResult<List<ShippingAddressDto>>(addressDtos);
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetUserAddressesAsync")]
     public async Task<IDataResult<ShippingAddressDto>> AddAddressAsync(int userId, CreateShippingAddressRequest request)
     {
         var address = new ShippingAddress
@@ -79,16 +86,18 @@ public class ShippingAddressManager : IShippingAddressService
             IsDefault = address.IsDefault
         };
 
-        return new SuccessDataResult<ShippingAddressDto>(addressDto, "Adres başarıyla eklendi");
+        return new SuccessDataResult<ShippingAddressDto>(addressDto, Messages.AddressAdded);
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetUserAddressesAsync")]
     public async Task<IDataResult<ShippingAddressDto>> UpdateAddressAsync(int userId, int addressId, CreateShippingAddressRequest request)
     {
         var address = await _shippingAddressDal.GetAsync(a => a.Id == addressId && a.UserId == userId);
         
         if (address == null)
         {
-            return new ErrorDataResult<ShippingAddressDto>("Adres bulunamadı");
+            return new ErrorDataResult<ShippingAddressDto>(Messages.AddressNotFound);
         }
 
         address.Title = request.Title;
@@ -126,22 +135,24 @@ public class ShippingAddressManager : IShippingAddressService
             IsDefault = address.IsDefault
         };
 
-        return new SuccessDataResult<ShippingAddressDto>(addressDto, "Adres başarıyla güncellendi");
+        return new SuccessDataResult<ShippingAddressDto>(addressDto, Messages.AddressUpdated);
     }
 
+    [LogAspect]
+    [CacheRemoveAspect("GetUserAddressesAsync")]
     public async Task<IResult> DeleteAddressAsync(int userId, int addressId)
     {
         var address = await _shippingAddressDal.GetAsync(a => a.Id == addressId && a.UserId == userId);
         
         if (address == null)
         {
-            return new ErrorResult("Adres bulunamadı");
+            return new ErrorResult(Messages.AddressNotFound);
         }
 
         _shippingAddressDal.Delete(address);
         await _unitOfWork.SaveChangesAsync();
 
-        return new SuccessResult("Adres başarıyla silindi");
+        return new SuccessResult(Messages.AddressDeleted);
     }
 }
 

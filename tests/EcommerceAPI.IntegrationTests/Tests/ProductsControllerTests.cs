@@ -4,6 +4,7 @@ using EcommerceAPI.Entities.DTOs;
 using FluentAssertions;
 using EcommerceAPI.IntegrationTests.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
@@ -11,10 +12,12 @@ namespace EcommerceAPI.IntegrationTests.Tests;
 public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private readonly ITestOutputHelper _output;
 
-    public ProductsControllerTests(CustomWebApplicationFactory factory)
+    public ProductsControllerTests(CustomWebApplicationFactory factory, ITestOutputHelper output)
     {
         _client = factory.CreateClient();
+        _output = output;
     }
 
     [Fact]
@@ -22,8 +25,20 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         var response = await _client.GetAsync("/api/v1/products?page=1&pageSize=10");
 
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _output.WriteLine($"Response Status: {response.StatusCode}");
+            _output.WriteLine($"Response Content: {errorContent}");
+        }
+
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
+        var content = await response.Content.ReadAsStringAsync();
+        _output.WriteLine($"Response JSON: {content}");
+
+        var apiResult = System.Text.Json.JsonSerializer.Deserialize<ApiResult<PaginatedResponse<ProductDto>>>(
+            content,
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         apiResult.Should().NotBeNull();
         apiResult!.Success.Should().BeTrue();
         

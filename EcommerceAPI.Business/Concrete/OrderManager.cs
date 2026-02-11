@@ -8,6 +8,10 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Business.Extensions;
 using Microsoft.Extensions.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
+using EcommerceAPI.Core.Aspects.Autofac.Validation;
+using EcommerceAPI.Business.Validators;
+using EcommerceAPI.Business.Constants;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -46,6 +50,8 @@ public class OrderManager : IOrderService
         _logger = logger;
     }
 
+    [LogAspect]
+    [ValidationAspect(typeof(CheckoutRequestValidator))]
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
 
@@ -98,24 +104,27 @@ public class OrderManager : IOrderService
             "Order",
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, TotalAmount = order.TotalAmount });
         
-        return new SuccessDataResult<OrderDto>(createdOrder!.ToDto(), "Sipariş başarıyla oluşturuldu.");
+        return new SuccessDataResult<OrderDto>(createdOrder!.ToDto(), Messages.OrderCreated);
     }
 
+    [LogAspect]
     public async Task<IDataResult<OrderDto>> GetOrderAsync(int userId, int orderId)
     {
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
         if (order == null || order.UserId != userId)
-            return new ErrorDataResult<OrderDto>("Sipariş bulunamadı.");
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
 
         return new SuccessDataResult<OrderDto>(order.ToDto());
     }
 
+    [LogAspect]
     public async Task<IDataResult<List<OrderDto>>> GetUserOrdersAsync(int userId)
     {
         var orders = await _orderDal.GetUserOrdersAsync(userId);
         return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
     }
 
+    [LogAspect]
     public async Task<IDataResult<OrderDto>> CancelOrderAsync(int userId, int orderId, string? status = null)
     {
         if (!string.IsNullOrEmpty(status) && status != "Cancelled")
@@ -123,10 +132,10 @@ public class OrderManager : IOrderService
 
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
         if (order == null || order.UserId != userId)
-            return new ErrorDataResult<OrderDto>("Sipariş bulunamadı.");
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
 
         if (order.Status != OrderStatus.PendingPayment)
-            return new ErrorDataResult<OrderDto>("Sadece ödeme bekleyen siparişler iptal edilebilir.");
+            return new ErrorDataResult<OrderDto>(Messages.OnlyPendingOrderCanBeCancelled);
 
         var previousStatus = order.Status;
         order.Status = OrderStatus.Cancelled;
@@ -156,9 +165,10 @@ public class OrderManager : IOrderService
             "Order",
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, PreviousStatus = previousStatus.ToString() });
 
-        return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş iptal edildi.");
+        return new SuccessDataResult<OrderDto>(order.ToDto(), Messages.OrderCancelled);
     }
 
+    [LogAspect]
     public async Task<IResult> CancelExpiredOrdersAsync()
     {
         var expiryTime = DateTime.UtcNow.AddMinutes(-OrderTimeoutMinutes);
@@ -190,33 +200,36 @@ public class OrderManager : IOrderService
         return new SuccessResult($"{expiredOrders.Count} adet zaman aşımına uğrayan sipariş iptal edildi.");
     }
 
+    [LogAspect]
     public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync()
     {
         var orders = await _orderDal.GetAllOrdersWithDetailsAsync();
         return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
     }
 
+    [LogAspect]
     public async Task<IDataResult<List<OrderDto>>> GetOrdersForSellerAsync(int sellerId)
     {
         var orders = await _orderDal.GetOrdersBySellerIdAsync(sellerId);
         return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
     }
 
+    [LogAspect]
     public async Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status, int? sellerId = null)
     {
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
-        if (order == null) return new ErrorDataResult<OrderDto>("Sipariş bulunamadı.");
+        if (order == null) return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
 
         if (sellerId.HasValue)
         {
             var isSellerOrder = order.OrderItems.Any(oi => oi.Product.SellerId == sellerId.Value);
             if (!isSellerOrder)
-                return new ErrorDataResult<OrderDto>("Bu sipariş size ait ürünler içermiyor, durumunu güncelleyemezsiniz.");
+                return new ErrorDataResult<OrderDto>(Messages.OrderNotBelongToUser);
         }
 
         if (!Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
         {
-            return new ErrorDataResult<OrderDto>($"Geçersiz sipariş durumu: {status}");
+            return new ErrorDataResult<OrderDto>($"{Messages.InvalidOrderStatus}: {status}");
         }
 
         var previousStatus = order.Status;
@@ -230,9 +243,10 @@ public class OrderManager : IOrderService
             "Order",
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, PreviousStatus = previousStatus.ToString(), NewStatus = orderStatus.ToString() });
 
-        return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş durumu güncellendi.");
+        return new SuccessDataResult<OrderDto>(order.ToDto(), Messages.OrderStatusUpdated);
     }
 
+    [LogAspect]
     public async Task<IDataResult<OrderDto>> UpdateOrderItemsAsync(int userId, int orderId, UpdateOrderItemsRequest request)
     {
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
@@ -241,11 +255,11 @@ public class OrderManager : IOrderService
         if (!validationResult.Success) return new ErrorDataResult<OrderDto>(validationResult.Message);
 
         if (request.Items == null || !request.Items.Any())
-            return new ErrorDataResult<OrderDto>("Sipariş en az bir ürün içermelidir.");
+            return new ErrorDataResult<OrderDto>(Messages.OrderMustHaveItems);
 
         var products = await LoadProductsForUpdateAsync(request.Items);
         if (products.Count != request.Items.Select(i => i.ProductId).Distinct().Count())
-            return new ErrorDataResult<OrderDto>("Bazı ürünler bulunamadı.");
+            return new ErrorDataResult<OrderDto>(Messages.SomeProductsNotFound);
 
         var existingItems = order!.OrderItems.ToDictionary(oi => oi.ProductId, oi => oi);
         var newItems = request.Items.ToDictionary(i => i.ProductId, i => i);
@@ -311,15 +325,15 @@ public class OrderManager : IOrderService
             "Order",
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, NewTotalAmount = order.TotalAmount });
         
-        return new SuccessDataResult<OrderDto>(updatedOrder!.ToDto(), "Sipariş güncellendi.");
+        return new SuccessDataResult<OrderDto>(updatedOrder!.ToDto(), Messages.OrderItemsUpdated);
     }
 
     private IResult ValidateOrderForUpdate(Order? order, int userId)
     {
         if (order == null || order.UserId != userId)
-            return new ErrorResult("Sipariş bulunamadı.");
+            return new ErrorResult(Messages.OrderNotFound);
         if (order.Status != OrderStatus.PendingPayment)
-            return new ErrorResult("Sadece ödeme bekleyen siparişler düzenlenebilir.");
+            return new ErrorResult(Messages.OnlyPendingOrderCanBeUpdated);
         return new SuccessResult();
     }
 
@@ -352,7 +366,7 @@ public class OrderManager : IOrderService
             var requestedQty = newItems[productId].Quantity;
             var availableStock = products[productId].Inventory?.QuantityAvailable ?? 0;
             if (requestedQty > availableStock)
-                return new ErrorResult($"Stok yetersiz: {products[productId].Name}");
+                return new ErrorResult($"{Messages.StockInsufficient}: {products[productId].Name}");
         }
 
         foreach (var productId in updatedIds)
@@ -365,7 +379,7 @@ public class OrderManager : IOrderService
             {
                 var availableStock = products[productId].Inventory?.QuantityAvailable ?? 0;
                 if (qtyDiff > availableStock)
-                    return new ErrorResult($"Stok yetersiz: {products[productId].Name}");
+                    return new ErrorResult($"{Messages.StockInsufficient}: {products[productId].Name}");
             }
         }
         return new SuccessResult();
@@ -426,12 +440,12 @@ public class OrderManager : IOrderService
 
         var cartDto = cartResult.Data;
         if (cartDto == null || !cartDto.Items.Any())
-            return new ErrorDataResult<CartDto>("Sepetiniz boş. Sipariş oluşturmak için sepete ürün ekleyin.");
+            return new ErrorDataResult<CartDto>(Messages.CartEmpty);
 
         foreach (var item in cartDto.Items)
         {
             if (item.Quantity > item.AvailableStock)
-                return new ErrorDataResult<CartDto>($"Stok yetersiz: {item.ProductName}");
+                return new ErrorDataResult<CartDto>($"{Messages.StockInsufficient}: {item.ProductName}");
         }
 
         return new SuccessDataResult<CartDto>(cartDto);
@@ -453,7 +467,7 @@ public class OrderManager : IOrderService
         
         var validation = couponResult.Data!;
         if (!validation.IsValid)
-            return new ErrorDataResult<(int? Id, string? Code, decimal Amount)>(validation.ErrorMessage ?? "Geçersiz kupon kodu.");
+            return new ErrorDataResult<(int? Id, string? Code, decimal Amount)>(validation.ErrorMessage ?? Messages.CouponInvalid);
         
         return new SuccessDataResult<(int? Id, string? Code, decimal Amount)>((validation.Coupon!.Id, validation.Coupon.Code, validation.DiscountAmount));
     }

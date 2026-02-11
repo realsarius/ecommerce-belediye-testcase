@@ -16,16 +16,10 @@ public static class DependencyInjection
     {
         services.AddDataAccessServices(connectionString);
 
-        services.AddScoped<IProductService, ProductManager>();
-        services.AddScoped<IOrderService, OrderManager>();
-        services.AddScoped<ICategoryService, CategoryManager>();
-        services.AddScoped<ICartService, CartManager>();
-        services.AddScoped<IInventoryService, InventoryManager>();
-        services.AddScoped<IAuthService, AuthManager>();
-        services.AddScoped<IShippingAddressService, ShippingAddressManager>();
-        services.AddScoped<ICouponService, CouponManager>();
-        services.AddScoped<ISellerProfileService, SellerProfileManager>();
-        services.AddScoped<ICreditCardService, CreditCardManager>();
+        // Managers are registered via Autofac BusinessModule
+        // services.AddScoped<IProductService, ProductManager>();
+        // services.AddScoped<IOrderService, OrderManager>();
+        // ...
 
         services.AddScoped<ICartMapper, CartMapper>();
 

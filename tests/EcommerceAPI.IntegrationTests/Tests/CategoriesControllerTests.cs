@@ -4,6 +4,7 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
@@ -12,11 +13,13 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
+    private readonly ITestOutputHelper _output;
 
-    public CategoriesControllerTests(CustomWebApplicationFactory factory)
+    public CategoriesControllerTests(CustomWebApplicationFactory factory, ITestOutputHelper output)
     {
         _factory = factory;
         _client = factory.CreateClient();
+        _output = output;
     }
 
     private async Task<CategoryDto?> CreateCategoryAsync(HttpClient client, string? name = null)
@@ -35,6 +38,13 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     public async Task GetCategories_ReturnsOk()
     {
         var response = await _client.GetAsync("/api/v1/categories");
+
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            _output.WriteLine($"Response Status: {response.StatusCode}");
+            _output.WriteLine($"Response Content: {content}");
+        }
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var result = await response.Content.ReadFromJsonAsync<ApiResult<List<CategoryDto>>>();
@@ -89,9 +99,6 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     public async Task UpdateCategory_AsAdmin_ReturnsOk()
     {
         var client = _factory.CreateClient().AsAdmin(1);
-        
-        // Ensure at least one category exists or use 1
-        // For robustness, create logic could be here, but let's assume 1 exists or accept 404
         
         var request = new UpdateCategoryRequest
         {

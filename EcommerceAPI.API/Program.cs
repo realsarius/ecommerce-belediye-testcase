@@ -18,13 +18,22 @@ using RedisRateLimiting;
 using RedisRateLimiting.AspNetCore;
 using System.Threading.RateLimiting;
 using StackExchange.Redis;
-using FluentValidation.AspNetCore;
 using Serilog.Sinks.Elasticsearch;
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
+using EcommerceAPI.Business.DependencyResolvers.Autofac;
+using EcommerceAPI.Core.Utilities.IoC;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var elasticsearchUrl = builder.Configuration["Elasticsearch:Url"] 
-                       ?? Environment.GetEnvironmentVariable("ELASTICSEARCH_URL") 
+builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
+builder.Host.ConfigureContainer<ContainerBuilder>(builder =>
+{
+    builder.RegisterModule(new BusinessModule());
+});
+
+var elasticsearchUrl = builder.Configuration["Elasticsearch:Url"]
+                       ?? Environment.GetEnvironmentVariable("ELASTICSEARCH_URL")
                        ?? "http://localhost:9200";
 
 builder.Host.UseSerilog((context, configuration) =>
@@ -48,7 +57,8 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379"));
 
 builder.Services.AddCors(options =>
 {
@@ -191,6 +201,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+ServiceTool.SetProvider(app.Services);
 
 using (var scope = app.Services.CreateScope())
 {

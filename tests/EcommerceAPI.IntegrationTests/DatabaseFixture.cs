@@ -22,7 +22,6 @@ public sealed class DatabaseFixture : IAsyncLifetime
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // We use EnsureCreatedAsync because MigrateAsync might require an encryption key
         await db.Database.EnsureCreatedAsync();
 
         _connection = new NpgsqlConnection(db.Database.GetConnectionString());
