@@ -19,5 +19,8 @@ public class CheckoutRequestValidator : AbstractValidator<CheckoutRequest>
 
         RuleFor(x => x.CouponCode)
             .MaximumLength(50);
+
+        RuleFor(x => x.IdempotencyKey)
+            .MaximumLength(100);
     }
 }

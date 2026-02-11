@@ -55,6 +55,16 @@ public class OrderManager : IOrderService
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
 
+        if (!string.IsNullOrEmpty(request.IdempotencyKey))
+        {
+            var existingOrder = await _orderDal.GetAsync(o => o.Payment != null && o.Payment.IdempotencyKey == request.IdempotencyKey);
+            if (existingOrder != null)
+            {
+                var existingOrderDetails = await _orderDal.GetByIdWithDetailsAsync(existingOrder.Id);
+                return new SuccessDataResult<OrderDto>(existingOrderDetails!.ToDto(), "Order already created (Idempotent)");
+            }
+        }
+
         var cartResult = await ValidateCartAndStockAsync(userId);
         if (!cartResult.Success) return new ErrorDataResult<OrderDto>(cartResult.Message);
         var cartDto = cartResult.Data;
@@ -502,7 +512,7 @@ public class OrderManager : IOrderService
             Amount = order.TotalAmount,
             Status = PaymentStatus.Pending,
             PaymentMethod = request.PaymentMethod,
-            IdempotencyKey = Guid.NewGuid().ToString()
+            IdempotencyKey = !string.IsNullOrEmpty(request.IdempotencyKey) ? request.IdempotencyKey : Guid.NewGuid().ToString()
         };
 
         return order;

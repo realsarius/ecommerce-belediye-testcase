@@ -8,4 +8,5 @@ public class CheckoutRequest : IDto
     public string? Notes { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
     public string? CouponCode { get; set; }
+    public string? IdempotencyKey { get; set; }
 }
