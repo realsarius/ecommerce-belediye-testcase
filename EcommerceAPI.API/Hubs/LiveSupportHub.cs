@@ -3,6 +3,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using StackExchange.Redis;
 
 namespace EcommerceAPI.API.Hubs;
 
@@ -10,10 +11,15 @@ namespace EcommerceAPI.API.Hubs;
 public class LiveSupportHub : Hub
 {
     private readonly ISupportConversationService _supportConversationService;
+    private readonly IConnectionMultiplexer _redis;
+    private const int SupportSendPermitLimit = 20;
+    private static readonly TimeSpan SupportSendWindow = TimeSpan.FromMinutes(1);
 
-    public LiveSupportHub(ISupportConversationService supportConversationService)
+
+    public LiveSupportHub(ISupportConversationService supportConversationService, IConnectionMultiplexer redis)
     {
         _supportConversationService = supportConversationService;
+        _redis = redis;
     }
 
     public async Task JoinConversation(int conversationId)
@@ -33,6 +39,9 @@ public class LiveSupportHub : Hub
     {
         var userId = GetUserId();
         var role = GetUserRole();
+
+        if (!await TryAcquireSendPermitAsync(userId))
+            throw new HubException("RATE_LIMIT_EXCEEDED");
 
         var result = await _supportConversationService.SendMessageAsync(
             conversationId,
@@ -89,4 +98,20 @@ public class LiveSupportHub : Hub
     }
 
     private static string GroupName(int conversationId) => $"support-conv-{conversationId}";
+
+    private async Task<bool> TryAcquireSendPermitAsync(int userId)
+    {
+        var db = _redis.GetDatabase();
+        var bucket = DateTime.UtcNow.ToString("yyyyMMddHHmm");
+        var key = $"ratelimit:support:send:{userId}:{bucket}";
+
+        var count = await db.StringIncrementAsync(key);
+        if (count == 1)
+        {
+            await db.KeyExpireAsync(key, SupportSendWindow + TimeSpan.FromSeconds(5));
+        }
+
+        return count <= SupportSendPermitLimit;
+    }
+
 }

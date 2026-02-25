@@ -3,6 +3,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EcommerceAPI.API.Controllers;
 
@@ -58,6 +59,7 @@ public class SupportController : ControllerBase
         return BadRequest(result);
     }
 
+    [EnableRateLimiting("support-message-http")]
     [HttpPost("conversations/{conversationId:int}/messages")]
     public async Task<IActionResult> SendMessage(int conversationId, [FromBody] SendSupportMessageRequest request)
     {

@@ -8,7 +8,7 @@ import {
 } from '@/components/common/dialog';
 import { Badge } from '@/components/common/badge';
 import { Separator } from '@/components/common/separator';
-import { Users, Copy, Check, Shield, ShoppingBag, Store, LogIn, Loader2 } from 'lucide-react';
+import { Users, Copy, Check, Shield, ShoppingBag, Store, LogIn, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { toast } from 'sonner';
 import { useLoginMutation } from '@/features/auth/authApi';
@@ -33,6 +33,15 @@ const testUsers = [
     icon: Store,
     color: 'bg-amber-500',
     hoverColor: 'hover:bg-amber-600',
+  },
+  {
+    role: 'Support',
+    email: 'support@test.com',
+    password: 'Test123!',
+    description: 'Canlı destek temsilcisi hesabı',
+    icon: MessageSquare,
+    color: 'bg-emerald-500',
+    hoverColor: 'hover:bg-emerald-600',
   },
   {
     role: 'Customer',
@@ -230,4 +239,3 @@ export function TestUsersDialog({ open, onOpenChange }: TestUsersDialogProps) {
     </Dialog>
   );
 }
-

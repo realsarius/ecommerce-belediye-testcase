@@ -138,6 +138,37 @@ if (rateLimitingEnabled)
             opt.PermitLimit = 100;
             opt.Window = TimeSpan.FromMinutes(1);
         });
+
+        options.AddRedisFixedWindowLimiter("search", opt =>
+        {
+            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
+                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+                ?? builder.Configuration["Redis:ConnectionString"]
+                ?? "localhost:6379");
+            opt.PermitLimit = 60; // 1 dakikada 60 arama
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
+
+        options.AddRedisFixedWindowLimiter("support-message-http", opt =>
+        {
+            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
+                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+                ?? builder.Configuration["Redis:ConnectionString"]
+                ?? "localhost:6379");
+            opt.PermitLimit = 20; // 1 dakikada 20 mesaj (HTTP fallback)
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
+
+        options.AddRedisFixedWindowLimiter("support-hub-connect", opt =>
+        {
+            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
+                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+                ?? builder.Configuration["Redis:ConnectionString"]
+                ?? "localhost:6379");
+            opt.PermitLimit = 30; // 1 dakikada 30 hub connect
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
+
     });
 }
 
@@ -281,6 +312,11 @@ if (!app.Environment.IsEnvironment("Test"))
         "cancel-expired-orders",
         service => service.CancelExpiredOrdersAsync(),
         "*/15 * * * *");
+
+    recurringJobManager.AddOrUpdate<ISupportConversationService>(
+        "auto-close-inactive-support-conversations",
+        service => service.AutoCloseInactiveConversationsAsync(),
+        "*/15 * * * *");
 }
 
 app.UseCorrelationId();
@@ -300,7 +336,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<LiveSupportHub>("/hubs/live-support");
+app.MapHub<LiveSupportHub>("/hubs/live-support")
+    .RequireRateLimiting("support-hub-connect");
 
 app.Run();
 

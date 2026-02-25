@@ -27,6 +27,7 @@ import Account from '@/pages/Account';
 import Addresses from '@/pages/Addresses';
 import CreditCards from '@/pages/CreditCards';
 import Help from '@/pages/Help';
+import Support from '@/pages/Support';
 
 import SellerDashboard from '@/pages/seller/Dashboard';
 import SellerProducts from '@/pages/seller/Products';
@@ -103,6 +104,14 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/support"
+                  element={
+                    <ProtectedRoute>
+                      <Support />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/help" element={<Help />} />
               </Route>
 
@@ -147,4 +156,3 @@ function App() {
 }
 
 export default App;
-

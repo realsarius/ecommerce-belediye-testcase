@@ -56,6 +56,24 @@ public class EfSupportConversationDal
             .ToListAsync();
     }
 
+    public async Task<List<SupportConversation>> GetQueueForSupportAsync(int supportUserId, int page, int pageSize)
+    {
+        var skip = (page - 1) * pageSize;
+
+        return await _dbSet
+            .Include(x => x.CustomerUser)
+            .Include(x => x.SupportUser)
+            .Where(x =>
+                x.Status == SupportConversationStatus.Open ||
+                (x.SupportUserId == supportUserId && x.Status != SupportConversationStatus.Closed))
+            .OrderByDescending(x => x.SupportUserId == supportUserId)
+            .ThenByDescending(x => x.LastMessageAt ?? x.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public async Task<List<SupportConversation>> GetAssignedToSupportAsync(int supportUserId, int page, int pageSize)
     {
         var skip = (page - 1) * pageSize;

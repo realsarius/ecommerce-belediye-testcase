@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import {
@@ -145,16 +145,22 @@ export function Header() {
           </nav>
 
           <div className="relative w-full max-w-sm" ref={searchContainerRef}>
-            <form onSubmit={handleSearchSubmit}>
+            <form onSubmit={handleSearchSubmit} autoComplete="off">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                name="q"
+                name="product-search-desktop"
                 value={searchInput}
                 onChange={(e) => {
                   setSearchInput(e.target.value);
                   setShowSearchDropdown(true);
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
+                data-form-type="other"
                 placeholder="Ürün ara..."
                 className="h-9 pl-9 pr-16"
               />
@@ -304,6 +310,12 @@ export function Header() {
                     Yardım
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/support" className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    Canlı Destek
+                  </Link>
+                </DropdownMenuItem>
                 
                 {user?.role === 'Admin' && (
                   <>
@@ -358,13 +370,19 @@ export function Header() {
               <SheetTitle className="sr-only">Mobil Menü</SheetTitle>
               <SheetDescription className="sr-only">Site navigasyon menüsü</SheetDescription>
               <nav className="flex flex-col space-y-4 mt-8 px-4">
-                <form onSubmit={handleSearchSubmit}>
+                <form onSubmit={handleSearchSubmit} autoComplete="off">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      name="q"
+                      name="product-search-mobile"
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-form-type="other"
                       placeholder="Ürün ara..."
                       className="pl-9 pr-16"
                     />
@@ -402,6 +420,9 @@ export function Header() {
                         </Link>
                         <Link to="/help" className="text-lg font-medium">
                           Yardım
+                        </Link>
+                        <Link to="/support" className="text-lg font-medium">
+                          Canlı Destek
                         </Link>
                       </div>
                     </div>

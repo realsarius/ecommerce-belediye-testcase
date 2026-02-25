@@ -40,4 +40,6 @@ public interface ISupportConversationService
         string requesterRole);
 
     Task<bool> CanAccessConversationAsync(int conversationId, int requesterUserId, string requesterRole);
+
+    Task<IResult> AutoCloseInactiveConversationsAsync();
 }

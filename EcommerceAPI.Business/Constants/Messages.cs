@@ -97,6 +97,7 @@ public static class Messages
     public static string SupportConversationAssigned = "Destek görüşmesi temsilciye atandı";
     public static string SupportConversationClosed = "Destek görüşmesi kapatıldı";
     public static string SupportConversationAlreadyClosed = "Destek görüşmesi zaten kapalı";
+    public static string SupportConversationAutoClosedByInactivity = "24 saat yanıt gelmediği için görüşme otomatik kapatıldı.";
     public static string SupportMessageSent = "Destek mesajı gönderildi";
     public static string SupportMessageEmpty = "Mesaj boş olamaz";
     public static string SupportUnauthorizedAction = "Bu işlem için yetkiniz yok";

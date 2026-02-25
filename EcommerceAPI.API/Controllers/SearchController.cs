@@ -1,6 +1,7 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EcommerceAPI.API.Controllers;
 
@@ -16,6 +17,7 @@ public class SearchController : ControllerBase
     }
 
     [HttpGet("products")]
+    [EnableRateLimiting("search")]
     public async Task<IActionResult> SearchProducts(
         [FromQuery] ProductListRequest request,
         [FromQuery(Name = "q")] string? q)

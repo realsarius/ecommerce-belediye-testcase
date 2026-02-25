@@ -1,5 +1,6 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
@@ -7,29 +8,35 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
 public class SupportConversationManager : ISupportConversationService
 {
+    private const int InactiveConversationCloseHours = 24;
+
     private readonly ISupportConversationDal _supportConversationDal;
     private readonly ISupportMessageDal _supportMessageDal;
     private readonly IUserDal _userDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditService _auditService;
+    private readonly ILogger<SupportConversationManager> _logger;
 
     public SupportConversationManager(
         ISupportConversationDal supportConversationDal,
         ISupportMessageDal supportMessageDal,
         IUserDal userDal,
         IUnitOfWork unitOfWork,
-        IAuditService auditService)
+        IAuditService auditService,
+        ILogger<SupportConversationManager> logger)
     {
         _supportConversationDal = supportConversationDal;
         _supportMessageDal = supportMessageDal;
         _userDal = userDal;
         _unitOfWork = unitOfWork;
         _auditService = auditService;
+        _logger = logger;
     }
 
     public async Task<IDataResult<SupportConversationDto>> GetOrCreateConversationAsync(int customerUserId, StartSupportConversationRequest request)
@@ -140,8 +147,21 @@ public class SupportConversationManager : ISupportConversationService
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
 
-        var items = await _supportConversationDal.GetQueueAsync(page, pageSize);
-        var totalCount = await _supportConversationDal.CountAsync(x => x.Status == SupportConversationStatus.Open);
+        List<SupportConversation> items;
+        int totalCount;
+
+        if (role == "Support")
+        {
+            items = await _supportConversationDal.GetQueueForSupportAsync(requesterUserId, page, pageSize);
+            totalCount = await _supportConversationDal.CountAsync(x =>
+                x.Status == SupportConversationStatus.Open ||
+                (x.SupportUserId == requesterUserId && x.Status != SupportConversationStatus.Closed));
+        }
+        else
+        {
+            items = await _supportConversationDal.GetQueueAsync(page, pageSize);
+            totalCount = await _supportConversationDal.CountAsync(x => x.Status == SupportConversationStatus.Open);
+        }
 
         return new SuccessDataResult<PaginatedResponse<SupportConversationDto>>(
             new PaginatedResponse<SupportConversationDto>
@@ -420,6 +440,66 @@ public class SupportConversationManager : ISupportConversationService
         }
 
         return false;
+    }
+
+    [LogAspect]
+    public async Task<IResult> AutoCloseInactiveConversationsAsync()
+    {
+        var cutoff = DateTime.UtcNow.AddHours(-InactiveConversationCloseHours);
+        var staleConversations = await _supportConversationDal.GetListAsync(x =>
+            x.Status != SupportConversationStatus.Closed &&
+            (x.LastMessageAt ?? x.CreatedAt) <= cutoff);
+
+        if (!staleConversations.Any())
+        {
+            return new SuccessResult();
+        }
+
+        var now = DateTime.UtcNow;
+        var closedCount = 0;
+
+        foreach (var conversation in staleConversations)
+        {
+            try
+            {
+                conversation.Status = SupportConversationStatus.Closed;
+                conversation.ClosedAt = now;
+                conversation.LastMessageAt = now;
+                conversation.UpdatedAt = now;
+                _supportConversationDal.Update(conversation);
+
+                var senderUserId = conversation.SupportUserId ?? conversation.CustomerUserId;
+                await _supportMessageDal.AddAsync(new SupportMessage
+                {
+                    ConversationId = conversation.Id,
+                    SenderUserId = senderUserId,
+                    SenderRole = "System",
+                    Message = Messages.SupportConversationAutoClosedByInactivity,
+                    IsSystemMessage = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+
+                await _auditService.LogActionAsync(
+                    "System",
+                    "AutoCloseSupportConversation",
+                    "SupportConversation",
+                    new
+                    {
+                        ConversationId = conversation.Id,
+                        Reason = "NoReply24Hours"
+                    });
+
+                closedCount++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "İnaktif destek görüşmesi kapatılırken hata oluştu. ConversationId={ConversationId}", conversation.Id);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+        return new SuccessResult($"{closedCount} adet inaktif destek görüşmesi otomatik kapatıldı.");
     }
 
     private static SupportConversationDto MapConversationDto(SupportConversation conversation)
