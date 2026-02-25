@@ -46,7 +46,7 @@ public class CategoryManager : ICategoryService
             categories = await _categoryDal.GetActiveCategoriesAsync();
         }
         
-        return new SuccessDataResult<IEnumerable<CategoryDto>>(categories.Select(MapToDto));
+        return new SuccessDataResult<IEnumerable<CategoryDto>>(categories.Select(MapToDto).ToList());
     }
 
     public async Task<IDataResult<CategoryDto>> GetCategoryByIdAsync(int id)

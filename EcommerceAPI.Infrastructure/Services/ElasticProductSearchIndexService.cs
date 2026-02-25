@@ -80,35 +80,61 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
     public async Task IndexProductAsync(int productId, CancellationToken cancellationToken = default)
     {
-        await EnsureIndexAsync(cancellationToken);
-
-        var product = await _productDal.GetByIdWithDetailsAsync(productId);
-        if (product == null || !product.IsActive)
+        try
         {
-            await DeleteProductAsync(productId, cancellationToken);
-            return;
+            await EnsureIndexAsync(cancellationToken);
+
+            var product = await _productDal.GetByIdWithDetailsAsync(productId);
+            if (product == null || !product.IsActive)
+            {
+                await DeleteProductAsync(productId, cancellationToken);
+                return;
+            }
+
+            var doc = MapToDocument(product);
+            var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_doc/{productId}", doc, JsonOptions, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Elasticsearch index update failed for product {ProductId}. Status: {Status}, Body: {Body}",
+                    productId,
+                    response.StatusCode,
+                    body);
+            }
         }
-
-        var doc = MapToDocument(product);
-        var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_doc/{productId}", doc, JsonOptions, cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        catch (OperationCanceledException)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"Elasticsearch index update failed for product {productId}. Status: {response.StatusCode}, Body: {body}");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Elasticsearch unavailable, product index update skipped for ProductId={ProductId}", productId);
         }
     }
 
     public async Task DeleteProductAsync(int productId, CancellationToken cancellationToken = default)
     {
-        await EnsureIndexAsync(cancellationToken);
-
-        var response = await _httpClient.DeleteAsync($"/{IndexName}/_doc/{productId}", cancellationToken);
-
-        if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+        try
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Elasticsearch delete failed for product {ProductId}. Status: {Status}, Body: {Body}", productId, response.StatusCode, body);
+            await EnsureIndexAsync(cancellationToken);
+
+            var response = await _httpClient.DeleteAsync($"/{IndexName}/_doc/{productId}", cancellationToken);
+
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("Elasticsearch delete failed for product {ProductId}. Status: {Status}, Body: {Body}", productId, response.StatusCode, body);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Elasticsearch unavailable, product index delete skipped for ProductId={ProductId}", productId);
         }
     }
 
