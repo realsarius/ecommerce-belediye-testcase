@@ -1,4 +1,4 @@
-import { useGetProductsQuery } from '@/features/products/productsApi';
+import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { useGetCategoriesQuery } from '@/features/admin/adminApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { useAppSelector } from '@/app/hooks';
@@ -12,8 +12,8 @@ export const useHome = () => {
   );
 
   const { data: categories } = useGetCategoriesQuery();
-  
-  const { data: productsData, isLoading } = useGetProductsQuery({
+
+  const { data: productsData, isLoading } = useSearchProductsQuery({
     page,
     pageSize: 12,
     search: search || undefined,
@@ -21,7 +21,8 @@ export const useHome = () => {
     sortBy,
     sortDescending: sortDesc,
   });
-  
+
+
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
 
   const handleAddToCart = async (productId: number, productName: string) => {
