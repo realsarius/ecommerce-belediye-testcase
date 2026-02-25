@@ -17,4 +17,5 @@ public interface IProductDal : IEntityRepository<Product>
     Task<(IEnumerable<Product> Items, int TotalCount)> GetPagedForSellerAsync(
         int page, int pageSize, int sellerId, int? categoryId = null, decimal? minPrice = null,
         decimal? maxPrice = null, string? search = null, string? sortBy = null, bool sortDescending = false);
+    Task<List<Product>> GetAllActiveWithDetailsAsync();
 }

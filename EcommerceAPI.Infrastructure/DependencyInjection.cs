@@ -23,6 +23,9 @@ public static class DependencyInjection
         var redisEnv = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
         var redisConfig = configuration["Redis:ConnectionString"];
         var redisConnection = "localhost:6379";
+        var elasticsearchUrl = Environment.GetEnvironmentVariable("ELASTICSEARCH_URL")
+                                ?? configuration["Elasticsearch:Url"]
+                                ?? "http://localhost:9200";
 
         if (!string.IsNullOrWhiteSpace(redisEnv))
         {
@@ -44,6 +47,12 @@ public static class DependencyInjection
         {
             options.Configuration = redisConnection;
             options.InstanceName = "EcommerceAPI:";
+        });
+
+        services.AddHttpClient("elasticsearch", client =>
+        {
+            client.BaseAddress = new Uri(elasticsearchUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
         });
 
         services.Configure<IyzicoSettings>(options =>
@@ -70,6 +79,8 @@ public static class DependencyInjection
         services.AddScoped<IHashingService, HashingService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
+
+        services.AddScoped<IProductSearchIndexService, ElasticProductSearchIndexService>();
 
         return services;
     }
