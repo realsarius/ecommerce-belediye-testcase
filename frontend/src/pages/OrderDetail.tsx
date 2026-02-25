@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, useUpdateOrderItemsMutation } from '@/features/orders/ordersApi';
-import { useGetProductsQuery } from '@/features/products/productsApi';
+import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
@@ -56,6 +56,14 @@ interface EditableOrderItem {
   priceSnapshot: number;
 }
 
+const mapOrderItemsToEditable = (items: OrderItem[]): EditableOrderItem[] =>
+  items.map((item) => ({
+    productId: item.productId,
+    productName: item.productName,
+    quantity: item.quantity,
+    priceSnapshot: item.priceSnapshot,
+  }));
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = parseInt(id || '0');
@@ -64,7 +72,7 @@ export default function OrderDetail() {
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const [updateOrderItems, { isLoading: isUpdatingOrder }] = useUpdateOrderItemsMutation();
-  
+
 
   const [showRetryDialog, setShowRetryDialog] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
@@ -80,47 +88,39 @@ export default function OrderDetail() {
   const [editableItems, setEditableItems] = useState<EditableOrderItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [showProductSearch, setShowProductSearch] = useState(false);
-  
 
-  const { data: productsData } = useGetProductsQuery(
+
+  const { data: productsData } = useSearchProductsQuery(
     { search: productSearch, pageSize: 10, inStock: true },
     { skip: !showProductSearch || productSearch.length < 2 }
   );
-
-
-  useEffect(() => {
-    if (showEditDialog && order) {
-      setEditableItems(
-        order.items.map((item: OrderItem) => ({
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          priceSnapshot: item.priceSnapshot,
-        }))
-      );
+  const handleEditDialogOpenChange = (open: boolean) => {
+    if (open && order) {
+      setEditableItems(mapOrderItemsToEditable(order.items));
     }
-  }, [showEditDialog, order]);
+    setShowEditDialog(open);
+  };
 
 
   const validateCardNumber = (cardNumber: string): boolean => {
     const digits = cardNumber.replace(/\s/g, '');
     if (digits.length < 13 || digits.length > 19) return false;
-    
+
     let sum = 0;
     let isEven = false;
-    
+
     for (let i = digits.length - 1; i >= 0; i--) {
       let digit = parseInt(digits[i], 10);
-      
+
       if (isEven) {
         digit *= 2;
         if (digit > 9) digit -= 9;
       }
-      
+
       sum += digit;
       isEven = !isEven;
     }
-    
+
     return sum % 10 === 0;
   };
 
@@ -315,7 +315,7 @@ export default function OrderDetail() {
               <div className="flex items-center justify-between">
                 <CardTitle>Ürünler</CardTitle>
                 {canEdit && (
-                  <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
+                  <Button variant="outline" size="sm" onClick={() => handleEditDialogOpenChange(true)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Düzenle
                   </Button>
@@ -398,7 +398,7 @@ export default function OrderDetail() {
               )}
               {/* Tekrar Öde butonu - sadece PendingPayment ve Failed durumunda */}
               {order.status === 'PendingPayment' && (
-                <Button 
+                <Button
                   className="w-full"
                   onClick={() => setShowRetryDialog(true)}
                 >
@@ -512,7 +512,7 @@ export default function OrderDetail() {
       </Dialog>
 
       {/* Edit Order Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog open={showEditDialog} onOpenChange={handleEditDialogOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Siparişi Düzenle</DialogTitle>

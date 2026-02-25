@@ -1,7 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search } from 'lucide-react';
 import { Button } from '@/components/common/button';
+import { Input } from '@/components/common/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,26 +21,95 @@ import { CartDrawer } from '@/components/common/CartDrawer';
 import { useDevTools } from '@/components/common/DevToolsProvider';
 import { TestCardsDialog } from '@/components/common/TestCardsDialog';
 import { TestUsersDialog } from '@/components/common/TestUsersDialog';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useSearchProductsQuery } from '@/features/products/productsApi';
+
+const INITIAL_SUGGESTION_LIMIT = 6;
+const SUGGESTION_STEP = 10;
 
 export function Header() {
   const { isAuthenticated, user, refreshToken } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [suggestionLimit, setSuggestionLimit] = useState(INITIAL_SUGGESTION_LIMIT);
   const [revoke] = useRevokeMutation();
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const currentSearchQuery = new URLSearchParams(location.search).get('q') ?? '';
+  const debouncedSearch = useDebounce(searchInput.trim(), 300);
+  const shouldFetchSuggestions = debouncedSearch.length >= 2;
+
+  const { data: suggestionsData, isFetching: isFetchingSuggestions } = useSearchProductsQuery(
+    {
+      search: debouncedSearch,
+      page: 1,
+      pageSize: suggestionLimit,
+      inStock: true,
+    },
+    { skip: !shouldFetchSuggestions }
+  );
+
+  const suggestions = suggestionsData?.items ?? [];
+  const totalSuggestions = suggestionsData?.totalCount ?? 0;
+  const hasMoreSuggestions = suggestions.length < totalSuggestions;
+
+  useEffect(() => {
+    setSearchInput(currentSearchQuery);
+  }, [currentSearchQuery]);
+
+  useEffect(() => {
+    setSuggestionLimit(INITIAL_SUGGESTION_LIMIT);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const navigateToSearch = (rawQuery: string) => {
+    const query = rawQuery.trim();
+    const params = location.pathname === '/' ? new URLSearchParams(location.search) : new URLSearchParams();
+
+    if (query) {
+      params.set('q', query);
+    } else {
+      params.delete('q');
+    }
+    params.delete('page');
+
+    setShowSearchDropdown(false);
+    const search = params.toString();
+    navigate({ pathname: '/', search: search ? `?${search}` : '' });
+  };
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    navigateToSearch(searchInput);
+  };
 
   const handleLogout = async () => {
 
     if (refreshToken) {
       try {
         await revoke({ refreshToken }).unwrap();
-      } catch {
-
+      } catch (error) {
+        console.error('Refresh token revoke failed', error);
       }
     }
     dispatch(logout());
@@ -56,23 +126,86 @@ export function Header() {
           <span className="text-xl font-bold">E-Ticaret</span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
-            Ürünler
-          </Link>
-          {isAuthenticated && (
-            <>
-              <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
-                Siparişlerim
-              </Link>
-              <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
-                Sepetim
-              </Link>
-            </>
-          )}
+        <div className="hidden md:flex flex-1 items-center justify-center gap-6 px-6">
+          {/* Desktop Navigation */}
+          <nav className="flex items-center space-x-6">
+            <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
+              Ürünler
+            </Link>
+            {isAuthenticated && (
+              <>
+                <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
+                  Siparişlerim
+                </Link>
+                <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
+                  Sepetim
+                </Link>
+              </>
+            )}
+          </nav>
 
-        </nav>
+          <div className="relative w-full max-w-sm" ref={searchContainerRef}>
+            <form onSubmit={handleSearchSubmit}>
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                name="q"
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                placeholder="Ürün ara..."
+                className="h-9 pl-9 pr-16"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                className="absolute right-1 top-1/2 h-7 -translate-y-1/2 px-3"
+              >
+                Ara
+              </Button>
+            </form>
+
+            {showSearchDropdown && shouldFetchSuggestions && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-md border bg-background shadow-lg">
+                {isFetchingSuggestions ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Aranıyor...</p>
+                ) : suggestions.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Ürün bulunamadı</p>
+                ) : (
+                  <div className="max-h-72 overflow-y-auto">
+                    {suggestions.map((product) => (
+                      <Link
+                        key={product.id}
+                        to={`/products/${product.id}`}
+                        onClick={() => setShowSearchDropdown(false)}
+                        className="block border-b px-3 py-2 hover:bg-muted/70"
+                      >
+                        <p className="truncate text-sm font-medium">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {product.categoryName} • {product.price.toLocaleString('tr-TR')} {product.currency}
+                        </p>
+                      </Link>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSuggestionLimit((prev) =>
+                          hasMoreSuggestions ? Math.min(prev + SUGGESTION_STEP, totalSuggestions) : prev
+                        )
+                      }
+                      disabled={!hasMoreSuggestions}
+                      className="w-full border-b px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted/70 disabled:text-muted-foreground disabled:hover:bg-transparent"
+                    >
+                      {hasMoreSuggestions ? 'Daha fazla göster' : 'Tüm sonuçlar listelendi'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Right Side */}
         <div className="flex items-center space-x-4">
@@ -225,6 +358,25 @@ export function Header() {
               <SheetTitle className="sr-only">Mobil Menü</SheetTitle>
               <SheetDescription className="sr-only">Site navigasyon menüsü</SheetDescription>
               <nav className="flex flex-col space-y-4 mt-8 px-4">
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      name="q"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Ürün ara..."
+                      className="pl-9 pr-16"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      className="absolute right-1 top-1/2 h-7 -translate-y-1/2 px-3"
+                    >
+                      Ara
+                    </Button>
+                  </div>
+                </form>
                 <Link to="/" className="text-lg font-medium">
                   Ürünler
                 </Link>

@@ -1,6 +1,7 @@
 # E-Commerce API
 
 ## İçindekiler
+
 - [0. Hızlı Kurulum](#0-hızlı-kurulum)
 - [1. Kapsam](#1-kapsam)
 - [2. Teknoloji Yığını](#2-teknoloji-yığını-technology-stack)
@@ -32,11 +33,11 @@ docker compose down
 
 ### Erişim Adresleri
 
-* Frontend: http://localhost:3000
-* API (Swagger): http://localhost:5000/swagger
-* pgAdmin: http://localhost:5050
-* Kibana: http://localhost:5601
-* Elasticsearch: http://localhost:9200
+- Frontend: <http://localhost:3000>
+- API (Swagger): <http://localhost:5000/swagger>
+- pgAdmin: <http://localhost:5050>
+- Kibana: <http://localhost:5601>
+- Elasticsearch: <http://localhost:9200>
 
 ---
 
@@ -74,20 +75,21 @@ docker compose down
 | **Testing** | xUnit, Moq, FluentAssertions | Birim testleri, mocking ve akıcı assertion |
 
 ## 3. Veritabanı Tasarımı (Database Design)
+
 Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 > 🔗 **[Canlı Veritabanı Diyagramı (dbdiagram.io)](https://dbdiagram.io/d/694d9913b8f7d8688620ad62)**
 
 ### 3.1 Entity Listesi
 
-1.  **Users**: Sistem kullanıcıları.
-2.  **Roles**: Yetkilendirme rolleri (Customer, Seller, Admin).
-3.  **SellerProfiles**: Satıcı profil bilgileri.
-4.  **Products**: Ürünler.
-5.  **Categories**: Ürün kategorileri.
-6.  **Inventories**: Ürün stok miktarları.
-7.  **InventoryMovements**: Stok değişim hareketleri (audit log).
-8.  **Orders**: Sipariş başlık bilgileri.
-9.  **OrderItems**: Sipariş kalemleri.
+1. **Users**: Sistem kullanıcıları.
+2. **Roles**: Yetkilendirme rolleri (Customer, Seller, Admin).
+3. **SellerProfiles**: Satıcı profil bilgileri.
+4. **Products**: Ürünler.
+5. **Categories**: Ürün kategorileri.
+6. **Inventories**: Ürün stok miktarları.
+7. **InventoryMovements**: Stok değişim hareketleri (audit log).
+8. **Orders**: Sipariş başlık bilgileri.
+9. **OrderItems**: Sipariş kalemleri.
 10. **Payments**: Ödeme işlemleri ve sonuçları.
 11. **ShippingAddresses**: Teslimat adresleri.
 12. **Carts**: Kullanıcı sepetleri.
@@ -97,25 +99,30 @@ Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 16. **RefreshTokens**: Oturum yenileme anahtarları.
 
 ### 3.2 Migration ve Şema Yönetimi
+
 **Entity Framework Core Code-First** metodolojisi kullanıldı.
 
-*   Değişiklikler kod tarafında (Entities) yapılır.
-*   `dotnet ef migrations add [MigrationName]` ile versiyonlu migration oluşturulur.
-*   Veritabanı her ortamda kod ile senkronize kalır.
+- Değişiklikler kod tarafında (Entities) yapılır.
+- `dotnet ef migrations add [MigrationName]` ile versiyonlu migration oluşturulur.
+- Veritabanı her ortamda kod ile senkronize kalır.
 
 ## 4. API Tasarımı ve Standartlar (API Design)
 
 Tutarlılık, öngörülebilirlik ve izlenebilirlik ön planda tutuldu.
 
 ### 4.1 Endpoint Standartları
+
 Tüm endpoint'ler RESTful prensiplerine uygun ve versiyonlama stratejisi benimsenmiş durumda.
-*   **Base URL:** `/api/v1/{resource}` (Örn: `/api/v1/products`, `/api/v1/orders`)
-*   **HTTP Metotları:** GET, POST, PUT, DELETE, PATCH standartlara uygun.
+
+- **Base URL:** `/api/v1/{resource}` (Örn: `/api/v1/products`, `/api/v1/orders`)
+- **HTTP Metotları:** GET, POST, PUT, DELETE, PATCH standartlara uygun.
 
 ### 4.2 Response ve Hata Modeli
+
 Tüm cevaplar standart yapıda; frontend entegrasyonu kolaylaştırıldı.
 
 **Başarılı Cevaplar (Success):**
+
 ```json
 {
   "success": true,
@@ -126,6 +133,7 @@ Tüm cevaplar standart yapıda; frontend entegrasyonu kolaylaştırıldı.
 
 **Hata Cevapları (Error):**
 Tüm hatalar merkezi bir Middleware tarafından yakalanıp tek tipte döndürülüyor.
+
 ```json
 {
   "traceId": "0HLQ8...",
@@ -140,9 +148,12 @@ Tüm hatalar merkezi bir Middleware tarafından yakalanıp tek tipte döndürül
 ```
 
 ### 4.3 Pagination (Sayfalama)
+
 Liste dönen endpoint'lerde sayfalama standarttır.
-*   **Request:** `?page=1&pageSize=10`
-*   **Response Metadata:**
+
+- **Request:** `?page=1&pageSize=10`
+- **Response Metadata:**
+
     ```json
     {
       "items": [],
@@ -156,37 +167,66 @@ Liste dönen endpoint'lerde sayfalama standarttır.
     ```
 
 ### 4.4 Swagger & OpenAPI
+
 Tüm endpoint'ler Swagger UI üzerinden interaktif olarak test edilebilir. JWT Auth entegrasyonu mevcut.
+
+### 4.5 Elasticsearch Ürün Arama
+
+Ürün araması Elasticsearch üzerinden çalışır. Endpoint:
+
+- `GET /api/v1/search/products?q=&categoryId=&minPrice=&maxPrice=&page=&pageSize=`
+
+Özellikler:
+
+- Sayfalama ve filtre desteği
+- Kısmi eşleşme (prefix) ve typo toleransı (fuzzy)  
+  Örnek: `q=adida` sorgusu `Adidas` ürünlerini döndürebilir
+- Ürün `create/update/delete` sonrası index senkronu
+- Elasticsearch erişilemezse DB fallback araması
+
+Örnek istek:
+
+```bash
+curl "http://localhost:5000/api/v1/search/products?q=adida&page=1&pageSize=10"
+```
 
 ## 5. Loglama, İzlenebilirlik ve Hata Yönetimi (Observability)
 
 ### 5.1 Structured Logging (Serilog + Elasticsearch)
+
 **Serilog** ile yapılandırılmış loglama kuruldu. Loglar JSON formatında. Elasticsearch + Kibana entegrasyonu ile merkezi log yönetimi sağlandı.
 
 ### 5.2 Correlation ID / Trace ID (İzlenebilirlik)
-*   Her HTTP isteğine benzersiz bir `X-Correlation-Id` atanıyor.
-*   Bu ID, Serilog LogContext'e enjekte edilerek o istek süresince tüm loglara damgalanıyor.
-*   Response header'larına da eklenerek istemci tarafından takip edilebilir.
+
+- Her HTTP isteğine benzersiz bir `X-Correlation-Id` atanıyor.
+- Bu ID, Serilog LogContext'e enjekte edilerek o istek süresince tüm loglara damgalanıyor.
+- Response header'larına da eklenerek istemci tarafından takip edilebilir.
 
 ### 5.3 Global Exception Handler
+
 Tüm hata yönetimi merkezi `ExceptionHandlingMiddleware` içinde:
-*   Farklı exception tipleri (`NotFoundException`, `InsufficientStockException`, `ValidationException`, `BusinessException`) yakalanıp uygun HTTP Status Code ve yapılandırılmış error body döndürülüyor.
-*   `traceId` ile hatanın izlenebileceği Correlation ID iletiliyor.
-*   Beklenmedik hatalar loglanıp istemciye hassas bilgi sızdırmayan genel mesaj döndürülüyor.
+- Farklı exception tipleri (`NotFoundException`, `InsufficientStockException`, `ValidationException`, `BusinessException`) yakalanıp uygun HTTP Status Code ve yapılandırılmış error body döndürülüyor.
+- `traceId` ile hatanın izlenebileceği Correlation ID iletiliyor.
+- Beklenmedik hatalar loglanıp istemciye hassas bilgi sızdırmayan genel mesaj döndürülüyor.
 
 ### 5.4 Audit Log (Kritik İş Akışları)
+
 İş süreci izlenebilirliği için Stok Değişimleri gibi işlemler audit log ile kaydediliyor.
 
 ## 6. Test Stratejisi (Testing)
+
 Kodun güvenilirliğini ve iş kurallarının doğruluğunu garanti altına almak için kapsamlı testler yazıldı.
 
 ### 6.1 Unit Testler
+
 xUnit, Moq ve FluentAssertions kullanıldı.
 
 ### 6.2 Integration Testler
+
 **WebApplicationFactory** altyapısı ile e2e testleri yazıldı. In-memory veritabanı ve test container'ları kullanıldı.
 
 ### 6.3 Test Komutları
+
 ```bash
 # Tüm testleri çalıştır
 dotnet test
@@ -201,9 +241,11 @@ dotnet test --filter "FullyQualifiedName~IntegrationTests"
 ## 7. Kurulum ve Çalıştırma
 
 ### 7.1 Gereksinimler
+
 [Docker & Docker Compose](https://docs.docker.com/compose/)
 
 ### 7.2 Environment Değişkenleri
+
 Ortam değişkenleri `.env.example` dosyasında tanımlı.
 
 ```bash
@@ -239,6 +281,7 @@ REDIS_CONNECTION_STRING=localhost:6379
 ```
 
 ### 7.3 Docker Compose ile Çalıştırma (Önerilen)
+
 Tüm servisleri (API, PostgreSQL, Redis, Frontend) tek komutla başlatabilirsiniz:
 
 ```bash
@@ -253,15 +296,16 @@ docker compose --profile dev --profile test --profile logging down
 ```
 
 **Servis Erişim Adresleri (Dev):**
+
 | Servis | Port | URL |
 |--------|------|-----|
-| Frontend | 3000 | http://localhost:3000 |
-| API (Swagger) | 5000 | http://localhost:5000/swagger |
-| pgAdmin | 5050 | http://localhost:5050 |
+| Frontend | 3000 | <http://localhost:3000> |
+| API (Swagger) | 5000 | <http://localhost:5000/swagger> |
+| pgAdmin | 5050 | <http://localhost:5050> |
 | PostgreSQL | 5432 | - |
 | Redis | 6379 | - |
-| Kibana (logging profili) | 5601 | http://localhost:5601 |
-| Elasticsearch (logging profili) | 9200 | http://localhost:9200 |
+| Kibana (logging profili) | 5601 | <http://localhost:5601> |
+| Elasticsearch (logging profili) | 9200 | <http://localhost:9200> |
 
 ### 7.4 Manuel Kurulum
 
@@ -285,6 +329,7 @@ npm run dev
 ```
 
 ### 7.5 Seed Data (Örnek Veriler)
+
 Uygulama **Development** modunda başlatıldığında, `EcommerceAPI.Seeder` katmanı [seed-data/](seed-data) klasöründeki JSON dosyalarını okuyarak veritabanına yükler.
 
 JSON dosyaları: 10 kategori, 100+ ürün, stok kayıtları ([seed-data/](seed-data))
@@ -300,13 +345,15 @@ Kod ile oluşturulan: 3 rol, 3 test kullanıcısı ([SeedRunner](EcommerceAPI.Se
 | `customer@test.com` | `Test123!` |
 
 ### 7.6 Ödeme Sağlayıcısı (Iyzico Sandbox)
+
 Projede Iyzico Sandbox entegrasyonu yapılmıştır. Gerçek para akışı bulunmaz.
 
 Test kartları için: [iyzico/iyzipay-dotnet](https://github.com/iyzico/iyzipay-dotnet)
 
-Iyzico Docs: https://docs.iyzico.com/on-hazirliklar/sandbox
+Iyzico Docs: <https://docs.iyzico.com/on-hazirliklar/sandbox>
 
 ### 7.7 Örnek Kullanım Akışı (cURL)
+
 Aşağıda tam bir e-ticaret akışını gösteren cURL komutları:
 
 ```bash
@@ -349,12 +396,15 @@ curl "http://localhost:5000/api/v1/orders" \
 ```
 
 ### 7.8 Swagger UI
+
 API dokümantasyonu: `http://localhost:5000/swagger`
 
 ### 7.9 Postman Collection
+
 Postman collection dosyası: `EcommerceAPI.postman_collection.json`
 
 **Collection İçeriği:**
+
 | Klasör | Endpoint Sayısı | Açıklama |
 |--------|-----------------|----------|
 | Auth | 5 | Register, Login, Refresh, Revoke, Me |

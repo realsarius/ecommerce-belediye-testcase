@@ -130,4 +130,16 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
 
         return (items, totalCount);
     }
+
+    public async Task<List<Product>> GetAllActiveWithDetailsAsync()
+    {
+        return await _dbSet
+            .Include(p => p.Category)
+            .Include(p => p.Inventory)
+            .Include(p => p.Seller)
+            .Where(p => p.IsActive)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
 }

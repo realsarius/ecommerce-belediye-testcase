@@ -35,11 +35,6 @@ export default function Register() {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [register, { isLoading }] = useRegisterMutation();
 
-
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
   const {
     register: registerField,
     handleSubmit,
@@ -47,6 +42,10 @@ export default function Register() {
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
 
   const onSubmit = async (data: RegisterFormData) => {
     try {

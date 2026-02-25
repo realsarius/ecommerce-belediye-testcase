@@ -25,19 +25,26 @@ public class ProductManager : IProductService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditService _auditService;
     private readonly int _productListCacheTTL;
+    private readonly IProductSearchIndexService _productSearchIndexService;
+    private readonly ILogger<ProductManager> _logger;
+
 
     public ProductManager(
         IProductDal productDal,
         IInventoryDal inventoryDal,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
-        IAuditService auditService)
+        IAuditService auditService,
+        IProductSearchIndexService productSearchIndexService,
+        ILogger<ProductManager> logger)
     {
         _productDal = productDal;
         _inventoryDal = inventoryDal;
         _unitOfWork = unitOfWork;
         _auditService = auditService;
         _productListCacheTTL = configuration.GetValue<int>("Cache:ProductListTTLMinutes", 5);
+        _productSearchIndexService = productSearchIndexService;
+        _logger = logger;
     }
 
     [LogAspect]
@@ -138,8 +145,6 @@ public class ProductManager : IProductService
         await _unitOfWork.SaveChangesAsync();
 
 
-
-
         await _auditService.LogActionAsync(
             sellerId?.ToString() ?? "Admin",
             "CreateProduct",
@@ -147,6 +152,17 @@ public class ProductManager : IProductService
             new { ProductId = product.Id, ProductName = product.Name, Price = product.Price, SKU = product.SKU });
 
         product.Inventory = inventory;
+
+        try
+        {
+            await _productSearchIndexService.IndexProductAsync(product.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Product search index update failed on create for ProductId={ProductId}", product.Id);
+        }
+
+
         return new SuccessDataResult<ProductDto>(product.ToDto(), Messages.ProductAdded);
     }
 
@@ -197,6 +213,19 @@ public class ProductManager : IProductService
             new { ProductId = product.Id, ProductName = product.Name, Price = product.Price, StockQuantity = request.StockQuantity });
 
         var updatedProduct = await _productDal.GetByIdWithDetailsAsync(id);
+
+        try
+        {
+            if (!product.IsActive)
+                await _productSearchIndexService.DeleteProductAsync(product.Id);
+            else
+                await _productSearchIndexService.IndexProductAsync(product.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Product search index update failed on update for ProductId={ProductId}", product.Id);
+        }
+
         return new SuccessDataResult<ProductDto>(updatedProduct!.ToDto(), Messages.ProductUpdated);
     }
 
@@ -228,6 +257,15 @@ public class ProductManager : IProductService
             "DeleteProduct",
             "Product",
             new { ProductId = product.Id, ProductName = product.Name });
+
+        try
+        {
+            await _productSearchIndexService.DeleteProductAsync(product.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Product search index delete failed for ProductId={ProductId}", product.Id);
+        }
 
         return new SuccessResult(Messages.ProductDeleted);
     }
@@ -263,6 +301,15 @@ public class ProductManager : IProductService
             "UpdateStock",
             "Inventory",
             new { ProductId = productId, Delta = request.Delta, NewQuantity = newQuantity, Reason = request.Reason });
+
+        try
+        {
+            await _productSearchIndexService.IndexProductAsync(productId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Product search index update failed on stock update for ProductId={ProductId}", productId);
+        }
 
         return new SuccessResult(Messages.StockUpdated);
     }

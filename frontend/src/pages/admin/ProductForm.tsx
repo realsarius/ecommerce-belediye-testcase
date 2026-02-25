@@ -85,8 +85,8 @@ export default function ProductForm() {
   useEffect(() => {
     // Kategoriler ve ürün yüklendiğinde formu doldur
     if (product && isEdit && categories) {
-
-      const rawCatId = product.categoryId ?? (product as any).CategoryId;
+      const legacyCategoryId = (product as { CategoryId?: unknown }).CategoryId;
+      const rawCatId = product.categoryId ?? (typeof legacyCategoryId === 'number' ? legacyCategoryId : undefined);
 
       reset({
         name: product.name,
@@ -110,7 +110,7 @@ export default function ProductForm() {
           sku: data.sku,
           price: data.price,
           currency: data.currency,
-          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          categoryId: parseInt(data.categoryId, 10),
           stockQuantity: data.stockQuantity,
           isActive: data.isActive,
         };
@@ -123,7 +123,7 @@ export default function ProductForm() {
           sku: data.sku,
           price: data.price,
           currency: data.currency,
-          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          categoryId: parseInt(data.categoryId, 10),
           initialStock: data.stockQuantity,
           isActive: data.isActive,
         };

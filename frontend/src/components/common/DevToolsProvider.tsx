@@ -106,7 +106,7 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
         return;
       }
     }
-  }, [enableDevTools, disableDevTools]);
+  }, [enableDevTools, disableDevTools, isDevToolsEnabled]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -130,4 +130,3 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
     </DevToolsContext.Provider>
   );
 }
-

@@ -30,30 +30,27 @@ export function SellerLayout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const NavItems = () => (
-    <>
-      {sidebarItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = location.pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            to={item.href}
-            onClick={() => setMobileMenuOpen(false)}
-            className={cn(
-              'flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors',
-              isActive
-                ? 'bg-amber-500 text-white'
-                : 'hover:bg-amber-100 dark:hover:bg-amber-900/30'
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
-    </>
-  );
+  const renderNavItems = () =>
+    sidebarItems.map((item) => {
+      const Icon = item.icon;
+      const isActive = location.pathname === item.href;
+      return (
+        <Link
+          key={item.href}
+          to={item.href}
+          onClick={() => setMobileMenuOpen(false)}
+          className={cn(
+            'flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors',
+            isActive
+              ? 'bg-amber-500 text-white'
+              : 'hover:bg-amber-100 dark:hover:bg-amber-900/30'
+          )}
+        >
+          <Icon className="h-5 w-5" />
+          <span>{item.label}</span>
+        </Link>
+      );
+    });
 
   return (
     <div className="min-h-screen flex">
@@ -66,7 +63,7 @@ export function SellerLayout() {
           </div>
         </div>
         <nav className="p-4 space-y-2">
-          <NavItems />
+          {renderNavItems()}
         </nav>
         <div className="p-4 mt-auto border-t">
           <Button variant="ghost" asChild className="w-full justify-start">
@@ -101,7 +98,7 @@ export function SellerLayout() {
                   </div>
                 </div>
                 <nav className="p-4 space-y-2">
-                  <NavItems />
+                  {renderNavItems()}
                 </nav>
                 <div className="p-4 border-t mt-auto">
                   <Button 
