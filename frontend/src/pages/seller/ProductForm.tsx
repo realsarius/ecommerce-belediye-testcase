@@ -83,7 +83,8 @@ export default function SellerProductForm() {
 
   useEffect(() => {
     if (product && isEdit && categories) {
-      const rawCatId = product.categoryId ?? (product as any).CategoryId;
+      const legacyCategoryId = (product as { CategoryId?: unknown }).CategoryId;
+      const rawCatId = product.categoryId ?? (typeof legacyCategoryId === 'number' ? legacyCategoryId : undefined);
       reset({
         name: product.name,
         description: product.description || '',
@@ -105,7 +106,7 @@ export default function SellerProductForm() {
           sku: data.sku,
           price: data.price,
           currency: 'TRY',
-          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          categoryId: parseInt(data.categoryId, 10),
           stockQuantity: data.initialStock, // Form uses initialStock field name for stock input
           isActive: data.isActive,
         };
@@ -118,7 +119,7 @@ export default function SellerProductForm() {
           sku: data.sku,
           price: data.price,
           currency: 'TRY',
-          categoryId: parseInt(data.categoryId as unknown as string, 10),
+          categoryId: parseInt(data.categoryId, 10),
           initialStock: data.initialStock,
           isActive: data.isActive,
         };

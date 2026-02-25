@@ -1,10 +1,10 @@
 import { LayoutDashboard, Package, ShoppingBag, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
-import { useGetProductsQuery } from '@/features/products/productsApi';
+import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { useGetAdminCategoriesQuery } from '@/features/admin/adminApi';
 
 export default function AdminDashboard() {
-  const { data: products } = useGetProductsQuery({ page: 1, pageSize: 1 });
+  const { data: products } = useSearchProductsQuery({ page: 1, pageSize: 1 });
   const { data: categories } = useGetAdminCategoriesQuery();
 
   const stats = [

@@ -74,14 +74,15 @@ export default function Checkout() {
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
   const [validateCoupon, { isLoading: isValidatingCoupon }] = useValidateCouponMutation();
+  const couponCodeFromState = location.state?.couponCode;
 
   const isLoading = isCartLoading || isAddressLoading;
   
 
   useEffect(() => {
-    if (cart && location.state?.couponCode && !appliedCoupon && !isValidatingCoupon) {
+    if (cart && couponCodeFromState && !appliedCoupon && !isValidatingCoupon) {
       validateCoupon({
-        code: location.state.couponCode,
+        code: couponCodeFromState,
         orderTotal: cart.totalAmount,
       })
         .unwrap()
@@ -95,7 +96,7 @@ export default function Checkout() {
           // Silent fail
         });
     }
-  }, [cart, location.state?.couponCode]);
+  }, [cart, couponCodeFromState, appliedCoupon, isValidatingCoupon, validateCoupon]);
   
   // Yönlendirme yapılıyor mu? (race condition önlemek için)
   const isNavigatingRef = useRef(false);

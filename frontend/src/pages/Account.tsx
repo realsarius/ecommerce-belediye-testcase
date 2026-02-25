@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppSelector } from '@/app/hooks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/common/card';
 import { Button } from '@/components/common/button';
@@ -12,23 +12,24 @@ export default function Account() {
   const { user } = useAppSelector((state) => state.auth);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+  const getUserFormData = () => ({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
     phone: '',
   });
+  const [formData, setFormData] = useState({
+    ...getUserFormData(),
+  });
 
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        phone: '',
-      });
+  const handleToggleEdit = () => {
+    if (isEditing) {
+      setIsEditing(false);
+      return;
     }
-  }, [user]);
+    setFormData(getUserFormData());
+    setIsEditing(true);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -62,7 +63,7 @@ export default function Account() {
               </div>
               <Button 
                 variant={isEditing ? "outline" : "default"}
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={handleToggleEdit}
               >
                 {isEditing ? 'İptal' : 'Düzenle'}
               </Button>
@@ -84,7 +85,7 @@ export default function Account() {
                 <Label htmlFor="firstName">Ad</Label>
                 <Input
                   id="firstName"
-                  value={formData.firstName}
+                  value={isEditing ? formData.firstName : user?.firstName || ''}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   disabled={!isEditing}
                 />
@@ -93,7 +94,7 @@ export default function Account() {
                 <Label htmlFor="lastName">Soyad</Label>
                 <Input
                   id="lastName"
-                  value={formData.lastName}
+                  value={isEditing ? formData.lastName : user?.lastName || ''}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   disabled={!isEditing}
                 />
@@ -108,7 +109,7 @@ export default function Account() {
               <Input
                 id="email"
                 type="email"
-                value={formData.email}
+                value={isEditing ? formData.email : user?.email || ''}
                 disabled
                 className="bg-muted"
               />

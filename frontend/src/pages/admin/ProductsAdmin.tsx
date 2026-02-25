@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useGetProductsQuery, useDeleteProductMutation, useUpdateStockMutation } from '@/features/products/productsApi';
+import { useSearchProductsQuery, useDeleteProductMutation, useUpdateStockMutation } from '@/features/products/productsApi';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Badge } from '@/components/common/badge';
@@ -38,7 +38,7 @@ export default function AdminProducts() {
   const [stockChange, setStockChange] = useState('');
   const [stockReason, setStockReason] = useState('');
 
-  const { data: products, isLoading } = useGetProductsQuery({
+  const { data: products, isLoading } = useSearchProductsQuery({
     page,
     pageSize: 10,
     search: debouncedSearch || undefined,

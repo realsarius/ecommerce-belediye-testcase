@@ -1,7 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search } from 'lucide-react';
 import { Button } from '@/components/common/button';
+import { Input } from '@/components/common/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ import { TestUsersDialog } from '@/components/common/TestUsersDialog';
 export function Header() {
   const { isAuthenticated, user, refreshToken } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
@@ -32,14 +34,33 @@ export function Header() {
   const [revoke] = useRevokeMutation();
 
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const currentSearchQuery = new URLSearchParams(location.search).get('q') ?? '';
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const query = String(formData.get('q') ?? '').trim();
+
+    const params = location.pathname === '/' ? new URLSearchParams(location.search) : new URLSearchParams();
+
+    if (query) {
+      params.set('q', query);
+    } else {
+      params.delete('q');
+    }
+    params.delete('page');
+
+    const search = params.toString();
+    navigate({ pathname: '/', search: search ? `?${search}` : '' });
+  };
 
   const handleLogout = async () => {
 
     if (refreshToken) {
       try {
         await revoke({ refreshToken }).unwrap();
-      } catch {
-
+      } catch (error) {
+        console.error('Refresh token revoke failed', error);
       }
     }
     dispatch(logout());
@@ -56,23 +77,36 @@ export function Header() {
           <span className="text-xl font-bold">E-Ticaret</span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
-            Ürünler
-          </Link>
-          {isAuthenticated && (
-            <>
-              <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
-                Siparişlerim
-              </Link>
-              <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
-                Sepetim
-              </Link>
-            </>
-          )}
+        <div className="hidden md:flex flex-1 items-center justify-center gap-6 px-6">
+          {/* Desktop Navigation */}
+          <nav className="flex items-center space-x-6">
+            <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
+              Ürünler
+            </Link>
+            {isAuthenticated && (
+              <>
+                <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
+                  Siparişlerim
+                </Link>
+                <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
+                  Sepetim
+                </Link>
+              </>
+            )}
+          </nav>
 
-        </nav>
+          <form key={`desktop-search-${currentSearchQuery}`} onSubmit={handleSearchSubmit} className="w-full max-w-sm">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                name="q"
+                defaultValue={currentSearchQuery}
+                placeholder="Ürün ara..."
+                className="h-9 pl-9"
+              />
+            </div>
+          </form>
+        </div>
 
         {/* Right Side */}
         <div className="flex items-center space-x-4">
@@ -225,6 +259,17 @@ export function Header() {
               <SheetTitle className="sr-only">Mobil Menü</SheetTitle>
               <SheetDescription className="sr-only">Site navigasyon menüsü</SheetDescription>
               <nav className="flex flex-col space-y-4 mt-8 px-4">
+                <form key={`mobile-search-${currentSearchQuery}`} onSubmit={handleSearchSubmit}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      name="q"
+                      defaultValue={currentSearchQuery}
+                      placeholder="Ürün ara..."
+                      className="pl-9"
+                    />
+                  </div>
+                </form>
                 <Link to="/" className="text-lg font-medium">
                   Ürünler
                 </Link>
