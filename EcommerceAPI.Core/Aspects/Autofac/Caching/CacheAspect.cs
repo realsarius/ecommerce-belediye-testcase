@@ -40,10 +40,22 @@ public class CacheAspect : MethodInterception
                 var returnType = invocation.Method.ReturnType.GetGenericArguments()[0];
                 if (_cacheManager.IsAdd(key))
                 {
-                    var cachedValue = _cacheManager.Get(key);
-                    var method = typeof(Task).GetMethod(nameof(Task.FromResult))?.MakeGenericMethod(returnType);
-                    invocation.ReturnValue = method?.Invoke(null, new object[] { cachedValue });
-                    return;
+                    try
+                    {
+                        var cachedValue = _cacheManager.Get(key, returnType);
+                        if (cachedValue != null)
+                        {
+                            var method = typeof(Task).GetMethod(nameof(Task.FromResult))?.MakeGenericMethod(returnType);
+                            invocation.ReturnValue = method?.Invoke(null, new[] { cachedValue });
+                            return;
+                        }
+
+                        _cacheManager.Remove(key);
+                    }
+                    catch
+                    {
+                        _cacheManager.Remove(key);
+                    }
                 }
 
                 invocation.Proceed();
@@ -62,8 +74,21 @@ public class CacheAspect : MethodInterception
         {
             if (_cacheManager.IsAdd(key))
             {
-                invocation.ReturnValue = _cacheManager.Get(key, invocation.Method.ReturnType);
-                return;
+                try
+                {
+                    var cachedValue = _cacheManager.Get(key, invocation.Method.ReturnType);
+                    if (cachedValue != null)
+                    {
+                        invocation.ReturnValue = cachedValue;
+                        return;
+                    }
+
+                    _cacheManager.Remove(key);
+                }
+                catch
+                {
+                    _cacheManager.Remove(key);
+                }
             }
 
             invocation.Proceed();
