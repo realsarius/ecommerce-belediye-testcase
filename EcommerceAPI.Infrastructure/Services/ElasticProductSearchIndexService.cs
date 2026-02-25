@@ -230,12 +230,34 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         }
         else
         {
+            var queryText = request.Search.Trim();
+
             must.Add(new
             {
-                multi_match = new
+                @bool = new
                 {
-                    query = request.Search,
-                    fields = new[] { "name^3", "description", "sku" }
+                    should = new object[]
+                    {
+                        new
+                        {
+                            multi_match = new
+                            {
+                                query = queryText,
+                                fields = new[] { "name^3", "description", "sku" },
+                                fuzziness = "AUTO"
+                            }
+                        },
+                        new
+                        {
+                            multi_match = new
+                            {
+                                query = queryText,
+                                type = "bool_prefix",
+                                fields = new[] { "name^5", "description" }
+                            }
+                        }
+                    },
+                    minimum_should_match = 1
                 }
             });
         }
