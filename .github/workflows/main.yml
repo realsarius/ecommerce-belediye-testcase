@@ -39,6 +39,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+
     - name: Setup .NET 8
       uses: actions/setup-dotnet@v4
       with:
@@ -69,6 +76,49 @@ jobs:
         HASH_PEPPER: "ci-test-pepper-value"
         Redis__ConnectionString: "localhost:6379"
         RateLimiting__Enabled: "false"
+
+    - name: Frontend dependencies
+      working-directory: frontend
+      run: npm ci
+
+    - name: Frontend build
+      working-directory: frontend
+      run: npm run build
+
+    - name: API smoke test (Swagger + Search)
+      env:
+        ASPNETCORE_ENVIRONMENT: "Development"
+        ASPNETCORE_URLS: "http://localhost:5000"
+        ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=EcommerceDb_CI;Username=postgres;Password=postgres_ci_password"
+        JWT_SECRET_KEY: "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait"
+        JWT_ISSUER: "EcommerceAPI"
+        JWT_AUDIENCE: "EcommerceAPI"
+        ENCRYPTION_KEY: "12345678901234567890123456789012"
+        HASH_PEPPER: "ci-test-pepper-value"
+        Redis__ConnectionString: "localhost:6379"
+        RateLimiting__Enabled: "false"
+      run: |
+        dotnet run --project EcommerceAPI.API --no-build --configuration Release > /tmp/api.log 2>&1 &
+        API_PID=$!
+        trap 'kill $API_PID 2>/dev/null || true' EXIT
+
+        for i in {1..60}; do
+          if curl -fsS http://localhost:5000/swagger/index.html >/dev/null; then
+            break
+          fi
+          if [ "$i" -eq 60 ]; then
+            echo "API smoke: swagger endpoint did not become ready in time"
+            tail -n 200 /tmp/api.log || true
+            exit 1
+          fi
+          sleep 2
+        done
+
+        curl -fsS http://localhost:5000/swagger/index.html >/dev/null
+        curl -fsS "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5" >/dev/null
+
+        kill $API_PID
+        trap - EXIT
 
   # CD - Build and push docker image
   build-and-push-docker:
