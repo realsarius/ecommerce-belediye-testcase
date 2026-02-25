@@ -20,7 +20,7 @@ public class RedisCacheManager : ICacheManager
     {
         ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
         NullValueHandling = NullValueHandling.Ignore,
-        TypeNameHandling = TypeNameHandling.All
+        TypeNameHandling = TypeNameHandling.Auto
     };
 
     public void Add(string key, object value, int duration)

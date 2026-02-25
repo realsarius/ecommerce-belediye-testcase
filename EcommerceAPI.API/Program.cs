@@ -7,6 +7,7 @@ using EcommerceAPI.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using EcommerceAPI.Seeder;
 using EcommerceAPI.API.Middleware;
+using EcommerceAPI.API.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -56,6 +57,7 @@ builder.Host.UseSerilog((context, configuration) =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -170,6 +172,22 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["JWT_AUDIENCE"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/live-support"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -282,6 +300,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<LiveSupportHub>("/hubs/live-support");
 
 app.Run();
 

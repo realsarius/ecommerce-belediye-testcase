@@ -197,61 +197,94 @@ public class SeedRunner
 
     private async Task SeedRolesAsync()
     {
-        if (await _context.Roles.AnyAsync())
+        var roles = new List<Role>
+        {
+            new Role { Id = 1, Name = "Admin", Description = "Tüm yetkilere sahip yönetici hesabı", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Role { Id = 2, Name = "Customer", Description = "Standart müşteri hesabı", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Role { Id = 3, Name = "Seller", Description = "Satıcı hesabı - Ürün ve sipariş yönetimi", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Role { Id = 4, Name = "Support", Description = "Canlı destek temsilcisi", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+        };
+
+        var existingRoleIds = (await _context.Roles.AsNoTracking().Select(x => x.Id).ToListAsync()).ToHashSet();
+        var existingRoleNames = (await _context.Roles.AsNoTracking().Select(x => x.Name).ToListAsync())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.ToLowerInvariant())
+            .ToHashSet();
+
+        var insertedCount = 0;
+        foreach (var role in roles)
+        {
+            var normalizedRoleName = role.Name.ToLowerInvariant();
+            if (existingRoleIds.Contains(role.Id) || existingRoleNames.Contains(normalizedRoleName))
+            {
+                continue;
+            }
+
+            await _context.Database.ExecuteSqlRawAsync(
+                @"INSERT INTO ""TBL_Roles"" (""Id"", ""Name"", ""Description"", ""CreatedAt"", ""UpdatedAt"") 
+                  VALUES ({0}, {1}, {2}, {3}, {4})",
+                role.Id, role.Name, role.Description, role.CreatedAt, role.UpdatedAt);
+
+            insertedCount++;
+            existingRoleIds.Add(role.Id);
+            existingRoleNames.Add(normalizedRoleName);
+        }
+
+        if (insertedCount == 0)
         {
             _logger.LogInformation("👥 Roller zaten mevcut, atlanıyor...");
             return;
         }
 
-        var roles = new List<Role>
-        {
-            new Role { Id = 1, Name = "Admin", Description = "Tüm yetkilere sahip yönetici hesabı", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
-            new Role { Id = 2, Name = "Customer", Description = "Standart müşteri hesabı", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
-            new Role { Id = 3, Name = "Seller", Description = "Satıcı hesabı - Ürün ve sipariş yönetimi", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
-        };
-
-        foreach (var role in roles)
-        {
-            await _context.Database.ExecuteSqlRawAsync(
-                @"INSERT INTO ""TBL_Roles"" (""Id"", ""Name"", ""Description"", ""CreatedAt"", ""UpdatedAt"") 
-                  VALUES ({0}, {1}, {2}, {3}, {4})",
-                role.Id, role.Name, role.Description, role.CreatedAt, role.UpdatedAt);
-        }
-
-        _logger.LogInformation("✅ {Count} rol eklendi.", roles.Count);
+        _logger.LogInformation("✅ {Count} rol eklendi.", insertedCount);
     }
 
     private async Task SeedUsersAsync()
     {
-        if (await _context.Users.AnyAsync())
-        {
-            _logger.LogInformation("👤 Kullanıcılar zaten mevcut, atlanıyor...");
-            return;
-        }
-
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword("Test123!");
-
         var usersData = new[]
         {
             (Id: 1, FirstName: "Admin", LastName: "User", Email: "testadmin@test.com", RoleId: 1),
             (Id: 2, FirstName: "Test", LastName: "Customer", Email: "customer@test.com", RoleId: 2),
-            (Id: 3, FirstName: "Test", LastName: "Seller", Email: "testseller@test.com", RoleId: 3)
+            (Id: 3, FirstName: "Test", LastName: "Seller", Email: "testseller@test.com", RoleId: 3),
+            (Id: 4, FirstName: "Test", LastName: "Support", Email: "support@test.com", RoleId: 4)
         };
 
+        var existingUserIds = (await _context.Users.AsNoTracking().Select(x => x.Id).ToListAsync()).ToHashSet();
+        var existingEmailHashes = (await _context.Users.AsNoTracking().Select(x => x.EmailHash).ToListAsync())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToHashSet();
+
+        var insertedCount = 0;
         foreach (var userData in usersData)
         {
+            var emailHash = _hashingService.Hash(userData.Email.ToLowerInvariant().Trim());
+            if (existingUserIds.Contains(userData.Id) || existingEmailHashes.Contains(emailHash))
+            {
+                continue;
+            }
+
             var encryptedEmail = _encryptionService.Encrypt(userData.Email);
             var encryptedFirstName = _encryptionService.Encrypt(userData.FirstName);
             var encryptedLastName = _encryptionService.Encrypt(userData.LastName);
-            var emailHash = _hashingService.Hash(userData.Email.ToLowerInvariant().Trim());
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword("Test123!");
 
             await _context.Database.ExecuteSqlRawAsync(
                 @"INSERT INTO ""TBL_Users"" (""Id"", ""FirstName"", ""LastName"", ""Email"", ""EmailHash"", ""PasswordHash"", ""RoleId"", ""CreatedAt"", ""UpdatedAt"") 
                   VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})",
                 userData.Id, encryptedFirstName, encryptedLastName, encryptedEmail, emailHash, passwordHash, userData.RoleId, DateTime.UtcNow, DateTime.UtcNow);
+
+            insertedCount++;
+            existingUserIds.Add(userData.Id);
+            existingEmailHashes.Add(emailHash);
         }
 
-        _logger.LogInformation("✅ {Count} kullanıcı eklendi.", usersData.Length);
+        if (insertedCount == 0)
+        {
+            _logger.LogInformation("👤 Kullanıcılar zaten mevcut, atlanıyor...");
+            return;
+        }
+
+        _logger.LogInformation("✅ {Count} kullanıcı eklendi.", insertedCount);
     }
 
     private async Task SeedShippingAddressesAsync()

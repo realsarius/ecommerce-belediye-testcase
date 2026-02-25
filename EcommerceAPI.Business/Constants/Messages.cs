@@ -88,4 +88,18 @@ public static class Messages
     public static string AddressDeleted = "Adres silindi";
     public static string AddressUpdated = "Adres güncellendi";
     public static string AddressNotFound = "Adres bulunamadı";
+
+    // Support
+    public static string SupportConversationCreated = "Destek görüşmesi oluşturuldu";
+    public static string SupportConversationAlreadyOpen = "Açık destek görüşmesi bulundu";
+    public static string SupportConversationNotFound = "Destek görüşmesi bulunamadı";
+    public static string SupportConversationAccessDenied = "Bu destek görüşmesine erişim yetkiniz yok";
+    public static string SupportConversationAssigned = "Destek görüşmesi temsilciye atandı";
+    public static string SupportConversationClosed = "Destek görüşmesi kapatıldı";
+    public static string SupportConversationAlreadyClosed = "Destek görüşmesi zaten kapalı";
+    public static string SupportMessageSent = "Destek mesajı gönderildi";
+    public static string SupportMessageEmpty = "Mesaj boş olamaz";
+    public static string SupportUnauthorizedAction = "Bu işlem için yetkiniz yok";
+    public static string SupportInvalidSupportUser = "Geçersiz destek kullanıcı bilgisi";
+
 }

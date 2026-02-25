@@ -48,11 +48,13 @@ public class AppDbContext : DbContext
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<CreditCard> CreditCards => Set<CreditCard>();
+    public DbSet<SupportConversation> SupportConversations => Set<SupportConversation>();
+    public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
+
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
 
         modelBuilder.ApplyConfiguration(new RoleConfiguration());
         modelBuilder.ApplyConfiguration(new CategoryConfiguration());
@@ -66,6 +68,9 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new SellerProfileConfiguration());
         modelBuilder.ApplyConfiguration(new CouponConfiguration());
+        modelBuilder.ApplyConfiguration(new SupportConversationConfiguration());
+        modelBuilder.ApplyConfiguration(new SupportMessageConfiguration());
+
         
 
         if (_encryptionService != null)
