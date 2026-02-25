@@ -34,40 +34,48 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
     public async Task<PaginatedResponse<ProductDto>> SearchAsync(ProductListRequest request, CancellationToken cancellationToken = default)
     {
         var normalized = Normalize(request);
-        await EnsureIndexAsync(cancellationToken);
 
-        var payload = BuildSearchPayload(normalized);
-        var response = await _httpClient.PostAsJsonAsync($"/{IndexName}/_search", payload, JsonOptions, cancellationToken);
+        try {
+            await EnsureIndexAsync(cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
+            var payload = BuildSearchPayload(normalized);
+            var response = await _httpClient.PostAsJsonAsync($"/{IndexName}/_search", payload, JsonOptions, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Elasticsearch search failed: {Status}", response.StatusCode);
+                return await FallbackSearchAsync(normalized);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var searchResponse = await JsonSerializer.DeserializeAsync<ElasticSearchResponse>(stream, JsonOptions, cancellationToken);
+
+            if (searchResponse?.Hits?.Hits == null)
+            {
+                return await FallbackSearchAsync(normalized);
+            }
+
+            var items = searchResponse.Hits.Hits
+                .Select(h => h.Source)
+                .Where(s => s is not null)
+                .Select(MapToDto)
+                .ToList();
+
+            var totalCount = (int)Math.Min(searchResponse.Hits.Total?.Value ?? items.Count, int.MaxValue);
+
+            return new PaginatedResponse<ProductDto>
+            {
+                Items = items,
+                Page = normalized.Page,
+                PageSize = normalized.PageSize,
+                TotalCount = totalCount
+            };
+        }
+        catch (Exception ex)
         {
-            _logger.LogWarning("Elasticsearch search failed: {Status}", response.StatusCode);
+            _logger.LogWarning(ex, "Elasticsearch unavailable, fallback to DB search.");
             return await FallbackSearchAsync(normalized);
         }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var searchResponse = await JsonSerializer.DeserializeAsync<ElasticSearchResponse>(stream, JsonOptions, cancellationToken);
-
-        if (searchResponse?.Hits?.Hits == null)
-        {
-            return await FallbackSearchAsync(normalized);
-        }
-
-        var items = searchResponse.Hits.Hits
-            .Select(h => h.Source)
-            .Where(s => s is not null)
-            .Select(MapToDto)
-            .ToList();
-
-        var totalCount = (int)Math.Min(searchResponse.Hits.Total?.Value ?? items.Count, int.MaxValue);
-
-        return new PaginatedResponse<ProductDto>
-        {
-            Items = items,
-            Page = normalized.Page,
-            PageSize = normalized.PageSize,
-            TotalCount = totalCount
-        };
     }
 
     public async Task IndexProductAsync(int productId, CancellationToken cancellationToken = default)
