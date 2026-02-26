@@ -127,6 +127,34 @@ services:
     labels:
       - "com.ecommerce.service=cache"
 
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ecommerce-rabbitmq
+    profiles:
+      - dev
+      - prod
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ecommerce_rabbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbit_password}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/ecommerce}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=message-broker"
+
   api-dev:
     build:
       context: .
@@ -149,6 +177,11 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       HASH_PEPPER: ${HASH_PEPPER}
       ELASTICSEARCH_URL: http://elasticsearch:9200
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__VirtualHost: ${RABBITMQ_VHOST:-/ecommerce}
+      RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
     ports:
       - "5000:80"
     volumes:
@@ -174,6 +207,8 @@ services:
       postgres-dev:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
@@ -204,6 +239,11 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       HASH_PEPPER: ${HASH_PEPPER}
       ELASTICSEARCH_URL: http://elasticsearch:9200
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__VirtualHost: ${RABBITMQ_VHOST:-/ecommerce}
+      RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
     ports:
       - "5001:80"
     networks:
@@ -212,6 +252,8 @@ services:
       postgres-prod:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
@@ -339,6 +381,10 @@ volumes:
     driver: local
     labels:
       - "com.ecommerce.service=cache"
+  rabbitmq_data:
+    driver: local
+    labels:
+      - "com.ecommerce.service=message-broker"
 
 networks:
   ecommerce-network:

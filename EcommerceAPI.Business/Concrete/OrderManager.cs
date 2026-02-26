@@ -12,6 +12,8 @@ using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Core.Aspects.Autofac.Validation;
 using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -25,6 +27,7 @@ public class OrderManager : IOrderService
     private readonly ICouponService _couponService;
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
@@ -38,7 +41,8 @@ public class OrderManager : IOrderService
         IUnitOfWork unitOfWork,
         ICouponService couponService,
         IAuditService auditService,
-        ILogger<OrderManager> logger)
+        ILogger<OrderManager> logger,
+        IPublishEndpoint publishEndpoint)
     {
         _orderDal = orderDal;
         _productDal = productDal;
@@ -48,6 +52,7 @@ public class OrderManager : IOrderService
         _couponService = couponService;
         _auditService = auditService;
         _logger = logger;
+        _publishEndpoint = publishEndpoint;
     }
 
     [LogAspect]
@@ -108,6 +113,32 @@ public class OrderManager : IOrderService
         }
 
         var createdOrder = await _orderDal.GetByIdWithDetailsAsync(order.Id);
+        try
+        {
+            await _publishEndpoint.Publish(new OrderCreatedEvent
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                UserId = userId,
+                TotalAmount = order.TotalAmount,
+                Currency = order.Currency,
+                IdempotencyKey = request.IdempotencyKey
+            });
+
+            _logger.LogInformation(
+                "OrderCreatedEvent published. OrderId={OrderId}, OrderNumber={OrderNumber}",
+                order.Id,
+                order.OrderNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "OrderCreatedEvent publish failed after order commit. OrderId={OrderId}, OrderNumber={OrderNumber}",
+                order.Id,
+                order.OrderNumber);
+        }
+
         await _auditService.LogActionAsync(
             userId.ToString(),
             "CreateOrder",

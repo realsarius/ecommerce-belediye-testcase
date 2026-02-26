@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using EcommerceAPI.Core.Utilities.Results;
 using Microsoft.Extensions.Logging;
+using MassTransit;
+using EcommerceAPI.Entities.IntegrationEvents;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -24,6 +26,7 @@ public class OrderManagerTests
     private readonly Mock<ICouponService> _couponServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<OrderManager>> _loggerMock;
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly OrderManager _orderManager;
 
     public OrderManagerTests()
@@ -36,6 +39,10 @@ public class OrderManagerTests
         _couponServiceMock = new Mock<ICouponService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<OrderManager>>();
+        _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _orderManager = new OrderManager(
             _orderDalMock.Object,
@@ -45,7 +52,8 @@ public class OrderManagerTests
             _uowMock.Object,
             _couponServiceMock.Object,
             _auditServiceMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            _publishEndpointMock.Object
         );
     }
 
@@ -98,6 +106,7 @@ public class OrderManagerTests
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Once);
         _uowMock.Verify(x => x.CommitTransactionAsync(), Times.Once);
         _cartServiceMock.Verify(x => x.ClearCartAsync(userId), Times.Once);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
