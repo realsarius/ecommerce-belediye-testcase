@@ -30,6 +30,7 @@ using EcommerceAPI.API.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
+using EcommerceAPI.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +115,15 @@ var rabbitMqPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD")
                        ?? builder.Configuration["RabbitMQ:Password"]
                        ?? "guest";
 var rabbitMqPort = builder.Configuration.GetValue("RabbitMQ:Port", 5672);
+
+var rabbitMqPrefetchCount = builder.Configuration.GetValue("RabbitMQ:PrefetchCount", 32);
+var rabbitMqPrefetchCountFromEnv = Environment.GetEnvironmentVariable("RABBITMQ_PREFETCH_COUNT");
+
+if (int.TryParse(rabbitMqPrefetchCountFromEnv, out var parsedPrefetchCount))
+{
+    rabbitMqPrefetchCount = parsedPrefetchCount;
+}
+
 var rabbitMqPortFromEnv = Environment.GetEnvironmentVariable("RABBITMQ_PORT");
 if (int.TryParse(rabbitMqPortFromEnv, out var parsedRabbitMqPort))
 {
@@ -150,6 +160,8 @@ builder.Services.AddMassTransit(configurator =>
                 host.Password(rabbitMqPassword);
             });
 
+        cfg.PrefetchCount = (ushort)Math.Clamp(rabbitMqPrefetchCount, 1, 2048);
+
         cfg.ConfigureEndpoints(context);
     });
 });
@@ -158,6 +170,12 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
     .AddCheck<DatabaseHealthCheck>("postgresql", tags: new[] { "ready" })
     .AddCheck<RedisHealthCheck>("redis", tags: new[] { "ready" });
+
+if (!builder.Environment.IsEnvironment("Test"))
+{
+    builder.Services.AddHostedService<OutboxPublisherBackgroundService>();
+}
+
 
 var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", true);
 if (rateLimitingEnabled)

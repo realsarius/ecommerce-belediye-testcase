@@ -29,6 +29,7 @@ public class ProductManager : IProductService
     private readonly int _productListCacheTTL;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ProductManager> _logger;
+    private readonly IOutboxService? _outboxService;
 
 
     public ProductManager(
@@ -38,7 +39,8 @@ public class ProductManager : IProductService
         IConfiguration configuration,
         IAuditService auditService,
         ILogger<ProductManager> logger,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        IOutboxService? outboxService = null)
     {
         _productDal = productDal;
         _inventoryDal = inventoryDal;
@@ -47,6 +49,7 @@ public class ProductManager : IProductService
         _productListCacheTTL = configuration.GetValue<int>("Cache:ProductListTTLMinutes", 5);
         _logger = logger;
         _publishEndpoint = publishEndpoint;
+        _outboxService = outboxService;
     }
 
     [LogAspect]
@@ -155,7 +158,15 @@ public class ProductManager : IProductService
 
         product.Inventory = inventory;
 
-        await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
+        if (_outboxService != null)
+        {
+            await QueueProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
+            await _unitOfWork.SaveChangesAsync();
+        }
+        else
+        {
+            await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
+        }
 
 
         return new SuccessDataResult<ProductDto>(product.ToDto(), Messages.ProductAdded);
@@ -209,10 +220,21 @@ public class ProductManager : IProductService
 
         var updatedProduct = await _productDal.GetByIdWithDetailsAsync(id);
 
-        await PublishProductIndexSyncEventAsync(
-            product.Id,
-            product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
-            "UpdateProduct");
+        if (_outboxService != null)
+        {
+            await QueueProductIndexSyncEventAsync(
+                product.Id,
+                product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
+                "UpdateProduct");
+            await _unitOfWork.SaveChangesAsync();
+        }
+        else
+        {
+            await PublishProductIndexSyncEventAsync(
+                product.Id,
+                product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
+                "UpdateProduct");
+        }
 
         return new SuccessDataResult<ProductDto>(updatedProduct!.ToDto(), Messages.ProductUpdated);
     }
@@ -246,11 +268,20 @@ public class ProductManager : IProductService
             "Product",
             new { ProductId = product.Id, ProductName = product.Name });
 
-        await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
+        if (_outboxService != null)
+        {
+            await QueueProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
+            await _unitOfWork.SaveChangesAsync();
+        }
+        else
+        {
+            await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
+        }
 
         return new SuccessResult(Messages.ProductDeleted);
     }
 
+    [TransactionScopeAspect]
     public async Task<IResult> UpdateStockAsync(int productId, UpdateStockRequest request, int userId)
     {
         var inventory = await _inventoryDal.GetByProductIdAsync(productId);
@@ -283,7 +314,15 @@ public class ProductManager : IProductService
             "Inventory",
             new { ProductId = productId, Delta = request.Delta, NewQuantity = newQuantity, Reason = request.Reason });
 
-        await PublishProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
+        if (_outboxService != null)
+        {
+            await QueueProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
+            await _unitOfWork.SaveChangesAsync();
+        }
+        else
+        {
+            await PublishProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
+        }
 
         return new SuccessResult(Messages.StockUpdated);
     }
@@ -320,6 +359,29 @@ public class ProductManager : IProductService
                 operation,
                 reason);
         }
+    }
+
+    private async Task QueueProductIndexSyncEventAsync(int productId, string operation, string reason)
+    {
+        if (_outboxService == null)
+        {
+            return;
+        }
+
+        var eventMessage = new ProductIndexSyncEvent
+        {
+            ProductId = productId,
+            Operation = operation,
+            Reason = reason
+        };
+
+        await _outboxService.EnqueueAsync(eventMessage);
+
+        _logger.LogInformation(
+            "ProductIndexSyncEvent queued to outbox. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
+            productId,
+            operation,
+            reason);
     }
 
     private static string BuildProductListCacheKey(ProductListRequest request)

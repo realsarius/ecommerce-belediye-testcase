@@ -19,5 +19,7 @@ public sealed class ProductIndexSyncConsumerDefinition : ConsumerDefinition<Prod
         {
             retry.Interval(3, TimeSpan.FromSeconds(2));
         });
+
+        endpointConfigurator.UseInMemoryOutbox(context);
     }
 }

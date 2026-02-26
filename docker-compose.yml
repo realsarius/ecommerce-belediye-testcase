@@ -186,6 +186,7 @@ services:
       RabbitMQ__VirtualHost: ${RABBITMQ_VHOST:-/ecommerce}
       RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
+      RabbitMQ__PrefetchCount: ${RABBITMQ_PREFETCH_COUNT:-32}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
       DataProtection__KeysPath: /var/app/dataprotection-keys
     ports:
@@ -257,6 +258,7 @@ services:
       RabbitMQ__VirtualHost: ${RABBITMQ_VHOST:-/ecommerce}
       RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
+      RabbitMQ__PrefetchCount: ${RABBITMQ_PREFETCH_COUNT:-32}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
       DataProtection__KeysPath: /var/app/dataprotection-keys
     ports:
