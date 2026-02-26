@@ -461,15 +461,10 @@ using (var scope = app.Services.CreateScope())
             var hashingService = services.GetRequiredService<IHashingService>();
             var encryptionService = services.GetRequiredService<IEncryptionService>();
             
-            var possiblePaths = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "seed-data"),
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "seed-data"),
-                Path.Combine(Directory.GetCurrentDirectory(), "seed-data")
-            };
-            
-            var seedPath = possiblePaths.FirstOrDefault(Directory.Exists) 
-                ?? Path.Combine(AppContext.BaseDirectory, "seed-data");
+            var seedPath = ResolveSeedDataPath(
+                builder.Environment.ContentRootPath,
+                AppContext.BaseDirectory,
+                Directory.GetCurrentDirectory());
             
             logger.LogInformation("📁 Seed data path: {SeedPath}, Exists: {Exists}", seedPath, Directory.Exists(seedPath));
 
@@ -568,6 +563,31 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 app.MapHub<LiveSupportHub>("/hubs/live-support")
     .RequireRateLimiting("support-hub-connect");
+
+static string ResolveSeedDataPath(params string[] basePaths)
+{
+    var uniqueBasePaths = basePaths
+        .Where(path => !string.IsNullOrWhiteSpace(path))
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var basePath in uniqueBasePaths)
+    {
+        var current = new DirectoryInfo(basePath);
+
+        while (current is not null)
+        {
+            var candidate = Path.Combine(current.FullName, "seed-data");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+    }
+
+    return Path.Combine(AppContext.BaseDirectory, "seed-data");
+}
 
 static bool IsElasticsearchRequest(Uri? uri)
 {
