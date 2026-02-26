@@ -1,20 +1,43 @@
 using EcommerceAPI.Entities.IntegrationEvents;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
+using EcommerceAPI.Entities.Concrete;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.API.Consumers;
 
 public sealed class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
 {
+    private const string ConsumerName = nameof(OrderCreatedConsumer);
+    private readonly AppDbContext _dbContext;
     private readonly ILogger<OrderCreatedConsumer> _logger;
 
-    public OrderCreatedConsumer(ILogger<OrderCreatedConsumer> logger)
+    public OrderCreatedConsumer(
+        AppDbContext dbContext,
+        ILogger<OrderCreatedConsumer> logger)
     {
+        _dbContext = dbContext;
         _logger = logger;
     }
 
-    public Task Consume(ConsumeContext<OrderCreatedEvent> context)
+    public async Task Consume(ConsumeContext<OrderCreatedEvent> context)
     {
         var message = context.Message;
+        var messageId = context.MessageId ?? message.EventId;
+
+        var alreadyProcessed = await _dbContext.InboxMessages
+            .AnyAsync(
+                x => x.ConsumerName == ConsumerName && x.MessageId == messageId,
+                context.CancellationToken);
+
+        if (alreadyProcessed)
+        {
+            _logger.LogInformation(
+                "OrderCreatedEvent duplicate skipped. OrderId={OrderId}, MessageId={MessageId}",
+                message.OrderId,
+                messageId);
+            return;
+        }
 
         if (!string.IsNullOrWhiteSpace(message.IdempotencyKey) &&
             message.IdempotencyKey.StartsWith("dlq-test-", StringComparison.OrdinalIgnoreCase))
@@ -32,8 +55,31 @@ public sealed class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
             "OrderCreatedEvent consumed. OrderId={OrderId}, OrderNumber={OrderNumber}, MessageId={MessageId}",
             message.OrderId,
             message.OrderNumber,
-            context.MessageId);
+            messageId);
 
-        return Task.CompletedTask;
+        _dbContext.InboxMessages.Add(new InboxMessage
+        {
+            MessageId = messageId,
+            ConsumerName = ConsumerName,
+            MessageType = typeof(OrderCreatedEvent).FullName ?? nameof(OrderCreatedEvent),
+            ProcessedOnUtc = DateTime.UtcNow
+        });
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
+        {
+            _logger.LogInformation(
+                "OrderCreatedEvent duplicate detected during inbox save. OrderId={OrderId}, MessageId={MessageId}",
+                message.OrderId,
+                messageId);
+        }
+    }
+
+    private static bool IsDuplicateKeyException(DbUpdateException ex)
+    {
+        return ex.InnerException?.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase) == true;
     }
 }
