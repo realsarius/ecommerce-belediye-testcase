@@ -355,7 +355,8 @@ if (rateLimitingEnabled)
     });
 }
 
-if (!builder.Environment.IsEnvironment("Test"))
+var hangfireEnabled = builder.Configuration.GetValue("Hangfire:Enabled", !builder.Environment.IsEnvironment("Test"));
+if (hangfireEnabled)
 {
     builder.Services.AddHangfire(config => config
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -489,7 +490,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-if (!app.Environment.IsEnvironment("Test"))
+if (hangfireEnabled)
 {
     app.UseHangfireDashboard("/hangfire", new DashboardOptions
     {
@@ -497,7 +498,7 @@ if (!app.Environment.IsEnvironment("Test"))
     });
 }
 
-if (!app.Environment.IsEnvironment("Test"))
+if (hangfireEnabled)
 {
     using var jobScope = app.Services.CreateScope();
     var recurringJobManager = jobScope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
