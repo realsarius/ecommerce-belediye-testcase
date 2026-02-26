@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -112,12 +115,13 @@ public class SellerProductsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateProduct_AsSeller_Returns201OrBadRequest()
     {
         var sellerClient = _factory.CreateClient().AsSeller(userId: 1);
+        var categoryId = await GetExistingCategoryIdAsync();
         var createRequest = new CreateProductRequest
         {
             Name = $"Seller Product {Guid.NewGuid():N}",
             Description = "Created by seller test",
             Price = 149.99m,
-            CategoryId = 1,
+            CategoryId = categoryId,
             SKU = $"SELL-{Guid.NewGuid():N}"[..12]
         };
 
@@ -152,12 +156,13 @@ public class SellerProductsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdateProduct_AsSeller_OtherSellerProduct_ReturnsBadRequest()
     {
         var sellerClient = _factory.CreateClient().AsSeller(userId: 1);
+        var categoryId = await GetExistingCategoryIdAsync();
         var updateRequest = new UpdateProductRequest
         {
             Name = "Hacked Product Name",
             Description = "Should not work",
             Price = 1.00m,
-            CategoryId = 1,
+            CategoryId = categoryId,
             IsActive = true
         };
 
@@ -180,5 +185,15 @@ public class SellerProductsTests : IClassFixture<CustomWebApplicationFactory>
             HttpStatusCode.BadRequest,
             HttpStatusCode.OK
         );
+    }
+
+    private async Task<int> GetExistingCategoryIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var categoryId = await db.Categories.AsNoTracking().Select(c => c.Id).FirstOrDefaultAsync();
+        return categoryId != 0
+            ? categoryId
+            : throw new InvalidOperationException("No categories found for integration tests.");
     }
 }

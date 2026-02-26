@@ -26,7 +26,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d EcommerceDb_CI"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -37,6 +37,20 @@ jobs:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: ecommerce_rabbit
+          RABBITMQ_DEFAULT_PASS: rabbit_password
+          RABBITMQ_DEFAULT_VHOST: /ecommerce
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -116,6 +130,7 @@ jobs:
         HASH_PEPPER: "ci-test-pepper-value"
         Redis__ConnectionString: "localhost:6379"
         RateLimiting__Enabled: "false"
+        Hangfire__Enabled: "false"
       run: |
         dotnet run --project EcommerceAPI.API --no-build --configuration Release > /tmp/api.log 2>&1 &
         API_PID=$!
@@ -151,6 +166,7 @@ jobs:
         HASH_PEPPER: "ci-test-pepper-value"
         Redis__ConnectionString: "localhost:6379"
         RateLimiting__Enabled: "false"
+        Hangfire__Enabled: "false"
       run: |
         dotnet run --project EcommerceAPI.API --no-build --configuration Release > /tmp/api-perf.log 2>&1 &
         API_PID=$!

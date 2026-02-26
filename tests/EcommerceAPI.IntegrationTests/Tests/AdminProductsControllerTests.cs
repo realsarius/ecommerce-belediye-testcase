@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -21,12 +24,13 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     public async Task CreateProduct_WithoutAuth_Returns401()
     {
         var anonymousClient = _factory.CreateClient().AsAnonymous();
+        var categoryId = await GetExistingCategoryIdAsync();
         var createRequest = new CreateProductRequest
         {
             Name = "Test Product",
             Description = "Test Description",
             Price = 99.99m,
-            CategoryId = 1,
+            CategoryId = categoryId,
             SKU = "TEST-001"
         };
 
@@ -39,12 +43,13 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     public async Task CreateProduct_AsCustomer_Returns403()
     {
         var customerClient = _factory.CreateClient().AsCustomer(userId: 1);
+        var categoryId = await GetExistingCategoryIdAsync();
         var createRequest = new CreateProductRequest
         {
             Name = "Test Product",
             Description = "Test Description",
             Price = 99.99m,
-            CategoryId = 1,
+            CategoryId = categoryId,
             SKU = "TEST-002"
         };
 
@@ -57,12 +62,13 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     public async Task CreateProduct_AsAdmin_ReturnsCreatedOrError()
     {
         var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
+        var categoryId = await GetExistingCategoryIdAsync();
         var createRequest = new CreateProductRequest
         {
             Name = $"Admin Test Product {Guid.NewGuid():N}",
             Description = "Created by admin test",
             Price = 149.99m,
-            CategoryId = 1,
+            CategoryId = categoryId,
             SKU = $"ADM-{Guid.NewGuid():N}"[..12]
         };
 
@@ -79,6 +85,7 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     public async Task UpdateProduct_AsAdmin_ReturnsOkOrError()
     {
         var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
+        var categoryId = await GetExistingCategoryIdAsync();
         
         var productsResponse = await adminClient.GetAsync("/api/v1/products?page=1&pageSize=1");
         var productsApiResult = await productsResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
@@ -91,7 +98,7 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             Name = $"Updated Product {DateTime.UtcNow.Ticks}",
             Description = "Updated description",
             Price = 199.99m,
-            CategoryId = 1,
+            CategoryId = categoryId,
             IsActive = true
         };
 
@@ -155,5 +162,15 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         var response = await customerClient.PatchAsJsonAsync("/api/v1/admin/products/1/stock", stockRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    private async Task<int> GetExistingCategoryIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var categoryId = await db.Categories.AsNoTracking().Select(c => c.Id).FirstOrDefaultAsync();
+        return categoryId != 0
+            ? categoryId
+            : throw new InvalidOperationException("No categories found for integration tests.");
     }
 }
