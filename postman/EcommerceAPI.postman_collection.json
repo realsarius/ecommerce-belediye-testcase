@@ -30,6 +30,16 @@
       "key": "productId",
       "value": "103",
       "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "supportUserId",
+      "value": "4",
+      "type": "string"
     }
   ],
   "auth": {
@@ -79,8 +89,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
             },
             "description": "Yeni kullanıcı kaydı oluşturur."
           }
@@ -122,8 +137,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "description": "Kullanıcı girişi yapar ve JWT token döner. Token otomatik olarak collection variable'a kaydedilir."
           }
@@ -165,8 +185,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/refresh",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "refresh"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
             },
             "description": "Refresh token kullanarak yeni access token alır."
           }
@@ -190,8 +215,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/revoke",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "revoke"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "revoke"
+              ]
             },
             "description": "Refresh token'ı iptal eder (logout)."
           }
@@ -203,8 +233,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
             },
             "description": "Oturum açmış kullanıcının bilgilerini döner."
           }
@@ -225,15 +260,41 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/products?page=1&pageSize=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "pageSize", "value": "10" },
-                { "key": "categoryId", "value": "1", "disabled": true },
-                { "key": "searchTerm", "value": "telefon", "disabled": true },
-                { "key": "minPrice", "value": "100", "disabled": true },
-                { "key": "maxPrice", "value": "5000", "disabled": true }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "categoryId",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "telefon",
+                  "disabled": true
+                },
+                {
+                  "key": "minPrice",
+                  "value": "100",
+                  "disabled": true
+                },
+                {
+                  "key": "maxPrice",
+                  "value": "5000",
+                  "disabled": true
+                }
               ]
             },
             "description": "Sayfalanmış ürün listesi. Opsiyonel filtreler: categoryId, searchTerm, minPrice, maxPrice"
@@ -249,8 +310,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/products/{{productId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["products", "{{productId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}"
+              ]
             },
             "description": "Belirli bir ürünün detaylarını getirir."
           }
@@ -271,8 +337,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["categories"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
             },
             "description": "Tüm aktif kategorileri listeler."
           }
@@ -287,8 +357,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/categories/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["categories", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "1"
+              ]
             },
             "description": "Belirli bir kategorinin detaylarını getirir."
           }
@@ -306,8 +381,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/cart",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart"
+              ]
             },
             "description": "Kullanıcının sepetini getirir."
           }
@@ -328,8 +407,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/cart/items",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart", "items"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items"
+              ]
             },
             "description": "Sepete ürün ekler."
           }
@@ -350,8 +434,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/cart/items/{{productId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart", "items", "{{productId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items",
+                "{{productId}}"
+              ]
             },
             "description": "Sepetteki ürün miktarını günceller."
           }
@@ -363,8 +453,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/cart/items/{{productId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart", "items", "{{productId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items",
+                "{{productId}}"
+              ]
             },
             "description": "Sepetten ürün çıkarır."
           }
@@ -376,8 +472,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/cart",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart"
+              ]
             },
             "description": "Sepeti tamamen temizler."
           }
@@ -421,8 +521,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/orders",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
             },
             "description": "Sepetteki ürünlerle sipariş oluşturur. Order ID otomatik kaydedilir."
           }
@@ -434,8 +538,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/orders",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
             },
             "description": "Kullanıcının tüm siparişlerini listeler."
           }
@@ -447,8 +555,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/orders/{{orderId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders", "{{orderId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}"
+              ]
             },
             "description": "Belirli bir siparişin detaylarını getirir."
           }
@@ -469,8 +582,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/orders/{{orderId}}/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders", "{{orderId}}", "status"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
             },
             "description": "Siparişi iptal eder."
           }
@@ -491,8 +610,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/orders/{{orderId}}/items",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders", "{{orderId}}", "items"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "items"
+              ]
             },
             "description": "Sipariş kalemlerini günceller (sadece PendingPayment durumunda)."
           }
@@ -519,8 +644,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["payments"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments"
+              ]
             },
             "description": "Başarılı ödeme testi. Iyzico Sandbox başarılı kart: 5406670000000009"
           }
@@ -541,8 +670,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["payments"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments"
+              ]
             },
             "description": "Yetersiz bakiye hata testi. Kart: 4111111111111129"
           }
@@ -563,8 +696,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["payments"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments"
+              ]
             },
             "description": "Çalıntı kart hata testi. Kart: 4126111111111114"
           }
@@ -582,8 +719,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/shippingaddress",
-              "host": ["{{baseUrl}}"],
-              "path": ["shippingaddress"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shippingaddress"
+              ]
             },
             "description": "Kullanıcının kayıtlı adreslerini listeler."
           }
@@ -604,8 +745,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/shippingaddress",
-              "host": ["{{baseUrl}}"],
-              "path": ["shippingaddress"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shippingaddress"
+              ]
             },
             "description": "Yeni adres ekler."
           }
@@ -626,8 +771,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/shippingaddress/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["shippingaddress", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shippingaddress",
+                "1"
+              ]
             },
             "description": "Mevcut adresi günceller."
           }
@@ -639,8 +789,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/shippingaddress/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["shippingaddress", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shippingaddress",
+                "1"
+              ]
             },
             "description": "Adresi siler."
           }
@@ -658,8 +813,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/creditcards",
-              "host": ["{{baseUrl}}"],
-              "path": ["creditcards"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "creditcards"
+              ]
             },
             "description": "Kullanıcının kayıtlı kartlarını listeler."
           }
@@ -680,8 +839,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/creditcards",
-              "host": ["{{baseUrl}}"],
-              "path": ["creditcards"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "creditcards"
+              ]
             },
             "description": "Yeni kart ekler (şifrelenmiş saklanır)."
           }
@@ -702,8 +865,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/creditcards/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["creditcards", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "creditcards",
+                "1"
+              ]
             },
             "description": "Kartı varsayılan olarak ayarlar."
           }
@@ -715,8 +883,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/creditcards/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["creditcards", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "creditcards",
+                "1"
+              ]
             },
             "description": "Kartı siler."
           }
@@ -734,8 +907,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/coupons/active",
-              "host": ["{{baseUrl}}"],
-              "path": ["coupons", "active"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons",
+                "active"
+              ]
             },
             "description": "Aktif kuponları listeler (Auth gerekli)."
           }
@@ -756,8 +934,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/coupons/validate",
-              "host": ["{{baseUrl}}"],
-              "path": ["coupons", "validate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons",
+                "validate"
+              ]
             },
             "description": "Kupon kodunu doğrular ve indirim tutarını döner."
           }
@@ -769,8 +952,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/coupons",
-              "host": ["{{baseUrl}}"],
-              "path": ["coupons"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons"
+              ]
             },
             "description": "Tüm kuponları listeler (Admin rolü gerekli)."
           }
@@ -782,8 +969,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/coupons/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["coupons", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons",
+                "1"
+              ]
             },
             "description": "Belirli bir kuponun detaylarını getirir (Admin rolü gerekli)."
           }
@@ -804,8 +996,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/coupons",
-              "host": ["{{baseUrl}}"],
-              "path": ["coupons"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons"
+              ]
             },
             "description": "Yeni kupon oluşturur (Admin rolü gerekli)."
           }
@@ -823,8 +1019,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/seller/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["seller", "profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "profile"
+              ]
             },
             "description": "Satıcının kendi profilini getirir."
           }
@@ -845,8 +1046,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/seller/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["seller", "profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "profile"
+              ]
             },
             "description": "Satıcı profili oluşturur."
           }
@@ -867,8 +1073,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/seller/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["seller", "profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "profile"
+              ]
             },
             "description": "Satıcı profilini günceller."
           }
@@ -880,8 +1091,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/seller/profile/exists",
-              "host": ["{{baseUrl}}"],
-              "path": ["seller", "profile", "exists"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "profile",
+                "exists"
+              ]
             },
             "description": "Satıcı profilinin olup olmadığını kontrol eder."
           }
@@ -899,11 +1116,22 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/admin/products?page=1&pageSize=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "pageSize", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
               ]
             },
             "description": "Admin: Tüm ürünler, Seller: Kendi ürünleri."
@@ -925,8 +1153,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/products",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "products"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products"
+              ]
             },
             "description": "Yeni ürün oluşturur."
           }
@@ -947,8 +1180,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/products/{{productId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "products", "{{productId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "{{productId}}"
+              ]
             },
             "description": "Ürünü günceller."
           }
@@ -965,12 +1204,19 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"quantityChange\": 50,\n  \"reason\": \"Yeni stok girişi\"\n}"
+              "raw": "{\n  \"delta\": 10,\n  \"reason\": \"Yeni stok girisi\",\n  \"notes\": \"Postman test\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/admin/products/{{productId}}/stock",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "products", "{{productId}}", "stock"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "{{productId}}",
+                "stock"
+              ]
             },
             "description": "Stok miktarını artırır/azaltır. Negatif değer stok düşürür."
           }
@@ -982,8 +1228,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/admin/products/{{productId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "products", "{{productId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "{{productId}}"
+              ]
             },
             "description": "Ürünü siler (soft delete)."
           }
@@ -1001,8 +1253,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/admin/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "categories"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
             },
             "description": "Tüm kategorileri listeler (inaktifler dahil)."
           }
@@ -1023,8 +1280,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "categories"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
             },
             "description": "Yeni kategori oluşturur."
           }
@@ -1045,8 +1307,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/categories/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "categories", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "categories",
+                "1"
+              ]
             },
             "description": "Kategoriyi günceller."
           }
@@ -1058,8 +1326,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/admin/categories/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "categories", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "categories",
+                "1"
+              ]
             },
             "description": "Kategoriyi siler."
           }
@@ -1077,8 +1351,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/admin/orders",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "orders"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders"
+              ]
             },
             "description": "Admin: Tüm siparişler, Seller: Kendi ürünlerini içeren siparişler."
           }
@@ -1099,8 +1378,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/admin/orders/{{orderId}}/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "orders", "{{orderId}}", "status"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
             },
             "description": "Sipariş durumunu günceller. Geçerli durumlar: PendingPayment, Paid, Processing, Shipped, Delivered, Cancelled"
           }
@@ -1118,8 +1404,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/admin/sellers/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["admin", "sellers", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sellers",
+                "1"
+              ]
             },
             "description": "Belirli bir satıcının profil bilgilerini getirir (Admin rolü gerekli)."
           }
@@ -1161,8 +1453,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -1199,8 +1496,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -1214,11 +1516,21 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/products?page=1&pageSize=5",
-              "host": ["{{baseUrl}}"],
-              "path": ["products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "pageSize", "value": "5" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
               ]
             }
           }
@@ -1239,8 +1551,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/cart/items",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart", "items"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items"
+              ]
             }
           }
         },
@@ -1251,8 +1568,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/cart",
-              "host": ["{{baseUrl}}"],
-              "path": ["cart"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart"
+              ]
             }
           }
         },
@@ -1286,8 +1607,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/orders",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
             }
           }
         },
@@ -1307,8 +1632,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["payments"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments"
+              ]
             }
           }
         },
@@ -1319,9 +1648,257 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/orders/{{orderId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["orders", "{{orderId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}"
+              ]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "description": "Elasticsearch tabanli urun arama endpointleri",
+      "item": [
+        {
+          "name": "Search Products (Elasticsearch)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/products?q=adidas&page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "adidas"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Elasticsearch uzerinden urun arar. Fuzzy/prefix desteklenir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Support (Live Chat)",
+      "description": "Canli destek API endpointleri (HTTP fallback dahil)",
+      "item": [
+        {
+          "name": "Start Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.success && jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('conversationId', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Canli Destek\",\n  \"initialMessage\": \"Merhaba, yardima ihtiyacim var.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations"
+              ]
+            },
+            "description": "Customer rolunde gorusme olusturur veya acik gorusmeyi dondurur."
+          }
+        },
+        {
+          "name": "Get My Conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations/my",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations",
+                "my"
+              ]
+            },
+            "description": "Kullanicinin rolune gore kendi canli destek konusmalarini getirir."
+          }
+        },
+        {
+          "name": "Get Queue (Support/Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations/queue?page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations",
+                "queue"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Support/Admin icin acik destek kuyrugunu getirir."
+          }
+        },
+        {
+          "name": "Get Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations/{{conversationId}}/messages?page=1&pageSize=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Konusma mesajlarini sayfali olarak getirir."
+          }
+        },
+        {
+          "name": "Send Message (HTTP Fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Merhaba, nasil yardimci olabilirim?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations/{{conversationId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ]
+            },
+            "description": "SignalR disinda HTTP fallback ile mesaj gonderir."
+          }
+        },
+        {
+          "name": "Assign Conversation (Support/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supportUserId\": {{supportUserId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations/{{conversationId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations",
+                "{{conversationId}}",
+                "assign"
+              ]
+            },
+            "description": "Konusmayi support kullanicisina atar."
+          }
+        },
+        {
+          "name": "Close Conversation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/support/conversations/{{conversationId}}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "support",
+                "conversations",
+                "{{conversationId}}",
+                "close"
+              ]
+            },
+            "description": "Konusmayi kapatir."
           }
         }
       ]
