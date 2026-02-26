@@ -31,6 +31,9 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
 using EcommerceAPI.API.Services;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,6 +118,11 @@ var rabbitMqPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD")
                        ?? builder.Configuration["RabbitMQ:Password"]
                        ?? "guest";
 var rabbitMqPort = builder.Configuration.GetValue("RabbitMQ:Port", 5672);
+var openTelemetryEnabled = builder.Configuration.GetValue("OpenTelemetry:Enabled", !builder.Environment.IsEnvironment("Test"));
+var openTelemetryServiceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "EcommerceAPI.API";
+var openTelemetryOtlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"]
+                                ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+var openTelemetryServiceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0";
 
 var rabbitMqPrefetchCount = builder.Configuration.GetValue("RabbitMQ:PrefetchCount", 32);
 var rabbitMqPrefetchCountFromEnv = Environment.GetEnvironmentVariable("RABBITMQ_PREFETCH_COUNT");
@@ -132,6 +140,60 @@ if (int.TryParse(rabbitMqPortFromEnv, out var parsedRabbitMqPort))
 
 builder.Services.AddBusinessServices(connectionString!);
 builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment.EnvironmentName);
+
+if (openTelemetryEnabled)
+{
+    var openTelemetryBuilder = builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource =>
+        {
+            resource.AddService(
+                serviceName: openTelemetryServiceName,
+                serviceVersion: openTelemetryServiceVersion);
+            resource.AddAttributes(new[]
+            {
+                new KeyValuePair<string, object>("deployment.environment", builder.Environment.EnvironmentName)
+            });
+        });
+
+    openTelemetryBuilder.WithTracing(tracing =>
+    {
+        tracing
+            .SetSampler(new AlwaysOnSampler())
+            .AddAspNetCoreInstrumentation(options =>
+            {
+                options.RecordException = true;
+            })
+            .AddHttpClientInstrumentation(options =>
+            {
+                options.RecordException = true;
+            })
+            .AddSource("MassTransit");
+
+        if (!string.IsNullOrWhiteSpace(openTelemetryOtlpEndpoint))
+        {
+            tracing.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(openTelemetryOtlpEndpoint);
+            });
+        }
+    });
+
+    openTelemetryBuilder.WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation();
+
+        if (!string.IsNullOrWhiteSpace(openTelemetryOtlpEndpoint))
+        {
+            metrics.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(openTelemetryOtlpEndpoint);
+            });
+        }
+    });
+}
 
 builder.Services.AddMassTransit(configurator =>
 {

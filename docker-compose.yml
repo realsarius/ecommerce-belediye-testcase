@@ -189,6 +189,9 @@ services:
       RabbitMQ__PrefetchCount: ${RABBITMQ_PREFETCH_COUNT:-32}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
       DataProtection__KeysPath: /var/app/dataprotection-keys
+      OpenTelemetry__Enabled: ${OTEL_ENABLED:-true}
+      OpenTelemetry__ServiceName: ${OTEL_SERVICE_NAME:-EcommerceAPI.API}
+      OpenTelemetry__OtlpEndpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
       - "5000:80"
     volumes:
@@ -261,6 +264,9 @@ services:
       RabbitMQ__PrefetchCount: ${RABBITMQ_PREFETCH_COUNT:-32}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
       DataProtection__KeysPath: /var/app/dataprotection-keys
+      OpenTelemetry__Enabled: ${OTEL_ENABLED:-true}
+      OpenTelemetry__ServiceName: ${OTEL_SERVICE_NAME:-EcommerceAPI.API}
+      OpenTelemetry__OtlpEndpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
       - "5001:80"
     volumes:
@@ -383,6 +389,70 @@ services:
     labels:
       - "com.ecommerce.service=logging-ui"
 
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.107.0
+    container_name: ecommerce-otel-collector
+    profiles:
+      - logging
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "9464:9464"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=observability-collector"
+
+  # Prometheus - Metrics scraping and query
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: ecommerce-prometheus
+    profiles:
+      - logging
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ecommerce-network
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=observability-metrics"
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: ecommerce-grafana
+    profiles:
+      - logging
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - ecommerce-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.service=observability-dashboard"
+
 volumes:
   elasticsearch_data:
     driver: local
@@ -410,6 +480,10 @@ volumes:
     driver: local
     labels:
       - "com.ecommerce.service=message-broker"
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
   nuget_cache:
     driver: local
   api_api_obj:
