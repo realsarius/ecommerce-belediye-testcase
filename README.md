@@ -11,6 +11,7 @@
 - [6. Test Stratejisi](#6-test-stratejisi-testing)
 - [7. Kurulum ve Çalıştırma](#7-kurulum-ve-çalıştırma)
 - [8. Frontend](#8-frontend)
+- [9. Production Notes](#9-production-notes)
 
 ## 0. Hızlı kurulum
 
@@ -43,7 +44,7 @@ docker compose down
 
 ## 1. Proje Kapsamı
 
-**Kimlik Doğrulama ve Yetkilendirme**: JWT ve Refresh Token tabanlı kimlik doğrulama uyguladım. Access Token'lar kısa ömürlü; Refresh Token'lar veritabanında hash'lenmiş olarak saklanıyor. Rol bazlı yetkilendirme (RBAC) ile Customer, Seller ve Admin yetkilerini endpoint seviyesinde ayrıştırdım.
+**Kimlik Doğrulama ve Yetkilendirme**: JWT ve Refresh Token tabanlı kimlik doğrulama uyguladım. Access Token'lar kısa ömürlü; Refresh Token'lar veritabanında hash'lenmiş olarak saklanıyor. Rol bazlı yetkilendirme (RBAC) ile Customer, Seller, Support ve Admin yetkilerini endpoint seviyesinde ayrıştırdım.
 
 **Ürün Kataloğu**: Listeleme, filtreleme ve sayfalama mevcut. Sık erişilen veriler için Redis Cache kullanılıyor; ürün ekleme/güncelleme işlemlerinde ilgili cache invalidate ediliyor.
 
@@ -67,6 +68,9 @@ docker compose down
 | **Dependency Injection & AOP** | Autofac | Gelişmiş DI, Interception, Aspect-Oriented Programming (Log, Cache, Validation, Transaction) |
 | **Validation** | FluentValidation | Nesne doğrulama ve iş kuralları (AOP entegreli) |
 | **Caching & Performance** | Redis 7, Distributed Cache | Önbellekleme, sepet yönetimi ve distributed lock |
+| **Search & Indexing** | Elasticsearch 8 | Ürün arama, typo tolerance, index senkronu |
+| **Realtime Communication** | SignalR | Canlı destek mesajlaşması (customer/support/admin) |
+| **Messaging & Event Bus** | RabbitMQ, MassTransit | Asenkron event akışı, retry ve dead-letter yönetimi |
 | **Logging & Monitoring** | Serilog, Elasticsearch, Kibana | Yapılandırılmış loglama, merkezi log yönetimi |
 | **Auth** | JWT, BCrypt | Token tabanlı kimlik doğrulama ve parola hash'leme |
 | **DevOps** | Docker, Docker Compose | Konteynerizasyon ve çoklu servis orkestrasyonu |
@@ -82,7 +86,7 @@ Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 ### 3.1 Entity Listesi
 
 1. **Users**: Sistem kullanıcıları.
-2. **Roles**: Yetkilendirme rolleri (Customer, Seller, Admin).
+2. **Roles**: Yetkilendirme rolleri (Customer, Seller, Support, Admin).
 3. **SellerProfiles**: Satıcı profil bilgileri.
 4. **Products**: Ürünler.
 5. **Categories**: Ürün kategorileri.
@@ -97,6 +101,8 @@ Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 14. **Coupons**: İndirim kodları.
 15. **CreditCards**: Şifrelenmiş kart bilgileri.
 16. **RefreshTokens**: Oturum yenileme anahtarları.
+17. **SupportConversations**: Canlı destek konuşma başlıkları.
+18. **SupportMessages**: Canlı destek mesaj kayıtları.
 
 ### 3.2 Migration ve Şema Yönetimi
 
@@ -304,8 +310,11 @@ docker compose --profile dev --profile test --profile logging down
 | pgAdmin | 5050 | <http://localhost:5050> |
 | PostgreSQL | 5432 | - |
 | Redis | 6379 | - |
+| RabbitMQ AMQP | 5672 | - |
+| RabbitMQ Management | 15672 | <http://localhost:15672> |
 | Kibana (logging profili) | 5601 | <http://localhost:5601> |
 | Elasticsearch (logging profili) | 9200 | <http://localhost:9200> |
+| Hangfire Dashboard | 5000 | <http://localhost:5000/hangfire> |
 
 ### 7.4 Manuel Kurulum
 
@@ -334,7 +343,7 @@ Uygulama **Development** modunda başlatıldığında, `EcommerceAPI.Seeder` kat
 
 JSON dosyaları: 10 kategori, 100+ ürün, stok kayıtları ([seed-data/](seed-data))
 
-Kod ile oluşturulan: 3 rol, 3 test kullanıcısı ([SeedRunner](EcommerceAPI.Seeder/SeedRunner.cs))
+Kod ile oluşturulan: 4 rol, 4 test kullanıcısı ([SeedRunner](EcommerceAPI.Seeder/SeedRunner.cs))
 
 **Kullanıcı Şifreleri**
 
@@ -343,6 +352,7 @@ Kod ile oluşturulan: 3 rol, 3 test kullanıcısı ([SeedRunner](EcommerceAPI.Se
 | `testadmin@test.com` | `Test123!` |
 | `testseller@test.com` | `Test123!` |
 | `customer@test.com` | `Test123!` |
+| `support@test.com` | `Test123!` |
 
 ### 7.6 Ödeme Sağlayıcısı (Iyzico Sandbox)
 
@@ -401,24 +411,29 @@ API dokümantasyonu: `http://localhost:5000/swagger`
 
 ### 7.9 Postman Collection
 
-Postman collection dosyası: `EcommerceAPI.postman_collection.json`
+Postman collection dosyası: `postman/EcommerceAPI.postman_collection.json`
 
 **Collection İçeriği:**
 
 | Klasör | Endpoint Sayısı | Açıklama |
 |--------|-----------------|----------|
 | Auth | 5 | Register, Login, Refresh, Revoke, Me |
-| Products | 2 | Ürün listeleme ve detay |
-| Categories | 2 | Kategori listeleme |
+| Products (Public) | 2 | Ürün listeleme ve detay |
+| Categories (Public) | 2 | Kategori listeleme |
 | Cart | 5 | Sepet işlemleri |
 | Orders | 5 | Sipariş işlemleri |
 | Payments | 3 | Ödeme (farklı test kartları) |
-| Shipping | 4 | Adres yönetimi |
+| Shipping Addresses | 4 | Adres yönetimi |
 | Credit Cards | 4 | Kayıtlı kart işlemleri |
-| Coupons | 4 | Kupon işlemleri |
+| Coupons | 5 | Kupon işlemleri |
 | Seller Profile | 4 | Satıcı profil yönetimi |
-| Admin | 11 | Admin panel işlemleri |
-| Full Flow | 8 | Uçtan uca test senaryosu |
+| Admin - Products | 5 | Admin/Seller ürün yönetimi |
+| Admin - Categories | 4 | Admin kategori yönetimi |
+| Admin - Orders | 2 | Admin sipariş yönetimi |
+| Admin - Sellers | 1 | Admin satıcı görüntüleme |
+| Search | 1 | Elasticsearch ürün arama |
+| Support (Live Chat) | 7 | Canlı destek konuşma/mesaj endpointleri |
+| Full E-Commerce Flow | 8 | Uçtan uca test senaryosu |
 
 ## 8. Frontend
 
@@ -438,3 +453,43 @@ frontend/src/
 **Admin Panel:** Ürün/Kategori/Sipariş yönetimi
 
 **Seller Panel:** Ürün ekleme/düzenleme, stok güncelleme
+
+## 9. Production Notes
+
+### 9.1 RabbitMQ + Elasticsearch Senkron Akışı
+
+- Ürün `create/update/delete/stock` işlemlerinde arama index senkronu doğrudan çağrı yerine event publish ile çalışır.
+- API, `product-index-sync` kuyruğuna event bırakır; consumer Elasticsearch tarafında `Upsert/Delete` uygular.
+- Retry (3 deneme, 2 saniye aralık) sonrası başarısız mesajlar `_error` kuyruğuna düşer.
+
+### 9.2 Operasyonel Kontroller
+
+Temel sağlık kontrolleri:
+
+```bash
+curl -fsS http://localhost:5000/swagger/index.html >/dev/null
+curl -fsS "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5" >/dev/null
+docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messages consumers
+```
+
+Beklenen:
+
+- `product-index-sync` kuyruğunda `consumers > 0`
+- `_error` kuyruklarında sürekli artış olmaması
+
+### 9.3 Kritik Ortam Değişkenleri
+
+- `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_VHOST`
+- `RABBITMQ_USER`, `RABBITMQ_PASSWORD`
+- `ELASTICSEARCH_URL`
+- `JWT_SECRET_KEY`
+
+Test amaçlı kontrollü hata üretimi için:
+
+- `PRODUCT_INDEX_SYNC_FORCE_FAIL` (Production'da `false` kalmalı)
+
+### 9.4 Rollback Runbook
+
+Detaylı rollback adımları için:
+
+- [`docs/rollback-runbook.md`](docs/rollback-runbook.md)

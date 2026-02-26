@@ -15,6 +15,8 @@ using EcommerceAPI.Core.Aspects.Autofac.Transaction;
 using EcommerceAPI.Core.Aspects.Autofac.Validation;
 using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -25,7 +27,7 @@ public class ProductManager : IProductService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditService _auditService;
     private readonly int _productListCacheTTL;
-    private readonly IProductSearchIndexService _productSearchIndexService;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ProductManager> _logger;
 
 
@@ -35,16 +37,16 @@ public class ProductManager : IProductService
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
         IAuditService auditService,
-        IProductSearchIndexService productSearchIndexService,
-        ILogger<ProductManager> logger)
+        ILogger<ProductManager> logger,
+        IPublishEndpoint publishEndpoint)
     {
         _productDal = productDal;
         _inventoryDal = inventoryDal;
         _unitOfWork = unitOfWork;
         _auditService = auditService;
         _productListCacheTTL = configuration.GetValue<int>("Cache:ProductListTTLMinutes", 5);
-        _productSearchIndexService = productSearchIndexService;
         _logger = logger;
+        _publishEndpoint = publishEndpoint;
     }
 
     [LogAspect]
@@ -153,14 +155,7 @@ public class ProductManager : IProductService
 
         product.Inventory = inventory;
 
-        try
-        {
-            await _productSearchIndexService.IndexProductAsync(product.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Product search index update failed on create for ProductId={ProductId}", product.Id);
-        }
+        await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
 
 
         return new SuccessDataResult<ProductDto>(product.ToDto(), Messages.ProductAdded);
@@ -214,17 +209,10 @@ public class ProductManager : IProductService
 
         var updatedProduct = await _productDal.GetByIdWithDetailsAsync(id);
 
-        try
-        {
-            if (!product.IsActive)
-                await _productSearchIndexService.DeleteProductAsync(product.Id);
-            else
-                await _productSearchIndexService.IndexProductAsync(product.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Product search index update failed on update for ProductId={ProductId}", product.Id);
-        }
+        await PublishProductIndexSyncEventAsync(
+            product.Id,
+            product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
+            "UpdateProduct");
 
         return new SuccessDataResult<ProductDto>(updatedProduct!.ToDto(), Messages.ProductUpdated);
     }
@@ -258,14 +246,7 @@ public class ProductManager : IProductService
             "Product",
             new { ProductId = product.Id, ProductName = product.Name });
 
-        try
-        {
-            await _productSearchIndexService.DeleteProductAsync(product.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Product search index delete failed for ProductId={ProductId}", product.Id);
-        }
+        await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
 
         return new SuccessResult(Messages.ProductDeleted);
     }
@@ -302,14 +283,7 @@ public class ProductManager : IProductService
             "Inventory",
             new { ProductId = productId, Delta = request.Delta, NewQuantity = newQuantity, Reason = request.Reason });
 
-        try
-        {
-            await _productSearchIndexService.IndexProductAsync(productId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Product search index update failed on stock update for ProductId={ProductId}", productId);
-        }
+        await PublishProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
 
         return new SuccessResult(Messages.StockUpdated);
     }
@@ -318,6 +292,34 @@ public class ProductManager : IProductService
     {
         var product = await _productDal.GetAsync(p => p.Id == productId);
         return product?.SellerId == sellerId;
+    }
+
+    private async Task PublishProductIndexSyncEventAsync(int productId, string operation, string reason)
+    {
+        try
+        {
+            await _publishEndpoint.Publish(new ProductIndexSyncEvent
+            {
+                ProductId = productId,
+                Operation = operation,
+                Reason = reason
+            });
+
+            _logger.LogInformation(
+                "ProductIndexSyncEvent published. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
+                productId,
+                operation,
+                reason);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "ProductIndexSyncEvent publish failed. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
+                productId,
+                operation,
+                reason);
+        }
     }
 
     private static string BuildProductListCacheKey(ProductListRequest request)

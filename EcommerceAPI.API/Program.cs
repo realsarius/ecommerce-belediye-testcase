@@ -24,6 +24,8 @@ using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using EcommerceAPI.Business.DependencyResolvers.Autofac;
 using EcommerceAPI.Core.Utilities.IoC;
+using MassTransit;
+using EcommerceAPI.API.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,9 +83,60 @@ builder.Services.AddCors(options =>
 });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var rabbitMqHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
+                   ?? builder.Configuration["RabbitMQ:Host"]
+                   ?? "localhost";
+var rabbitMqVirtualHost = Environment.GetEnvironmentVariable("RABBITMQ_VHOST")
+                          ?? builder.Configuration["RabbitMQ:VirtualHost"]
+                          ?? "/";
+var rabbitMqUsername = Environment.GetEnvironmentVariable("RABBITMQ_USER")
+                       ?? builder.Configuration["RabbitMQ:Username"]
+                       ?? "guest";
+var rabbitMqPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD")
+                       ?? builder.Configuration["RabbitMQ:Password"]
+                       ?? "guest";
+var rabbitMqPort = builder.Configuration.GetValue("RabbitMQ:Port", 5672);
+var rabbitMqPortFromEnv = Environment.GetEnvironmentVariable("RABBITMQ_PORT");
+if (int.TryParse(rabbitMqPortFromEnv, out var parsedRabbitMqPort))
+{
+    rabbitMqPort = parsedRabbitMqPort;
+}
 
 builder.Services.AddBusinessServices(connectionString!);
 builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment.EnvironmentName);
+
+builder.Services.AddMassTransit(configurator =>
+{
+    configurator.SetKebabCaseEndpointNameFormatter();
+    configurator.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+    configurator.AddConsumer<ProductIndexSyncConsumer, ProductIndexSyncConsumerDefinition>();
+
+    if (builder.Environment.IsEnvironment("Test"))
+    {
+        configurator.UsingInMemory((context, cfg) =>
+        {
+            cfg.ConfigureEndpoints(context);
+        });
+        return;
+    }
+
+    configurator.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(
+            rabbitMqHost,
+            (ushort)Math.Clamp(rabbitMqPort, 1, 65535),
+            rabbitMqVirtualHost,
+            host =>
+            {
+                host.Username(rabbitMqUsername);
+                host.Password(rabbitMqPassword);
+            });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
+builder.Services.AddHealthChecks();
 
 var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", true);
 if (rateLimitingEnabled)
@@ -253,6 +306,16 @@ var app = builder.Build();
 
 ServiceTool.SetProvider(app.Services);
 
+if (!app.Environment.IsEnvironment("Test"))
+{
+    var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+    startupLogger.LogInformation(
+        "RabbitMQ bus configured for host {Host}:{Port} (vhost: {VirtualHost})",
+        rabbitMqHost,
+        rabbitMqPort,
+        rabbitMqVirtualHost);
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -336,6 +399,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 app.MapHub<LiveSupportHub>("/hubs/live-support")
     .RequireRateLimiting("support-hub-connect");
 
