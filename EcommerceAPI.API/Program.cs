@@ -167,6 +167,34 @@ if (openTelemetryEnabled)
             .AddHttpClientInstrumentation(options =>
             {
                 options.RecordException = true;
+                options.EnrichWithHttpRequestMessage = (activity, request) =>
+                {
+                    if (!IsElasticsearchRequest(request.RequestUri))
+                    {
+                        return;
+                    }
+
+                    activity.SetTag("peer.service", "elasticsearch");
+                    activity.SetTag("ecommerce.external.system", "elasticsearch");
+                };
+                options.EnrichWithHttpResponseMessage = (activity, response) =>
+                {
+                    if (!IsElasticsearchRequest(response.RequestMessage?.RequestUri))
+                    {
+                        return;
+                    }
+
+                    activity.SetTag("ecommerce.elasticsearch.status_code", (int)response.StatusCode);
+                };
+            })
+            .AddEntityFrameworkCoreInstrumentation(options =>
+            {
+                options.SetDbStatementForStoredProcedure = true;
+                options.SetDbStatementForText = builder.Environment.IsDevelopment();
+            })
+            .AddRedisInstrumentation(options =>
+            {
+                options.SetVerboseDatabaseStatements = builder.Environment.IsDevelopment();
             })
             .AddSource("MassTransit");
 
@@ -539,6 +567,21 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 app.MapHub<LiveSupportHub>("/hubs/live-support")
     .RequireRateLimiting("support-hub-connect");
+
+static bool IsElasticsearchRequest(Uri? uri)
+{
+    if (uri is null)
+    {
+        return false;
+    }
+
+    if (uri.Host.Equals("elasticsearch", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return uri.Port == 9200;
+}
 
 app.Run();
 

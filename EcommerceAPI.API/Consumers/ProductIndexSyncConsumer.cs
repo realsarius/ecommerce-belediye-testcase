@@ -4,6 +4,7 @@ using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 
 namespace EcommerceAPI.API.Consumers;
 
@@ -28,6 +29,16 @@ public sealed class ProductIndexSyncConsumer : IConsumer<ProductIndexSyncEvent>
     {
         var message = context.Message;
         var messageId = context.MessageId ?? message.EventId;
+        var activity = Activity.Current;
+
+        if (activity is not null)
+        {
+            activity.SetTag("ecommerce.messaging.consumer", ConsumerName);
+            activity.SetTag("ecommerce.message.type", nameof(ProductIndexSyncEvent));
+            activity.SetTag("ecommerce.product.id", message.ProductId);
+            activity.SetTag("ecommerce.product.index.operation", message.Operation);
+        }
+
         var forceFailByEnv = string.Equals(
             Environment.GetEnvironmentVariable("PRODUCT_INDEX_SYNC_FORCE_FAIL"),
             "true",

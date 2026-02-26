@@ -3,6 +3,7 @@ using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 
 namespace EcommerceAPI.API.Consumers;
 
@@ -24,6 +25,15 @@ public sealed class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
     {
         var message = context.Message;
         var messageId = context.MessageId ?? message.EventId;
+        var activity = Activity.Current;
+
+        if (activity is not null)
+        {
+            activity.SetTag("ecommerce.messaging.consumer", ConsumerName);
+            activity.SetTag("ecommerce.message.type", nameof(OrderCreatedEvent));
+            activity.SetTag("ecommerce.order.id", message.OrderId);
+            activity.SetTag("ecommerce.order.number", message.OrderNumber);
+        }
 
         var alreadyProcessed = await _dbContext.InboxMessages
             .AnyAsync(
