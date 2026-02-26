@@ -1,5 +1,6 @@
 using Serilog.Context;
 using EcommerceAPI.Core.CrossCuttingConcerns;
+using System.Diagnostics;
 
 namespace EcommerceAPI.API.Middleware;
 
@@ -34,7 +35,13 @@ public class CorrelationIdMiddleware
             return Task.CompletedTask;
         });
 
+        var currentActivity = Activity.Current;
+        var traceId = currentActivity?.TraceId.ToString();
+        var spanId = currentActivity?.SpanId.ToString();
+
         using (LogContext.PushProperty("CorrelationId", correlationId.ToString()))
+        using (LogContext.PushProperty("TraceId", traceId ?? string.Empty))
+        using (LogContext.PushProperty("SpanId", spanId ?? string.Empty))
         {
             await _next(context);
         }

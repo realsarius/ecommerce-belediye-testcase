@@ -34,6 +34,7 @@ using EcommerceAPI.API.Services;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -484,7 +485,25 @@ if (!app.Environment.IsEnvironment("Test"))
 }
 
 app.UseCorrelationId();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate =
+        "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms [TraceId: {TraceId}, SpanId: {SpanId}, CorrelationId: {CorrelationId}]";
+
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        var currentActivity = Activity.Current;
+        if (currentActivity is not null)
+        {
+            diagnosticContext.Set("TraceId", currentActivity.TraceId.ToString());
+            diagnosticContext.Set("SpanId", currentActivity.SpanId.ToString());
+        }
+
+        diagnosticContext.Set(
+            "CorrelationId",
+            httpContext.Items["CorrelationId"]?.ToString() ?? httpContext.TraceIdentifier);
+    };
+});
 app.UseExceptionHandling();
 
 app.UseCors("AllowFrontend");
