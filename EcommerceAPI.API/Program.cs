@@ -26,6 +26,10 @@ using EcommerceAPI.Business.DependencyResolvers.Autofac;
 using EcommerceAPI.Core.Utilities.IoC;
 using MassTransit;
 using EcommerceAPI.API.Consumers;
+using EcommerceAPI.API.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,6 +65,20 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
+
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+
+if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "data-protection-keys");
+}
+
+Directory.CreateDirectory(dataProtectionKeysPath);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+    .SetApplicationName("EcommerceAPI");
+
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379"));
@@ -136,7 +154,10 @@ builder.Services.AddMassTransit(configurator =>
     });
 });
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddCheck<DatabaseHealthCheck>("postgresql", tags: new[] { "ready" })
+    .AddCheck<RedisHealthCheck>("redis", tags: new[] { "ready" });
 
 var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", true);
 if (rateLimitingEnabled)
@@ -399,7 +420,24 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = _ => true
+});
+
+
 app.MapHub<LiveSupportHub>("/hubs/live-support")
     .RequireRateLimiting("support-hub-connect");
 

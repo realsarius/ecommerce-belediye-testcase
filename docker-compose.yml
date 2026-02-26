@@ -187,6 +187,7 @@ services:
       RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
+      DataProtection__KeysPath: /var/app/dataprotection-keys
     ports:
       - "5000:80"
     volumes:
@@ -206,6 +207,7 @@ services:
       - api_infrastructure_bin:/app/EcommerceAPI.Infrastructure/bin
       - api_seeder_obj:/app/EcommerceAPI.Seeder/obj
       - api_seeder_bin:/app/EcommerceAPI.Seeder/bin
+      - api_dataprotection_keys:/var/app/dataprotection-keys
     networks:
       - ecommerce-network
     depends_on:
@@ -217,6 +219,12 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost/health/ready || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
     restart: unless-stopped
     labels:
       - "com.ecommerce.environment=development"
@@ -250,8 +258,11 @@ services:
       RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
+      DataProtection__KeysPath: /var/app/dataprotection-keys
     ports:
       - "5001:80"
+    volumes:
+      - api_dataprotection_keys:/var/app/dataprotection-keys
     networks:
       - ecommerce-network
     depends_on:
@@ -263,6 +274,12 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost/health/ready || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
     restart: unless-stopped
     labels:
       - "com.ecommerce.environment=production"
@@ -420,6 +437,9 @@ volumes:
   api_seeder_obj:
     driver: local
   api_seeder_bin:
+    driver: local
+
+  api_dataprotection_keys:
     driver: local
 
 networks:
