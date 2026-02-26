@@ -31,6 +31,10 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
 using EcommerceAPI.API.Services;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,6 +119,11 @@ var rabbitMqPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD")
                        ?? builder.Configuration["RabbitMQ:Password"]
                        ?? "guest";
 var rabbitMqPort = builder.Configuration.GetValue("RabbitMQ:Port", 5672);
+var openTelemetryEnabled = builder.Configuration.GetValue("OpenTelemetry:Enabled", !builder.Environment.IsEnvironment("Test"));
+var openTelemetryServiceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "EcommerceAPI.API";
+var openTelemetryOtlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"]
+                                ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+var openTelemetryServiceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0";
 
 var rabbitMqPrefetchCount = builder.Configuration.GetValue("RabbitMQ:PrefetchCount", 32);
 var rabbitMqPrefetchCountFromEnv = Environment.GetEnvironmentVariable("RABBITMQ_PREFETCH_COUNT");
@@ -132,6 +141,88 @@ if (int.TryParse(rabbitMqPortFromEnv, out var parsedRabbitMqPort))
 
 builder.Services.AddBusinessServices(connectionString!);
 builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment.EnvironmentName);
+
+if (openTelemetryEnabled)
+{
+    var openTelemetryBuilder = builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource =>
+        {
+            resource.AddService(
+                serviceName: openTelemetryServiceName,
+                serviceVersion: openTelemetryServiceVersion);
+            resource.AddAttributes(new[]
+            {
+                new KeyValuePair<string, object>("deployment.environment", builder.Environment.EnvironmentName)
+            });
+        });
+
+    openTelemetryBuilder.WithTracing(tracing =>
+    {
+        tracing
+            .SetSampler(new AlwaysOnSampler())
+            .AddAspNetCoreInstrumentation(options =>
+            {
+                options.RecordException = true;
+            })
+            .AddHttpClientInstrumentation(options =>
+            {
+                options.RecordException = true;
+                options.EnrichWithHttpRequestMessage = (activity, request) =>
+                {
+                    if (!IsElasticsearchRequest(request.RequestUri))
+                    {
+                        return;
+                    }
+
+                    activity.SetTag("peer.service", "elasticsearch");
+                    activity.SetTag("ecommerce.external.system", "elasticsearch");
+                };
+                options.EnrichWithHttpResponseMessage = (activity, response) =>
+                {
+                    if (!IsElasticsearchRequest(response.RequestMessage?.RequestUri))
+                    {
+                        return;
+                    }
+
+                    activity.SetTag("ecommerce.elasticsearch.status_code", (int)response.StatusCode);
+                };
+            })
+            .AddEntityFrameworkCoreInstrumentation(options =>
+            {
+                options.SetDbStatementForStoredProcedure = true;
+                options.SetDbStatementForText = builder.Environment.IsDevelopment();
+            })
+            .AddRedisInstrumentation(options =>
+            {
+                options.SetVerboseDatabaseStatements = builder.Environment.IsDevelopment();
+            })
+            .AddSource("MassTransit");
+
+        if (!string.IsNullOrWhiteSpace(openTelemetryOtlpEndpoint))
+        {
+            tracing.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(openTelemetryOtlpEndpoint);
+            });
+        }
+    });
+
+    openTelemetryBuilder.WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation();
+
+        if (!string.IsNullOrWhiteSpace(openTelemetryOtlpEndpoint))
+        {
+            metrics.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(openTelemetryOtlpEndpoint);
+            });
+        }
+    });
+}
 
 builder.Services.AddMassTransit(configurator =>
 {
@@ -422,7 +513,25 @@ if (!app.Environment.IsEnvironment("Test"))
 }
 
 app.UseCorrelationId();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate =
+        "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms [TraceId: {TraceId}, SpanId: {SpanId}, CorrelationId: {CorrelationId}]";
+
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        var currentActivity = Activity.Current;
+        if (currentActivity is not null)
+        {
+            diagnosticContext.Set("TraceId", currentActivity.TraceId.ToString());
+            diagnosticContext.Set("SpanId", currentActivity.SpanId.ToString());
+        }
+
+        diagnosticContext.Set(
+            "CorrelationId",
+            httpContext.Items["CorrelationId"]?.ToString() ?? httpContext.TraceIdentifier);
+    };
+});
 app.UseExceptionHandling();
 
 app.UseCors("AllowFrontend");
@@ -458,6 +567,21 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 app.MapHub<LiveSupportHub>("/hubs/live-support")
     .RequireRateLimiting("support-hub-connect");
+
+static bool IsElasticsearchRequest(Uri? uri)
+{
+    if (uri is null)
+    {
+        return false;
+    }
+
+    if (uri.Host.Equals("elasticsearch", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return uri.Port == 9200;
+}
 
 app.Run();
 

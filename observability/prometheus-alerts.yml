@@ -1,0 +1,65 @@
+groups:
+  - name: ecommerce-api-alerts
+    rules:
+      - alert: EcommerceApiHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_server_request_duration_seconds_count{job="EcommerceAPI.API", http_response_status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_server_request_duration_seconds_count{job="EcommerceAPI.API"}[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: ecommerce-api
+        annotations:
+          summary: "API 5xx error rate is above 5%"
+          description: "Last 5 minutes error rate exceeded threshold."
+
+      - alert: EcommerceApiHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(http_server_request_duration_seconds_bucket{job="EcommerceAPI.API", http_route!="/health/live", http_route!="/health/ready", http_route!="/health"}[5m])
+            )
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: ecommerce-api
+        annotations:
+          summary: "API p95 latency is above 800ms"
+          description: "p95 request latency has been above 0.8 seconds for 5 minutes."
+
+  - name: ecommerce-rabbitmq-alerts
+    rules:
+      - alert: RabbitMqQueueBacklogHigh
+        expr: sum(rabbitmq_queue_messages{vhost="/ecommerce", queue!~".*_error"}) > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: rabbitmq
+        annotations:
+          summary: "RabbitMQ queue backlog is high"
+          description: "Total non-error queue depth exceeded 100 messages for 10 minutes."
+
+      - alert: RabbitMqErrorQueueHasMessages
+        expr: sum(rabbitmq_queue_messages{vhost="/ecommerce", queue=~".*_error"}) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: rabbitmq
+        annotations:
+          summary: "Messages detected in RabbitMQ error queues"
+          description: "One or more *_error queues contain messages."
+
+      - alert: RabbitMqConsumerMissing
+        expr: min(rabbitmq_queue_consumers{vhost="/ecommerce", queue!~".*_error"}) < 1
+        for: 5m
+        labels:
+          severity: warning
+          service: rabbitmq
+        annotations:
+          summary: "RabbitMQ consumer is missing for at least one active queue"
+          description: "At least one non-error queue has no consumers."
