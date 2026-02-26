@@ -211,6 +211,7 @@ curl "http://localhost:5000/api/v1/search/products?q=adida&page=1&pageSize=10"
 ### 5.3 Global Exception Handler
 
 Tüm hata yönetimi merkezi `ExceptionHandlingMiddleware` içinde:
+
 - Farklı exception tipleri (`NotFoundException`, `InsufficientStockException`, `ValidationException`, `BusinessException`) yakalanıp uygun HTTP Status Code ve yapılandırılmış error body döndürülüyor.
 - `traceId` ile hatanın izlenebileceği Correlation ID iletiliyor.
 - Beklenmedik hatalar loglanıp istemciye hassas bilgi sızdırmayan genel mesaj döndürülüyor.
@@ -490,6 +491,26 @@ Test amaçlı kontrollü hata üretimi için:
 
 ### 9.4 Rollback Runbook
 
-Detaylı rollback adımları için:
+Operasyon sırasında en sık kullanılacak runbook/referans bağlantıları:
 
-- [`docs/rollback-runbook.md`](docs/rollback-runbook.md)
+- [Operasyonel Kontroller](#92-operasyonel-kontroller)
+- [Observability ve Loglama](#5-loglama-i̇zlenebilirlik-ve-hata-yönetimi-observability)
+- [`observability/prometheus-alerts.yml`](observability/prometheus-alerts.yml)
+- [CI/CD Pipeline](.github/workflows/main.yml)
+
+### 9.5 Incident Response (Kısa Akış)
+
+1. **Tespit ve sınıflandırma**: Alarm/şikayet geldiğinde etkilenen alanı belirleyin (`search`, `support`, `checkout`, `payment`).
+2. **Etkiyi doğrulama**: Health endpoint, Swagger ve temel iş akışı çağrılarını çalıştırın.
+3. **Hızlı izolasyon**: Hata bir queue consumer, dış servis veya son deploy kaynaklıysa etkiyi sınırlandırın (gerekirse feature/env bazlı devre dışı bırakma).
+4. **Rollback kararı**: Son değişiklik kaynaklı regresyon varsa rollback runbook adımlarını uygulayın.
+5. **Doğrulama**: Rollback veya hotfix sonrası API smoke + queue/alert kontrolleri ile sistemin stabil döndüğünü teyit edin.
+6. **Kayıt ve kapanış**: Kısa bir incident notu çıkarın (kök neden, etki süresi, düzeltici aksiyon) ve backlog'a kalıcı iyileştirme maddesi ekleyin.
+
+Önerilen hızlı kontrol komutları:
+
+```bash
+curl -fsS http://localhost:5000/health/ready
+curl -fsS "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5"
+docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messages consumers
+```
