@@ -162,6 +162,10 @@ services:
     container_name: ecommerce-api-dev
     profiles:
       - dev
+    entrypoint:
+      - sh
+      - -c
+      - dotnet watch --project EcommerceAPI.API/EcommerceAPI.API.csproj -- run --no-restore --urls http://+:80
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:80
@@ -182,25 +186,26 @@ services:
       RabbitMQ__VirtualHost: ${RABBITMQ_VHOST:-/ecommerce}
       RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
+      PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
     ports:
       - "5000:80"
     volumes:
       - .:/app
-      # Exclude build artifacts to prevent NuGet path conflicts
-      - /app/EcommerceAPI.API/obj
-      - /app/EcommerceAPI.API/bin
-      - /app/EcommerceAPI.Business/obj
-      - /app/EcommerceAPI.Business/bin
-      - /app/EcommerceAPI.Core/obj
-      - /app/EcommerceAPI.Core/bin
-      - /app/EcommerceAPI.DataAccess/obj
-      - /app/EcommerceAPI.DataAccess/bin
-      - /app/EcommerceAPI.Entities/obj
-      - /app/EcommerceAPI.Entities/bin
-      - /app/EcommerceAPI.Infrastructure/obj
-      - /app/EcommerceAPI.Infrastructure/bin
-      - /app/EcommerceAPI.Seeder/obj
-      - /app/EcommerceAPI.Seeder/bin
+      - nuget_cache:/root/.nuget/packages
+      - api_api_obj:/app/EcommerceAPI.API/obj
+      - api_api_bin:/app/EcommerceAPI.API/bin
+      - api_business_obj:/app/EcommerceAPI.Business/obj
+      - api_business_bin:/app/EcommerceAPI.Business/bin
+      - api_core_obj:/app/EcommerceAPI.Core/obj
+      - api_core_bin:/app/EcommerceAPI.Core/bin
+      - api_dataaccess_obj:/app/EcommerceAPI.DataAccess/obj
+      - api_dataaccess_bin:/app/EcommerceAPI.DataAccess/bin
+      - api_entities_obj:/app/EcommerceAPI.Entities/obj
+      - api_entities_bin:/app/EcommerceAPI.Entities/bin
+      - api_infrastructure_obj:/app/EcommerceAPI.Infrastructure/obj
+      - api_infrastructure_bin:/app/EcommerceAPI.Infrastructure/bin
+      - api_seeder_obj:/app/EcommerceAPI.Seeder/obj
+      - api_seeder_bin:/app/EcommerceAPI.Seeder/bin
     networks:
       - ecommerce-network
     depends_on:
@@ -244,6 +249,7 @@ services:
       RabbitMQ__VirtualHost: ${RABBITMQ_VHOST:-/ecommerce}
       RabbitMQ__Username: ${RABBITMQ_USER:-ecommerce_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_password}
+      PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
     ports:
       - "5001:80"
     networks:
@@ -385,6 +391,36 @@ volumes:
     driver: local
     labels:
       - "com.ecommerce.service=message-broker"
+  nuget_cache:
+    driver: local
+  api_api_obj:
+    driver: local
+  api_api_bin:
+    driver: local
+  api_business_obj:
+    driver: local
+  api_business_bin:
+    driver: local
+  api_core_obj:
+    driver: local
+  api_core_bin:
+    driver: local
+  api_dataaccess_obj:
+    driver: local
+  api_dataaccess_bin:
+    driver: local
+  api_entities_obj:
+    driver: local
+  api_entities_bin:
+    driver: local
+  api_infrastructure_obj:
+    driver: local
+  api_infrastructure_bin:
+    driver: local
+  api_seeder_obj:
+    driver: local
+  api_seeder_bin:
+    driver: local
 
 networks:
   ecommerce-network:
