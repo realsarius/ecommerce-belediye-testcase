@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # CI - Build and test
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     services:
       postgres:
@@ -66,7 +71,7 @@ jobs:
       run: dotnet build EcommerceAPI.sln --no-restore --configuration Release
 
     - name: Test
-      run: dotnet test EcommerceAPI.sln --no-build --verbosity normal --configuration Release
+      run: dotnet test EcommerceAPI.sln --no-build --verbosity normal --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory /tmp/test-results
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=EcommerceDb_CI;Username=postgres;Password=postgres_ci_password"
         JWT_SECRET_KEY: "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait"
@@ -77,9 +82,23 @@ jobs:
         Redis__ConnectionString: "localhost:6379"
         RateLimiting__Enabled: "false"
 
+    - name: .NET format check (advisory)
+      run: |
+        set +e
+        dotnet format EcommerceAPI.sln --verify-no-changes --no-restore --verbosity minimal > /tmp/dotnet-format.log 2>&1
+        FORMAT_EXIT=$?
+        if [ "$FORMAT_EXIT" -ne 0 ]; then
+          echo "dotnet format reported style issues (advisory step, build will continue)."
+        fi
+        exit 0
+
     - name: Frontend dependencies
       working-directory: frontend
       run: npm ci
+
+    - name: Frontend lint
+      working-directory: frontend
+      run: npm run lint
 
     - name: Frontend build
       working-directory: frontend
@@ -119,6 +138,98 @@ jobs:
 
         kill $API_PID
         trap - EXIT
+
+    - name: API performance smoke (search load gate)
+      env:
+        ASPNETCORE_ENVIRONMENT: "Development"
+        ASPNETCORE_URLS: "http://localhost:5000"
+        ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=EcommerceDb_CI;Username=postgres;Password=postgres_ci_password"
+        JWT_SECRET_KEY: "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait"
+        JWT_ISSUER: "EcommerceAPI"
+        JWT_AUDIENCE: "EcommerceAPI"
+        ENCRYPTION_KEY: "12345678901234567890123456789012"
+        HASH_PEPPER: "ci-test-pepper-value"
+        Redis__ConnectionString: "localhost:6379"
+        RateLimiting__Enabled: "false"
+      run: |
+        dotnet run --project EcommerceAPI.API --no-build --configuration Release > /tmp/api-perf.log 2>&1 &
+        API_PID=$!
+        trap 'kill $API_PID 2>/dev/null || true' EXIT
+
+        for i in {1..60}; do
+          if curl -fsS http://localhost:5000/health/ready >/dev/null; then
+            break
+          fi
+          if [ "$i" -eq 60 ]; then
+            echo "Perf smoke: API endpoint did not become ready in time"
+            tail -n 200 /tmp/api-perf.log || true
+            exit 1
+          fi
+          sleep 2
+        done
+
+        TOTAL_REQUESTS=60
+        CONCURRENCY=10
+        ROUNDS=2
+        TOTAL_NON_200=0
+        WORST_P95=0
+        rm -f /tmp/perf-summary.txt
+
+        for ROUND in $(seq 1 "$ROUNDS"); do
+          PERF_RESULTS="/tmp/perf-results-round-${ROUND}.txt"
+          PERF_TIMES="/tmp/perf-times-round-${ROUND}.txt"
+
+          seq 1 "$TOTAL_REQUESTS" | xargs -I{} -P "$CONCURRENCY" sh -c \
+            'curl -s -o /dev/null -w "%{http_code} %{time_total}\n" "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5"' \
+            > "$PERF_RESULTS"
+
+          NON_200_ROUND=$(awk '$1 != 200 {count++} END {print count+0}' "$PERF_RESULTS")
+          TOTAL_NON_200=$((TOTAL_NON_200 + NON_200_ROUND))
+
+          awk '{print $2}' "$PERF_RESULTS" | sort -n > "$PERF_TIMES"
+          SAMPLE_COUNT=$(wc -l < "$PERF_TIMES")
+          P95_INDEX=$(( (SAMPLE_COUNT * 95 + 99) / 100 ))
+          P95=$(awk -v idx="$P95_INDEX" 'NR==idx {print $1}' "$PERF_TIMES")
+          if [ -z "$P95" ]; then P95=0; fi
+          AVG=$(awk '{sum+=$1} END { if (NR==0) print 0; else printf "%.4f", sum/NR }' "$PERF_TIMES")
+
+          WORST_P95=$(awk -v current="$WORST_P95" -v candidate="$P95" 'BEGIN { if (candidate > current) printf "%.4f", candidate; else printf "%.4f", current }')
+
+          echo "round=${ROUND} requests=${TOTAL_REQUESTS} concurrency=${CONCURRENCY} non_200=${NON_200_ROUND} avg=${AVG}s p95=${P95}s" | tee -a /tmp/perf-summary.txt
+        done
+
+        echo "Perf smoke final summary: rounds=$ROUNDS total_non_200=$TOTAL_NON_200 worst_p95=${WORST_P95}s"
+
+        if awk -v p95="$WORST_P95" 'BEGIN { exit (p95 > 1.20 ? 0 : 1) }'; then
+          echo "Perf smoke failed: p95 latency is above 1.20s"
+          tail -n 200 /tmp/api-perf.log || true
+          exit 1
+        fi
+
+        if [ "$TOTAL_NON_200" -ne 0 ]; then
+          echo "Perf smoke failed: non-200 responses detected"
+          tail -n 200 /tmp/api-perf.log || true
+          exit 1
+        fi
+
+        kill $API_PID
+        trap - EXIT
+
+    - name: Upload CI diagnostics (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-diagnostics-${{ github.run_id }}
+        if-no-files-found: ignore
+        retention-days: 7
+        path: |
+          /tmp/api.log
+          /tmp/api-perf.log
+          /tmp/perf-results-round-*.txt
+          /tmp/perf-times-round-*.txt
+          /tmp/perf-summary.txt
+          /tmp/dotnet-format.log
+          /tmp/test-results/**
 
   # CD - Build and push docker image
   build-and-push-docker:
