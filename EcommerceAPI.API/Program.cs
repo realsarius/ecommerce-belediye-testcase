@@ -109,6 +109,7 @@ builder.Services.AddMassTransit(configurator =>
 {
     configurator.SetKebabCaseEndpointNameFormatter();
     configurator.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+    configurator.AddConsumer<ProductIndexSyncConsumer, ProductIndexSyncConsumerDefinition>();
 
     if (builder.Environment.IsEnvironment("Test"))
     {
