@@ -17,6 +17,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public CustomWebApplicationFactory()
     {
         Environment.SetEnvironmentVariable("JWT_SECRET_KEY", "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait");
+        Environment.SetEnvironmentVariable("JWT_ISSUER", "EcommerceAPI");
+        Environment.SetEnvironmentVariable("JWT_AUDIENCE", "EcommerceAPI");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -32,6 +34,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 { "JWT_SECRET_KEY", "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait" },
                 { "JWT_ISSUER", "EcommerceAPI" },
                 { "JWT_AUDIENCE", "EcommerceAPI" },
+                { "Cors:AllowedOrigins:0", "http://localhost:5173" },
+                { "Cors:AllowedOrigins:1", "http://localhost:3000" },
+                { "Cors:AllowedOrigins:2", "http://localhost:80" },
                 { "Iyzico:ApiKey", "sandbox-test" },
                 { "Iyzico:SecretKey", "sandbox-test" },
                 { "ENCRYPTION_KEY", "12345678901234567890123456789012" },

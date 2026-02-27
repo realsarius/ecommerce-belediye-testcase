@@ -116,21 +116,27 @@ builder.Services.AddDataProtection()
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(redisConnectionString));
 
+var allowedOrigins = ResolveAllowedOrigins(
+    builder.Environment.EnvironmentName,
+    Environment.GetEnvironmentVariable("ALLOWED_ORIGINS"),
+    builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>());
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:80",
-                "http://ecommerce.berkansozer.com",
-                "https://ecommerce.berkansozer.com"
-            )
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
     });
+});
+
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(180);
 });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -396,8 +402,18 @@ if (hangfireEnabled)
     builder.Services.AddHangfireServer();
 }
 
-var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"] 
+var jwtSecretKey = builder.Configuration["JWT_SECRET_KEY"]
     ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable is required. Application cannot start without it.");
+var jwtIssuer = builder.Configuration["JWT_ISSUER"]
+    ?? throw new InvalidOperationException("JWT_ISSUER environment variable is required. Application cannot start without it.");
+var jwtAudience = builder.Configuration["JWT_AUDIENCE"]
+    ?? throw new InvalidOperationException("JWT_AUDIENCE environment variable is required. Application cannot start without it.");
+
+if (Encoding.UTF8.GetByteCount(jwtSecretKey) < 32)
+{
+    throw new InvalidOperationException("JWT_SECRET_KEY en az 32 byte olmalıdır.");
+}
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -405,14 +421,17 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Test");
+    options.SaveToken = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["JWT_ISSUER"],
-        ValidAudience = builder.Configuration["JWT_AUDIENCE"],
+        ClockSkew = TimeSpan.Zero,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
     };
 
@@ -512,6 +531,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else if (!app.Environment.IsEnvironment("Test"))
+{
+    app.UseHsts();
+}
 
 if (hangfireEnabled)
 {
@@ -557,6 +580,17 @@ app.UseSerilogRequestLogging(options =>
     };
 });
 app.UseExceptionHandling();
+
+// API yanıtları için temel güvenlik başlıkları.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.TryAdd("X-Frame-Options", "DENY");
+    context.Response.Headers.TryAdd("Referrer-Policy", "no-referrer");
+    context.Response.Headers.TryAdd("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+
+    await next();
+});
 
 app.UseCors("AllowFrontend");
 
@@ -615,6 +649,36 @@ static string ResolveSeedDataPath(params string[] basePaths)
     }
 
     return Path.Combine(AppContext.BaseDirectory, "seed-data");
+}
+
+static string[] ResolveAllowedOrigins(string environmentName, string? envOrigins, string[]? configuredOrigins)
+{
+    var parsedOrigins = (configuredOrigins ?? Array.Empty<string>())
+        .Concat((envOrigins ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    if (parsedOrigins.Length > 0)
+    {
+        return parsedOrigins;
+    }
+
+    if (string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase))
+    {
+        return new[]
+        {
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://localhost:80"
+        };
+    }
+
+    return new[]
+    {
+        "http://ecommerce.berkansozer.com",
+        "https://ecommerce.berkansozer.com"
+    };
 }
 
 static bool IsElasticsearchRequest(Uri? uri)
