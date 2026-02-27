@@ -7,6 +7,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Infrastructure.Services;
@@ -20,15 +21,18 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
     private readonly HttpClient _httpClient;
     private readonly IProductDal _productDal;
     private readonly ILogger<ElasticProductSearchIndexService> _logger;
+    private readonly bool _waitForRefreshOnWrite;
 
     public ElasticProductSearchIndexService(
         IHttpClientFactory httpClientFactory,
         IProductDal productDal,
+        IHostEnvironment hostEnvironment,
         ILogger<ElasticProductSearchIndexService> logger)
     {
         _httpClient = httpClientFactory.CreateClient("elasticsearch");
         _productDal = productDal;
         _logger = logger;
+        _waitForRefreshOnWrite = hostEnvironment.IsEnvironment("Test");
     }
 
     public async Task<PaginatedResponse<ProductDto>> SearchAsync(ProductListRequest request, CancellationToken cancellationToken = default)
@@ -78,6 +82,57 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         }
     }
 
+    public async Task<List<ProductDto>> SuggestAsync(string query, int limit = 8, CancellationToken cancellationToken = default)
+    {
+        var normalizedQuery = query?.Trim() ?? string.Empty;
+        var normalizedLimit = Math.Clamp(limit, 1, 20);
+
+        if (normalizedQuery.Length < 2)
+        {
+            return new List<ProductDto>();
+        }
+
+        try
+        {
+            await EnsureIndexAsync(cancellationToken);
+
+            var payload = BuildSuggestPayload(normalizedQuery, normalizedLimit);
+            var response = await _httpClient.PostAsJsonAsync($"/{IndexName}/_search", payload, JsonOptions, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Elasticsearch suggest failed: {Status}", response.StatusCode);
+                return await FallbackSuggestAsync(normalizedQuery, normalizedLimit);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var suggestResponse = await JsonSerializer.DeserializeAsync<ElasticSuggestResponse>(stream, JsonOptions, cancellationToken);
+
+            var options = suggestResponse?.Suggest?
+                .GetValueOrDefault("product_suggest")?
+                .FirstOrDefault()?
+                .Options ?? new List<ElasticSuggestOption>();
+
+            var suggestions = options
+                .Select(x => x.Source)
+                .Where(x => x is not null)
+                .GroupBy(x => x!.Id)
+                .Select(x => MapToDto(x.First()!))
+                .Take(normalizedLimit)
+                .ToList();
+
+            return suggestions.Count > 0
+                ? suggestions
+                : await FallbackSuggestAsync(normalizedQuery, normalizedLimit);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Elasticsearch unavailable, fallback to DB suggestions.");
+            return await FallbackSuggestAsync(normalizedQuery, normalizedLimit);
+        }
+    }
+
+
     public async Task IndexProductAsync(int productId, CancellationToken cancellationToken = default)
     {
         try
@@ -92,7 +147,10 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             }
 
             var doc = MapToDocument(product);
-            var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_doc/{productId}", doc, JsonOptions, cancellationToken);
+            var writePath = _waitForRefreshOnWrite
+                ? $"/{IndexName}/_doc/{productId}?refresh=wait_for"
+                : $"/{IndexName}/_doc/{productId}";
+            var response = await _httpClient.PutAsJsonAsync(writePath, doc, JsonOptions, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -120,7 +178,10 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         {
             await EnsureIndexAsync(cancellationToken);
 
-            var response = await _httpClient.DeleteAsync($"/{IndexName}/_doc/{productId}", cancellationToken);
+            var deletePath = _waitForRefreshOnWrite
+                ? $"/{IndexName}/_doc/{productId}?refresh=wait_for"
+                : $"/{IndexName}/_doc/{productId}";
+            var response = await _httpClient.DeleteAsync(deletePath, cancellationToken);
 
             if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
             {
@@ -145,6 +206,7 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             return;
         }
 
+        var indexCreated = false;
         var head = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"/{IndexName}"), cancellationToken);
 
         if (head.StatusCode == HttpStatusCode.NotFound)
@@ -156,7 +218,15 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                     properties = new
                     {
                         id = new { type = "integer" },
-                        name = new { type = "text" },
+                        name = new
+                        {
+                            type = "text",
+                            fields = new
+                            {
+                                keyword = new { type = "keyword", ignore_above = 256 }
+                            }
+                        },
+                        nameSuggest = new { type = "completion" },
                         description = new { type = "text" },
                         sku = new { type = "keyword" },
                         price = new { type = "double" },
@@ -178,6 +248,8 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                 var body = await create.Content.ReadAsStringAsync(cancellationToken);
                 throw new InvalidOperationException($"Elasticsearch index create failed. Status: {create.StatusCode}, Body: {body}");
             }
+
+            indexCreated = true;
         }
         else if (!head.IsSuccessStatusCode)
         {
@@ -185,10 +257,18 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             throw new InvalidOperationException($"Elasticsearch index check failed. Status: {head.StatusCode}, Body: {body}");
         }
 
+        if (!indexCreated)
+        {
+            await EnsureSearchFieldMappingsAsync(cancellationToken);
+            await EnsureSuggestionMappingAsync(cancellationToken);
+        }
+
+
         await BackfillIfEmptyAsync(cancellationToken);
 
         Interlocked.Exchange(ref _indexInitialized, 1);
     }
+
 
     private async Task BackfillIfEmptyAsync(CancellationToken cancellationToken)
     {
@@ -222,6 +302,70 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         }
     }
 
+    private async Task EnsureSearchFieldMappingsAsync(CancellationToken cancellationToken)
+    {
+        var mappingPayload = new
+        {
+            properties = new
+            {
+                name = new
+                {
+                    type = "text",
+                    fields = new
+                    {
+                        keyword = new { type = "keyword", ignore_above = 256 }
+                    }
+                }
+            }
+        };
+
+        var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_mapping", mappingPayload, JsonOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Elasticsearch search mapping update failed. Status: {Status}, Body: {Body}",
+                response.StatusCode,
+                body);
+        }
+    }
+
+
+    private async Task EnsureSuggestionMappingAsync(CancellationToken cancellationToken)
+    {
+        var mappingPayload = new
+        {
+            properties = new
+            {
+                nameSuggest = new { type = "completion" }
+            }
+        };
+
+        var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_mapping", mappingPayload, JsonOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Elasticsearch suggestion mapping update failed. Status: {Status}, Body: {Body}",
+                response.StatusCode,
+                body);
+        }
+    }
+
+    private async Task<List<ProductDto>> FallbackSuggestAsync(string query, int limit)
+    {
+        var (items, _) = await _productDal.GetPagedAsync(
+            page: 1,
+            pageSize: limit,
+            search: query,
+            inStock: true,
+            sortBy: "name",
+            sortDescending: false);
+
+        return items.Select(x => x.ToDto()).Take(limit).ToList();
+    }
+
+
     private async Task<PaginatedResponse<ProductDto>> FallbackSearchAsync(ProductListRequest request)
     {
         var (items, totalCount) = await _productDal.GetPagedAsync(
@@ -247,48 +391,10 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
     private static object BuildSearchPayload(ProductListRequest request)
     {
-        var must = new List<object>();
-        var filter = new List<object>();
-
-        if (string.IsNullOrWhiteSpace(request.Search))
+        var filter = new List<object>
         {
-            must.Add(new { match_all = new { } });
-        }
-        else
-        {
-            var queryText = request.Search.Trim();
-
-            must.Add(new
-            {
-                @bool = new
-                {
-                    should = new object[]
-                    {
-                        new
-                        {
-                            multi_match = new
-                            {
-                                query = queryText,
-                                fields = new[] { "name^3", "description", "sku" },
-                                fuzziness = "AUTO"
-                            }
-                        },
-                        new
-                        {
-                            multi_match = new
-                            {
-                                query = queryText,
-                                type = "bool_prefix",
-                                fields = new[] { "name^5", "description" }
-                            }
-                        }
-                    },
-                    minimum_should_match = 1
-                }
-            });
-        }
-
-        filter.Add(new { term = new Dictionary<string, object> { ["isActive"] = true } });
+            new { term = new Dictionary<string, object> { ["isActive"] = true } }
+        };
 
         if (request.CategoryId.HasValue)
             filter.Add(new { term = new Dictionary<string, object> { ["categoryId"] = request.CategoryId.Value } });
@@ -302,38 +408,219 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         if (request.InStock == true)
             filter.Add(new { range = new Dictionary<string, object> { ["stockQuantity"] = new { gte = 1 } } });
 
-        var sortField = request.SortBy?.ToLowerInvariant() switch
-        {
-            "price" => "price",
-            "name" => "name.keyword",
-            "created" => "createdAt",
-            "createdat" => "createdAt",
-            _ => "createdAt"
-        };
+        var hasSearch = !string.IsNullOrWhiteSpace(request.Search);
+        var normalizedQuery = request.Search?.Trim() ?? string.Empty;
 
-        var sort = new[]
-        {
-            new Dictionary<string, object>
+        object query = hasSearch
+            ? new
             {
-                [sortField] = new { order = request.SortDescending ? "desc" : "asc" }
+                function_score = new
+                {
+                    query = new
+                    {
+                        @bool = new
+                        {
+                            filter,
+                            should = BuildSearchShouldClauses(normalizedQuery),
+                            minimum_should_match = 1
+                        }
+                    },
+                    functions = new object[]
+                    {
+                        new
+                        {
+                            filter = new
+                            {
+                                range = new
+                                {
+                                    stockQuantity = new { gte = 1 }
+                                }
+                            },
+                            weight = 1.15
+                        }
+                    },
+                    score_mode = "sum",
+                    boost_mode = "multiply"
+                }
             }
-        };
+            : new
+            {
+                @bool = new
+                {
+                    must = new object[] { new { match_all = new { } } },
+                    filter
+                }
+            };
 
         return new
         {
             from = (request.Page - 1) * request.PageSize,
             size = request.PageSize,
-            query = new
-            {
-                @bool = new
-                {
-                    must,
-                    filter
-                }
-            },
-            sort
+            query,
+            sort = BuildSearchSort(request, hasSearch)
         };
     }
+
+    private static object[] BuildSearchShouldClauses(string query)
+    {
+        return new object[]
+        {
+            new
+            {
+                term = new Dictionary<string, object>
+                {
+                    ["sku"] = new
+                    {
+                        value = query,
+                        boost = 40
+                    }
+                }
+            },
+            new
+            {
+                match_phrase = new Dictionary<string, object>
+                {
+                    ["name"] = new
+                    {
+                        query,
+                        boost = 18
+                    }
+                }
+            },
+            new
+            {
+                match_phrase_prefix = new Dictionary<string, object>
+                {
+                    ["name"] = new
+                    {
+                        query,
+                        boost = 12,
+                        max_expansions = 20
+                    }
+                }
+            },
+            new
+            {
+                multi_match = new
+                {
+                    query,
+                    type = "best_fields",
+                    fields = new[] { "name^8", "sku^10", "description^2" },
+                    @operator = "and",
+                    boost = 6
+                }
+            },
+            new
+            {
+                multi_match = new
+                {
+                    query,
+                    fields = new[] { "name^6", "description", "sku^8" },
+                    fuzziness = "AUTO",
+                    prefix_length = 1,
+                    max_expansions = 25,
+                    boost = 3
+                }
+            },
+            new
+            {
+                multi_match = new
+                {
+                    query,
+                    type = "bool_prefix",
+                    fields = new[] { "name^7", "description" },
+                    boost = 4
+                }
+            }
+        };
+    }
+
+    private static object[] BuildSearchSort(ProductListRequest request, bool hasSearch)
+    {
+        if (!hasSearch)
+        {
+            var sortField = request.SortBy?.ToLowerInvariant() switch
+            {
+                "price" => "price",
+                "name" => "name.keyword",
+                "created" => "createdAt",
+                "createdat" => "createdAt",
+                _ => "name.keyword"
+            };
+
+            return new object[]
+            {
+                new Dictionary<string, object>
+                {
+                    [sortField] = new { order = request.SortDescending ? "desc" : "asc" }
+                },
+                new Dictionary<string, object>
+                {
+                    ["createdAt"] = new { order = "desc" }
+                }
+            };
+        }
+
+        var sort = new List<object>
+        {
+            new Dictionary<string, object>
+            {
+                ["_score"] = new { order = "desc" }
+            }
+        };
+
+        var requestedSort = request.SortBy?.ToLowerInvariant();
+        if (requestedSort is "price" or "created" or "createdat")
+        {
+            var sortField = requestedSort == "price" ? "price" : "createdAt";
+            sort.Add(new Dictionary<string, object>
+            {
+                [sortField] = new { order = request.SortDescending ? "desc" : "asc" }
+            });
+        }
+        else
+        {
+            sort.Add(new Dictionary<string, object>
+            {
+                ["stockQuantity"] = new { order = "desc" }
+            });
+        }
+
+        sort.Add(new Dictionary<string, object>
+        {
+            ["createdAt"] = new { order = "desc" }
+        });
+
+        return sort.ToArray();
+    }
+
+
+    private static object BuildSuggestPayload(string query, int limit)
+    {
+        return new
+        {
+            size = 0,
+            suggest = new
+            {
+                product_suggest = new
+                {
+                    prefix = query,
+                    completion = new
+                    {
+                        field = "nameSuggest",
+                        size = limit,
+                        skip_duplicates = true,
+                        fuzzy = new
+                        {
+                            fuzziness = "AUTO",
+                            min_length = 2
+                        }
+                    }
+                }
+            }
+        };
+    }
+
 
     private static ProductListRequest Normalize(ProductListRequest request)
     {
@@ -359,9 +646,38 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             StockQuantity = product.Inventory?.QuantityAvailable ?? 0,
             SellerId = product.SellerId,
             SellerBrandName = product.Seller?.BrandName,
-            CreatedAt = product.CreatedAt
+            CreatedAt = product.CreatedAt,
+            NameSuggest = new ElasticCompletionField { Input = BuildSuggestionInputs(product) },
         };
     }
+
+    private sealed class ElasticCompletionField
+    {
+        [JsonPropertyName("input")]
+        public List<string> Input { get; set; } = new();
+    }
+
+
+    private static List<string> BuildSuggestionInputs(Product product)
+    {
+        var inputs = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(product.Name))
+            inputs.Add(product.Name.Trim());
+
+        if (!string.IsNullOrWhiteSpace(product.SKU))
+            inputs.Add(product.SKU.Trim());
+
+        var categoryName = product.Category?.Name;
+        if (!string.IsNullOrWhiteSpace(categoryName) && !string.IsNullOrWhiteSpace(product.Name))
+            inputs.Add($"{categoryName} {product.Name}".Trim());
+
+        return inputs
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
 
     private static ProductDto MapToDto(ElasticProductDocument doc)
     {
@@ -394,6 +710,25 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         public ElasticHits? Hits { get; set; }
     }
 
+    private sealed class ElasticSuggestResponse
+    {
+        [JsonPropertyName("suggest")]
+        public Dictionary<string, List<ElasticSuggestEntry>>? Suggest { get; set; }
+    }
+
+    private sealed class ElasticSuggestEntry
+    {
+        [JsonPropertyName("options")]
+        public List<ElasticSuggestOption> Options { get; set; } = new();
+    }
+
+    private sealed class ElasticSuggestOption
+    {
+        [JsonPropertyName("_source")]
+        public ElasticProductDocument? Source { get; set; }
+    }
+
+
     private sealed class ElasticHits
     {
         [JsonPropertyName("total")]
@@ -422,6 +757,9 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("nameSuggest")]
+        public ElasticCompletionField NameSuggest { get; set; } = new();
 
         [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;

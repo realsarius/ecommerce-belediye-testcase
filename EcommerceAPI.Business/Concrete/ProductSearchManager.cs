@@ -18,4 +18,16 @@ public class ProductSearchManager : IProductSearchService
         var result = await _productSearchIndexService.SearchAsync(request);
         return new SuccessDataResult<PaginatedResponse<ProductDto>>(result);
     }
+
+    public async Task<IDataResult<List<ProductDto>>> SuggestProductsAsync(string query, int limit = 8)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+        {
+            return new SuccessDataResult<List<ProductDto>>(new List<ProductDto>());
+        }
+
+        var normalizedLimit = Math.Clamp(limit, 1, 20);
+        var suggestions = await _productSearchIndexService.SuggestAsync(query.Trim(), normalizedLimit);
+        return new SuccessDataResult<List<ProductDto>>(suggestions);
+    }
 }

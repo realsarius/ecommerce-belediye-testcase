@@ -71,6 +71,14 @@ export const productsApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
       providesTags: ['Products'],
     }),
+    searchSuggestions: builder.query<Product[], { q: string; limit?: number }>({
+      query: ({ q, limit = 8 }) => ({
+        url: '/search/suggestions',
+        params: { q, limit },
+      }),
+      transformResponse: (response: { data: Product[] }) => response.data,
+      providesTags: ['Products'],
+    }),
   }),
 });
 
@@ -82,4 +90,5 @@ export const {
   useDeleteProductMutation,
   useUpdateStockMutation,
   useSearchProductsQuery,
+  useSearchSuggestionsQuery,
 } = productsApi;
