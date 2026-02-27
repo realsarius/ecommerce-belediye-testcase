@@ -7,6 +7,7 @@ source "$SCRIPT_DIR/common.sh"
 
 SMOKE_SUMMARY="${SMOKE_SUMMARY:-/tmp/api-smoke-summary.txt}"
 API_LOG="${API_LOG:-/tmp/api.log}"
+SMOKE_EXPECT_SWAGGER="${SMOKE_EXPECT_SWAGGER:-true}"
 
 cleanup() {
   stop_api
@@ -18,10 +19,13 @@ rm -f "$SMOKE_SUMMARY"
 start_api "$API_LOG"
 
 wait_for_url "$API_BASE_URL/health/ready" "API readiness" 60 2 "$API_LOG"
-wait_for_url "$API_BASE_URL/swagger/index.html" "Swagger" 60 2 "$API_LOG"
 
 curl -fsS "$API_BASE_URL/health/live" >/dev/null
-curl -fsS "$API_BASE_URL/swagger/index.html" >/dev/null
+
+if [[ "$SMOKE_EXPECT_SWAGGER" == "true" ]]; then
+  wait_for_url "$API_BASE_URL/swagger/index.html" "Swagger" 60 2 "$API_LOG"
+  curl -fsS "$API_BASE_URL/swagger/index.html" >/dev/null
+fi
 
 search_response="$(mktemp)"
 request_json "GET" "$API_BASE_URL/api/v1/search/products?q=test&page=1&pageSize=5" "$search_response"
@@ -98,7 +102,11 @@ assert_json_equals "$close_response" "data.status" "Closed" "destek konuşması 
 
 {
   echo "health=ok"
-  echo "swagger=ok"
+  if [[ "$SMOKE_EXPECT_SWAGGER" == "true" ]]; then
+    echo "swagger=ok"
+  else
+    echo "swagger=skipped"
+  fi
   echo "search=ok"
   echo "suggestions=ok"
   echo "support_flow=ok"

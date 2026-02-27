@@ -492,7 +492,6 @@ Temel sağlık kontrolleri:
 
 ```bash
 curl -fsS http://localhost:5000/health/ready >/dev/null
-curl -fsS http://localhost:5000/swagger/index.html >/dev/null
 curl -fsS "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5" >/dev/null
 curl -fsS "http://localhost:5000/api/v1/search/suggestions?q=ad&limit=5" >/dev/null
 docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messages consumers
@@ -500,15 +499,27 @@ docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messag
 
 Beklenen:
 
-- `health/ready` ve Swagger'ın başarıyla dönmesi
+- `health/ready`'nin başarıyla dönmesi
 - arama ve suggestion endpoint'lerinin 200 dönmesi
 - `product-index-sync` kuyruğunda `consumers > 0`
 - `_error` kuyruklarında sürekli artış olmaması
+
+Development veya staging ortaminda Swagger dogrulamasi icin:
+
+```bash
+curl -fsS http://localhost:5000/swagger/index.html >/dev/null
+```
 
 Uygulama ayağa kalktıktan sonra hızlı doğrulama için doğrudan smoke script'i de çalıştırabilirsiniz:
 
 ```bash
 ./scripts/ci/run_api_smoke.sh
+```
+
+Production smoke icin:
+
+```bash
+API_BASE_URL=http://localhost:5001 SMOKE_EXPECT_SWAGGER=false ./scripts/ci/run_api_smoke.sh
 ```
 
 ### 9.3 Kritik Ortam Değişkenleri
@@ -522,11 +533,18 @@ Test amaçlı kontrollü hata üretimi için:
 
 - `PRODUCT_INDEX_SYNC_FORCE_FAIL` (Production'da `false` kalmalı)
 
-### 9.4 Rollback Runbook
+### 9.4 Deployment Readiness Checklist
+
+Deploy oncesi env/secrets, post-deploy smoke ve rollback dogrulama adimlari icin:
+
+- [`docs/deployment-readiness-checklist.md`](docs/deployment-readiness-checklist.md)
+
+### 9.5 Rollback Runbook
 
 Operasyon sırasında en sık bakılacak referanslar:
 
 - [Operasyonel Kontroller](#92-operasyonel-kontroller)
+- [`docs/deployment-readiness-checklist.md`](docs/deployment-readiness-checklist.md)
 - [`scripts/ci/run_api_smoke.sh`](scripts/ci/run_api_smoke.sh)
 - [`scripts/ci/run_api_perf_smoke.sh`](scripts/ci/run_api_perf_smoke.sh)
 - [Observability ve Loglama](#5-loglama-i̇zlenebilirlik-ve-hata-yönetimi-observability)
@@ -541,10 +559,10 @@ Pratik rollback yaklaşımı:
 4. Rollback sonrası `health/ready`, temel smoke ve queue kontrollerini tekrar çalıştırın.
 5. `_error` kuyruğu, latency ve log akışı normale dönmeden rollback'i tamamlanmış saymayın.
 
-### 9.5 Incident Response (Kısa Akış)
+### 9.6 Incident Response (Kısa Akış)
 
 1. **Önce alanı ayırın**: Sorun `search`, `support`, `checkout`, `payment` veya genel API erişimi mi, önce bunu netleştirin.
-2. **Temel sağlığı doğrulayın**: `health/ready`, Swagger ve temel smoke çağrılarını çalıştırın.
+2. **Temel sağlığı doğrulayın**: `health/ready`, gerekiyorsa Swagger (development/staging) ve temel smoke çağrılarını çalıştırın.
 3. **Bağımlılıkları kontrol edin**:
    - `search` tarafında Elasticsearch ve `product-index-sync`
    - `support` tarafında SignalR/RabbitMQ/Redis
