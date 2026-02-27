@@ -74,6 +74,28 @@ request_json() {
   fi
 }
 
+request_json_with_retry() {
+  local method="$1"
+  local url="$2"
+  local output_file="$3"
+  local attempts="${4:-3}"
+  local sleep_seconds="${5:-2}"
+  shift 5
+
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if request_json "$method" "$url" "$output_file" "$@"; then
+      return 0
+    fi
+
+    if [[ "$attempt" -eq "$attempts" ]]; then
+      return 1
+    fi
+
+    sleep "$sleep_seconds"
+  done
+}
+
 json_read() {
   local file_path="$1"
   local path="$2"

@@ -38,11 +38,18 @@ assert_json_equals "$suggest_response" "success" "true" "ürün öneri"
 customer_token="$(login_and_get_token "customer@test.com" "Test123!")"
 support_token="$(login_and_get_token "support@test.com" "Test123!")"
 
+if [[ -z "$customer_token" || -z "$support_token" ]]; then
+  log "Login yanıtı token üretmedi"
+  exit 1
+fi
+
 me_response="$(mktemp)"
-request_json \
+request_json_with_retry \
   "GET" \
   "$API_BASE_URL/api/v1/auth/me" \
   "$me_response" \
+  3 \
+  2 \
   -H "Authorization: Bearer $customer_token"
 assert_json_equals "$me_response" "success" "true" "auth me"
 assert_json_equals "$me_response" "data.email" "customer@test.com" "auth me email"
