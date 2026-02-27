@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/common.sh"
 
 API_LOG="${API_LOG:-/tmp/api-perf.log}"
 PERF_SUMMARY="${PERF_SUMMARY:-/tmp/perf-summary.txt}"
+PERF_SEARCH_PRODUCTS_MAX_P95="${PERF_SEARCH_PRODUCTS_MAX_P95:-1.20}"
+PERF_SEARCH_SUGGESTIONS_MAX_P95="${PERF_SEARCH_SUGGESTIONS_MAX_P95:-1.00}"
 
 cleanup() {
   stop_api
@@ -73,7 +75,7 @@ start_api "$API_LOG"
 
 wait_for_url "$API_BASE_URL/health/ready" "API readiness" 60 2 "$API_LOG"
 
-run_perf_case "search-products" "/api/v1/search/products?q=test&page=1&pageSize=5" 60 10 2 1.20
-run_perf_case "search-suggestions" "/api/v1/search/suggestions?q=ad&limit=8" 40 10 2 1.00
+run_perf_case "search-products" "/api/v1/search/products?q=test&page=1&pageSize=5" 60 10 2 "$PERF_SEARCH_PRODUCTS_MAX_P95"
+run_perf_case "search-suggestions" "/api/v1/search/suggestions?q=ad&limit=8" 40 10 2 "$PERF_SEARCH_SUGGESTIONS_MAX_P95"
 
 log "API performance smoke testi başarıyla tamamlandı"

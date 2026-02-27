@@ -27,6 +27,8 @@ jobs:
       Redis__ConnectionString: "localhost:6379"
       RateLimiting__Enabled: "false"
       Hangfire__Enabled: "false"
+      PERF_SEARCH_PRODUCTS_MAX_P95: "1.20"
+      PERF_SEARCH_SUGGESTIONS_MAX_P95: "1.00"
 
     services:
       postgres:
@@ -126,6 +128,47 @@ jobs:
 
     - name: API performance smoke (search products + suggestions)
       run: ./scripts/ci/run_api_perf_smoke.sh
+
+    - name: Publish CI smoke summary
+      if: always()
+      run: |
+        {
+          echo "## API Smoke Summary"
+          echo
+          if [ -f /tmp/api-smoke-summary.txt ]; then
+            echo '```text'
+            cat /tmp/api-smoke-summary.txt
+            echo '```'
+          else
+            echo "API smoke summary not found."
+          fi
+
+          echo
+          echo "## API Performance Smoke Summary"
+          echo
+          if [ -f /tmp/perf-summary.txt ]; then
+            echo '```text'
+            cat /tmp/perf-summary.txt
+            echo '```'
+          else
+            echo "API performance smoke summary not found."
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload CI smoke and perf reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-smoke-reports-${{ github.run_id }}
+        if-no-files-found: ignore
+        retention-days: 5
+        path: |
+          /tmp/api-smoke-summary.txt
+          /tmp/perf-summary.txt
+          /tmp/perf-results-round-*.txt
+          /tmp/perf-times-round-*.txt
+          /tmp/*-perf-results-round-*.txt
+          /tmp/*-perf-times-round-*.txt
 
     - name: Upload CI diagnostics (on failure)
       if: failure()
