@@ -368,25 +368,197 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
     private async Task<PaginatedResponse<ProductDto>> FallbackSearchAsync(ProductListRequest request)
     {
-        var (items, totalCount) = await _productDal.GetPagedAsync(
-            request.Page,
-            request.PageSize,
-            request.CategoryId,
-            request.MinPrice,
-            request.MaxPrice,
-            request.Search,
-            request.InStock,
-            request.SortBy,
-            request.SortDescending
-        );
+        if (string.IsNullOrWhiteSpace(request.Search))
+        {
+            var (items, defaultTotalCount) = await _productDal.GetPagedAsync(
+                request.Page,
+                request.PageSize,
+                request.CategoryId,
+                request.MinPrice,
+                request.MaxPrice,
+                request.Search,
+                request.InStock,
+                request.SortBy,
+                request.SortDescending
+            );
+
+            return new PaginatedResponse<ProductDto>
+            {
+                Items = items.Select(p => p.ToDto()).ToList(),
+                Page = request.Page,
+                PageSize = request.PageSize,
+                TotalCount = defaultTotalCount
+            };
+        }
+
+        var search = NormalizeSearchText(request.Search);
+        var filteredProducts = (await _productDal.GetAllActiveWithDetailsAsync())
+            .Where(p => !request.CategoryId.HasValue || p.CategoryId == request.CategoryId.Value)
+            .Where(p => !request.MinPrice.HasValue || p.Price >= request.MinPrice.Value)
+            .Where(p => !request.MaxPrice.HasValue || p.Price <= request.MaxPrice.Value)
+            .Where(p => request.InStock != true || (p.Inventory?.QuantityAvailable ?? 0) > 0)
+            .Select(product => new FallbackSearchCandidate(
+                product,
+                CalculateFallbackSearchScore(product, search)))
+            .Where(x => x.Score > 0);
+
+        var orderedProducts = ApplyFallbackOrdering(filteredProducts, request).ToList();
+        var totalCount = orderedProducts.Count;
 
         return new PaginatedResponse<ProductDto>
         {
-            Items = items.Select(p => p.ToDto()).ToList(),
+            Items = orderedProducts
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(x => x.Product.ToDto())
+                .ToList(),
             Page = request.Page,
             PageSize = request.PageSize,
             TotalCount = totalCount
         };
+    }
+
+    private static IOrderedEnumerable<FallbackSearchCandidate> ApplyFallbackOrdering(
+        IEnumerable<FallbackSearchCandidate> products,
+        ProductListRequest request)
+    {
+        var requestedSort = request.SortBy?.Trim().ToLowerInvariant();
+
+        return requestedSort switch
+        {
+            "price" => request.SortDescending
+                ? products.OrderByDescending(x => x.Score)
+                    .ThenByDescending(x => x.Product.Price)
+                    .ThenByDescending(GetProductStock)
+                    .ThenByDescending(x => x.Product.CreatedAt)
+                : products.OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.Product.Price)
+                    .ThenByDescending(GetProductStock)
+                    .ThenByDescending(x => x.Product.CreatedAt),
+            "created" or "createdat" => request.SortDescending
+                ? products.OrderByDescending(x => x.Score)
+                    .ThenByDescending(x => x.Product.CreatedAt)
+                    .ThenByDescending(GetProductStock)
+                : products.OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.Product.CreatedAt)
+                    .ThenByDescending(GetProductStock),
+            _ => products.OrderByDescending(x => x.Score)
+                .ThenByDescending(GetProductStock)
+                .ThenByDescending(x => x.Product.CreatedAt)
+        };
+
+        static int GetProductStock(FallbackSearchCandidate item) => item.Product.Inventory?.QuantityAvailable ?? 0;
+    }
+
+    private static int CalculateFallbackSearchScore(Product product, string search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return 0;
+        }
+
+        var score = 0;
+        var name = NormalizeSearchText(product.Name);
+        var sku = NormalizeSearchText(product.SKU);
+        var description = NormalizeSearchText(product.Description);
+
+        score += GetExactMatchScore(sku, search, 1200);
+        score += GetExactMatchScore(name, search, 1000);
+        score += GetStartsWithScore(sku, search, 800);
+        score += GetStartsWithScore(name, search, 700);
+        score += GetContainsScore(sku, search, 650);
+        score += GetContainsScore(name, search, 500);
+        score += GetContainsScore(description, search, 180);
+        score += GetFuzzyScore(name, search, 360);
+        score += GetFuzzyScore(sku, search, 260);
+
+        return score;
+    }
+
+    private static int GetExactMatchScore(string value, string search, int score)
+        => value == search ? score : 0;
+
+    private static int GetStartsWithScore(string value, string search, int score)
+        => !string.IsNullOrEmpty(value) && value.StartsWith(search, StringComparison.Ordinal) ? score : 0;
+
+    private static int GetContainsScore(string value, string search, int score)
+        => !string.IsNullOrEmpty(value) && value.Contains(search, StringComparison.Ordinal) ? score : 0;
+
+    private static int GetFuzzyScore(string value, string search, int baseScore)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return 0;
+        }
+
+        var distance = GetLevenshteinDistance(value, search);
+        return distance switch
+        {
+            0 => baseScore,
+            1 => baseScore - 80,
+            2 => baseScore - 160,
+            _ => 0
+        };
+    }
+
+    private static int GetLevenshteinDistance(string source, string target)
+    {
+        if (source == target)
+        {
+            return 0;
+        }
+
+        if (source.Length == 0)
+        {
+            return target.Length;
+        }
+
+        if (target.Length == 0)
+        {
+            return source.Length;
+        }
+
+        var matrix = new int[source.Length + 1, target.Length + 1];
+
+        for (var i = 0; i <= source.Length; i++)
+        {
+            matrix[i, 0] = i;
+        }
+
+        for (var j = 0; j <= target.Length; j++)
+        {
+            matrix[0, j] = j;
+        }
+
+        for (var i = 1; i <= source.Length; i++)
+        {
+            for (var j = 1; j <= target.Length; j++)
+            {
+                var substitutionCost = source[i - 1] == target[j - 1] ? 0 : 1;
+
+                matrix[i, j] = Math.Min(
+                    Math.Min(
+                        matrix[i - 1, j] + 1,
+                        matrix[i, j - 1] + 1),
+                    matrix[i - 1, j - 1] + substitutionCost);
+            }
+        }
+
+        return matrix[source.Length, target.Length];
+    }
+
+    private static string NormalizeSearchText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return new string(value
+            .Trim()
+            .ToLowerInvariant()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
     }
 
     private static object BuildSearchPayload(ProductListRequest request)
@@ -703,6 +875,8 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         [JsonPropertyName("count")]
         public long Count { get; set; }
     }
+
+    private sealed record FallbackSearchCandidate(Product Product, int Score);
 
     private sealed class ElasticSearchResponse
     {
