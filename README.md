@@ -491,15 +491,25 @@ Operasyon notları:
 Temel sağlık kontrolleri:
 
 ```bash
+curl -fsS http://localhost:5000/health/ready >/dev/null
 curl -fsS http://localhost:5000/swagger/index.html >/dev/null
 curl -fsS "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5" >/dev/null
+curl -fsS "http://localhost:5000/api/v1/search/suggestions?q=ad&limit=5" >/dev/null
 docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messages consumers
 ```
 
 Beklenen:
 
+- `health/ready` ve Swagger'ın başarıyla dönmesi
+- arama ve suggestion endpoint'lerinin 200 dönmesi
 - `product-index-sync` kuyruğunda `consumers > 0`
 - `_error` kuyruklarında sürekli artış olmaması
+
+Uygulama ayağa kalktıktan sonra hızlı doğrulama için doğrudan smoke script'i de çalıştırabilirsiniz:
+
+```bash
+./scripts/ci/run_api_smoke.sh
+```
 
 ### 9.3 Kritik Ortam Değişkenleri
 
@@ -514,26 +524,41 @@ Test amaçlı kontrollü hata üretimi için:
 
 ### 9.4 Rollback Runbook
 
-Operasyon sırasında en sık kullanılacak runbook/referans bağlantıları:
+Operasyon sırasında en sık bakılacak referanslar:
 
 - [Operasyonel Kontroller](#92-operasyonel-kontroller)
+- [`scripts/ci/run_api_smoke.sh`](scripts/ci/run_api_smoke.sh)
+- [`scripts/ci/run_api_perf_smoke.sh`](scripts/ci/run_api_perf_smoke.sh)
 - [Observability ve Loglama](#5-loglama-i̇zlenebilirlik-ve-hata-yönetimi-observability)
 - [`observability/prometheus-alerts.yml`](observability/prometheus-alerts.yml)
 - [CI/CD Pipeline](.github/workflows/main.yml)
 
+Pratik rollback yaklaşımı:
+
+1. Son deploy sonrası regresyon varsa önce etkilenen alanı netleştirin (`search`, `support`, `checkout`, `payment`).
+2. Mevcut release'in health ve smoke durumunu doğrulayın.
+3. Sorun son değişiklikten geldiyse bir önceki stabil image/tag'e dönün.
+4. Rollback sonrası `health/ready`, temel smoke ve queue kontrollerini tekrar çalıştırın.
+5. `_error` kuyruğu, latency ve log akışı normale dönmeden rollback'i tamamlanmış saymayın.
+
 ### 9.5 Incident Response (Kısa Akış)
 
-1. **Tespit ve sınıflandırma**: Alarm/şikayet geldiğinde etkilenen alanı belirleyin (`search`, `support`, `checkout`, `payment`).
-2. **Etkiyi doğrulama**: Health endpoint, Swagger ve temel iş akışı çağrılarını çalıştırın.
-3. **Hızlı izolasyon**: Hata bir queue consumer, dış servis veya son deploy kaynaklıysa etkiyi sınırlandırın (gerekirse feature/env bazlı devre dışı bırakma).
-4. **Rollback kararı**: Son değişiklik kaynaklı regresyon varsa rollback runbook adımlarını uygulayın.
-5. **Doğrulama**: Rollback veya hotfix sonrası API smoke + queue/alert kontrolleri ile sistemin stabil döndüğünü teyit edin.
-6. **Kayıt ve kapanış**: Kısa bir incident notu çıkarın (kök neden, etki süresi, düzeltici aksiyon) ve backlog'a kalıcı iyileştirme maddesi ekleyin.
+1. **Önce alanı ayırın**: Sorun `search`, `support`, `checkout`, `payment` veya genel API erişimi mi, önce bunu netleştirin.
+2. **Temel sağlığı doğrulayın**: `health/ready`, Swagger ve temel smoke çağrılarını çalıştırın.
+3. **Bağımlılıkları kontrol edin**:
+   - `search` tarafında Elasticsearch ve `product-index-sync`
+   - `support` tarafında SignalR/RabbitMQ/Redis
+   - `checkout` tarafında PostgreSQL, Redis ve payment akışı
+4. **Etkisini sınırlandırın**: Sorun consumer, dış servis veya son deploy kaynaklıysa gerekirse ilgili akışı geçici olarak daraltın ya da rollback'e gidin.
+5. **Düzeltme sonrası yeniden doğrulayın**: Sadece endpoint'in 200 dönmesi yetmez; smoke, queue ve alert tarafı da normale dönmeli.
+6. **Kapatırken not bırakın**: Kısa bir incident özeti çıkarın. Kök neden, etki süresi ve tekrarını önleyecek aksiyon backlog'a yazılsın.
 
 Önerilen hızlı kontrol komutları:
 
 ```bash
 curl -fsS http://localhost:5000/health/ready
 curl -fsS "http://localhost:5000/api/v1/search/products?q=test&page=1&pageSize=5"
+curl -fsS "http://localhost:5000/api/v1/search/suggestions?q=ad&limit=5"
 docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messages consumers
+./scripts/ci/run_api_smoke.sh
 ```
