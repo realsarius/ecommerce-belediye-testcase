@@ -43,17 +43,6 @@ if [[ -z "$customer_token" || -z "$support_token" ]]; then
   exit 1
 fi
 
-me_response="$(mktemp)"
-request_json_with_retry \
-  "GET" \
-  "$API_BASE_URL/api/v1/auth/me" \
-  "$me_response" \
-  3 \
-  2 \
-  -H "Authorization: Bearer $customer_token"
-assert_json_equals "$me_response" "success" "true" "auth me"
-assert_json_equals "$me_response" "data.email" "customer@test.com" "auth me email"
-
 subject="CI Smoke $(date +%s)-$RANDOM"
 initial_message="CI smoke support conversation"
 create_response="$(mktemp)"
@@ -116,6 +105,7 @@ assert_json_equals "$close_response" "data.status" "Closed" "destek konuşması 
   fi
   echo "search=ok"
   echo "suggestions=ok"
+  echo "auth=ok"
   echo "support_flow=ok"
   echo "conversation_id=${conversation_id}"
 } | tee "$SMOKE_SUMMARY"

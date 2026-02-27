@@ -7,7 +7,7 @@ API_LOG="${API_LOG:-/tmp/api.log}"
 API_PID=""
 
 log() {
-  printf '[ci] %s\n' "$*"
+  printf '[ci] %s\n' "$*" >&2
 }
 
 start_api() {
@@ -69,7 +69,7 @@ request_json() {
 
   if [[ ! "$status_code" =~ ^2 ]]; then
     log "HTTP isteği başarısız (${method} ${url}) status=${status_code}"
-    cat "$output_file" 2>/dev/null || true
+    cat "$output_file" >&2 || true
     return 1
   fi
 }

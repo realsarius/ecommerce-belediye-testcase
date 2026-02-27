@@ -23,7 +23,7 @@ jobs:
       JWT_ISSUER: "EcommerceAPI"
       JWT_AUDIENCE: "EcommerceAPI"
       ENCRYPTION_KEY: "12345678901234567890123456789012"
-      HASH_PEPPER: "ci-test-pepper-value"
+      HASH_PEPPER: "test-pepper-value"
       Redis__ConnectionString: "localhost:6379"
       RateLimiting__Enabled: "false"
       Hangfire__Enabled: "false"
