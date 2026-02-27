@@ -559,7 +559,13 @@ Pratik rollback yaklaşımı:
 4. Rollback sonrası `health/ready`, temel smoke ve queue kontrollerini tekrar çalıştırın.
 5. `_error` kuyruğu, latency ve log akışı normale dönmeden rollback'i tamamlanmış saymayın.
 
-### 9.6 Incident Response (Kısa Akış)
+### 9.6 Backup / Restore Planı
+
+PostgreSQL, Redis ve RabbitMQ için yedekleme/geri yükleme adımları ve felaket senaryosu:
+
+- [`docs/backup-restore-plan.md`](docs/backup-restore-plan.md)
+
+### 9.7 Incident Response (Kısa Akış)
 
 1. **Önce alanı ayırın**: Sorun `search`, `support`, `checkout`, `payment` veya genel API erişimi mi, önce bunu netleştirin.
 2. **Temel sağlığı doğrulayın**: `health/ready`, gerekiyorsa Swagger (development/staging) ve temel smoke çağrılarını çalıştırın.
