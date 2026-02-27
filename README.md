@@ -457,6 +457,29 @@ frontend/src/
 
 ## 9. Production Notes
 
+### SignalR Ölçek Stratejisi
+
+Canlı destek modülü tek instance çalışmada doğrudan SignalR ile çalışır.
+Birden fazla API instance veya replica çalıştırılacaksa Redis backplane aktif edilmelidir.
+
+Konfigürasyon:
+
+- `SIGNALR_REDIS_BACKPLANE_ENABLED=true`
+- `SIGNALR_CHANNEL_PREFIX=ecommerce-prod`
+- `REDIS_CONNECTION_STRING=redis:6379`
+
+Tercih gerekçesi:
+
+- Redis zaten cache, distributed lock ve rate limiting için sistemde mevcut
+- Bu nedenle ilk ölçekleme adımı için en düşük operasyonel maliyetli çözüm Redis backplane'dir
+- Managed SignalR servisi daha sonra ihtiyaç halinde değerlendirilebilir
+
+Operasyon notları:
+
+- Tüm API instance'ları aynı Redis'e bağlanmalıdır
+- Ortamlar arasında channel prefix ayrılmalıdır (`ecommerce-dev`, `ecommerce-prod`)
+- Çoklu replica senaryosunda reverse proxy ve WebSocket timeout ayarları ayrıca gözden geçirilmelidir
+
 ### 9.1 RabbitMQ + Elasticsearch Senkron Akışı
 
 - Ürün `create/update/delete/stock` işlemlerinde arama index senkronu doğrudan çağrı yerine event publish ile çalışır.

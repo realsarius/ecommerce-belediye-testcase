@@ -68,8 +68,36 @@ builder.Host.UseSerilog((context, configuration) =>
 });
 
 builder.Services.AddControllers();
-builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
+
+var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+                            ?? builder.Configuration["Redis:ConnectionString"]
+                            ?? "localhost:6379";
+
+var signalRBackplaneEnabled = bool.TryParse(
+    Environment.GetEnvironmentVariable("SIGNALR_REDIS_BACKPLANE_ENABLED"),
+    out var parsedSignalRBackplaneEnabled)
+    ? parsedSignalRBackplaneEnabled
+    : builder.Configuration.GetValue("SignalR:RedisBackplaneEnabled", false);
+
+var signalRChannelPrefix = Environment.GetEnvironmentVariable("SIGNALR_CHANNEL_PREFIX")
+                           ?? builder.Configuration["SignalR:ChannelPrefix"]
+                           ?? "ecommerce";
+
+var signalRBuilder = builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+});
+
+if (signalRBackplaneEnabled)
+{
+    signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
+    {
+        options.Configuration.ChannelPrefix = RedisChannel.Literal($"{signalRChannelPrefix}:signalr");
+        options.Configuration.AbortOnConnectFail = false;
+        options.Configuration.ConnectRetry = 3;
+    });
+}
 
 var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
 
@@ -85,8 +113,8 @@ builder.Services.AddDataProtection()
     .SetApplicationName("EcommerceAPI");
 
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-    ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379"));
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    ConnectionMultiplexer.Connect(redisConnectionString));
 
 builder.Services.AddCors(options =>
 {
