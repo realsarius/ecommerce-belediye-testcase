@@ -31,4 +31,15 @@ public class SearchController : ControllerBase
         if (result.Success) return Ok(result);
         return BadRequest(result);
     }
+
+    [HttpGet("suggestions")]
+    [EnableRateLimiting("search")]
+    public async Task<IActionResult> SuggestProducts(
+        [FromQuery(Name = "q")] string? q,
+        [FromQuery] int limit = 8)
+    {
+        var result = await _productSearchService.SuggestProductsAsync(q ?? string.Empty, limit);
+        if (result.Success) return Ok(result);
+        return BadRequest(result);
+    }
 }

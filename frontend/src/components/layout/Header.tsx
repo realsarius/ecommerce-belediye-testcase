@@ -22,7 +22,7 @@ import { useDevTools } from '@/components/common/DevToolsProvider';
 import { TestCardsDialog } from '@/components/common/TestCardsDialog';
 import { TestUsersDialog } from '@/components/common/TestUsersDialog';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useSearchProductsQuery } from '@/features/products/productsApi';
+import { useSearchSuggestionsQuery } from '@/features/products/productsApi';
 
 const INITIAL_SUGGESTION_LIMIT = 6;
 const SUGGESTION_STEP = 10;
@@ -47,19 +47,15 @@ export function Header() {
   const debouncedSearch = useDebounce(searchInput.trim(), 300);
   const shouldFetchSuggestions = debouncedSearch.length >= 2;
 
-  const { data: suggestionsData, isFetching: isFetchingSuggestions } = useSearchProductsQuery(
+  const { data: suggestions = [], isFetching: isFetchingSuggestions } = useSearchSuggestionsQuery(
     {
-      search: debouncedSearch,
-      page: 1,
-      pageSize: suggestionLimit,
-      inStock: true,
+      q: debouncedSearch,
+      limit: suggestionLimit,
     },
     { skip: !shouldFetchSuggestions }
   );
 
-  const suggestions = suggestionsData?.items ?? [];
-  const totalSuggestions = suggestionsData?.totalCount ?? 0;
-  const hasMoreSuggestions = suggestions.length < totalSuggestions;
+  const hasMoreSuggestions = suggestions.length >= suggestionLimit;
 
   useEffect(() => {
     setSearchInput(currentSearchQuery);
@@ -198,7 +194,7 @@ export function Header() {
                       type="button"
                       onClick={() =>
                         setSuggestionLimit((prev) =>
-                          hasMoreSuggestions ? Math.min(prev + SUGGESTION_STEP, totalSuggestions) : prev
+                          hasMoreSuggestions ? prev + SUGGESTION_STEP : prev
                         )
                       }
                       disabled={!hasMoreSuggestions}

@@ -39,7 +39,7 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task SearchProducts_WithQuery_ReturnsMatchingProduct()
     {
-        var unique = $"es-search-{Guid.NewGuid():N}"[..20];
+        var unique = $"q{Guid.NewGuid():N}"[..12].ToLowerInvariant();
         var productId = Random.Shared.Next(1_000_000, 1_500_000);
         var categoryId = Random.Shared.Next(500_000, 900_000);
 
@@ -55,7 +55,7 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
                 categoryId: categoryId,
                 stockQuantity: 13);
 
-            seededProduct.Name = $"Search Test {unique}";
+            seededProduct.Name = $"SearchTest {unique}";
             seededProduct.SKU = unique.ToUpperInvariant();
             seededProduct.IsActive = true;
             await db.SaveChangesAsync();
@@ -63,16 +63,134 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
             await searchIndexService.IndexProductAsync(seededProduct.Id);
         }
 
-        var searchClient = _factory.CreateClient();
-        var searchTerm = Uri.EscapeDataString(unique);
+        var searchResult = await WaitForSearchAsync(
+            unique,
+            result => result.Items.Any(p => p.SKU == unique.ToUpperInvariant()));
 
-        var searchResponse = await searchClient.GetAsync($"/api/v1/search/products?q={searchTerm}&page=1&pageSize=10");
+        searchResult.Items.Should().Contain(p => p.SKU == unique.ToUpperInvariant());
+    }
 
-        searchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    [Fact]
+    public async Task SearchProducts_ExactNameMatch_ShouldRankHigherThanDescriptionOnlyMatch()
+    {
+        var unique = $"r{Guid.NewGuid():N}"[..12].ToLowerInvariant();
+        var exactProductId = Random.Shared.Next(1_500_001, 1_600_000);
+        var looseProductId = Random.Shared.Next(1_600_001, 1_700_000);
+        var categoryId = Random.Shared.Next(900_001, 950_000);
 
-        var searchResult = await searchResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
-        searchResult.Should().NotBeNull();
-        searchResult!.Success.Should().BeTrue();
-        searchResult.Data.Items.Should().Contain(p => p.SKU == unique.ToUpperInvariant());
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var searchIndexService = scope.ServiceProvider.GetRequiredService<IProductSearchIndexService>();
+
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"Rank Category {unique}");
+
+            var exactProduct = await TestDataSeeder.EnsureProductWithStockAsync(
+                db,
+                productId: exactProductId,
+                categoryId: categoryId,
+                stockQuantity: 10);
+
+            exactProduct.Name = unique;
+            exactProduct.Description = "Exact match product";
+            exactProduct.SKU = $"EXACT-{unique}".ToUpperInvariant();
+            exactProduct.IsActive = true;
+
+            var looseProduct = await TestDataSeeder.EnsureProductWithStockAsync(
+                db,
+                productId: looseProductId,
+                categoryId: categoryId,
+                stockQuantity: 10);
+
+            looseProduct.Name = "Generic Product";
+            looseProduct.Description = $"Description contains {unique}";
+            looseProduct.SKU = $"LOOSE-{unique}".ToUpperInvariant();
+            looseProduct.IsActive = true;
+
+            await db.SaveChangesAsync();
+
+            await searchIndexService.IndexProductAsync(exactProduct.Id);
+            await searchIndexService.IndexProductAsync(looseProduct.Id);
+        }
+
+        var result = await WaitForSearchAsync(
+            unique,
+            data => data.Items.Any() && data.Items.First().Id == exactProductId);
+
+        result.Items.Should().NotBeEmpty();
+        result.Items.First().Id.Should().Be(exactProductId);
+        result.Items.Should().Contain(x => x.Id == looseProductId);
+    }
+
+    [Fact]
+    public async Task SearchProducts_WithMinorTypo_ShouldStillReturnMatchingProduct()
+    {
+        var unique = $"t{Guid.NewGuid():N}"[..12].ToLowerInvariant();
+        var productId = Random.Shared.Next(1_700_001, 1_800_000);
+        var categoryId = Random.Shared.Next(950_001, 990_000);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var searchIndexService = scope.ServiceProvider.GetRequiredService<IProductSearchIndexService>();
+
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"Typo Category {unique}");
+
+            var product = await TestDataSeeder.EnsureProductWithStockAsync(
+                db,
+                productId: productId,
+                categoryId: categoryId,
+                stockQuantity: 8);
+
+            product.Name = unique;
+            product.Description = "Typo tolerance test";
+            product.SKU = $"TYPO-{unique}".ToUpperInvariant();
+            product.IsActive = true;
+
+            await db.SaveChangesAsync();
+
+            await searchIndexService.IndexProductAsync(product.Id);
+        }
+
+        var typoQuery = unique.Remove(4, 1);
+        var result = await WaitForSearchAsync(
+            typoQuery,
+            data => data.Items.Any(x => x.Id == productId));
+
+        result.Items.Should().Contain(x => x.Id == productId);
+    }
+
+    private async Task<PaginatedResponse<ProductDto>> WaitForSearchAsync(
+        string query,
+        Func<PaginatedResponse<ProductDto>, bool> predicate,
+        int retries = 8,
+        int delayMs = 250)
+    {
+        var client = _factory.CreateClient();
+
+        for (var attempt = 0; attempt < retries; attempt++)
+        {
+            var response = await client.GetAsync($"/api/v1/search/products?q={Uri.EscapeDataString(query)}&page=1&pageSize=20");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var result = await response.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+
+            if (predicate(result.Data))
+            {
+                return result.Data;
+            }
+
+            await Task.Delay(delayMs);
+        }
+
+        var finalResponse = await client.GetAsync($"/api/v1/search/products?q={Uri.EscapeDataString(query)}&page=1&pageSize=20");
+        finalResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var finalResult = await finalResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
+        finalResult.Should().NotBeNull();
+        finalResult!.Success.Should().BeTrue();
+        return finalResult.Data;
     }
 }
