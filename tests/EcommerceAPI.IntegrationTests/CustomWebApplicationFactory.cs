@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Authentication;
@@ -72,6 +73,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
                 TestAuthHandler.AuthenticationScheme, _ => { });
         });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        try
+        {
+            base.Dispose(disposing);
+        }
+        catch (ChannelClosedException)
+        {
+            // CI occasionally tears down the MassTransit in-memory transport twice.
+            // Once the channel is already closed, we can safely ignore the duplicate stop.
+        }
     }
 }
 
