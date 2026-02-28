@@ -58,6 +58,7 @@ public class AppDbContext : DbContext
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<PriceAlert> PriceAlerts => Set<PriceAlert>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -81,6 +82,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ProductReviewConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistItemConfiguration());
+        modelBuilder.ApplyConfiguration(new PriceAlertConfiguration());
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
