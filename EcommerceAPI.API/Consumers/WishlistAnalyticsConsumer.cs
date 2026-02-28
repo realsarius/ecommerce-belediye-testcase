@@ -53,6 +53,7 @@ public sealed class WishlistAnalyticsConsumer :
             .Where(p => p.Id == message.ProductId)
             .Select(p => new
             {
+                p.Name,
                 Category = p.Category != null ? p.Category.Name : null,
                 p.WishlistCount,
                 p.IsActive
@@ -60,17 +61,21 @@ public sealed class WishlistAnalyticsConsumer :
             .FirstOrDefaultAsync(context.CancellationToken);
 
         _logger.LogInformation(
-            "Wishlist analytics event processed. EventType={EventType}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, Category={Category}, PriceAtTime={PriceAtTime}, Currency={Currency}, WishlistCount={WishlistCount}, IsActive={IsActive}, MessageId={MessageId}",
+            "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, PriceAtTime={PriceAtTime}, Currency={Currency}, WishlistCount={WishlistCount}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+            "Wishlist",
             nameof(WishlistItemAddedEvent),
+            "Wishlist",
             message.UserId,
             message.WishlistId,
             message.ProductId,
+            productInfo?.Name,
             productInfo?.Category,
             message.PriceAtTime,
             message.Currency,
             productInfo?.WishlistCount,
             productInfo?.IsActive,
-            messageId);
+            messageId,
+            message.OccurredAt);
 
         await SaveInboxMessageAsync(messageId, typeof(WishlistItemAddedEvent), context.CancellationToken);
     }
@@ -95,6 +100,7 @@ public sealed class WishlistAnalyticsConsumer :
             .Where(p => p.Id == message.ProductId)
             .Select(p => new
             {
+                p.Name,
                 Category = p.Category != null ? p.Category.Name : null,
                 p.WishlistCount,
                 p.IsActive
@@ -102,16 +108,20 @@ public sealed class WishlistAnalyticsConsumer :
             .FirstOrDefaultAsync(context.CancellationToken);
 
         _logger.LogInformation(
-            "Wishlist analytics event processed. EventType={EventType}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, Category={Category}, Reason={Reason}, WishlistCount={WishlistCount}, IsActive={IsActive}, MessageId={MessageId}",
+            "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, Reason={Reason}, WishlistCount={WishlistCount}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+            "Wishlist",
             nameof(WishlistItemRemovedEvent),
+            "Wishlist",
             message.UserId,
             message.WishlistId,
             message.ProductId,
+            productInfo?.Name,
             productInfo?.Category,
             message.Reason,
             productInfo?.WishlistCount,
             productInfo?.IsActive,
-            messageId);
+            messageId,
+            message.OccurredAt);
 
         await SaveInboxMessageAsync(messageId, typeof(WishlistItemRemovedEvent), context.CancellationToken);
     }
