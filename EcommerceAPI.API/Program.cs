@@ -272,6 +272,7 @@ builder.Services.AddMassTransit(configurator =>
     configurator.AddConsumer<WishlistAnalyticsConsumer, WishlistAnalyticsConsumerDefinition>();
     configurator.AddConsumer<WishlistProductIndexSyncConsumer, WishlistProductIndexSyncConsumerDefinition>();
     configurator.AddConsumer<WishlistPersonalizationConsumer, WishlistPersonalizationConsumerDefinition>();
+    configurator.AddConsumer<WishlistPriceAlertNotificationConsumer, WishlistPriceAlertNotificationConsumerDefinition>();
 
     if (builder.Environment.IsEnvironment("Test"))
     {
@@ -597,6 +598,11 @@ if (hangfireEnabled)
         "auto-close-inactive-support-conversations",
         service => service.AutoCloseInactiveConversationsAsync(),
         "*/15 * * * *");
+
+    recurringJobManager.AddOrUpdate<IWishlistPriceAlertService>(
+        "wishlist-price-alert-checker",
+        service => service.ProcessPriceAlertsAsync(),
+        Cron.Hourly());
 }
 
 app.UseCorrelationId();
@@ -665,6 +671,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 app.MapHub<LiveSupportHub>("/hubs/live-support")
     .RequireRateLimiting("support-hub-connect");
+app.MapHub<WishlistHub>("/hubs/wishlist");
 
 static string ResolveSeedDataPath(params string[] basePaths)
 {
