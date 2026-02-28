@@ -7,26 +7,36 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
+using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
 public class InventoryManager : IInventoryService
 {
+    private const int WishlistLowStockThreshold = 5;
     private readonly IInventoryDal _inventoryDal;
     private readonly IDistributedLockService _lockService;
     private readonly IAuditService _auditService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ILogger<InventoryManager> _logger;
 
     public InventoryManager(
         IInventoryDal inventoryDal, 
         IDistributedLockService lockService, 
         IAuditService auditService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IPublishEndpoint publishEndpoint,
+        ILogger<InventoryManager> logger)
     {
         _inventoryDal = inventoryDal;
         _lockService = lockService;
         _auditService = auditService;
         _unitOfWork = unitOfWork;
+        _publishEndpoint = publishEndpoint;
+        _logger = logger;
     }
 
     [LogAspect]
@@ -100,6 +110,11 @@ public class InventoryManager : IInventoryService
                 };
                 await _inventoryDal.AddMovementAsync(movement);
 
+                if (ShouldPublishLowStockAlert(oldStock, inventory.QuantityAvailable))
+                {
+                    await PublishLowStockEventAsync(productId, inventory.QuantityAvailable, reason);
+                }
+
                 return new SuccessResult();
             });
 
@@ -107,5 +122,31 @@ public class InventoryManager : IInventoryService
         }
 
         return new SuccessResult();
+    }
+
+    private async Task PublishLowStockEventAsync(int productId, int stockQuantity, string reason)
+    {
+        var integrationEvent = new WishlistProductLowStockEvent
+        {
+            ProductId = productId,
+            StockQuantity = stockQuantity,
+            Threshold = WishlistLowStockThreshold,
+            Reason = reason
+        };
+
+        await _publishEndpoint.Publish(integrationEvent);
+
+        _logger.LogInformation(
+            "WishlistProductLowStockEvent queued to MassTransit bus outbox. ProductId={ProductId}, StockQuantity={StockQuantity}, Threshold={Threshold}",
+            productId,
+            stockQuantity,
+            WishlistLowStockThreshold);
+    }
+
+    private static bool ShouldPublishLowStockAlert(int oldStock, int newStock)
+    {
+        return oldStock > WishlistLowStockThreshold &&
+               newStock > 0 &&
+               newStock <= WishlistLowStockThreshold;
     }
 }

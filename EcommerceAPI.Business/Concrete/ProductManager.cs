@@ -22,6 +22,7 @@ namespace EcommerceAPI.Business.Concrete;
 
 public class ProductManager : IProductService
 {
+    private const int WishlistLowStockThreshold = 5;
     private readonly IProductDal _productDal;
     private readonly IInventoryDal _inventoryDal;
     private readonly IUnitOfWork _unitOfWork;
@@ -266,6 +267,7 @@ public class ProductManager : IProductService
         if (newQuantity < 0)
             return new ErrorResult(Messages.StockInsufficient);
 
+        var oldQuantity = inventory.QuantityAvailable;
         inventory.QuantityAvailable = newQuantity;
         _inventoryDal.Update(inventory);
 
@@ -286,6 +288,11 @@ public class ProductManager : IProductService
             "UpdateStock",
             "Inventory",
             new { ProductId = productId, Delta = request.Delta, NewQuantity = newQuantity, Reason = request.Reason });
+
+        if (ShouldPublishLowStockAlert(oldQuantity, newQuantity))
+        {
+            await PublishWishlistLowStockEventAsync(productId, newQuantity, request.Reason);
+        }
 
         await QueueProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
         await _unitOfWork.SaveChangesAsync();
@@ -315,6 +322,32 @@ public class ProductManager : IProductService
             productId,
             operation,
             reason);
+    }
+
+    private async Task PublishWishlistLowStockEventAsync(int productId, int stockQuantity, string reason)
+    {
+        var eventMessage = new WishlistProductLowStockEvent
+        {
+            ProductId = productId,
+            StockQuantity = stockQuantity,
+            Threshold = WishlistLowStockThreshold,
+            Reason = reason
+        };
+
+        await _publishEndpoint.Publish(eventMessage);
+
+        _logger.LogInformation(
+            "WishlistProductLowStockEvent queued to MassTransit bus outbox. ProductId={ProductId}, StockQuantity={StockQuantity}, Threshold={Threshold}",
+            productId,
+            stockQuantity,
+            WishlistLowStockThreshold);
+    }
+
+    private static bool ShouldPublishLowStockAlert(int oldStock, int newStock)
+    {
+        return oldStock > WishlistLowStockThreshold &&
+               newStock > 0 &&
+               newStock <= WishlistLowStockThreshold;
     }
 
     private static string BuildProductListCacheKey(ProductListRequest request)

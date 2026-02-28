@@ -273,6 +273,7 @@ builder.Services.AddMassTransit(configurator =>
     configurator.AddConsumer<WishlistProductIndexSyncConsumer, WishlistProductIndexSyncConsumerDefinition>();
     configurator.AddConsumer<WishlistPersonalizationConsumer, WishlistPersonalizationConsumerDefinition>();
     configurator.AddConsumer<WishlistPriceAlertNotificationConsumer, WishlistPriceAlertNotificationConsumerDefinition>();
+    configurator.AddConsumer<WishlistLowStockNotificationConsumer, WishlistLowStockNotificationConsumerDefinition>();
 
     if (builder.Environment.IsEnvironment("Test"))
     {
