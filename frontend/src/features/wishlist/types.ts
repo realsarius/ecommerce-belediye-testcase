@@ -5,6 +5,8 @@ export interface WishlistItem {
     productPrice: number;
     productCurrency: string;
     productImageUrl?: string;
+    isAvailable: boolean;
+    unavailableReason?: string;
     addedAt: string;
     addedAtPrice: number;
     priceChange?: number;

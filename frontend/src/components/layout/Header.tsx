@@ -24,6 +24,7 @@ import { TestUsersDialog } from '@/components/common/TestUsersDialog';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSearchSuggestionsQuery } from '@/features/products/productsApi';
 import { useGetWishlistQuery } from '@/features/wishlist/wishlistApi';
+import { useGuestWishlist } from '@/features/wishlist';
 
 const INITIAL_SUGGESTION_LIMIT = 6;
 const SUGGESTION_STEP = 10;
@@ -35,6 +36,7 @@ export function Header() {
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
   const { data: wishlist } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
+  const { pendingCount } = useGuestWishlist();
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
@@ -45,7 +47,7 @@ export function Header() {
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-  const wishlistItemCount = wishlist?.items?.length || 0;
+  const wishlistItemCount = isAuthenticated ? (wishlist?.items?.length || 0) : pendingCount;
   const currentSearchQuery = new URLSearchParams(location.search).get('q') ?? '';
   const debouncedSearch = useDebounce(searchInput.trim(), 300);
   const shouldFetchSuggestions = debouncedSearch.length >= 2;
@@ -215,21 +217,19 @@ export function Header() {
           {/* Right Side */}
           <div className="flex items-center space-x-4">
             {/* Wishlist */}
-            {isAuthenticated && (
-              <Button variant="ghost" size="icon" className="relative" asChild>
-                <Link to="/wishlist">
-                  <Heart className="h-5 w-5" />
-                  {wishlistItemCount > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                    >
-                      {wishlistItemCount}
-                    </Badge>
-                  )}
-                </Link>
-              </Button>
-            )}
+            <Button variant="ghost" size="icon" className="relative" asChild>
+              <Link to={isAuthenticated ? "/wishlist" : "/login"} state={{ from: location }}>
+                <Heart className="h-5 w-5" />
+                {wishlistItemCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                  >
+                    {wishlistItemCount}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
 
             {/* Cart */}
             {isAuthenticated && (
@@ -467,8 +467,13 @@ export function Header() {
                     </>
                   ) : (
                     <>
+                      {wishlistItemCount > 0 && (
+                        <Link to="/login" state={{ from: location }} className="text-lg font-medium">
+                          Bekleyen Favoriler ({wishlistItemCount})
+                        </Link>
+                      )}
                       <Button asChild>
-                        <Link to="/login">Giriş Yap</Link>
+                        <Link to="/login" state={{ from: location }}>Giriş Yap</Link>
                       </Button>
                       <Button variant="outline" asChild>
                         <Link to="/register">Kayıt Ol</Link>

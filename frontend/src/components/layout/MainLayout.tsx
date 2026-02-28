@@ -5,6 +5,7 @@ import { Footer } from './Footer';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useGetMeQuery } from '@/features/auth/authApi';
 import { setUser } from '@/features/auth/authSlice';
+import { GuestWishlistSync } from '@/features/wishlist';
 import { useEffect } from 'react';
 import { usePageTitle } from '@/hooks/usePageTitle';
 
@@ -25,6 +26,7 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <GuestWishlistSync />
       <Header />
       <CategoryNav />
       <main className="flex-1">

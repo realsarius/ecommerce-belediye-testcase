@@ -7,7 +7,12 @@ export const wishlistApi = baseApi.injectEndpoints({
         getWishlist: builder.query<Wishlist, void>({
             query: () => '/wishlists',
             transformResponse: (response: ApiResponse<Wishlist>) => response.data!,
-            providesTags: ['Wishlists'],
+            providesTags: (result) => result
+                ? [
+                    'Wishlists',
+                    ...result.items.map((item) => ({ type: 'WishlistItem' as const, id: item.productId })),
+                ]
+                : ['Wishlists'],
         }),
         addWishlistItem: builder.mutation<void, AddWishlistItemRequest>({
             query: (data) => ({
@@ -15,14 +20,20 @@ export const wishlistApi = baseApi.injectEndpoints({
                 method: 'POST',
                 body: data,
             }),
-            invalidatesTags: ['Wishlists'],
+            invalidatesTags: (_result, _error, arg) => [
+                'Wishlists',
+                { type: 'WishlistItem' as const, id: arg.productId },
+            ],
         }),
         removeWishlistItem: builder.mutation<void, number>({
             query: (productId) => ({
                 url: `/wishlists/items/${productId}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: ['Wishlists'],
+            invalidatesTags: (_result, _error, productId) => [
+                'Wishlists',
+                { type: 'WishlistItem' as const, id: productId },
+            ],
         }),
         clearWishlist: builder.mutation<void, void>({
             query: () => ({

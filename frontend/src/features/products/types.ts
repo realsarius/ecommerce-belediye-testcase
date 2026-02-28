@@ -14,6 +14,7 @@ export interface Product {
   createdAt: string;
   averageRating: number;
   reviewCount: number;
+  wishlistCount: number;
 }
 
 export interface ProductReviewDto {

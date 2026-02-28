@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/common/skeleton';
 import { useAppSelector } from '@/app/hooks';
 import { toast } from 'sonner';
 import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
+import { getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -30,30 +31,48 @@ export const ProductList = ({
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
   const [addToWishlist] = useAddWishlistItemMutation();
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
+  const { addProduct, isPending, removeProduct } = useGuestWishlist();
 
-  const isProductInWishlist = (productId: number) => {
-    return wishlistData?.items?.some((item: { productId: number }) => item.productId === productId);
-  };
+  const isProductInServerWishlist = (productId: number) =>
+    wishlistData?.items?.some((item: { productId: number }) => item.productId === productId) ?? false;
+
+  const isProductInWishlist = (productId: number) =>
+    isProductInServerWishlist(productId) || isPending(productId);
 
   const handleWishlistToggle = async (e: React.MouseEvent, productId: number) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      toast.error('Favorilere eklemek için giriş yapmalısınız');
+      if (isPending(productId)) {
+        removeProduct(productId);
+        toast.info('Ürün giriş öncesi favori listenizden çıkarıldı.');
+        return;
+      }
+
+      const result = addProduct(productId);
+      if (result.limitReached) {
+        toast.error('Bekleyen favoriler listesi maksimum kapasiteye ulaştı (500 ürün).');
+        return;
+      }
+
+      toast.success('Ürün giriş sonrası favorilerinize eklenmek üzere kaydedildi.');
       return;
     }
 
     try {
-      if (isProductInWishlist(productId)) {
+      if (isPending(productId) && !isProductInServerWishlist(productId)) {
+        removeProduct(productId);
+        toast.info('Ürün senkronizasyon kuyruğundan çıkarıldı.');
+      } else if (isProductInServerWishlist(productId)) {
         await removeFromWishlist(productId).unwrap();
         toast.success('Ürün favorilerden çıkarıldı.');
       } else {
         await addToWishlist({ productId }).unwrap();
         toast.success('Ürün favorilere eklendi.');
       }
-    } catch {
-      toast.error('İşlem başarısız oldu.');
+    } catch (error) {
+      toast.error(getWishlistErrorMessage(error, 'İşlem başarısız oldu.'));
     }
   };
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp } from 'lucide-react';
+import { Badge } from '@/components/common/badge';
 import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
@@ -140,14 +141,25 @@ export default function Wishlist() {
 
                                     <div className="flex-1 flex flex-col sm:flex-row items-center justify-between w-full p-4 sm:p-0 gap-4">
                                         <div className="flex-1 min-w-0 text-center sm:text-left">
-                                            <Link to={`/products/${item.productId}`} className="font-semibold hover:text-primary transition-colors hover:underline truncate block">
-                                                {item.productName}
-                                            </Link>
+                                            {item.isAvailable ? (
+                                                <Link to={`/products/${item.productId}`} className="font-semibold hover:text-primary transition-colors hover:underline truncate block">
+                                                    {item.productName}
+                                                </Link>
+                                            ) : (
+                                                <span className="font-semibold text-muted-foreground truncate block">
+                                                    {item.productName}
+                                                </span>
+                                            )}
+                                            {!item.isAvailable && (
+                                                <Badge variant="secondary" className="mt-2">
+                                                    Satışta Değil
+                                                </Badge>
+                                            )}
                                             <div className="flex items-center gap-2 justify-center sm:justify-start mt-1">
                                                 <p className="text-sm font-medium">
                                                     {item.productPrice.toLocaleString('tr-TR')} {item.productCurrency}
                                                 </p>
-                                                {item.priceChange !== 0 && item.priceChange !== undefined && (
+                                                {item.isAvailable && item.priceChange !== 0 && item.priceChange !== undefined && (
                                                     <span className={`text-xs flex items-center gap-1 ${item.priceChange > 0 ? 'text-red-500' : 'text-green-500'}`}>
                                                         {item.priceChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                                                         {Math.abs(item.priceChangePercentage || 0).toFixed(1)}%
@@ -157,13 +169,18 @@ export default function Wishlist() {
                                             <p className="text-xs text-muted-foreground mt-1">
                                                 Eklenme: {new Date(item.addedAt).toLocaleDateString('tr-TR')} • {item.addedAtPrice.toLocaleString('tr-TR')} {item.productCurrency}
                                             </p>
+                                            {!item.isAvailable && item.unavailableReason && (
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {item.unavailableReason}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                                             <Button
                                                 variant="default"
                                                 className="w-full sm:w-auto"
-                                                disabled={isAddingToCart}
+                                                disabled={!item.isAvailable || isAddingToCart}
                                                 onClick={() => handleAddToCart(item.productId, item.productName)}
                                             >
                                                 <ShoppingCart className="h-4 w-4 mr-2" />
@@ -196,16 +213,27 @@ export default function Wishlist() {
                                 </Button>
                             </div>
                             <CardContent className="p-4 flex-1">
-                                <Link to={`/products/${item.productId}`}>
-                                    <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                                {item.isAvailable ? (
+                                    <Link to={`/products/${item.productId}`}>
+                                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                                            {item.productName}
+                                        </h3>
+                                    </Link>
+                                ) : (
+                                    <h3 className="font-semibold truncate text-muted-foreground">
                                         {item.productName}
                                     </h3>
-                                </Link>
+                                )}
+                                {!item.isAvailable && (
+                                    <Badge variant="secondary" className="mt-2">
+                                        Satışta Değil
+                                    </Badge>
+                                )}
                                 <div className="flex items-center gap-2 mt-2">
                                     <p className="text-lg font-bold">
                                         {item.productPrice.toLocaleString('tr-TR')} {item.productCurrency}
                                     </p>
-                                    {item.priceChange !== 0 && item.priceChange !== undefined && (
+                                    {item.isAvailable && item.priceChange !== 0 && item.priceChange !== undefined && (
                                         <span className={`text-sm flex items-center gap-1 ${item.priceChange > 0 ? 'text-red-500' : 'text-green-500'}`}>
                                             {item.priceChange > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                                             {Math.abs(item.priceChangePercentage || 0).toFixed(1)}%
@@ -217,11 +245,16 @@ export default function Wishlist() {
                                         Eklendiğinde: {item.addedAtPrice.toLocaleString('tr-TR')} {item.productCurrency}
                                     </p>
                                 )}
+                                {!item.isAvailable && item.unavailableReason && (
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        {item.unavailableReason}
+                                    </p>
+                                )}
                             </CardContent>
                             <div className="p-4 pt-0 mt-auto">
                                 <Button
                                     className="w-full"
-                                    disabled={isAddingToCart}
+                                    disabled={!item.isAvailable || isAddingToCart}
                                     onClick={() => handleAddToCart(item.productId, item.productName)}
                                 >
                                     <ShoppingCart className="mr-2 h-4 w-4" />
