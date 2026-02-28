@@ -38,7 +38,14 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.HasIndex(p => p.IsActive);
         builder.HasIndex(p => p.Price);
         builder.HasIndex(p => p.SellerId);
-        
+
+        builder.Property(p => p.WishlistCount)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        // Index for "most wishlisted" queries
+        builder.HasIndex(p => p.WishlistCount);
+
         // Relationships
         builder.HasOne(p => p.Category)
             .WithMany(c => c.Products)

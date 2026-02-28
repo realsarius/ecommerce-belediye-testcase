@@ -6,10 +6,16 @@ public class Product : BaseEntity
     public string Description { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public string Currency { get; set; } = "TRY";
-    public string SKU { get; set; } = string.Empty; 
+    public string SKU { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public int CategoryId { get; set; }
     public int? SellerId { get; set; }
+
+    /// <summary>
+    /// Bu ürünü kaç kullanıcı favorilerine eklemiş (denormalized counter)
+    /// </summary>
+    public int WishlistCount { get; set; } = 0;
+
     public Category Category { get; set; } = null!;
     public SellerProfile? Seller { get; set; }
     public Inventory? Inventory { get; set; }
