@@ -17,6 +17,11 @@ const createPriceAlertsHookResult = (): ReturnType<typeof wishlistApi.useGetWish
     isLoading: false,
 });
 
+const createCollectionsHookResult = (): ReturnType<typeof wishlistApi.useGetWishlistCollectionsQuery> => ({
+    data: [],
+    isLoading: false,
+});
+
 const createShareSettingsHookResult = (): ReturnType<typeof wishlistApi.useGetWishlistShareSettingsQuery> => ({
     data: { isPublic: false },
     isLoading: false,
@@ -27,6 +32,9 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
     return {
         ...actual,
         useLazyGetWishlistQuery: vi.fn(),
+        useGetWishlistCollectionsQuery: vi.fn(),
+        useCreateWishlistCollectionMutation: () => [vi.fn(), { isLoading: false }],
+        useMoveWishlistItemToCollectionMutation: () => [vi.fn()],
         useGetWishlistShareSettingsQuery: vi.fn(),
         useEnableWishlistSharingMutation: () => [vi.fn(), { isLoading: false }],
         useDisableWishlistSharingMutation: () => [vi.fn(), { isLoading: false }],
@@ -42,6 +50,7 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
 describe('Wishlist Component', () => {
     it('renders login prompt when user is not authenticated', () => {
         vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue(createLazyWishlistHookResult());
+        vi.mocked(wishlistApi.useGetWishlistCollectionsQuery).mockReturnValue(createCollectionsHookResult());
         vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue(createPriceAlertsHookResult());
         vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue(createShareSettingsHookResult());
 
@@ -66,6 +75,7 @@ describe('Wishlist Component', () => {
             unwrap: () => Promise.resolve({ id: 1, userId: 1, items: [], hasMore: false, nextCursor: null }),
         });
         vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue(createLazyWishlistHookResult(trigger));
+        vi.mocked(wishlistApi.useGetWishlistCollectionsQuery).mockReturnValue(createCollectionsHookResult());
         vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue(createPriceAlertsHookResult());
         vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue(createShareSettingsHookResult());
 

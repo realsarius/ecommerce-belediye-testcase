@@ -16,6 +16,7 @@ namespace EcommerceAPI.UnitTests;
 public class WishlistManagerTests
 {
     private readonly Mock<IWishlistDal> _wishlistDalMock;
+    private readonly Mock<IWishlistCollectionDal> _wishlistCollectionDalMock;
     private readonly Mock<IWishlistItemDal> _wishlistItemDalMock;
     private readonly Mock<IProductDal> _productDalMock;
     private readonly Mock<IWishlistMapper> _mapperMock;
@@ -29,6 +30,7 @@ public class WishlistManagerTests
     public WishlistManagerTests()
     {
         _wishlistDalMock = new Mock<IWishlistDal>();
+        _wishlistCollectionDalMock = new Mock<IWishlistCollectionDal>();
         _wishlistItemDalMock = new Mock<IWishlistItemDal>();
         _productDalMock = new Mock<IProductDal>();
         _mapperMock = new Mock<IWishlistMapper>();
@@ -43,9 +45,19 @@ public class WishlistManagerTests
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<WishlistItemRemovedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _wishlistCollectionDalMock
+            .Setup(x => x.GetOrCreateDefaultCollectionAsync(It.IsAny<int>()))
+            .ReturnsAsync((int wishlistId) => new WishlistCollection
+            {
+                Id = wishlistId + 1000,
+                WishlistId = wishlistId,
+                Name = "Favorilerim",
+                IsDefault = true
+            });
 
         _manager = new WishlistManager(
             _wishlistDalMock.Object,
+            _wishlistCollectionDalMock.Object,
             _wishlistItemDalMock.Object,
             _productDalMock.Object,
             _mapperMock.Object,
@@ -141,7 +153,7 @@ public class WishlistManagerTests
             .ReturnsAsync(wishlist);
 
         _wishlistItemDalMock
-            .Setup(d => d.GetPagedByWishlistIdAsync(wishlist.Id, null, null, 2))
+            .Setup(d => d.GetPagedByWishlistIdAsync(wishlist.Id, null, null, 2, null))
             .ReturnsAsync(pagedItems);
 
         _mapperMock
@@ -190,6 +202,7 @@ public class WishlistManagerTests
         const decimal productPrice = 299.99m;
         var wishlist = new Wishlist { Id = 10, UserId = userId };
         var product = new Product { Id = productId, Price = productPrice, IsActive = true };
+        var defaultCollection = new WishlistCollection { Id = 1010, WishlistId = wishlist.Id, Name = "Favorilerim", IsDefault = true };
 
         _productDalMock.SetupSequence(d => d.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Product, bool>>>()))
             .ReturnsAsync(product)
@@ -197,6 +210,8 @@ public class WishlistManagerTests
 
         _wishlistDalMock.Setup(d => d.GetOrCreateByUserIdAsync(userId))
             .ReturnsAsync(wishlist);
+        _wishlistCollectionDalMock.Setup(d => d.GetOrCreateDefaultCollectionAsync(wishlist.Id))
+            .ReturnsAsync(defaultCollection);
 
         _wishlistItemDalMock.SetupSequence(d => d.CountAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistItem, bool>>>()))
             .ReturnsAsync(0)
@@ -211,6 +226,7 @@ public class WishlistManagerTests
         _wishlistItemDalMock.Verify(d => d.AddIfNotExistsAsync(It.Is<WishlistItem>(i =>
             i.ProductId == productId &&
             i.WishlistId == wishlist.Id &&
+            i.CollectionId == defaultCollection.Id &&
             i.AddedAtPrice == productPrice)), Times.Once);
         _productDalMock.Verify(d => d.Update(It.Is<Product>(p =>
             p.Id == productId &&
@@ -231,12 +247,15 @@ public class WishlistManagerTests
         const int userId = 1;
         const int productId = 2;
         var wishlist = new Wishlist { Id = 10, UserId = userId };
+        var defaultCollection = new WishlistCollection { Id = 1010, WishlistId = wishlist.Id, Name = "Favorilerim", IsDefault = true };
 
         _productDalMock.Setup(d => d.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Product, bool>>>()))
             .ReturnsAsync(new Product { Id = productId, Price = 100m, IsActive = true });
 
         _wishlistDalMock.Setup(d => d.GetOrCreateByUserIdAsync(userId))
             .ReturnsAsync(wishlist);
+        _wishlistCollectionDalMock.Setup(d => d.GetOrCreateDefaultCollectionAsync(wishlist.Id))
+            .ReturnsAsync(defaultCollection);
 
         _wishlistItemDalMock.Setup(d => d.CountAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistItem, bool>>>()))
             .ReturnsAsync(1);
@@ -273,12 +292,15 @@ public class WishlistManagerTests
         const int userId = 1;
         const int productId = 2;
         var wishlist = new Wishlist { Id = 10, UserId = userId };
+        var defaultCollection = new WishlistCollection { Id = 1010, WishlistId = wishlist.Id, Name = "Favorilerim", IsDefault = true };
 
         _productDalMock.Setup(d => d.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Product, bool>>>()))
             .ReturnsAsync(new Product { Id = productId, Price = 100m, IsActive = true });
 
         _wishlistDalMock.Setup(d => d.GetOrCreateByUserIdAsync(userId))
             .ReturnsAsync(wishlist);
+        _wishlistCollectionDalMock.Setup(d => d.GetOrCreateDefaultCollectionAsync(wishlist.Id))
+            .ReturnsAsync(defaultCollection);
 
         _wishlistItemDalMock.Setup(d => d.CountAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistItem, bool>>>()))
             .ReturnsAsync(500);
@@ -306,7 +328,7 @@ public class WishlistManagerTests
         _wishlistDalMock.Setup(d => d.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Wishlist, bool>>>()))
             .ReturnsAsync(wishlist);
 
-        _wishlistItemDalMock.Setup(d => d.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistItem, bool>>>()))
+        _wishlistItemDalMock.Setup(d => d.GetByWishlistIdWithDetailsAsync(wishlist.Id, null))
             .ReturnsAsync(items);
 
         _productDalMock.Setup(d => d.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Product, bool>>>()))
@@ -355,7 +377,7 @@ public class WishlistManagerTests
             .ReturnsAsync(wishlist);
 
         _wishlistItemDalMock
-            .Setup(d => d.GetPagedByWishlistIdAsync(wishlist.Id, null, null, 3))
+            .Setup(d => d.GetPagedByWishlistIdAsync(wishlist.Id, null, null, 3, null))
             .ReturnsAsync(items);
         _mapperMock
             .Setup(m => m.ToWishlistItemDto(It.IsAny<WishlistItem>()))
@@ -378,6 +400,59 @@ public class WishlistManagerTests
         result.Data.HasMore.Should().BeTrue();
         result.Data.NextCursor.Should().NotBeNullOrWhiteSpace();
         result.Data.Limit.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task CreateCollectionAsync_WhenNameIsUnique_CreatesCollection()
+    {
+        const int userId = 1;
+        var wishlist = new Wishlist { Id = 10, UserId = userId };
+
+        _wishlistDalMock.Setup(x => x.GetOrCreateByUserIdAsync(userId))
+            .ReturnsAsync(wishlist);
+        _wishlistCollectionDalMock.Setup(x => x.GetOrCreateDefaultCollectionAsync(wishlist.Id))
+            .ReturnsAsync(new WishlistCollection { Id = 1010, WishlistId = wishlist.Id, Name = "Favorilerim", IsDefault = true });
+        _wishlistCollectionDalMock.Setup(x => x.ExistsByNameAsync(wishlist.Id, "Hediyeler"))
+            .ReturnsAsync(false);
+        _wishlistCollectionDalMock.Setup(x => x.AddAsync(It.IsAny<WishlistCollection>()))
+            .Callback<WishlistCollection>(collection => collection.Id = 2020)
+            .ReturnsAsync((WishlistCollection collection) => collection);
+
+        var result = await _manager.CreateCollectionAsync(userId, new CreateWishlistCollectionRequest { Name = "Hediyeler" });
+
+        result.Success.Should().BeTrue();
+        result.Data.Id.Should().Be(2020);
+        result.Data.Name.Should().Be("Hediyeler");
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task MoveItemToCollectionAsync_WhenCollectionExists_MovesItem()
+    {
+        const int userId = 1;
+        const int productId = 4;
+        const int targetCollectionId = 22;
+        var wishlist = new Wishlist { Id = 10, UserId = userId };
+
+        _wishlistDalMock.Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Wishlist, bool>>>()))
+            .ReturnsAsync(wishlist);
+        _wishlistCollectionDalMock.Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistCollection, bool>>>()))
+            .ReturnsAsync(new WishlistCollection { Id = targetCollectionId, WishlistId = wishlist.Id, Name = "Teknoloji" });
+        _wishlistItemDalMock.Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistItem, bool>>>()))
+            .ReturnsAsync(new WishlistItem
+            {
+                Id = 1,
+                WishlistId = wishlist.Id,
+                ProductId = productId,
+                CollectionId = 11
+            });
+        _wishlistItemDalMock.Setup(x => x.MoveToCollectionAsync(wishlist.Id, productId, targetCollectionId))
+            .ReturnsAsync(1);
+
+        var result = await _manager.MoveItemToCollectionAsync(userId, productId, targetCollectionId);
+
+        result.Success.Should().BeTrue();
+        _wishlistItemDalMock.Verify(x => x.MoveToCollectionAsync(wishlist.Id, productId, targetCollectionId), Times.Once);
     }
 
     [Fact]

@@ -185,4 +185,60 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         sharedResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task WishlistCollections_CreateMoveAndFilterFlow_ReturnsExpectedItems()
+    {
+        const int userId = 510301;
+        const int categoryId = 510310;
+        const int productId = 510311;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts.AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, userId);
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, "Wishlist Collections Category");
+            var product = await TestDataSeeder.EnsureProductWithStockAsync(db, productId, categoryId, 9);
+            product.IsActive = true;
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+
+        var createCollectionResponse = await client.PostAsJsonAsync(
+            "/api/v1/wishlists/collections",
+            new CreateWishlistCollectionRequest { Name = "Teknoloji" });
+
+        createCollectionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdCollection = await createCollectionResponse.Content.ReadFromJsonAsync<ApiResult<WishlistCollectionDto>>();
+        createdCollection.Should().NotBeNull();
+        createdCollection!.Success.Should().BeTrue();
+        createdCollection.Data!.Name.Should().Be("Teknoloji");
+
+        var collectionsResponse = await client.GetAsync("/api/v1/wishlists/collections");
+        collectionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var collections = await collectionsResponse.Content.ReadFromJsonAsync<ApiResult<List<WishlistCollectionDto>>>();
+        collections.Should().NotBeNull();
+        collections!.Data.Should().Contain(collection => collection.Name == "Teknoloji");
+        collections.Data.Should().Contain(collection => collection.IsDefault);
+
+        await client.PostAsJsonAsync("/api/v1/wishlists/items", new AddWishlistItemRequest { ProductId = productId });
+
+        var moveResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/wishlists/items/{productId}/collection",
+            new MoveWishlistItemToCollectionRequest { CollectionId = createdCollection.Data.Id });
+
+        moveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var filteredWishlistResponse = await client.GetAsync($"/api/v1/wishlists?collectionId={createdCollection.Data.Id}");
+        filteredWishlistResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var filteredWishlist = await filteredWishlistResponse.Content.ReadFromJsonAsync<ApiResult<WishlistDto>>();
+        filteredWishlist.Should().NotBeNull();
+        filteredWishlist!.Success.Should().BeTrue();
+        filteredWishlist.Data!.ActiveCollectionId.Should().Be(createdCollection.Data.Id);
+        filteredWishlist.Data.Items.Should().ContainSingle(item =>
+            item.ProductId == productId &&
+            item.CollectionId == createdCollection.Data.Id &&
+            item.CollectionName == "Teknoloji");
+    }
 }

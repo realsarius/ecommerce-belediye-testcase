@@ -18,6 +18,7 @@ namespace EcommerceAPI.Business.Tests;
 public class WishlistManagerTests
 {
     private Mock<IWishlistDal> _mockWishlistDal = null!;
+    private Mock<IWishlistCollectionDal> _mockWishlistCollectionDal = null!;
     private Mock<IWishlistItemDal> _mockWishlistItemDal = null!;
     private Mock<IProductDal> _mockProductDal = null!;
     private Mock<IWishlistMapper> _mockWishlistMapper = null!;
@@ -32,6 +33,7 @@ public class WishlistManagerTests
     public void Setup()
     {
         _mockWishlistDal = new Mock<IWishlistDal>();
+        _mockWishlistCollectionDal = new Mock<IWishlistCollectionDal>();
         _mockWishlistItemDal = new Mock<IWishlistItemDal>();
         _mockProductDal = new Mock<IProductDal>();
         _mockWishlistMapper = new Mock<IWishlistMapper>();
@@ -46,9 +48,19 @@ public class WishlistManagerTests
         _mockPublishEndpoint
             .Setup(x => x.Publish(It.IsAny<WishlistItemRemovedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _mockWishlistCollectionDal
+            .Setup(x => x.GetOrCreateDefaultCollectionAsync(It.IsAny<int>()))
+            .ReturnsAsync((int wishlistId) => new WishlistCollection
+            {
+                Id = wishlistId + 1000,
+                WishlistId = wishlistId,
+                Name = "Favorilerim",
+                IsDefault = true
+            });
 
         _wishlistManager = new WishlistManager(
             _mockWishlistDal.Object,
+            _mockWishlistCollectionDal.Object,
             _mockWishlistItemDal.Object,
             _mockProductDal.Object,
             _mockWishlistMapper.Object,
@@ -76,13 +88,17 @@ public class WishlistManagerTests
     public async Task AddItemToWishlistAsync_Success_AddsItem()
     {
         var product = new Product { Id = 1, Price = 120m, IsActive = true };
+        var wishlist = new Wishlist { Id = 1, UserId = 1 };
+        var defaultCollection = new WishlistCollection { Id = 1001, WishlistId = wishlist.Id, Name = "Favorilerim", IsDefault = true };
 
         _mockProductDal.SetupSequence(d => d.GetAsync(It.IsAny<Expression<Func<Product, bool>>>()))
             .ReturnsAsync(product)
             .ReturnsAsync(product);
 
         _mockWishlistDal.Setup(d => d.GetOrCreateByUserIdAsync(1))
-            .ReturnsAsync(new Wishlist { Id = 1, UserId = 1 });
+            .ReturnsAsync(wishlist);
+        _mockWishlistCollectionDal.Setup(d => d.GetOrCreateDefaultCollectionAsync(wishlist.Id))
+            .ReturnsAsync(defaultCollection);
 
         _mockWishlistItemDal.SetupSequence(d => d.CountAsync(It.IsAny<Expression<Func<WishlistItem, bool>>>()))
             .ReturnsAsync(0)
@@ -94,6 +110,9 @@ public class WishlistManagerTests
         var result = await _wishlistManager.AddItemToWishlistAsync(1, 1);
 
         Assert.That(result.Success, Is.True);
-        _mockWishlistItemDal.Verify(d => d.AddIfNotExistsAsync(It.Is<WishlistItem>(w => w.ProductId == 1 && w.WishlistId == 1)), Times.Once);
+        _mockWishlistItemDal.Verify(d => d.AddIfNotExistsAsync(It.Is<WishlistItem>(w =>
+            w.ProductId == 1 &&
+            w.WishlistId == 1 &&
+            w.CollectionId == defaultCollection.Id)), Times.Once);
     }
 }
