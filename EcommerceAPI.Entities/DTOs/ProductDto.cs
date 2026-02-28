@@ -15,4 +15,6 @@ public class ProductDto : IDto
     public int StockQuantity { get; set; }
     public int? SellerId { get; set; }
     public string? SellerBrandName { get; set; }
+    public double AverageRating { get; set; }
+    public int ReviewCount { get; set; }
 }
