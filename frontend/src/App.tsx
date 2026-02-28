@@ -26,6 +26,7 @@ const CreditCards = lazy(() => import('@/pages/CreditCards'));
 const Help = lazy(() => import('@/pages/Help'));
 const Support = lazy(() => import('@/pages/Support'));
 const Wishlist = lazy(() => import('@/pages/Wishlist'));
+const SharedWishlist = lazy(() => import('@/pages/SharedWishlist'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
@@ -70,6 +71,7 @@ function App() {
                       }
                     />
                     <Route path="/wishlist" element={<Wishlist />} />
+                    <Route path="/wishlist/share/:token" element={<SharedWishlist />} />
                     <Route
                       path="/checkout"
                       element={

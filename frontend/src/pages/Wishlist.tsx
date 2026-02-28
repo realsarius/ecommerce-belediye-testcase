@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp, BellRing, BellOff } from 'lucide-react';
+import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp, BellRing, BellOff, Share2, Copy, Link2Off } from 'lucide-react';
 import { Badge } from '@/components/common/badge';
 import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
@@ -16,6 +16,10 @@ import {
     useGetWishlistPriceAlertsQuery,
     useUpsertWishlistPriceAlertMutation,
     useRemoveWishlistPriceAlertMutation,
+    useAddAllWishlistItemsToCartMutation,
+    useGetWishlistShareSettingsQuery,
+    useEnableWishlistSharingMutation,
+    useDisableWishlistSharingMutation,
 } from '@/features/wishlist/wishlistApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { toast } from 'sonner';
@@ -30,14 +34,27 @@ export default function Wishlist() {
     const [removeFromWishlist] = useRemoveWishlistItemMutation();
     const [clearWishlist] = useClearWishlistMutation();
     const { data: priceAlerts = [] } = useGetWishlistPriceAlertsQuery(undefined, { skip: !isAuthenticated });
+    const { data: shareSettings } = useGetWishlistShareSettingsQuery(undefined, { skip: !isAuthenticated });
+    const [enableWishlistSharing, { isLoading: isEnablingSharing }] = useEnableWishlistSharingMutation();
+    const [disableWishlistSharing, { isLoading: isDisablingSharing }] = useDisableWishlistSharingMutation();
     const [upsertWishlistPriceAlert] = useUpsertWishlistPriceAlertMutation();
     const [removeWishlistPriceAlert] = useRemoveWishlistPriceAlertMutation();
+    const [addAllWishlistItemsToCart, { isLoading: isBulkAddingToCart }] = useAddAllWishlistItemsToCartMutation();
     const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
     const [wishlist, setWishlist] = useState<WishlistResponse | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [loadFailed, setLoadFailed] = useState(false);
     const [alertDrafts, setAlertDrafts] = useState<Record<number, string>>({});
+    const [bulkAddSummary, setBulkAddSummary] = useState<{
+        message: string;
+        addedCount: number;
+        skippedItems: { productId: number; productName: string; reason: string }[];
+    } | null>(null);
+
+    const shareUrl = shareSettings?.sharePath
+        ? `${window.location.origin}${shareSettings.sharePath}`
+        : null;
 
     const priceAlertsByProductId = Object.fromEntries(
         priceAlerts.map((alert) => [alert.productId, alert]),
@@ -50,6 +67,7 @@ export default function Wishlist() {
             setIsLoading(false);
             setIsLoadingMore(false);
             setAlertDrafts({});
+            setBulkAddSummary(null);
             return;
         }
 
@@ -392,6 +410,74 @@ export default function Wishlist() {
         );
     };
 
+    const handleAddAllToCart = async () => {
+        try {
+            const result = await addAllWishlistItemsToCart().unwrap();
+            const message = result.skippedCount === 0
+                ? `${result.addedCount} ürün sepete eklendi.`
+                : `${result.requestedCount} üründen ${result.addedCount} ürün sepete eklendi, ${result.skippedCount} ürün atlandı.`;
+
+            setBulkAddSummary({
+                message,
+                addedCount: result.addedCount,
+                skippedItems: result.skippedItems,
+            });
+
+            if (result.addedCount > 0) {
+                toast.success(message);
+            } else {
+                toast.info(message);
+            }
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Ürünler sepete eklenemedi.'));
+        }
+    };
+
+    const handleEnableSharing = async () => {
+        try {
+            const nextSettings = await enableWishlistSharing().unwrap();
+            const nextShareUrl = nextSettings.sharePath
+                ? `${window.location.origin}${nextSettings.sharePath}`
+                : null;
+
+            if (nextShareUrl) {
+                try {
+                    await navigator.clipboard.writeText(nextShareUrl);
+                    toast.success('Paylaşım linki oluşturuldu ve kopyalandı.');
+                } catch {
+                    toast.success('Paylaşım linki oluşturuldu.');
+                }
+            } else {
+                toast.success('Paylaşım linki oluşturuldu.');
+            }
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Paylaşım linki oluşturulamadı.'));
+        }
+    };
+
+    const handleDisableSharing = async () => {
+        try {
+            await disableWishlistSharing().unwrap();
+            toast.success('Wishlist paylaşımı kapatıldı.');
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Wishlist paylaşımı kapatılamadı.'));
+        }
+    };
+
+    const handleCopyShareUrl = async () => {
+        if (!shareUrl) {
+            toast.error('Önce paylaşımı açmanız gerekiyor.');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            toast.success('Paylaşım bağlantısı kopyalandı.');
+        } catch {
+            toast.error('Paylaşım bağlantısı kopyalanamadı.');
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex justify-between items-center mb-8">
@@ -415,12 +501,89 @@ export default function Wishlist() {
                             <List className="h-4 w-4" />
                         </Button>
                     </div>
+                    {shareSettings?.isPublic ? (
+                        <>
+                            <Button variant="outline" onClick={() => void handleCopyShareUrl()}>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Linki Kopyala
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => void handleDisableSharing()}
+                                disabled={isDisablingSharing}
+                            >
+                                <Link2Off className="h-4 w-4 mr-2" />
+                                {isDisablingSharing ? 'Kapatılıyor...' : 'Paylaşımı Kapat'}
+                            </Button>
+                        </>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            onClick={() => void handleEnableSharing()}
+                            disabled={isEnablingSharing}
+                        >
+                            <Share2 className="h-4 w-4 mr-2" />
+                            {isEnablingSharing ? 'Hazırlanıyor...' : 'Paylaşılabilir Link Oluştur'}
+                        </Button>
+                    )}
+                    <Button
+                        onClick={() => void handleAddAllToCart()}
+                        disabled={!wishlist.items.some((item) => item.isAvailable) || isBulkAddingToCart}
+                    >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        {isBulkAddingToCart ? 'Ekleniyor...' : 'Tümünü Sepete Ekle'}
+                    </Button>
                     <Button variant="outline" onClick={handleClear} disabled={wishlist.items.length === 0}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Listeyi Temizle
                     </Button>
                 </div>
             </div>
+
+            {bulkAddSummary && (
+                <Card className="mb-6 border-emerald-200/60 bg-emerald-50/60">
+                    <CardContent className="p-4">
+                        <p className="font-medium text-sm">{bulkAddSummary.message}</p>
+                        {bulkAddSummary.skippedItems.length > 0 && (
+                            <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                                {bulkAddSummary.skippedItems.slice(0, 4).map((item) => (
+                                    <p key={`${item.productId}-${item.reason}`}>
+                                        {item.productName}: {item.reason}
+                                    </p>
+                                ))}
+                                {bulkAddSummary.skippedItems.length > 4 && (
+                                    <p>+ {bulkAddSummary.skippedItems.length - 4} ürün daha atlandı.</p>
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {shareSettings?.isPublic && shareUrl && (
+                <Card className="mb-6 border-sky-200/70 bg-sky-50/60">
+                    <CardContent className="p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <p className="text-sm font-medium">Bu favori listesi paylaşılabilir durumda.</p>
+                                <p className="mt-1 break-all text-sm text-muted-foreground">{shareUrl}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" onClick={() => void handleCopyShareUrl()}>
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Kopyala
+                                </Button>
+                                <Button asChild variant="ghost">
+                                    <Link to={shareSettings.sharePath ?? '/wishlist'}>
+                                        <Share2 className="mr-2 h-4 w-4" />
+                                        Önizle
+                                    </Link>
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "grid grid-cols-1 gap-4"}>
                 {wishlist.items.map((item) => (

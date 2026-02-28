@@ -1,5 +1,14 @@
 import { baseApi } from '@/app/api';
-import type { Wishlist, AddWishlistItemRequest, GetWishlistRequest, WishlistPriceAlert, UpsertWishlistPriceAlertRequest } from './types';
+import type {
+    Wishlist,
+    AddWishlistItemRequest,
+    GetWishlistRequest,
+    WishlistPriceAlert,
+    UpsertWishlistPriceAlertRequest,
+    WishlistBulkAddToCartResult,
+    WishlistShareSettings,
+    SharedWishlist,
+} from './types';
 import type { ApiResponse } from '@/types/api';
 
 export const wishlistApi = baseApi.injectEndpoints({
@@ -26,6 +35,46 @@ export const wishlistApi = baseApi.injectEndpoints({
                     ...result.items.map((item) => ({ type: 'WishlistItem' as const, id: item.productId })),
                 ]
                 : ['Wishlists'],
+        }),
+        getWishlistShareSettings: builder.query<WishlistShareSettings, void>({
+            query: () => '/wishlists/share',
+            transformResponse: (response: ApiResponse<WishlistShareSettings>) => response.data ?? { isPublic: false },
+            providesTags: ['WishlistShare'],
+        }),
+        enableWishlistSharing: builder.mutation<WishlistShareSettings, void>({
+            query: () => ({
+                url: '/wishlists/share',
+                method: 'POST',
+            }),
+            transformResponse: (response: ApiResponse<WishlistShareSettings>) => response.data!,
+            invalidatesTags: ['WishlistShare'],
+        }),
+        disableWishlistSharing: builder.mutation<void, void>({
+            query: () => ({
+                url: '/wishlists/share',
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['WishlistShare'],
+        }),
+        getSharedWishlist: builder.query<SharedWishlist, GetWishlistRequest & { shareToken: string }>({
+            query: ({ shareToken, cursor, limit }) => {
+                const params = new URLSearchParams();
+
+                if (cursor) {
+                    params.set('cursor', cursor);
+                }
+
+                if (typeof limit === 'number') {
+                    params.set('limit', String(limit));
+                }
+
+                const query = params.toString();
+                return query
+                    ? `/wishlists/share/${shareToken}?${query}`
+                    : `/wishlists/share/${shareToken}`;
+            },
+            transformResponse: (response: ApiResponse<SharedWishlist>) => response.data!,
+            providesTags: (_result, _error, arg) => [{ type: 'WishlistShare' as const, id: arg.shareToken }],
         }),
         addWishlistItem: builder.mutation<void, AddWishlistItemRequest>({
             query: (data) => ({
@@ -92,16 +141,29 @@ export const wishlistApi = baseApi.injectEndpoints({
                 { type: 'Product' as const, id: productId },
             ],
         }),
+        addAllWishlistItemsToCart: builder.mutation<WishlistBulkAddToCartResult, void>({
+            query: () => ({
+                url: '/wishlists/add-all-to-cart',
+                method: 'POST',
+            }),
+            transformResponse: (response: ApiResponse<WishlistBulkAddToCartResult>) => response.data!,
+            invalidatesTags: ['Cart'],
+        }),
     }),
 });
 
 export const {
     useGetWishlistQuery,
     useLazyGetWishlistQuery,
+    useGetWishlistShareSettingsQuery,
+    useEnableWishlistSharingMutation,
+    useDisableWishlistSharingMutation,
+    useLazyGetSharedWishlistQuery,
     useAddWishlistItemMutation,
     useRemoveWishlistItemMutation,
     useClearWishlistMutation,
     useGetWishlistPriceAlertsQuery,
     useUpsertWishlistPriceAlertMutation,
     useRemoveWishlistPriceAlertMutation,
+    useAddAllWishlistItemsToCartMutation,
 } = wishlistApi;

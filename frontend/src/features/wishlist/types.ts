@@ -22,6 +22,21 @@ export interface Wishlist {
     items: WishlistItem[];
 }
 
+export interface WishlistShareSettings {
+    isPublic: boolean;
+    shareToken?: string | null;
+    sharePath?: string | null;
+}
+
+export interface SharedWishlist {
+    id: number;
+    ownerDisplayName: string;
+    limit?: number;
+    hasMore?: boolean;
+    nextCursor?: string | null;
+    items: WishlistItem[];
+}
+
 export interface AddWishlistItemRequest {
     productId: number;
 }
@@ -57,4 +72,17 @@ export interface WishlistPriceAlertNotification {
     newPrice: number;
     currency: string;
     occurredAt: string;
+}
+
+export interface WishlistBulkAddToCartSkippedItem {
+    productId: number;
+    productName: string;
+    reason: string;
+}
+
+export interface WishlistBulkAddToCartResult {
+    requestedCount: number;
+    addedCount: number;
+    skippedCount: number;
+    skippedItems: WishlistBulkAddToCartSkippedItem[];
 }
