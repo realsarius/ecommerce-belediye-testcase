@@ -8,6 +8,9 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
+using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -19,6 +22,8 @@ public class WishlistManager : IWishlistService
     private readonly IWishlistMapper _wishlistMapper;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditService _auditService;
+    private readonly ILogger<WishlistManager> _logger;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     public WishlistManager(
         IWishlistDal wishlistDal,
@@ -26,7 +31,9 @@ public class WishlistManager : IWishlistService
         IProductDal productDal,
         IWishlistMapper wishlistMapper,
         IUnitOfWork unitOfWork,
-        IAuditService auditService)
+        IAuditService auditService,
+        ILogger<WishlistManager> logger,
+        IPublishEndpoint publishEndpoint)
     {
         _wishlistDal = wishlistDal;
         _wishlistItemDal = wishlistItemDal;
@@ -34,6 +41,8 @@ public class WishlistManager : IWishlistService
         _wishlistMapper = wishlistMapper;
         _unitOfWork = unitOfWork;
         _auditService = auditService;
+        _logger = logger;
+        _publishEndpoint = publishEndpoint;
     }
 
     [CacheAspect(duration: 10)]
@@ -81,6 +90,15 @@ public class WishlistManager : IWishlistService
         }
 
         var now = DateTime.UtcNow;
+        var wishlistItemAddedEvent = new WishlistItemAddedEvent
+        {
+            UserId = userId,
+            WishlistId = wishlist.Id,
+            ProductId = productId,
+            PriceAtTime = product.Price,
+            Currency = product.Currency,
+            OccurredAt = now
+        };
         var newItem = new WishlistItem
         {
             WishlistId = wishlist.Id,
@@ -91,13 +109,27 @@ public class WishlistManager : IWishlistService
             UpdatedAt = now
         };
 
-        var wasInserted = await _wishlistItemDal.AddIfNotExistsAsync(newItem);
-        if (!wasInserted)
+        await _unitOfWork.BeginTransactionAsync();
+        try
         {
-            return new SuccessResult("Product is already in wishlist.");
+            var wasInserted = await _wishlistItemDal.AddIfNotExistsAsync(newItem);
+            if (!wasInserted)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return new SuccessResult("Product is already in wishlist.");
+            }
+
+            await SyncWishlistCountsAsync(new[] { productId }, saveChanges: false);
+            await PublishWishlistEventAsync(wishlistItemAddedEvent);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
         }
 
-        await SyncWishlistCountsAsync(productId);
         await _auditService.LogActionAsync(
             userId.ToString(),
             "WishlistItemAdded",
@@ -116,15 +148,38 @@ public class WishlistManager : IWishlistService
             return new SuccessResult("Item removed.");
         }
 
-        var deletedRowCount = await _wishlistItemDal.DeleteByWishlistAndProductAsync(wishlist.Id, productId);
-        if (deletedRowCount > 0)
+        await _unitOfWork.BeginTransactionAsync();
+        try
         {
-            await SyncWishlistCountsAsync(productId);
+            var deletedRowCount = await _wishlistItemDal.DeleteByWishlistAndProductAsync(wishlist.Id, productId);
+            if (deletedRowCount == 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return new SuccessResult("Product removed from wishlist.");
+            }
+
+            var wishlistItemRemovedEvent = new WishlistItemRemovedEvent
+            {
+                UserId = userId,
+                WishlistId = wishlist.Id,
+                ProductId = productId,
+                Reason = "RemoveItem"
+            };
+
+            await SyncWishlistCountsAsync(new[] { productId }, saveChanges: false);
+            await PublishWishlistEventAsync(wishlistItemRemovedEvent);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
             await _auditService.LogActionAsync(
                 userId.ToString(),
                 "WishlistItemRemoved",
                 "Wishlist",
                 new { ProductId = productId, WishlistId = wishlist.Id });
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
         }
 
         return new SuccessResult("Product removed from wishlist.");
@@ -141,6 +196,15 @@ public class WishlistManager : IWishlistService
 
         var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
         var affectedProductIds = items.Select(item => item.ProductId).Distinct().ToList();
+        var wishlistItemRemovedEvents = affectedProductIds
+            .Select(productId => new WishlistItemRemovedEvent
+            {
+                UserId = userId,
+                WishlistId = wishlist.Id,
+                ProductId = productId,
+                Reason = "ClearWishlist"
+            })
+            .ToList();
 
         foreach (var item in items)
         {
@@ -149,8 +213,26 @@ public class WishlistManager : IWishlistService
 
         if (affectedProductIds.Count > 0)
         {
-            await _unitOfWork.SaveChangesAsync();
-            await SyncWishlistCountsAsync(affectedProductIds);
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                await _unitOfWork.SaveChangesAsync();
+                await SyncWishlistCountsAsync(affectedProductIds, saveChanges: false);
+
+                foreach (var wishlistItemRemovedEvent in wishlistItemRemovedEvents)
+                {
+                    await PublishWishlistEventAsync(wishlistItemRemovedEvent);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitTransactionAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                throw;
+            }
+
             await _auditService.LogActionAsync(
                 userId.ToString(),
                 "WishlistCleared",
@@ -166,7 +248,7 @@ public class WishlistManager : IWishlistService
         return SyncWishlistCountsAsync((IEnumerable<int>)productIds);
     }
 
-    private async Task SyncWishlistCountsAsync(IEnumerable<int> productIds)
+    private async Task SyncWishlistCountsAsync(IEnumerable<int> productIds, bool saveChanges = true)
     {
         var distinctProductIds = productIds
             .Where(productId => productId > 0)
@@ -191,6 +273,31 @@ public class WishlistManager : IWishlistService
             _productDal.Update(product);
         }
 
-        await _unitOfWork.SaveChangesAsync();
+        if (saveChanges)
+        {
+            await _unitOfWork.SaveChangesAsync();
+        }
+    }
+
+    private async Task PublishWishlistEventAsync<TEvent>(TEvent integrationEvent)
+        where TEvent : class
+    {
+        await _publishEndpoint.Publish(integrationEvent);
+
+        _logger.LogInformation(
+            "{EventType} queued to MassTransit bus outbox. ProductId={ProductId}",
+            typeof(TEvent).Name,
+            ResolveProductId(integrationEvent));
+    }
+
+    private static int ResolveProductId<TEvent>(TEvent integrationEvent)
+        where TEvent : class
+    {
+        return integrationEvent switch
+        {
+            WishlistItemAddedEvent addedEvent => addedEvent.ProductId,
+            WishlistItemRemovedEvent removedEvent => removedEvent.ProductId,
+            _ => 0
+        };
     }
 }

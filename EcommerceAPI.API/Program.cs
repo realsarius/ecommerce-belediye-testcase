@@ -261,8 +261,16 @@ if (openTelemetryEnabled)
 builder.Services.AddMassTransit(configurator =>
 {
     configurator.SetKebabCaseEndpointNameFormatter();
+    configurator.AddEntityFrameworkOutbox<AppDbContext>(options =>
+    {
+        options.UsePostgres();
+        options.UseBusOutbox();
+    });
     configurator.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
     configurator.AddConsumer<ProductIndexSyncConsumer, ProductIndexSyncConsumerDefinition>();
+    configurator.AddConsumer<WishlistAnalyticsConsumer, WishlistAnalyticsConsumerDefinition>();
+    configurator.AddConsumer<WishlistProductIndexSyncConsumer, WishlistProductIndexSyncConsumerDefinition>();
+    configurator.AddConsumer<WishlistPersonalizationConsumer, WishlistPersonalizationConsumerDefinition>();
 
     if (builder.Environment.IsEnvironment("Test"))
     {
@@ -295,12 +303,6 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
     .AddCheck<DatabaseHealthCheck>("postgresql", tags: new[] { "ready" })
     .AddCheck<RedisHealthCheck>("redis", tags: new[] { "ready" });
-
-if (!builder.Environment.IsEnvironment("Test"))
-{
-    builder.Services.AddHostedService<OutboxPublisherBackgroundService>();
-}
-
 
 var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", true);
 if (rateLimitingEnabled)

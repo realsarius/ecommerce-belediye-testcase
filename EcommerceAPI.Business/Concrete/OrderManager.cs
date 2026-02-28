@@ -28,7 +28,6 @@ public class OrderManager : IOrderService
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
-    private readonly IOutboxService? _outboxService;
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
@@ -43,8 +42,7 @@ public class OrderManager : IOrderService
         ICouponService couponService,
         IAuditService auditService,
         ILogger<OrderManager> logger,
-        IPublishEndpoint publishEndpoint,
-        IOutboxService? outboxService = null)   
+        IPublishEndpoint publishEndpoint)
     {
         _orderDal = orderDal;
         _productDal = productDal;
@@ -55,7 +53,6 @@ public class OrderManager : IOrderService
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
-        _outboxService = outboxService;
     }
 
     [LogAspect]
@@ -119,16 +116,13 @@ public class OrderManager : IOrderService
                 IdempotencyKey = request.IdempotencyKey
             };
 
-            if (_outboxService != null)
-            {
-                await _outboxService.EnqueueAsync(orderCreatedEvent);
-                await _unitOfWork.SaveChangesAsync();
+            await _publishEndpoint.Publish(orderCreatedEvent);
+            await _unitOfWork.SaveChangesAsync();
 
-                _logger.LogInformation(
-                    "OrderCreatedEvent queued to outbox. OrderId={OrderId}, OrderNumber={OrderNumber}",
-                    order.Id,
-                    order.OrderNumber);
-            }
+            _logger.LogInformation(
+                "OrderCreatedEvent queued to MassTransit bus outbox. OrderId={OrderId}, OrderNumber={OrderNumber}",
+                order.Id,
+                order.OrderNumber);
 
             await _unitOfWork.CommitTransactionAsync();
         }
@@ -140,26 +134,6 @@ public class OrderManager : IOrderService
         }
 
         var createdOrder = await _orderDal.GetByIdWithDetailsAsync(order.Id);
-        if (_outboxService == null && orderCreatedEvent != null)
-        {
-            try
-            {
-                await _publishEndpoint.Publish(orderCreatedEvent);
-
-                _logger.LogInformation(
-                    "OrderCreatedEvent published. OrderId={OrderId}, OrderNumber={OrderNumber}",
-                    order.Id,
-                    order.OrderNumber);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "OrderCreatedEvent publish failed after order commit. OrderId={OrderId}, OrderNumber={OrderNumber}",
-                    order.Id,
-                    order.OrderNumber);
-            }
-        }
 
         await _auditService.LogActionAsync(
             userId.ToString(),

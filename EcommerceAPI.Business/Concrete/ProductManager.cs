@@ -29,7 +29,6 @@ public class ProductManager : IProductService
     private readonly int _productListCacheTTL;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ProductManager> _logger;
-    private readonly IOutboxService? _outboxService;
 
 
     public ProductManager(
@@ -39,8 +38,7 @@ public class ProductManager : IProductService
         IConfiguration configuration,
         IAuditService auditService,
         ILogger<ProductManager> logger,
-        IPublishEndpoint publishEndpoint,
-        IOutboxService? outboxService = null)
+        IPublishEndpoint publishEndpoint)
     {
         _productDal = productDal;
         _inventoryDal = inventoryDal;
@@ -49,7 +47,6 @@ public class ProductManager : IProductService
         _productListCacheTTL = configuration.GetValue<int>("Cache:ProductListTTLMinutes", 5);
         _logger = logger;
         _publishEndpoint = publishEndpoint;
-        _outboxService = outboxService;
     }
 
     [LogAspect]
@@ -158,15 +155,8 @@ public class ProductManager : IProductService
 
         product.Inventory = inventory;
 
-        if (_outboxService != null)
-        {
-            await QueueProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
-            await _unitOfWork.SaveChangesAsync();
-        }
-        else
-        {
-            await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
-        }
+        await QueueProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Upsert, "CreateProduct");
+        await _unitOfWork.SaveChangesAsync();
 
 
         return new SuccessDataResult<ProductDto>(product.ToDto(), Messages.ProductAdded);
@@ -220,21 +210,11 @@ public class ProductManager : IProductService
 
         var updatedProduct = await _productDal.GetByIdWithDetailsAsync(id);
 
-        if (_outboxService != null)
-        {
-            await QueueProductIndexSyncEventAsync(
-                product.Id,
-                product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
-                "UpdateProduct");
-            await _unitOfWork.SaveChangesAsync();
-        }
-        else
-        {
-            await PublishProductIndexSyncEventAsync(
-                product.Id,
-                product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
-                "UpdateProduct");
-        }
+        await QueueProductIndexSyncEventAsync(
+            product.Id,
+            product.IsActive ? ProductIndexOperations.Upsert : ProductIndexOperations.Delete,
+            "UpdateProduct");
+        await _unitOfWork.SaveChangesAsync();
 
         return new SuccessDataResult<ProductDto>(updatedProduct!.ToDto(), Messages.ProductUpdated);
     }
@@ -268,15 +248,8 @@ public class ProductManager : IProductService
             "Product",
             new { ProductId = product.Id, ProductName = product.Name });
 
-        if (_outboxService != null)
-        {
-            await QueueProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
-            await _unitOfWork.SaveChangesAsync();
-        }
-        else
-        {
-            await PublishProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
-        }
+        await QueueProductIndexSyncEventAsync(product.Id, ProductIndexOperations.Delete, "DeleteProduct");
+        await _unitOfWork.SaveChangesAsync();
 
         return new SuccessResult(Messages.ProductDeleted);
     }
@@ -314,15 +287,8 @@ public class ProductManager : IProductService
             "Inventory",
             new { ProductId = productId, Delta = request.Delta, NewQuantity = newQuantity, Reason = request.Reason });
 
-        if (_outboxService != null)
-        {
-            await QueueProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
-            await _unitOfWork.SaveChangesAsync();
-        }
-        else
-        {
-            await PublishProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
-        }
+        await QueueProductIndexSyncEventAsync(productId, ProductIndexOperations.Upsert, "UpdateStock");
+        await _unitOfWork.SaveChangesAsync();
 
         return new SuccessResult(Messages.StockUpdated);
     }
@@ -333,41 +299,8 @@ public class ProductManager : IProductService
         return product?.SellerId == sellerId;
     }
 
-    private async Task PublishProductIndexSyncEventAsync(int productId, string operation, string reason)
-    {
-        try
-        {
-            await _publishEndpoint.Publish(new ProductIndexSyncEvent
-            {
-                ProductId = productId,
-                Operation = operation,
-                Reason = reason
-            });
-
-            _logger.LogInformation(
-                "ProductIndexSyncEvent published. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
-                productId,
-                operation,
-                reason);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "ProductIndexSyncEvent publish failed. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
-                productId,
-                operation,
-                reason);
-        }
-    }
-
     private async Task QueueProductIndexSyncEventAsync(int productId, string operation, string reason)
     {
-        if (_outboxService == null)
-        {
-            return;
-        }
-
         var eventMessage = new ProductIndexSyncEvent
         {
             ProductId = productId,
@@ -375,10 +308,10 @@ public class ProductManager : IProductService
             Reason = reason
         };
 
-        await _outboxService.EnqueueAsync(eventMessage);
+        await _publishEndpoint.Publish(eventMessage);
 
         _logger.LogInformation(
-            "ProductIndexSyncEvent queued to outbox. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
+            "ProductIndexSyncEvent queued to MassTransit bus outbox. ProductId={ProductId}, Operation={Operation}, Reason={Reason}",
             productId,
             operation,
             reason);
