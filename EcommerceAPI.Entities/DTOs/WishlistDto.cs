@@ -17,6 +17,8 @@ public class WishlistItemDto
     public decimal ProductPrice { get; set; }
     public string ProductCurrency { get; set; } = string.Empty;
     public string? ProductImageUrl { get; set; }
+    public bool IsAvailable { get; set; }
+    public string? UnavailableReason { get; set; }
     public DateTime AddedAt { get; set; }
     public decimal AddedAtPrice { get; set; }
     public decimal? PriceChange => ProductPrice - AddedAtPrice;

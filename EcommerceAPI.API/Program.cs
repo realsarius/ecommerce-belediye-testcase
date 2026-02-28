@@ -366,6 +366,16 @@ if (rateLimitingEnabled)
             opt.Window = TimeSpan.FromMinutes(1);
         });
 
+        options.AddRedisSlidingWindowLimiter("wishlist", opt =>
+        {
+            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
+                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+                ?? builder.Configuration["Redis:ConnectionString"]
+                ?? "localhost:6379");
+            opt.PermitLimit = 30;
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
+
         options.AddRedisFixedWindowLimiter("support-message-http", opt =>
         {
             opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(

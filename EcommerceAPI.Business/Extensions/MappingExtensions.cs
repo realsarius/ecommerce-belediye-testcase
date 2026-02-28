@@ -58,7 +58,8 @@ public static class MappingExtensions
             CategoryName = p.Category?.Name ?? string.Empty,
             StockQuantity = p.Inventory?.QuantityAvailable ?? 0,
             SellerId = p.SellerId,
-            SellerBrandName = p.Seller?.BrandName
+            SellerBrandName = p.Seller?.BrandName,
+            WishlistCount = p.WishlistCount
         };
     }
 }

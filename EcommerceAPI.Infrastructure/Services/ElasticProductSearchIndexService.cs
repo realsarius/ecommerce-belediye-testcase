@@ -818,6 +818,7 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             StockQuantity = product.Inventory?.QuantityAvailable ?? 0,
             SellerId = product.SellerId,
             SellerBrandName = product.Seller?.BrandName,
+            WishlistCount = product.WishlistCount,
             CreatedAt = product.CreatedAt,
             NameSuggest = new ElasticCompletionField { Input = BuildSuggestionInputs(product) },
         };
@@ -866,7 +867,8 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             CategoryName = doc.CategoryName,
             StockQuantity = doc.StockQuantity,
             SellerId = doc.SellerId,
-            SellerBrandName = doc.SellerBrandName
+            SellerBrandName = doc.SellerBrandName,
+            WishlistCount = doc.WishlistCount
         };
     }
 
@@ -967,5 +969,8 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
         [JsonPropertyName("createdAt")]
         public DateTime CreatedAt { get; set; }
+
+        [JsonPropertyName("wishlistCount")]
+        public int WishlistCount { get; set; }
     }
 }

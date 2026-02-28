@@ -17,4 +17,5 @@ public class ProductDto : IDto
     public string? SellerBrandName { get; set; }
     public double AverageRating { get; set; }
     public int ReviewCount { get; set; }
+    public int WishlistCount { get; set; }
 }

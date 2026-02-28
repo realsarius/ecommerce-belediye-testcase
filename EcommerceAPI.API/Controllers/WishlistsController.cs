@@ -2,6 +2,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -21,12 +22,13 @@ public class WishlistsController : BaseApiController
 
     private int GetCurrentUserId()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(userIdClaim, out int userId))
         {
             return userId;
         }
-        return 0; // Return 0 or throw exception
+
+        return 0;
     }
 
     [HttpGet]
@@ -40,6 +42,7 @@ public class WishlistsController : BaseApiController
     }
 
     [HttpPost("items")]
+    [EnableRateLimiting("wishlist")]
     public async Task<IActionResult> AddItem([FromBody] AddWishlistItemRequest dto)
     {
         int userId = GetCurrentUserId();
@@ -50,6 +53,7 @@ public class WishlistsController : BaseApiController
     }
 
     [HttpDelete("items/{productId}")]
+    [EnableRateLimiting("wishlist")]
     public async Task<IActionResult> RemoveItem(int productId)
     {
         int userId = GetCurrentUserId();
@@ -60,6 +64,7 @@ public class WishlistsController : BaseApiController
     }
 
     [HttpDelete]
+    [EnableRateLimiting("wishlist")]
     public async Task<IActionResult> ClearWishlist()
     {
         int userId = GetCurrentUserId();

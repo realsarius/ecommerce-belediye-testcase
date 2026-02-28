@@ -24,15 +24,21 @@ public class WishlistMapper : IWishlistMapper
     {
         if (item == null) return null!;
 
+        var isAvailable = item.Product?.IsActive == true;
+        var fallbackPrice = item.AddedAtPrice > 0 ? item.AddedAtPrice : item.Product?.Price ?? 0;
+        var fallbackAddedAt = item.AddedAt != default ? item.AddedAt : item.CreatedAt;
+
         return new WishlistItemDto
         {
             Id = item.Id,
             ProductId = item.ProductId,
-            ProductName = item.Product?.Name ?? string.Empty,
-            ProductPrice = item.Product?.Price ?? 0,
+            ProductName = item.Product?.Name ?? "Ürün artık mevcut değil",
+            ProductPrice = item.Product?.Price ?? fallbackPrice,
             ProductCurrency = item.Product?.Currency ?? "TRY",
-            AddedAt = item.AddedAt,
-            AddedAtPrice = item.AddedAtPrice
+            IsAvailable = isAvailable,
+            UnavailableReason = isAvailable ? null : "Bu ürün artık mevcut değil.",
+            AddedAt = fallbackAddedAt,
+            AddedAtPrice = fallbackPrice
         };
     }
 }
