@@ -10,6 +10,9 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
     return {
         ...actual,
         useLazyGetWishlistQuery: vi.fn(),
+        useGetWishlistPriceAlertsQuery: vi.fn(),
+        useUpsertWishlistPriceAlertMutation: () => [vi.fn()],
+        useRemoveWishlistPriceAlertMutation: () => [vi.fn()],
         useRemoveWishlistItemMutation: () => [vi.fn()],
         useClearWishlistMutation: () => [vi.fn()],
     };
@@ -21,6 +24,10 @@ describe('Wishlist Component', () => {
             vi.fn(),
             { data: undefined, isLoading: false },
         ] as any);
+        vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue({
+            data: [],
+            isLoading: false,
+        } as any);
 
         renderWithProviders(<Wishlist />, {
             store: createTestStore({
@@ -46,6 +53,10 @@ describe('Wishlist Component', () => {
             trigger,
             { data: undefined, isLoading: false },
         ] as any);
+        vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue({
+            data: [],
+            isLoading: false,
+        } as any);
 
         renderWithProviders(<Wishlist />, {
             store: createTestStore({

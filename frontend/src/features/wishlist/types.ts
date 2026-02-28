@@ -30,3 +30,31 @@ export interface GetWishlistRequest {
     cursor?: string;
     limit?: number;
 }
+
+export interface WishlistPriceAlert {
+    id: number;
+    productId: number;
+    productName: string;
+    currency: string;
+    currentPrice: number;
+    targetPrice: number;
+    isActive: boolean;
+    lastTriggeredPrice?: number | null;
+    lastNotifiedAt?: string | null;
+    createdAt: string;
+}
+
+export interface UpsertWishlistPriceAlertRequest {
+    productId: number;
+    targetPrice: number;
+}
+
+export interface WishlistPriceAlertNotification {
+    productId: number;
+    productName: string;
+    targetPrice: number;
+    oldPrice: number;
+    newPrice: number;
+    currency: string;
+    occurredAt: string;
+}

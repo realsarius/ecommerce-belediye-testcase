@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp } from 'lucide-react';
+import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp, BellRing, BellOff } from 'lucide-react';
 import { Badge } from '@/components/common/badge';
 import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
+import { Input } from '@/components/common/input';
 import { useAppSelector } from '@/app/hooks';
 import type { Wishlist as WishlistResponse } from '@/features/wishlist/types';
-import { clearGuestWishlistProducts, useGuestWishlist } from '@/features/wishlist';
-import { useLazyGetWishlistQuery, useRemoveWishlistItemMutation, useClearWishlistMutation } from '@/features/wishlist/wishlistApi';
+import { clearGuestWishlistProducts, getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
+import {
+    useLazyGetWishlistQuery,
+    useRemoveWishlistItemMutation,
+    useClearWishlistMutation,
+    useGetWishlistPriceAlertsQuery,
+    useUpsertWishlistPriceAlertMutation,
+    useRemoveWishlistPriceAlertMutation,
+} from '@/features/wishlist/wishlistApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { toast } from 'sonner';
 
@@ -21,11 +29,19 @@ export default function Wishlist() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [removeFromWishlist] = useRemoveWishlistItemMutation();
     const [clearWishlist] = useClearWishlistMutation();
+    const { data: priceAlerts = [] } = useGetWishlistPriceAlertsQuery(undefined, { skip: !isAuthenticated });
+    const [upsertWishlistPriceAlert] = useUpsertWishlistPriceAlertMutation();
+    const [removeWishlistPriceAlert] = useRemoveWishlistPriceAlertMutation();
     const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
     const [wishlist, setWishlist] = useState<WishlistResponse | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [loadFailed, setLoadFailed] = useState(false);
+    const [alertDrafts, setAlertDrafts] = useState<Record<number, string>>({});
+
+    const priceAlertsByProductId = Object.fromEntries(
+        priceAlerts.map((alert) => [alert.productId, alert]),
+    );
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -33,6 +49,7 @@ export default function Wishlist() {
             setLoadFailed(false);
             setIsLoading(false);
             setIsLoadingMore(false);
+            setAlertDrafts({});
             return;
         }
 
@@ -52,6 +69,32 @@ export default function Wishlist() {
 
         void loadInitialPage();
     }, [fetchWishlistPage, isAuthenticated]);
+
+    useEffect(() => {
+        if (!wishlist?.items?.length) {
+            return;
+        }
+
+        setAlertDrafts((current) => {
+            const next = { ...current };
+            let changed = false;
+
+            for (const item of wishlist.items) {
+                if (next[item.productId] !== undefined) {
+                    continue;
+                }
+
+                const existingAlert = priceAlertsByProductId[item.productId];
+                const defaultTargetPrice = existingAlert?.targetPrice
+                    ?? Math.max(item.productPrice - 1, 1);
+
+                next[item.productId] = defaultTargetPrice.toFixed(2);
+                changed = true;
+            }
+
+            return changed ? next : current;
+        });
+    }, [priceAlerts, wishlist]);
 
     if (!isAuthenticated) {
         const hasPendingWishlist = pendingCount > 0;
@@ -245,6 +288,110 @@ export default function Wishlist() {
         }
     };
 
+    const handleAlertDraftChange = (productId: number, value: string) => {
+        setAlertDrafts((current) => ({
+            ...current,
+            [productId]: value,
+        }));
+    };
+
+    const handleSavePriceAlert = async (item: WishlistResponse['items'][number]) => {
+        const rawValue = alertDrafts[item.productId]?.trim() ?? '';
+        const targetPrice = Number.parseFloat(rawValue.replace(',', '.'));
+
+        if (!Number.isFinite(targetPrice) || targetPrice <= 0) {
+            toast.error('Geçerli bir hedef fiyat giriniz.');
+            return;
+        }
+
+        try {
+            const savedAlert = await upsertWishlistPriceAlert({
+                productId: item.productId,
+                targetPrice,
+            }).unwrap();
+
+            setAlertDrafts((current) => ({
+                ...current,
+                [item.productId]: savedAlert.targetPrice.toFixed(2),
+            }));
+
+            toast.success('Fiyat alarmı kaydedildi.');
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Fiyat alarmı kaydedilemedi.'));
+        }
+    };
+
+    const handleRemovePriceAlert = async (productId: number) => {
+        try {
+            await removeWishlistPriceAlert(productId).unwrap();
+            toast.success('Fiyat alarmı kaldırıldı.');
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Fiyat alarmı kaldırılamadı.'));
+        }
+    };
+
+    const renderPriceAlertControls = (item: WishlistResponse['items'][number]) => {
+        const activeAlert = priceAlertsByProductId[item.productId];
+        const alertDraft = alertDrafts[item.productId] ?? '';
+
+        return (
+            <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <p className="text-sm font-medium flex items-center gap-2">
+                            <BellRing className="h-4 w-4 text-amber-500" />
+                            Fiyat alarmı
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Ürün {alertDraft || 'hedef'} {item.productCurrency} seviyesine indiğinde haber verelim.
+                        </p>
+                        {activeAlert && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                                Aktif hedef: {activeAlert.targetPrice.toLocaleString('tr-TR')} {activeAlert.currency}
+                                {activeAlert.lastNotifiedAt && ` • Son bildirim: ${new Date(activeAlert.lastNotifiedAt).toLocaleString('tr-TR')}`}
+                            </p>
+                        )}
+                    </div>
+                    {activeAlert && (
+                        <Badge variant="secondary">
+                            Alarm aktif
+                        </Badge>
+                    )}
+                </div>
+
+                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                    <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={alertDraft}
+                        disabled={!item.isAvailable}
+                        onChange={(event) => handleAlertDraftChange(item.productId, event.target.value)}
+                        placeholder="Hedef fiyat"
+                        className="sm:max-w-[180px]"
+                    />
+                    <Button
+                        variant="outline"
+                        disabled={!item.isAvailable}
+                        onClick={() => void handleSavePriceAlert(item)}
+                    >
+                        <BellRing className="h-4 w-4 mr-2" />
+                        {activeAlert ? 'Alarmı Güncelle' : 'Alarm Kur'}
+                    </Button>
+                    {activeAlert && (
+                        <Button
+                            variant="ghost"
+                            onClick={() => void handleRemovePriceAlert(item.productId)}
+                        >
+                            <BellOff className="h-4 w-4 mr-2" />
+                            Alarmı Kaldır
+                        </Button>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex justify-between items-center mb-8">
@@ -320,6 +467,7 @@ export default function Wishlist() {
                                                     {item.unavailableReason}
                                                 </p>
                                             )}
+                                            {renderPriceAlertControls(item)}
                                         </div>
 
                                         <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
@@ -396,6 +544,7 @@ export default function Wishlist() {
                                         {item.unavailableReason}
                                     </p>
                                 )}
+                                {renderPriceAlertControls(item)}
                             </CardContent>
                             <div className="p-4 pt-0 mt-auto">
                                 <Button
