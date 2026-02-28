@@ -3,7 +3,7 @@ using System.Text;
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 
-namespace EcommerceAPI.Business.Concrete;
+namespace EcommerceAPI.Infrastructure.Services;
 
 public class EncryptionService : IEncryptionService
 {

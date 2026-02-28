@@ -3,7 +3,7 @@ using System.Text;
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 
-namespace EcommerceAPI.Business.Concrete;
+namespace EcommerceAPI.Infrastructure.Services;
 
 public class HashingService : IHashingService
 {
@@ -20,12 +20,10 @@ public class HashingService : IHashingService
         if (string.IsNullOrEmpty(input))
             return string.Empty;
 
-
         var combined = _pepper + input;
         var bytes = Encoding.UTF8.GetBytes(combined);
         
         var hashBytes = SHA256.HashData(bytes);
-        
 
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }

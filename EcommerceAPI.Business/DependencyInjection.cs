@@ -23,10 +23,6 @@ public static class DependencyInjection
 
         services.AddScoped<ICartMapper, CartMapper>();
 
-
-        services.AddSingleton<IEncryptionService, EncryptionService>();
-        services.AddSingleton<IHashingService, HashingService>();
-
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
         return services;
