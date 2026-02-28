@@ -6,12 +6,14 @@ import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
 import { useAppSelector } from '@/app/hooks';
+import { clearGuestWishlistProducts, useGuestWishlist } from '@/features/wishlist';
 import { useGetWishlistQuery, useRemoveWishlistItemMutation, useClearWishlistMutation } from '@/features/wishlist/wishlistApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { toast } from 'sonner';
 
 export default function Wishlist() {
     const { isAuthenticated } = useAppSelector((state) => state.auth);
+    const { pendingCount } = useGuestWishlist();
     const { data: wishlist, isLoading } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [removeFromWishlist] = useRemoveWishlistItemMutation();
@@ -19,16 +21,56 @@ export default function Wishlist() {
     const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
 
     if (!isAuthenticated) {
+        const hasPendingWishlist = pendingCount > 0;
+
         return (
             <div className="container mx-auto px-4 py-16 text-center">
                 <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-semibold mb-2">Giriş Yapmanız Gerekiyor</h2>
-                <p className="text-muted-foreground mb-6">
-                    Favorilerinizi görmek için lütfen giriş yapın.
+                <h2 className="text-2xl font-semibold mb-2">
+                    {hasPendingWishlist ? 'Bekleyen Favorileriniz Hazır' : 'Giriş Yapmanız Gerekiyor'}
+                </h2>
+                <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
+                    {hasPendingWishlist
+                        ? `${pendingCount} urun favorilerinize eklenmek icin bekliyor. Giris yaptiginizda bu urunleri hesabinizla otomatik olarak senkronize edecegiz.`
+                        : 'Favorilerinizi hesabinizla senkronize etmek ve tum cihazlarinizda gormek icin lutfen giris yapin.'}
                 </p>
-                <Button asChild>
-                    <Link to="/login">Giriş Yap</Link>
-                </Button>
+                <div className="max-w-md mx-auto mb-6">
+                    <Card>
+                        <CardContent className="p-6 space-y-3 text-left">
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-sm text-muted-foreground">Bekleyen favori sayisi</span>
+                                <Badge variant={hasPendingWishlist ? 'default' : 'secondary'}>
+                                    {pendingCount}
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                {hasPendingWishlist
+                                    ? 'Giris yaptiginiz anda bu urunler hesabinizdaki favori listenize aktarilacak.'
+                                    : 'Urun sayfalarindaki kalp butonu ile favori urunleri burada biriktirebilirsiniz.'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button asChild>
+                        <Link to="/login">Giris Yap</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                        <Link to="/">Urunlere Goz At</Link>
+                    </Button>
+                    {hasPendingWishlist && (
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                clearGuestWishlistProducts();
+                                toast.success('Bekleyen favoriler temizlendi.');
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Bekleyenleri Temizle
+                        </Button>
+                    )}
+                </div>
             </div>
         );
     }
