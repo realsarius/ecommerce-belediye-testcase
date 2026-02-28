@@ -345,7 +345,7 @@ export default function Wishlist() {
     };
 
     const renderPriceAlertControls = (item: WishlistResponse['items'][number]) => {
-        const activeAlert = priceAlertsByProductId[item.productId];
+        const activeAlert = priceAlerts.find((alert) => alert.productId === item.productId);
         const alertDraft = alertDrafts[item.productId] ?? '';
 
         return (

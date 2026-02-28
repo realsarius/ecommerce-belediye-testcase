@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAppSelector } from '@/app/hooks';
 import { createWishlistConnection, ensureWishlistConnectionStarted } from './wishlistHub';
-import type { WishlistPriceAlertNotification } from './types';
+import type { WishlistLowStockNotification, WishlistPriceAlertNotification } from './types';
 import { toast } from 'sonner';
 
 export function WishlistPriceAlertListener() {
@@ -22,12 +22,21 @@ export function WishlistPriceAlertListener() {
                 });
         });
 
+        connection.on('LowStockAlertTriggered', (payload: WishlistLowStockNotification) => {
+            toast.info(
+                `${payload.productName} için stok azalıyor`,
+                {
+                    description: `Favorilerinizdeki ürün için yalnızca ${payload.stockQuantity} adet kaldı.`,
+                });
+        });
+
         void ensureWishlistConnectionStarted(connection).catch(() => {
             // Fiyat alarmı dinleyicisi arka planda sessizce yeniden denenecek.
         });
 
         return () => {
             connection.off('PriceAlertTriggered');
+            connection.off('LowStockAlertTriggered');
             void connection.stop();
         };
     }, [isAuthenticated, token]);

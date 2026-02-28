@@ -74,6 +74,14 @@ export interface WishlistPriceAlertNotification {
     occurredAt: string;
 }
 
+export interface WishlistLowStockNotification {
+    productId: number;
+    productName: string;
+    stockQuantity: number;
+    threshold: number;
+    occurredAt: string;
+}
+
 export interface WishlistBulkAddToCartSkippedItem {
     productId: number;
     productName: string;
