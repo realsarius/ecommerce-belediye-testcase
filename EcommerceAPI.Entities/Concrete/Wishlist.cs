@@ -7,5 +7,6 @@ public class Wishlist : BaseEntity
     public bool IsPublic { get; set; }
     public Guid? ShareToken { get; set; }
     
+    public ICollection<WishlistCollection> Collections { get; set; } = new List<WishlistCollection>();
     public ICollection<WishlistItem> Items { get; set; } = new List<WishlistItem>();
 }

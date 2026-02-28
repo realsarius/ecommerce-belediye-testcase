@@ -16,9 +16,9 @@ public class EfWishlistItemDal : EfEntityRepositoryBase<WishlistItem, AppDbConte
     {
         var affectedRows = await _context.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO ""TBL_WishlistItems""
-                (""WishlistId"", ""ProductId"", ""AddedAtPrice"", ""AddedAt"", ""CreatedAt"", ""UpdatedAt"")
+                (""WishlistId"", ""ProductId"", ""CollectionId"", ""AddedAtPrice"", ""AddedAt"", ""CreatedAt"", ""UpdatedAt"")
             VALUES
-                ({item.WishlistId}, {item.ProductId}, {item.AddedAtPrice}, {item.AddedAt}, {item.CreatedAt}, {item.UpdatedAt})
+                ({item.WishlistId}, {item.ProductId}, {item.CollectionId}, {item.AddedAtPrice}, {item.AddedAt}, {item.CreatedAt}, {item.UpdatedAt})
             ON CONFLICT (""WishlistId"", ""ProductId"") DO NOTHING");
 
         return affectedRows > 0;
@@ -32,16 +32,52 @@ public class EfWishlistItemDal : EfEntityRepositoryBase<WishlistItem, AppDbConte
               AND ""ProductId"" = {productId}");
     }
 
-    public async Task<IList<WishlistItem>> GetPagedByWishlistIdAsync(
-        int wishlistId,
-        DateTime? cursorAddedAt,
-        int? cursorItemId,
-        int take)
+    public async Task<int> MoveToCollectionAsync(int wishlistId, int productId, int collectionId)
+    {
+        return await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE ""TBL_WishlistItems""
+            SET ""CollectionId"" = {collectionId},
+                ""UpdatedAt"" = {DateTime.UtcNow}
+            WHERE ""WishlistId"" = {wishlistId}
+              AND ""ProductId"" = {productId}");
+    }
+
+    public async Task<IList<WishlistItem>> GetByWishlistIdWithDetailsAsync(int wishlistId, int? collectionId = null)
     {
         var query = _context.WishlistItems
             .AsNoTracking()
             .Include(x => x.Product)
+            .Include(x => x.Collection)
             .Where(x => x.WishlistId == wishlistId);
+
+        if (collectionId.HasValue)
+        {
+            query = query.Where(x => x.CollectionId == collectionId.Value);
+        }
+
+        return await query
+            .OrderByDescending(x => x.AddedAt)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync();
+    }
+
+    public async Task<IList<WishlistItem>> GetPagedByWishlistIdAsync(
+        int wishlistId,
+        DateTime? cursorAddedAt,
+        int? cursorItemId,
+        int take,
+        int? collectionId = null)
+    {
+        var query = _context.WishlistItems
+            .AsNoTracking()
+            .Include(x => x.Product)
+            .Include(x => x.Collection)
+            .Where(x => x.WishlistId == wishlistId);
+
+        if (collectionId.HasValue)
+        {
+            query = query.Where(x => x.CollectionId == collectionId.Value);
+        }
 
         if (cursorAddedAt.HasValue && cursorItemId.HasValue)
         {

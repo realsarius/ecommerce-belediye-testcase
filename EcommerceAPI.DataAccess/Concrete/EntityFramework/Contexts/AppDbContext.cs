@@ -57,6 +57,7 @@ public class AppDbContext : DbContext
     public DbSet<CustomInboxMessage> InboxMessages => Set<CustomInboxMessage>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
+    public DbSet<WishlistCollection> WishlistCollections => Set<WishlistCollection>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<PriceAlert> PriceAlerts => Set<PriceAlert>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -81,6 +82,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new InboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ProductReviewConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistConfiguration());
+        modelBuilder.ApplyConfiguration(new WishlistCollectionConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistItemConfiguration());
         modelBuilder.ApplyConfiguration(new PriceAlertConfiguration());
         modelBuilder.AddInboxStateEntity();

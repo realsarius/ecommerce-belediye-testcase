@@ -8,6 +8,9 @@ public class WishlistItem : BaseEntity
     public int ProductId { get; set; }
     public Product Product { get; set; } = null!;
 
+    public int CollectionId { get; set; }
+    public WishlistCollection Collection { get; set; } = null!;
+
     /// <summary>
     /// Ürünün favoriye eklendiği andaki fiyatı
     /// </summary>

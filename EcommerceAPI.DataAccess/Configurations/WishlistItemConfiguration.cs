@@ -21,6 +21,11 @@ public class WishlistItemConfiguration : IEntityTypeConfiguration<WishlistItem>
             .HasForeignKey(wi => wi.ProductId)
             .OnDelete(DeleteBehavior.Restrict); // Changed from Cascade to Restrict
 
+        builder.HasOne(wi => wi.Collection)
+            .WithMany(c => c.Items)
+            .HasForeignKey(wi => wi.CollectionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.Property(wi => wi.AddedAtPrice)
             .HasColumnType("decimal(18,2)")
             .IsRequired();
