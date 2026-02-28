@@ -35,6 +35,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using System.Diagnostics;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -313,18 +314,35 @@ if (rateLimitingEnabled)
         
         options.OnRejected = async (context, token) =>
         {
+            var httpContext = context.HttpContext;
+            var loggerFactory = httpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger("Security.RateLimiting");
+            var retryAfterSeconds = 60d;
+
             if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
             {
-                context.HttpContext.Response.Headers.RetryAfter = 
+                retryAfterSeconds = retryAfter.TotalSeconds;
+                httpContext.Response.Headers.RetryAfter =
                     ((int)retryAfter.TotalSeconds).ToString();
             }
+
+            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+            logger.LogWarning(
+                "Rate limit rejected. Endpoint={Endpoint}, Method={Method}, Path={Path}, UserId={UserId}, RemoteIp={RemoteIp}, Authenticated={Authenticated}, RetryAfterSeconds={RetryAfterSeconds}",
+                httpContext.GetEndpoint()?.DisplayName,
+                httpContext.Request.Method,
+                httpContext.Request.Path,
+                userId,
+                httpContext.Connection.RemoteIpAddress?.ToString(),
+                httpContext.User.Identity?.IsAuthenticated == true,
+                retryAfterSeconds);
             
-            context.HttpContext.Response.ContentType = "application/json";
-            await context.HttpContext.Response.WriteAsJsonAsync(new
+            httpContext.Response.ContentType = "application/json";
+            await httpContext.Response.WriteAsJsonAsync(new
             {
                 errorCode = "RATE_LIMIT_EXCEEDED",
                 message = "Çok fazla istek gönderdiniz. Lütfen bekleyin.",
-                retryAfterSeconds = retryAfter.TotalSeconds
+                retryAfterSeconds
             }, token);
         };
 
@@ -375,6 +393,16 @@ if (rateLimitingEnabled)
                 ?? builder.Configuration["Redis:ConnectionString"]
                 ?? "localhost:6379");
             opt.PermitLimit = 30;
+            opt.Window = TimeSpan.FromMinutes(1);
+        });
+
+        options.AddRedisFixedWindowLimiter("wishlist-read", opt =>
+        {
+            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
+                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+                ?? builder.Configuration["Redis:ConnectionString"]
+                ?? "localhost:6379");
+            opt.PermitLimit = 120;
             opt.Window = TimeSpan.FromMinutes(1);
         });
 

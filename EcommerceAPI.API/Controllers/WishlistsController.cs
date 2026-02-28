@@ -32,6 +32,7 @@ public class WishlistsController : BaseApiController
     }
 
     [HttpGet]
+    [EnableRateLimiting("wishlist-read")]
     public async Task<IActionResult> GetWishlist()
     {
         int userId = GetCurrentUserId();
@@ -52,7 +53,7 @@ public class WishlistsController : BaseApiController
         return HandleResult(result);
     }
 
-    [HttpDelete("items/{productId}")]
+    [HttpDelete("items/{productId:int:min(1)}")]
     [EnableRateLimiting("wishlist")]
     public async Task<IActionResult> RemoveItem(int productId)
     {

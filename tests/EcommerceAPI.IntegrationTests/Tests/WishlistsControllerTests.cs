@@ -55,4 +55,15 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             result!.Success.Should().BeTrue();
         }
     }
+
+    [Fact]
+    public async Task AddItemToWishlist_WhenProductIdInvalid_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient().AsCustomer(1);
+        var request = new AddWishlistItemRequest { ProductId = 0 };
+
+        var response = await client.PostAsJsonAsync("/api/v1/wishlists/items", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }
