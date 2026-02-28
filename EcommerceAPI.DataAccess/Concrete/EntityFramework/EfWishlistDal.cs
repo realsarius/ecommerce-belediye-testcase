@@ -34,4 +34,12 @@ public class EfWishlistDal : EfEntityRepositoryBase<Wishlist, AppDbContext>, IWi
             .AsNoTracking()
             .FirstAsync(w => w.UserId == userId);
     }
+
+    public async Task<Wishlist?> GetByShareTokenAsync(Guid shareToken)
+    {
+        return await _context.Wishlists
+            .AsNoTracking()
+            .Include(w => w.User)
+            .FirstOrDefaultAsync(w => w.ShareToken == shareToken);
+    }
 }

@@ -14,6 +14,12 @@ public class WishlistConfiguration : IEntityTypeConfiguration<Wishlist>
         
         builder.HasIndex(w => w.UserId)
             .IsUnique(); // One wishlist per user
+
+        builder.HasIndex(w => w.ShareToken)
+            .IsUnique();
+
+        builder.Property(w => w.IsPublic)
+            .HasDefaultValue(false);
             
         builder.HasOne(w => w.User)
             .WithOne(u => u.Wishlist)
