@@ -7,6 +7,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { SellerLayout } from '@/components/layout/SellerLayout';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { DevToolsProvider } from '@/components/common/DevToolsProvider';
 
@@ -45,119 +46,121 @@ function App() {
       <ThemeProvider defaultTheme="system" storageKey="ecommerce-theme">
         <DevToolsProvider>
           <BrowserRouter>
-            <Suspense fallback={
-              <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
-            }>
-              <Routes>
+            <ErrorBoundary>
+              <Suspense fallback={
+                <div className="flex items-center justify-center min-h-screen">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              }>
+                <Routes>
 
-                <Route element={<MainLayout />}>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/products/:id" element={<ProductDetail />} />
+                  <Route element={<MainLayout />}>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/products/:id" element={<ProductDetail />} />
+
+                    <Route
+                      path="/cart"
+                      element={
+                        <ProtectedRoute>
+                          <Cart />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/checkout"
+                      element={
+                        <ProtectedRoute>
+                          <Checkout />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/orders"
+                      element={
+                        <ProtectedRoute>
+                          <Orders />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/orders/:id"
+                      element={
+                        <ProtectedRoute>
+                          <OrderDetail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/account"
+                      element={
+                        <ProtectedRoute>
+                          <Account />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/account/addresses"
+                      element={
+                        <ProtectedRoute>
+                          <Addresses />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/account/credit-cards"
+                      element={
+                        <ProtectedRoute>
+                          <CreditCards />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/support"
+                      element={
+                        <ProtectedRoute>
+                          <Support />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="/help" element={<Help />} />
+                  </Route>
 
                   <Route
-                    path="/cart"
+                    path="/admin"
                     element={
-                      <ProtectedRoute>
-                        <Cart />
+                      <ProtectedRoute requiredRole="Admin">
+                        <AdminLayout />
                       </ProtectedRoute>
                     }
-                  />
-                  <Route
-                    path="/checkout"
-                    element={
-                      <ProtectedRoute>
-                        <Checkout />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/orders"
-                    element={
-                      <ProtectedRoute>
-                        <Orders />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/orders/:id"
-                    element={
-                      <ProtectedRoute>
-                        <OrderDetail />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/account"
-                    element={
-                      <ProtectedRoute>
-                        <Account />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/account/addresses"
-                    element={
-                      <ProtectedRoute>
-                        <Addresses />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/account/credit-cards"
-                    element={
-                      <ProtectedRoute>
-                        <CreditCards />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/support"
-                    element={
-                      <ProtectedRoute>
-                        <Support />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/help" element={<Help />} />
-                </Route>
+                  >
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="products" element={<AdminProducts />} />
+                    <Route path="products/new" element={<ProductForm />} />
+                    <Route path="products/:id" element={<ProductForm />} />
+                    <Route path="categories" element={<AdminCategories />} />
+                    <Route path="orders" element={<AdminOrders />} />
+                    <Route path="coupons" element={<AdminCoupons />} />
+                  </Route>
 
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute requiredRole="Admin">
-                      <AdminLayout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="products" element={<AdminProducts />} />
-                  <Route path="products/new" element={<ProductForm />} />
-                  <Route path="products/:id" element={<ProductForm />} />
-                  <Route path="categories" element={<AdminCategories />} />
-                  <Route path="orders" element={<AdminOrders />} />
-                  <Route path="coupons" element={<AdminCoupons />} />
-                </Route>
-
-                <Route
-                  path="/seller"
-                  element={
-                    <ProtectedRoute requiredRole="Seller">
-                      <SellerLayout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<SellerDashboard />} />
-                  <Route path="products" element={<SellerProducts />} />
-                  <Route path="products/new" element={<SellerProductForm />} />
-                  <Route path="products/:id" element={<SellerProductForm />} />
-                  <Route path="profile" element={<SellerProfile />} />
-                </Route>
-              </Routes>
-            </Suspense>
+                  <Route
+                    path="/seller"
+                    element={
+                      <ProtectedRoute requiredRole="Seller">
+                        <SellerLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<SellerDashboard />} />
+                    <Route path="products" element={<SellerProducts />} />
+                    <Route path="products/new" element={<SellerProductForm />} />
+                    <Route path="products/:id" element={<SellerProductForm />} />
+                    <Route path="profile" element={<SellerProfile />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
             <Toaster position="top-right" richColors closeButton style={{ top: '80px' }} />
           </BrowserRouter>
         </DevToolsProvider>
