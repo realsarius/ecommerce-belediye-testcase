@@ -6,10 +6,11 @@ import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { Separator } from '@/components/common/separator';
-import { ShoppingCart, Package, ArrowLeft, Check, X } from 'lucide-react';
+import { ShoppingCart, Package, ArrowLeft, Check, X, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReviewList } from '@/components/reviews/ReviewList';
 import { StarRating } from '@/components/reviews/StarRating';
+import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,31 @@ export default function ProductDetail() {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const { data: product, isLoading, error } = useGetProductQuery(productId);
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
+
+  const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
+  const [addToWishlist] = useAddWishlistItemMutation();
+  const [removeFromWishlist] = useRemoveWishlistItemMutation();
+
+  const isProductInWishlist = wishlistData?.items?.some((item: { productId: number }) => item.productId === productId);
+
+  const handleWishlistToggle = async () => {
+    if (!isAuthenticated) {
+      toast.error('Favorilere eklemek için giriş yapmalısınız');
+      return;
+    }
+
+    try {
+      if (isProductInWishlist) {
+        await removeFromWishlist(productId).unwrap();
+        toast.success('Ürün favorilerden çıkarıldı.');
+      } else {
+        await addToWishlist({ productId }).unwrap();
+        toast.success('Ürün favorilere eklendi.');
+      }
+    } catch {
+      toast.error('İşlem başarısız oldu.');
+    }
+  };
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -133,15 +159,28 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          <Button
-            size="lg"
-            className="w-full sm:w-auto"
-            disabled={product.stockQuantity === 0 || isAddingToCart}
-            onClick={handleAddToCart}
-          >
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            Sepete Ekle
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              size="lg"
+              className="flex-1 sm:flex-none"
+              disabled={product.stockQuantity === 0 || isAddingToCart}
+              onClick={handleAddToCart}
+            >
+              <ShoppingCart className="mr-2 h-5 w-5" />
+              Sepete Ekle
+            </Button>
+
+            <Button
+              size="lg"
+              variant="outline"
+              className="px-4"
+              onClick={handleWishlistToggle}
+            >
+              <Heart
+                className={`h-5 w-5 ${isProductInWishlist ? 'fill-red-500 text-red-500' : ''}`}
+              />
+            </Button>
+          </div>
         </div>
       </div>
 
