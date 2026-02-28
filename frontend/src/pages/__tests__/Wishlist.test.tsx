@@ -5,6 +5,23 @@ import Wishlist from '../Wishlist';
 import { vi } from 'vitest';
 import * as wishlistApi from '@/features/wishlist/wishlistApi';
 
+const createLazyWishlistHookResult = (
+    trigger: ReturnType<typeof vi.fn> = vi.fn(),
+): ReturnType<typeof wishlistApi.useLazyGetWishlistQuery> => [
+    trigger,
+    { data: undefined, isLoading: false },
+];
+
+const createPriceAlertsHookResult = (): ReturnType<typeof wishlistApi.useGetWishlistPriceAlertsQuery> => ({
+    data: [],
+    isLoading: false,
+});
+
+const createShareSettingsHookResult = (): ReturnType<typeof wishlistApi.useGetWishlistShareSettingsQuery> => ({
+    data: { isPublic: false },
+    isLoading: false,
+});
+
 vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/features/wishlist/wishlistApi')>();
     return {
@@ -24,18 +41,9 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
 
 describe('Wishlist Component', () => {
     it('renders login prompt when user is not authenticated', () => {
-        vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue([
-            vi.fn(),
-            { data: undefined, isLoading: false },
-        ] as any);
-        vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue({
-            data: [],
-            isLoading: false,
-        } as any);
-        vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue({
-            data: { isPublic: false },
-            isLoading: false,
-        } as any);
+        vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue(createLazyWishlistHookResult());
+        vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue(createPriceAlertsHookResult());
+        vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue(createShareSettingsHookResult());
 
         renderWithProviders(<Wishlist />, {
             store: createTestStore({
@@ -57,18 +65,9 @@ describe('Wishlist Component', () => {
         const trigger = vi.fn().mockReturnValue({
             unwrap: () => Promise.resolve({ id: 1, userId: 1, items: [], hasMore: false, nextCursor: null }),
         });
-        vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue([
-            trigger,
-            { data: undefined, isLoading: false },
-        ] as any);
-        vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue({
-            data: [],
-            isLoading: false,
-        } as any);
-        vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue({
-            data: { isPublic: false },
-            isLoading: false,
-        } as any);
+        vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue(createLazyWishlistHookResult(trigger));
+        vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue(createPriceAlertsHookResult());
+        vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue(createShareSettingsHookResult());
 
         renderWithProviders(<Wishlist />, {
             store: createTestStore({

@@ -56,10 +56,6 @@ export default function Wishlist() {
         ? `${window.location.origin}${shareSettings.sharePath}`
         : null;
 
-    const priceAlertsByProductId = Object.fromEntries(
-        priceAlerts.map((alert) => [alert.productId, alert]),
-    );
-
     useEffect(() => {
         if (!isAuthenticated) {
             setWishlist(null);
@@ -102,7 +98,7 @@ export default function Wishlist() {
                     continue;
                 }
 
-                const existingAlert = priceAlertsByProductId[item.productId];
+                const existingAlert = priceAlerts.find((alert) => alert.productId === item.productId);
                 const defaultTargetPrice = existingAlert?.targetPrice
                     ?? Math.max(item.productPrice - 1, 1);
 
