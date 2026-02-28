@@ -5,6 +5,8 @@ export interface WishlistItem {
     productPrice: number;
     productCurrency: string;
     productImageUrl?: string;
+    collectionId: number;
+    collectionName: string;
     isAvailable: boolean;
     unavailableReason?: string;
     addedAt: string;
@@ -16,6 +18,7 @@ export interface WishlistItem {
 export interface Wishlist {
     id: number;
     userId: number;
+    activeCollectionId?: number | null;
     limit?: number;
     hasMore?: boolean;
     nextCursor?: string | null;
@@ -39,11 +42,28 @@ export interface SharedWishlist {
 
 export interface AddWishlistItemRequest {
     productId: number;
+    collectionId?: number;
 }
 
 export interface GetWishlistRequest {
     cursor?: string;
     limit?: number;
+    collectionId?: number;
+}
+
+export interface WishlistCollection {
+    id: number;
+    name: string;
+    isDefault: boolean;
+    itemCount: number;
+}
+
+export interface CreateWishlistCollectionRequest {
+    name: string;
+}
+
+export interface MoveWishlistItemToCollectionRequest {
+    collectionId: number;
 }
 
 export interface WishlistPriceAlert {

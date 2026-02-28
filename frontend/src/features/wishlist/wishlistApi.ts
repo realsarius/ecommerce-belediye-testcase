@@ -8,6 +8,9 @@ import type {
     WishlistBulkAddToCartResult,
     WishlistShareSettings,
     SharedWishlist,
+    WishlistCollection,
+    CreateWishlistCollectionRequest,
+    MoveWishlistItemToCollectionRequest,
 } from './types';
 import type { ApiResponse } from '@/types/api';
 
@@ -25,6 +28,10 @@ export const wishlistApi = baseApi.injectEndpoints({
                     params.set('limit', String(arg.limit));
                 }
 
+                if (typeof arg?.collectionId === 'number') {
+                    params.set('collectionId', String(arg.collectionId));
+                }
+
                 const query = params.toString();
                 return query ? `/wishlists?${query}` : '/wishlists';
             },
@@ -35,6 +42,33 @@ export const wishlistApi = baseApi.injectEndpoints({
                     ...result.items.map((item) => ({ type: 'WishlistItem' as const, id: item.productId })),
                 ]
                 : ['Wishlists'],
+        }),
+        getWishlistCollections: builder.query<WishlistCollection[], void>({
+            query: () => '/wishlists/collections',
+            transformResponse: (response: ApiResponse<WishlistCollection[]>) => response.data ?? [],
+            providesTags: ['WishlistCollections'],
+        }),
+        createWishlistCollection: builder.mutation<WishlistCollection, CreateWishlistCollectionRequest>({
+            query: (body) => ({
+                url: '/wishlists/collections',
+                method: 'POST',
+                body,
+            }),
+            transformResponse: (response: ApiResponse<WishlistCollection>) => response.data!,
+            invalidatesTags: ['WishlistCollections', 'Wishlists'],
+        }),
+        moveWishlistItemToCollection: builder.mutation<void, { productId: number; body: MoveWishlistItemToCollectionRequest }>({
+            query: ({ productId, body }) => ({
+                url: `/wishlists/items/${productId}/collection`,
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: (_result, _error, arg) => [
+                'WishlistCollections',
+                'Wishlists',
+                { type: 'WishlistItem' as const, id: arg.productId },
+                { type: 'Product' as const, id: arg.productId },
+            ],
         }),
         getWishlistShareSettings: builder.query<WishlistShareSettings, void>({
             query: () => '/wishlists/share',
@@ -155,6 +189,9 @@ export const wishlistApi = baseApi.injectEndpoints({
 export const {
     useGetWishlistQuery,
     useLazyGetWishlistQuery,
+    useGetWishlistCollectionsQuery,
+    useCreateWishlistCollectionMutation,
+    useMoveWishlistItemToCollectionMutation,
     useGetWishlistShareSettingsQuery,
     useEnableWishlistSharingMutation,
     useDisableWishlistSharingMutation,

@@ -1,16 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp, BellRing, BellOff, Share2, Copy, Link2Off } from 'lucide-react';
+import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp, BellRing, BellOff, Share2, Copy, Link2Off, FolderPlus } from 'lucide-react';
 import { Badge } from '@/components/common/badge';
 import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
 import { Input } from '@/components/common/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/common/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/common/select';
 import { useAppSelector } from '@/app/hooks';
 import type { Wishlist as WishlistResponse } from '@/features/wishlist/types';
 import { clearGuestWishlistProducts, getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
 import {
     useLazyGetWishlistQuery,
+    useGetWishlistCollectionsQuery,
+    useCreateWishlistCollectionMutation,
+    useMoveWishlistItemToCollectionMutation,
     useRemoveWishlistItemMutation,
     useClearWishlistMutation,
     useGetWishlistPriceAlertsQuery,
@@ -30,7 +35,13 @@ export default function Wishlist() {
     const { isAuthenticated } = useAppSelector((state) => state.auth);
     const { pendingCount } = useGuestWishlist();
     const [fetchWishlistPage] = useLazyGetWishlistQuery();
+    const { data: collections = [] } = useGetWishlistCollectionsQuery(undefined, { skip: !isAuthenticated });
+    const [createWishlistCollection, { isLoading: isCreatingCollection }] = useCreateWishlistCollectionMutation();
+    const [moveWishlistItemToCollection] = useMoveWishlistItemToCollectionMutation();
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
+    const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
+    const [newCollectionName, setNewCollectionName] = useState('');
     const [removeFromWishlist] = useRemoveWishlistItemMutation();
     const [clearWishlist] = useClearWishlistMutation();
     const { data: priceAlerts = [] } = useGetWishlistPriceAlertsQuery(undefined, { skip: !isAuthenticated });
@@ -52,9 +63,50 @@ export default function Wishlist() {
         skippedItems: { productId: number; productName: string; reason: string }[];
     } | null>(null);
 
+    const totalWishlistItemCount = useMemo(
+        () => collections.reduce((total, collection) => total + collection.itemCount, 0),
+        [collections],
+    );
+
+    const collectionNameById = useMemo(
+        () => new Map(collections.map((collection) => [collection.id, collection.name])),
+        [collections],
+    );
+    const totalVisibleCount = wishlist?.items.length ?? 0;
+    const totalCollectionItemCount = totalWishlistItemCount > 0
+        ? totalWishlistItemCount
+        : totalVisibleCount;
+    const selectedCollectionName = selectedCollectionId === null
+        ? 'Tüm Favoriler'
+        : collectionNameById.get(selectedCollectionId) ?? 'Seçili Koleksiyon';
+
     const shareUrl = shareSettings?.sharePath
         ? `${window.location.origin}${shareSettings.sharePath}`
         : null;
+
+    const loadWishlistPage = useEffectEvent(async (collectionId: number | null, cursor?: string) => {
+        const nextWishlist = await fetchWishlistPage({
+            limit: WISHLIST_PAGE_SIZE,
+            cursor,
+            collectionId: collectionId ?? undefined,
+        }).unwrap();
+
+        setWishlist((current) => {
+            if (!cursor || !current) {
+                return nextWishlist;
+            }
+
+            const existingIds = new Set(current.items.map((item) => item.id));
+            return {
+                ...current,
+                ...nextWishlist,
+                items: [
+                    ...current.items,
+                    ...nextWishlist.items.filter((item) => !existingIds.has(item.id)),
+                ],
+            };
+        });
+    });
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -64,25 +116,35 @@ export default function Wishlist() {
             setIsLoadingMore(false);
             setAlertDrafts({});
             setBulkAddSummary(null);
+            setSelectedCollectionId(null);
+            setIsCreateCollectionOpen(false);
+            setNewCollectionName('');
             return;
         }
 
-        const loadInitialPage = async () => {
-            setIsLoading(true);
-            setLoadFailed(false);
+        setIsLoading(true);
+        setLoadFailed(false);
 
-            try {
-                const nextWishlist = await fetchWishlistPage({ limit: WISHLIST_PAGE_SIZE }).unwrap();
-                setWishlist(nextWishlist);
-            } catch {
+        void loadWishlistPage(selectedCollectionId)
+            .catch(() => {
                 setLoadFailed(true);
-            } finally {
+            })
+            .finally(() => {
                 setIsLoading(false);
-            }
-        };
+            });
+    }, [isAuthenticated, selectedCollectionId]);
 
-        void loadInitialPage();
-    }, [fetchWishlistPage, isAuthenticated]);
+    useEffect(() => {
+        if (selectedCollectionId === null) {
+            return;
+        }
+
+        if (collections.some((collection) => collection.id === selectedCollectionId)) {
+            return;
+        }
+
+        setSelectedCollectionId(null);
+    }, [collections, selectedCollectionId]);
 
     useEffect(() => {
         if (!wishlist?.items?.length) {
@@ -179,7 +241,10 @@ export default function Wishlist() {
                         setLoadFailed(false);
 
                         try {
-                            const nextWishlist = await fetchWishlistPage({ limit: WISHLIST_PAGE_SIZE }).unwrap();
+                            const nextWishlist = await fetchWishlistPage({
+                                limit: WISHLIST_PAGE_SIZE,
+                                collectionId: selectedCollectionId ?? undefined,
+                            }).unwrap();
                             setWishlist(nextWishlist);
                         } catch {
                             setLoadFailed(true);
@@ -219,6 +284,26 @@ export default function Wishlist() {
     }
 
     if (!wishlist?.items || wishlist.items.length === 0) {
+        if (selectedCollectionId !== null) {
+            return (
+                <div className="container mx-auto px-4 py-16 text-center">
+                    <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <h2 className="text-2xl font-semibold mb-2">{selectedCollectionName} Koleksiyonu Boş</h2>
+                    <p className="text-muted-foreground mb-6">
+                        Bu koleksiyonda henüz ürün yok. İsterseniz tüm favorilerinize dönün ya da yeni ürünler ekleyin.
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <Button variant="outline" onClick={() => setSelectedCollectionId(null)}>
+                            Tüm Favorilere Dön
+                        </Button>
+                        <Button asChild>
+                            <Link to="/">Ürünlere Göz At</Link>
+                        </Button>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="container mx-auto px-4 py-16 text-center">
                 <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
@@ -226,9 +311,62 @@ export default function Wishlist() {
                 <p className="text-muted-foreground mb-6">
                     Henüz favorilerinize hiçbir ürün eklemediniz.
                 </p>
-                <Button asChild>
-                    <Link to="/">Ürünlere Göz At</Link>
-                </Button>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsCreateCollectionOpen(true)}
+                    >
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                        Yeni Koleksiyon
+                    </Button>
+                    <Button asChild>
+                        <Link to="/">Ürünlere Göz At</Link>
+                    </Button>
+                </div>
+
+                <Dialog open={isCreateCollectionOpen} onOpenChange={setIsCreateCollectionOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Yeni Koleksiyon Oluştur</DialogTitle>
+                            <DialogDescription>
+                                Favori ürünlerinizi başlıklara ayırarak daha kolay takip edin.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <Input
+                            value={newCollectionName}
+                            onChange={(event) => setNewCollectionName(event.target.value)}
+                            placeholder="Örn. Hediye Fikirleri"
+                            maxLength={80}
+                        />
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setIsCreateCollectionOpen(false)}>
+                                Vazgeç
+                            </Button>
+                            <Button
+                                disabled={isCreatingCollection || newCollectionName.trim().length < 2}
+                                onClick={async () => {
+                                    const name = newCollectionName.trim();
+                                    if (name.length < 2) {
+                                        toast.error('Koleksiyon adı en az 2 karakter olmalıdır.');
+                                        return;
+                                    }
+
+                                    try {
+                                        const collection = await createWishlistCollection({ name }).unwrap();
+                                        setSelectedCollectionId(collection.id);
+                                        setNewCollectionName('');
+                                        setIsCreateCollectionOpen(false);
+                                        toast.success(`${collection.name} koleksiyonu oluşturuldu.`);
+                                    } catch (error) {
+                                        toast.error(getWishlistErrorMessage(error, 'Koleksiyon oluşturulamadı.'));
+                                    }
+                                }}
+                            >
+                                {isCreatingCollection ? 'Oluşturuluyor...' : 'Koleksiyonu Oluştur'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         );
     }
@@ -276,6 +414,7 @@ export default function Wishlist() {
             const nextPage = await fetchWishlistPage({
                 cursor: wishlist.nextCursor,
                 limit: WISHLIST_PAGE_SIZE,
+                collectionId: selectedCollectionId ?? undefined,
             }).unwrap();
 
             setWishlist((current) => {
@@ -474,6 +613,68 @@ export default function Wishlist() {
         }
     };
 
+    const handleCreateCollection = async () => {
+        const name = newCollectionName.trim();
+        if (name.length < 2) {
+            toast.error('Koleksiyon adı en az 2 karakter olmalıdır.');
+            return;
+        }
+
+        try {
+            const collection = await createWishlistCollection({ name }).unwrap();
+            setSelectedCollectionId(collection.id);
+            setNewCollectionName('');
+            setIsCreateCollectionOpen(false);
+            toast.success(`${collection.name} koleksiyonu oluşturuldu.`);
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Koleksiyon oluşturulamadı.'));
+        }
+    };
+
+    const handleMoveToCollection = async (productId: number, nextCollectionId: string) => {
+        const parsedCollectionId = Number.parseInt(nextCollectionId, 10);
+        if (!Number.isFinite(parsedCollectionId)) {
+            return;
+        }
+
+        const targetCollectionName = collectionNameById.get(parsedCollectionId) ?? 'seçilen koleksiyon';
+        const targetItem = wishlist.items.find((item) => item.productId === productId);
+        if (!targetItem || targetItem.collectionId === parsedCollectionId) {
+            return;
+        }
+
+        try {
+            await moveWishlistItemToCollection({
+                productId,
+                body: { collectionId: parsedCollectionId },
+            }).unwrap();
+
+            setWishlist((current) => {
+                if (!current) {
+                    return current;
+                }
+
+                if (selectedCollectionId !== null) {
+                    return {
+                        ...current,
+                        items: current.items.filter((item) => item.productId !== productId),
+                    };
+                }
+
+                return {
+                    ...current,
+                    items: current.items.map((item) => item.productId === productId
+                        ? { ...item, collectionId: parsedCollectionId, collectionName: targetCollectionName }
+                        : item),
+                };
+            });
+
+            toast.success(`Ürün ${targetCollectionName} koleksiyonuna taşındı.`);
+        } catch (error) {
+            toast.error(getWishlistErrorMessage(error, 'Ürün koleksiyona taşınamadı.'));
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex justify-between items-center mb-8">
@@ -527,7 +728,11 @@ export default function Wishlist() {
                         disabled={!wishlist.items.some((item) => item.isAvailable) || isBulkAddingToCart}
                     >
                         <ShoppingCart className="h-4 w-4 mr-2" />
-                        {isBulkAddingToCart ? 'Ekleniyor...' : 'Tümünü Sepete Ekle'}
+                        {isBulkAddingToCart
+                            ? 'Ekleniyor...'
+                            : selectedCollectionId === null
+                                ? 'Tümünü Sepete Ekle'
+                                : 'Tüm Favorileri Sepete Ekle'}
                     </Button>
                     <Button variant="outline" onClick={handleClear} disabled={wishlist.items.length === 0}>
                         <Trash2 className="h-4 w-4 mr-2" />
@@ -581,6 +786,49 @@ export default function Wishlist() {
                 </Card>
             )}
 
+            <div className="mb-6 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p className="text-sm font-medium">Koleksiyonlar</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Favorilerinizi konulara ayırın, ürünleri koleksiyonlar arasında taşıyın.
+                        </p>
+                    </div>
+                    <Button variant="outline" onClick={() => setIsCreateCollectionOpen(true)}>
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                        Yeni Koleksiyon
+                    </Button>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                        variant={selectedCollectionId === null ? 'default' : 'outline'}
+                        onClick={() => setSelectedCollectionId(null)}
+                    >
+                        Tüm Favoriler
+                        <Badge variant={selectedCollectionId === null ? 'secondary' : 'outline'} className="ml-2">
+                            {totalCollectionItemCount}
+                        </Badge>
+                    </Button>
+
+                    {collections.map((collection) => (
+                        <Button
+                            key={collection.id}
+                            variant={selectedCollectionId === collection.id ? 'default' : 'outline'}
+                            onClick={() => setSelectedCollectionId(collection.id)}
+                        >
+                            {collection.name}
+                            <Badge
+                                variant={selectedCollectionId === collection.id ? 'secondary' : 'outline'}
+                                className="ml-2"
+                            >
+                                {collection.itemCount}
+                            </Badge>
+                        </Button>
+                    ))}
+                </div>
+            </div>
+
             <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "grid grid-cols-1 gap-4"}>
                 {wishlist.items.map((item) => (
                     viewMode === 'list' ? (
@@ -621,6 +869,9 @@ export default function Wishlist() {
                                             <p className="text-xs text-muted-foreground mt-1">
                                                 Eklenme: {new Date(item.addedAt).toLocaleDateString('tr-TR')} • {item.addedAtPrice.toLocaleString('tr-TR')} {item.productCurrency}
                                             </p>
+                                            <div className="mt-2 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+                                                <Badge variant="outline">{item.collectionName}</Badge>
+                                            </div>
                                             {!item.isAvailable && item.unavailableReason && (
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {item.unavailableReason}
@@ -630,6 +881,21 @@ export default function Wishlist() {
                                         </div>
 
                                         <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                                            <Select
+                                                value={String(item.collectionId)}
+                                                onValueChange={(value) => void handleMoveToCollection(item.productId, value)}
+                                            >
+                                                <SelectTrigger className="w-full sm:w-[180px]">
+                                                    <SelectValue placeholder="Koleksiyon seçin" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {collections.map((collection) => (
+                                                        <SelectItem key={collection.id} value={String(collection.id)}>
+                                                            {collection.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <Button
                                                 variant="default"
                                                 className="w-full sm:w-auto"
@@ -698,12 +964,32 @@ export default function Wishlist() {
                                         Eklendiğinde: {item.addedAtPrice.toLocaleString('tr-TR')} {item.productCurrency}
                                     </p>
                                 )}
+                                <div className="mt-2 flex items-center gap-2">
+                                    <Badge variant="outline">{item.collectionName}</Badge>
+                                </div>
                                 {!item.isAvailable && item.unavailableReason && (
                                     <p className="text-xs text-muted-foreground mt-2">
                                         {item.unavailableReason}
                                     </p>
                                 )}
                                 {renderPriceAlertControls(item)}
+                                <div className="mt-3">
+                                    <Select
+                                        value={String(item.collectionId)}
+                                        onValueChange={(value) => void handleMoveToCollection(item.productId, value)}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Koleksiyon seçin" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {collections.map((collection) => (
+                                                <SelectItem key={collection.id} value={String(collection.id)}>
+                                                    {collection.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </CardContent>
                             <div className="p-4 pt-0 mt-auto">
                                 <Button
@@ -731,6 +1017,50 @@ export default function Wishlist() {
                     </Button>
                 </div>
             )}
+
+            <Dialog
+                open={isCreateCollectionOpen}
+                onOpenChange={(open) => {
+                    setIsCreateCollectionOpen(open);
+                    if (!open) {
+                        setNewCollectionName('');
+                    }
+                }}
+            >
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Yeni Koleksiyon Oluştur</DialogTitle>
+                        <DialogDescription>
+                            Örneğin "Ev Dekorasyonu", "Teknoloji" veya "Hediye Fikirleri" gibi ayrı listeler oluşturabilirsiniz.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <Input
+                        value={newCollectionName}
+                        onChange={(event) => setNewCollectionName(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                void handleCreateCollection();
+                            }
+                        }}
+                        maxLength={80}
+                        placeholder="Koleksiyon adı"
+                    />
+
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsCreateCollectionOpen(false)}>
+                            Vazgeç
+                        </Button>
+                        <Button
+                            onClick={() => void handleCreateCollection()}
+                            disabled={isCreatingCollection || newCollectionName.trim().length < 2}
+                        >
+                            {isCreatingCollection ? 'Oluşturuluyor...' : 'Koleksiyon Oluştur'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
