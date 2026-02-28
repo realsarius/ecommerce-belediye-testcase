@@ -1,0 +1,22 @@
+export interface WishlistItem {
+    id: number;
+    productId: number;
+    productName: string;
+    productPrice: number;
+    productCurrency: string;
+    productImageUrl?: string;
+    addedAt: string;
+    addedAtPrice: number;
+    priceChange?: number;
+    priceChangePercentage?: number;
+}
+
+export interface Wishlist {
+    id: number;
+    userId: number;
+    items: WishlistItem[];
+}
+
+export interface AddWishlistItemRequest {
+    productId: number;
+}

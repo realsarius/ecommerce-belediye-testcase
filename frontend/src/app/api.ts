@@ -35,6 +35,7 @@ export const baseApi = createApi({
     'SellerProducts',
     'SupportConversations',
     'SupportMessages',
+    'Wishlists',
   ],
   endpoints: () => ({}),
 });
