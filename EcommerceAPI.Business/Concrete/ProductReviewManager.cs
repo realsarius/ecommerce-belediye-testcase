@@ -1,5 +1,6 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
@@ -13,15 +14,18 @@ public class ProductReviewManager : IProductReviewService
     private readonly IProductReviewDal _reviewDal;
     private readonly IOrderDal _orderDal;
     private readonly IProductDal _productDal;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ProductReviewManager(
         IProductReviewDal reviewDal,
         IOrderDal orderDal,
-        IProductDal productDal)
+        IProductDal productDal,
+        IUnitOfWork unitOfWork)
     {
         _reviewDal = reviewDal;
         _orderDal = orderDal;
         _productDal = productDal;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<IDataResult<ProductReviewDto>> CreateAsync(
@@ -56,6 +60,7 @@ public class ProductReviewManager : IProductReviewService
         };
 
         await _reviewDal.AddAsync(review);
+        await _unitOfWork.SaveChangesAsync();
 
         // Ortalama puanı ve yorum sayısını güncelle
         await UpdateProductRatingStats(productId);
@@ -79,6 +84,7 @@ public class ProductReviewManager : IProductReviewService
         review.UpdatedAt = DateTime.UtcNow;
 
         _reviewDal.Update(review);
+        await _unitOfWork.SaveChangesAsync();
 
         // Ortalama puanı ve yorum sayısını güncelle
         await UpdateProductRatingStats(review.ProductId);
@@ -96,6 +102,7 @@ public class ProductReviewManager : IProductReviewService
             return new ErrorResult(Messages.ReviewUnauthorized);
 
         _reviewDal.Delete(review);
+        await _unitOfWork.SaveChangesAsync();
 
         // Ortalama puanı ve yorum sayısını güncelle
         await UpdateProductRatingStats(review.ProductId);
@@ -110,6 +117,7 @@ public class ProductReviewManager : IProductReviewService
             return new ErrorResult(Messages.ReviewNotFound);
 
         _reviewDal.Delete(review);
+        await _unitOfWork.SaveChangesAsync();
 
         // Ortalama puanı ve yorum sayısını güncelle
         await UpdateProductRatingStats(review.ProductId);
