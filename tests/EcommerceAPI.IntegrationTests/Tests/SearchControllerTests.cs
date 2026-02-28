@@ -160,6 +160,43 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.Items.Should().Contain(x => x.Id == productId);
     }
 
+    [Fact]
+    public async Task SearchProducts_ShouldReturnWishlistCountFromIndex()
+    {
+        var unique = $"w{Guid.NewGuid():N}"[..12].ToLowerInvariant();
+        var productId = Random.Shared.Next(1_800_001, 1_900_000);
+        var categoryId = Random.Shared.Next(990_001, 1_050_000);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var searchIndexService = scope.ServiceProvider.GetRequiredService<IProductSearchIndexService>();
+
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"Wishlist Category {unique}");
+
+            var product = await TestDataSeeder.EnsureProductWithStockAsync(
+                db,
+                productId: productId,
+                categoryId: categoryId,
+                stockQuantity: 6);
+
+            product.Name = $"WishlistCount {unique}";
+            product.Description = "Wishlist count sync test";
+            product.SKU = $"WISH-{unique}".ToUpperInvariant();
+            product.IsActive = true;
+            product.WishlistCount = 9;
+
+            await db.SaveChangesAsync();
+            await searchIndexService.IndexProductAsync(product.Id);
+        }
+
+        var result = await WaitForSearchAsync(
+            unique,
+            data => data.Items.Any(x => x.Id == productId && x.WishlistCount == 9));
+
+        result.Items.Should().Contain(x => x.Id == productId && x.WishlistCount == 9);
+    }
+
     private async Task<PaginatedResponse<ProductDto>> WaitForSearchAsync(
         string query,
         Func<PaginatedResponse<ProductDto>, bool> predicate,

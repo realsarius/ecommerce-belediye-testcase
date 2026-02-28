@@ -139,6 +139,13 @@ export default function ProductDetail() {
             {product.price.toLocaleString('tr-TR')} {product.currency}
           </div>
 
+          {product.wishlistCount > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Heart className="h-4 w-4 text-red-500" />
+              <span>{product.wishlistCount} kisi bu urunu favorilerine ekledi</span>
+            </div>
+          )}
+
           {/* Average Rating (Eğer varsa) */}
           <div className="flex items-center gap-2 mt-2">
             <StarRating rating={Math.round(product.averageRating || 0)} readOnly size="sm" />

@@ -19,7 +19,12 @@ export const productsApi = baseApi.injectEndpoints({
         params,
       }),
       transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
-      providesTags: ['Products'],
+      providesTags: (result) => result
+        ? [
+            'Products',
+            ...result.items.map((product) => ({ type: 'Product' as const, id: product.id })),
+          ]
+        : ['Products'],
     }),
     getProduct: builder.query<Product, number>({
       query: (id) => `/products/${id}`,
@@ -72,7 +77,12 @@ export const productsApi = baseApi.injectEndpoints({
         },
       }),
       transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
-      providesTags: ['Products'],
+      providesTags: (result) => result
+        ? [
+            'Products',
+            ...result.items.map((product) => ({ type: 'Product' as const, id: product.id })),
+          ]
+        : ['Products'],
     }),
     searchSuggestions: builder.query<Product[], { q: string; limit?: number }>({
       query: ({ q, limit = 8 }) => ({

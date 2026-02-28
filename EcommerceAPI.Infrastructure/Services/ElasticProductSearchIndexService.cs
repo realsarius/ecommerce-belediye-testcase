@@ -62,7 +62,7 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             var items = searchResponse.Hits.Hits
                 .Select(h => h.Source)
                 .Where(s => s is not null)
-                .Select(MapToDto)
+                .Select(s => MapToDto(s!))
                 .ToList();
 
             var totalCount = (int)Math.Min(searchResponse.Hits.Total?.Value ?? items.Count, int.MaxValue);
@@ -237,6 +237,7 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                         stockQuantity = new { type = "integer" },
                         sellerId = new { type = "integer" },
                         sellerBrandName = new { type = "keyword" },
+                        wishlistCount = new { type = "integer" },
                         createdAt = new { type = "date" }
                     }
                 }
@@ -261,10 +262,12 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         {
             await EnsureSearchFieldMappingsAsync(cancellationToken);
             await EnsureSuggestionMappingAsync(cancellationToken);
+            await EnsureWishlistCountMappingAsync(cancellationToken);
         }
 
 
         await BackfillIfEmptyAsync(cancellationToken);
+        await BackfillWishlistCountDocumentsAsync(cancellationToken);
 
         Interlocked.Exchange(ref _indexInitialized, 1);
     }
@@ -349,6 +352,50 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                 "Elasticsearch suggestion mapping update failed. Status: {Status}, Body: {Body}",
                 response.StatusCode,
                 body);
+        }
+    }
+
+    private async Task EnsureWishlistCountMappingAsync(CancellationToken cancellationToken)
+    {
+        var mappingPayload = new
+        {
+            properties = new
+            {
+                wishlistCount = new { type = "integer" }
+            }
+        };
+
+        var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_mapping", mappingPayload, JsonOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Elasticsearch wishlistCount mapping update failed. Status: {Status}, Body: {Body}",
+                response.StatusCode,
+                body);
+        }
+    }
+
+    private async Task BackfillWishlistCountDocumentsAsync(CancellationToken cancellationToken)
+    {
+        var productsWithWishlistSignal = (await _productDal.GetAllActiveWithDetailsAsync())
+            .Where(product => product.WishlistCount > 0)
+            .ToList();
+
+        foreach (var product in productsWithWishlistSignal)
+        {
+            var doc = MapToDocument(product);
+            var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_doc/{product.Id}", doc, JsonOptions, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Wishlist count backfill failed for product {ProductId}. Status: {Status}, Body: {Body}",
+                    product.Id,
+                    response.StatusCode,
+                    body);
+            }
         }
     }
 

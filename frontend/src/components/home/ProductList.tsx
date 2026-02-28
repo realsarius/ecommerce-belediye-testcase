@@ -143,6 +143,12 @@ export const ProductList = ({
               <p className="text-sm text-muted-foreground truncate">
                 {product.categoryName}
               </p>
+              {product.wishlistCount > 0 && (
+                <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Heart className="h-3.5 w-3.5 text-red-500" />
+                  <span>{product.wishlistCount} kisi favoriledi</span>
+                </div>
+              )}
               <p className="text-lg font-bold mt-2">
                 {product.price.toLocaleString('tr-TR')} {product.currency}
               </p>
