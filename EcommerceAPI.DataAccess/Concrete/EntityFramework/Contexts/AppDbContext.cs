@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using System.Text.Json;
+using MassTransit;
+using CustomInboxMessage = EcommerceAPI.Entities.Concrete.InboxMessage;
+using CustomOutboxMessage = EcommerceAPI.Entities.Concrete.OutboxMessage;
 
 namespace EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 
@@ -50,8 +53,8 @@ public class AppDbContext : DbContext
     public DbSet<CreditCard> CreditCards => Set<CreditCard>();
     public DbSet<SupportConversation> SupportConversations => Set<SupportConversation>();
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
-    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
-    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+    public DbSet<CustomOutboxMessage> OutboxMessages => Set<CustomOutboxMessage>();
+    public DbSet<CustomInboxMessage> InboxMessages => Set<CustomInboxMessage>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
@@ -78,6 +81,9 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ProductReviewConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistItemConfiguration());
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
 
 
 
