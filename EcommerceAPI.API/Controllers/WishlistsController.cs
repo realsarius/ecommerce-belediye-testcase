@@ -42,6 +42,48 @@ public class WishlistsController : BaseApiController
         return HandleResult(result);
     }
 
+    [HttpGet("share")]
+    [EnableRateLimiting("wishlist-read")]
+    public async Task<IActionResult> GetShareSettings()
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.GetShareSettingsAsync(userId);
+        return HandleResult(result);
+    }
+
+    [HttpPost("share")]
+    [EnableRateLimiting("wishlist")]
+    public async Task<IActionResult> EnableSharing()
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.EnableSharingAsync(userId);
+        return HandleResult(result);
+    }
+
+    [HttpDelete("share")]
+    [EnableRateLimiting("wishlist")]
+    public async Task<IActionResult> DisableSharing()
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.DisableSharingAsync(userId);
+        return HandleResult(result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("share/{shareToken:guid}")]
+    [EnableRateLimiting("wishlist-read")]
+    public async Task<IActionResult> GetSharedWishlist(Guid shareToken, [FromQuery] string? cursor = null, [FromQuery] int? limit = null)
+    {
+        var result = await _wishlistService.GetPublicWishlistByShareTokenAsync(shareToken, cursor, limit);
+        return HandleResult(result);
+    }
+
     [HttpPost("items")]
     [EnableRateLimiting("wishlist")]
     public async Task<IActionResult> AddItem([FromBody] AddWishlistItemRequest dto)
@@ -72,6 +114,17 @@ public class WishlistsController : BaseApiController
         if (userId == 0) return Unauthorized();
 
         var result = await _wishlistService.ClearWishlistAsync(userId);
+        return HandleResult(result);
+    }
+
+    [HttpPost("add-all-to-cart")]
+    [EnableRateLimiting("wishlist")]
+    public async Task<IActionResult> AddAllToCart()
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.AddAvailableItemsToCartAsync(userId);
         return HandleResult(result);
     }
 }

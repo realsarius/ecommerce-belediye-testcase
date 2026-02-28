@@ -27,6 +27,7 @@ public class WishlistManager : IWishlistService
     private readonly IAuditService _auditService;
     private readonly ILogger<WishlistManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ICartCacheService _cartCacheService;
 
     public WishlistManager(
         IWishlistDal wishlistDal,
@@ -36,7 +37,8 @@ public class WishlistManager : IWishlistService
         IUnitOfWork unitOfWork,
         IAuditService auditService,
         ILogger<WishlistManager> logger,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        ICartCacheService cartCacheService)
     {
         _wishlistDal = wishlistDal;
         _wishlistItemDal = wishlistItemDal;
@@ -46,6 +48,7 @@ public class WishlistManager : IWishlistService
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
+        _cartCacheService = cartCacheService;
     }
 
     [CacheAspect(duration: 10)]
@@ -104,6 +107,126 @@ public class WishlistManager : IWishlistService
         }
 
         return new SuccessDataResult<WishlistDto>(dto);
+    }
+
+    [CacheAspect(duration: 10)]
+    public async Task<IDataResult<WishlistShareSettingsDto>> GetShareSettingsAsync(int userId)
+    {
+        var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
+        if (wishlist == null)
+        {
+            return new SuccessDataResult<WishlistShareSettingsDto>(new WishlistShareSettingsDto());
+        }
+
+        return new SuccessDataResult<WishlistShareSettingsDto>(CreateShareSettingsDto(wishlist));
+    }
+
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetShareSettingsAsync")]
+    public async Task<IDataResult<WishlistShareSettingsDto>> EnableSharingAsync(int userId)
+    {
+        var wishlist = await _wishlistDal.GetOrCreateByUserIdAsync(userId);
+
+        wishlist.IsPublic = true;
+        wishlist.ShareToken ??= Guid.NewGuid();
+        wishlist.UpdatedAt = DateTime.UtcNow;
+
+        _wishlistDal.Update(wishlist);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "WishlistSharingEnabled",
+            "Wishlist",
+            new { WishlistId = wishlist.Id, wishlist.ShareToken });
+
+        return new SuccessDataResult<WishlistShareSettingsDto>(
+            CreateShareSettingsDto(wishlist),
+            "Favori listeniz paylaşılabilir hale getirildi.");
+    }
+
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetShareSettingsAsync")]
+    public async Task<IResult> DisableSharingAsync(int userId)
+    {
+        var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
+        if (wishlist == null)
+        {
+            return new SuccessResult("Paylaşım zaten kapalı.");
+        }
+
+        wishlist.IsPublic = false;
+        wishlist.UpdatedAt = DateTime.UtcNow;
+
+        _wishlistDal.Update(wishlist);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "WishlistSharingDisabled",
+            "Wishlist",
+            new { WishlistId = wishlist.Id, wishlist.ShareToken });
+
+        return new SuccessResult("Favori paylaşımı kapatıldı.");
+    }
+
+    [CacheAspect(duration: 10)]
+    public async Task<IDataResult<SharedWishlistDto>> GetPublicWishlistByShareTokenAsync(Guid shareToken, string? cursor = null, int? limit = null)
+    {
+        var wishlist = await _wishlistDal.GetByShareTokenAsync(shareToken);
+        if (wishlist == null || !wishlist.IsPublic)
+        {
+            return new ErrorDataResult<SharedWishlistDto>("Paylaşılan favori listesi bulunamadı.");
+        }
+
+        var normalizedLimit = NormalizeLimit(limit);
+
+        if (string.IsNullOrWhiteSpace(cursor) && !limit.HasValue)
+        {
+            var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
+            wishlist.Items = new List<WishlistItem>();
+
+            foreach (var item in items)
+            {
+                item.Product = await _productDal.GetAsync(p => p.Id == item.ProductId);
+                wishlist.Items.Add(item);
+            }
+
+            return new SuccessDataResult<SharedWishlistDto>(new SharedWishlistDto
+            {
+                Id = wishlist.Id,
+                OwnerDisplayName = ResolveOwnerDisplayName(wishlist.User),
+                Limit = wishlist.Items.Count,
+                Items = wishlist.Items.Select(_wishlistMapper.ToWishlistItemDto).ToList()
+            });
+        }
+
+        var (cursorAddedAt, cursorItemId) = TryDecodeCursor(cursor);
+        var pagedItems = await _wishlistItemDal.GetPagedByWishlistIdAsync(
+            wishlist.Id,
+            cursorAddedAt,
+            cursorItemId,
+            normalizedLimit + 1);
+
+        var hasMore = pagedItems.Count > normalizedLimit;
+        var visibleItems = pagedItems.Take(normalizedLimit).ToList();
+
+        var dto = new SharedWishlistDto
+        {
+            Id = wishlist.Id,
+            OwnerDisplayName = ResolveOwnerDisplayName(wishlist.User),
+            Limit = normalizedLimit,
+            HasMore = hasMore,
+            Items = visibleItems.Select(_wishlistMapper.ToWishlistItemDto).ToList()
+        };
+
+        if (hasMore && visibleItems.Count > 0)
+        {
+            var lastVisibleItem = visibleItems[^1];
+            dto.NextCursor = EncodeCursor(lastVisibleItem.AddedAt, lastVisibleItem.Id);
+        }
+
+        return new SuccessDataResult<SharedWishlistDto>(dto);
     }
 
     [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
@@ -282,6 +405,80 @@ public class WishlistManager : IWishlistService
         return new SuccessResult("Wishlist cleared.");
     }
 
+    [CacheRemoveAspect("cart")]
+    public async Task<IDataResult<WishlistBulkAddToCartResultDto>> AddAvailableItemsToCartAsync(int userId)
+    {
+        var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
+        if (wishlist == null)
+        {
+            return new SuccessDataResult<WishlistBulkAddToCartResultDto>(
+                new WishlistBulkAddToCartResultDto(),
+                "Favorilerinizde sepete eklenecek ürün bulunamadı.");
+        }
+
+        var wishlistItems = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
+        if (wishlistItems.Count == 0)
+        {
+            return new SuccessDataResult<WishlistBulkAddToCartResultDto>(
+                new WishlistBulkAddToCartResultDto(),
+                "Favorilerinizde sepete eklenecek ürün bulunamadı.");
+        }
+
+        var products = await _productDal.GetByIdsWithInventoryAsync(wishlistItems.Select(item => item.ProductId).Distinct().ToList());
+        var productsById = products.ToDictionary(product => product.Id);
+        var currentCartItems = await _cartCacheService.GetCartItemsAsync(userId);
+
+        var result = new WishlistBulkAddToCartResultDto
+        {
+            RequestedCount = wishlistItems.Count
+        };
+
+        foreach (var wishlistItem in wishlistItems)
+        {
+            if (!productsById.TryGetValue(wishlistItem.ProductId, out var product) || !product.IsActive)
+            {
+                result.SkippedItems.Add(CreateSkippedItem(wishlistItem.ProductId, product?.Name, "Ürün artık satışta değil."));
+                continue;
+            }
+
+            var availableStock = product.Inventory?.QuantityAvailable ?? 0;
+            if (availableStock <= 0)
+            {
+                result.SkippedItems.Add(CreateSkippedItem(product.Id, product.Name, "Ürün stokta yok."));
+                continue;
+            }
+
+            currentCartItems.TryGetValue(product.Id, out var currentQuantity);
+            if (currentQuantity >= availableStock)
+            {
+                result.SkippedItems.Add(CreateSkippedItem(product.Id, product.Name, "Sepetteki miktar stok sınırına ulaştı."));
+                continue;
+            }
+
+            await _cartCacheService.IncrementItemQuantityAsync(userId, product.Id, 1);
+            currentCartItems[product.Id] = currentQuantity + 1;
+            result.AddedCount++;
+        }
+
+        result.SkippedCount = result.SkippedItems.Count;
+
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "WishlistBulkAddedToCart",
+            "Wishlist",
+            new
+            {
+                result.RequestedCount,
+                result.AddedCount,
+                result.SkippedCount,
+                SkippedItems = result.SkippedItems.Select(item => new { item.ProductId, item.Reason }).ToList()
+            });
+
+        return new SuccessDataResult<WishlistBulkAddToCartResultDto>(
+            result,
+            BuildBulkAddSummaryMessage(result));
+    }
+
     private Task SyncWishlistCountsAsync(params int[] productIds)
     {
         return SyncWishlistCountsAsync((IEnumerable<int>)productIds);
@@ -383,5 +580,70 @@ public class WishlistManager : IWishlistService
         {
             return (null, null);
         }
+    }
+
+    private static WishlistBulkAddToCartSkippedItemDto CreateSkippedItem(int productId, string? productName, string reason)
+    {
+        return new WishlistBulkAddToCartSkippedItemDto
+        {
+            ProductId = productId,
+            ProductName = productName ?? $"Ürün #{productId}",
+            Reason = reason
+        };
+    }
+
+    private static string BuildBulkAddSummaryMessage(WishlistBulkAddToCartResultDto result)
+    {
+        if (result.RequestedCount == 0)
+        {
+            return "Favorilerinizde sepete eklenecek ürün bulunamadı.";
+        }
+
+        if (result.SkippedCount == 0)
+        {
+            return $"{result.AddedCount} ürün sepete eklendi.";
+        }
+
+        if (result.AddedCount == 0)
+        {
+            return $"{result.RequestedCount} ürünün hiçbiri sepete eklenemedi.";
+        }
+
+        return $"{result.RequestedCount} üründen {result.AddedCount} ürün sepete eklendi, {result.SkippedCount} ürün atlandı.";
+    }
+
+    private static WishlistShareSettingsDto CreateShareSettingsDto(Wishlist wishlist)
+    {
+        return new WishlistShareSettingsDto
+        {
+            IsPublic = wishlist.IsPublic,
+            ShareToken = wishlist.ShareToken,
+            SharePath = wishlist.ShareToken.HasValue ? $"/wishlist/share/{wishlist.ShareToken.Value:D}" : null
+        };
+    }
+
+    private static string ResolveOwnerDisplayName(User? user)
+    {
+        if (user == null)
+        {
+            return "Bir kullanıcı";
+        }
+
+        var fullName = $"{user.FirstName} {user.LastName}".Trim();
+        if (!string.IsNullOrWhiteSpace(fullName))
+        {
+            return fullName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            var emailPrefix = user.Email.Split('@', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(emailPrefix))
+            {
+                return emailPrefix;
+            }
+        }
+
+        return "Bir kullanıcı";
     }
 }
