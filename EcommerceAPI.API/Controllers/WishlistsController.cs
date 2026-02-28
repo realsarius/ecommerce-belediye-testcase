@@ -33,12 +33,34 @@ public class WishlistsController : BaseApiController
 
     [HttpGet]
     [EnableRateLimiting("wishlist-read")]
-    public async Task<IActionResult> GetWishlist([FromQuery] string? cursor = null, [FromQuery] int? limit = null)
+    public async Task<IActionResult> GetWishlist([FromQuery] string? cursor = null, [FromQuery] int? limit = null, [FromQuery] int? collectionId = null)
     {
         int userId = GetCurrentUserId();
         if (userId == 0) return Unauthorized();
 
-        var result = await _wishlistService.GetWishlistByUserIdAsync(userId, cursor, limit);
+        var result = await _wishlistService.GetWishlistByUserIdAsync(userId, cursor, limit, collectionId);
+        return HandleResult(result);
+    }
+
+    [HttpGet("collections")]
+    [EnableRateLimiting("wishlist-read")]
+    public async Task<IActionResult> GetCollections()
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.GetCollectionsAsync(userId);
+        return HandleResult(result);
+    }
+
+    [HttpPost("collections")]
+    [EnableRateLimiting("wishlist")]
+    public async Task<IActionResult> CreateCollection([FromBody] CreateWishlistCollectionRequest request)
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.CreateCollectionAsync(userId, request);
         return HandleResult(result);
     }
 
@@ -91,7 +113,18 @@ public class WishlistsController : BaseApiController
         int userId = GetCurrentUserId();
         if (userId == 0) return Unauthorized();
 
-        var result = await _wishlistService.AddItemToWishlistAsync(userId, dto.ProductId);
+        var result = await _wishlistService.AddItemToWishlistAsync(userId, dto.ProductId, dto.CollectionId);
+        return HandleResult(result);
+    }
+
+    [HttpPatch("items/{productId:int:min(1)}/collection")]
+    [EnableRateLimiting("wishlist")]
+    public async Task<IActionResult> MoveItemToCollection(int productId, [FromBody] MoveWishlistItemToCollectionRequest request)
+    {
+        int userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _wishlistService.MoveItemToCollectionAsync(userId, productId, request.CollectionId);
         return HandleResult(result);
     }
 

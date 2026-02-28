@@ -20,6 +20,7 @@ public class WishlistManager : IWishlistService
     private const int DefaultWishlistPageSize = 20;
     private const int MaxWishlistPageSize = 50;
     private readonly IWishlistDal _wishlistDal;
+    private readonly IWishlistCollectionDal _wishlistCollectionDal;
     private readonly IWishlistItemDal _wishlistItemDal;
     private readonly IProductDal _productDal;
     private readonly IWishlistMapper _wishlistMapper;
@@ -31,6 +32,7 @@ public class WishlistManager : IWishlistService
 
     public WishlistManager(
         IWishlistDal wishlistDal,
+        IWishlistCollectionDal wishlistCollectionDal,
         IWishlistItemDal wishlistItemDal,
         IProductDal productDal,
         IWishlistMapper wishlistMapper,
@@ -41,6 +43,7 @@ public class WishlistManager : IWishlistService
         ICartCacheService cartCacheService)
     {
         _wishlistDal = wishlistDal;
+        _wishlistCollectionDal = wishlistCollectionDal;
         _wishlistItemDal = wishlistItemDal;
         _productDal = productDal;
         _wishlistMapper = wishlistMapper;
@@ -52,7 +55,7 @@ public class WishlistManager : IWishlistService
     }
 
     [CacheAspect(duration: 10)]
-    public async Task<IDataResult<WishlistDto>> GetWishlistByUserIdAsync(int userId, string? cursor = null, int? limit = null)
+    public async Task<IDataResult<WishlistDto>> GetWishlistByUserIdAsync(int userId, string? cursor = null, int? limit = null, int? collectionId = null)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
         if (wishlist == null)
@@ -60,22 +63,17 @@ public class WishlistManager : IWishlistService
             return new SuccessDataResult<WishlistDto>(new WishlistDto
             {
                 UserId = userId,
+                ActiveCollectionId = collectionId,
                 Limit = limit ?? 0
             });
         }
 
         if (string.IsNullOrWhiteSpace(cursor) && !limit.HasValue)
         {
-            var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
-            wishlist.Items = new List<WishlistItem>();
-
-            foreach (var item in items)
-            {
-                item.Product = await _productDal.GetAsync(p => p.Id == item.ProductId);
-                wishlist.Items.Add(item);
-            }
+            wishlist.Items = (await _wishlistItemDal.GetByWishlistIdWithDetailsAsync(wishlist.Id, collectionId)).ToList();
 
             var fullDto = _wishlistMapper.ToWishlistDto(wishlist);
+            fullDto.ActiveCollectionId = collectionId;
             fullDto.Limit = fullDto.Items.Count;
             return new SuccessDataResult<WishlistDto>(fullDto);
         }
@@ -86,7 +84,8 @@ public class WishlistManager : IWishlistService
             wishlist.Id,
             cursorAddedAt,
             cursorItemId,
-            normalizedLimit + 1);
+            normalizedLimit + 1,
+            collectionId);
 
         var hasMore = pagedItems.Count > normalizedLimit;
         var visibleItems = pagedItems.Take(normalizedLimit).ToList();
@@ -95,6 +94,7 @@ public class WishlistManager : IWishlistService
         {
             Id = wishlist.Id,
             UserId = wishlist.UserId,
+            ActiveCollectionId = collectionId,
             Limit = normalizedLimit,
             HasMore = hasMore,
             Items = visibleItems.Select(_wishlistMapper.ToWishlistItemDto).ToList()
@@ -107,6 +107,115 @@ public class WishlistManager : IWishlistService
         }
 
         return new SuccessDataResult<WishlistDto>(dto);
+    }
+
+    [CacheAspect(duration: 10)]
+    public async Task<IDataResult<List<WishlistCollectionDto>>> GetCollectionsAsync(int userId)
+    {
+        var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
+        if (wishlist == null)
+        {
+            return new SuccessDataResult<List<WishlistCollectionDto>>(new List<WishlistCollectionDto>());
+        }
+
+        var collections = await EnsureCollectionsAsync(wishlist.Id);
+        var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
+        var itemCounts = items
+            .GroupBy(item => item.CollectionId)
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        return new SuccessDataResult<List<WishlistCollectionDto>>(
+            collections.Select(collection => new WishlistCollectionDto
+            {
+                Id = collection.Id,
+                Name = collection.Name,
+                IsDefault = collection.IsDefault,
+                ItemCount = itemCounts.GetValueOrDefault(collection.Id, 0)
+            }).ToList());
+    }
+
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    public async Task<IDataResult<WishlistCollectionDto>> CreateCollectionAsync(int userId, CreateWishlistCollectionRequest request)
+    {
+        var normalizedName = request.Name.Trim();
+        var wishlist = await _wishlistDal.GetOrCreateByUserIdAsync(userId);
+        await _wishlistCollectionDal.GetOrCreateDefaultCollectionAsync(wishlist.Id);
+
+        if (await _wishlistCollectionDal.ExistsByNameAsync(wishlist.Id, normalizedName))
+        {
+            return new ErrorDataResult<WishlistCollectionDto>("Bu isimde bir koleksiyon zaten mevcut.");
+        }
+
+        var collection = new WishlistCollection
+        {
+            WishlistId = wishlist.Id,
+            Name = normalizedName,
+            IsDefault = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _wishlistCollectionDal.AddAsync(collection);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "WishlistCollectionCreated",
+            "WishlistCollection",
+            new { WishlistId = wishlist.Id, CollectionId = collection.Id, collection.Name });
+
+        return new SuccessDataResult<WishlistCollectionDto>(
+            new WishlistCollectionDto
+            {
+                Id = collection.Id,
+                Name = collection.Name,
+                IsDefault = collection.IsDefault,
+                ItemCount = 0
+            },
+            "Koleksiyon oluşturuldu.");
+    }
+
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    public async Task<IResult> MoveItemToCollectionAsync(int userId, int productId, int collectionId)
+    {
+        var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
+        if (wishlist == null)
+        {
+            return new ErrorResult("Favori ürünü bulunamadı.");
+        }
+
+        var targetCollection = await _wishlistCollectionDal.GetAsync(c => c.Id == collectionId && c.WishlistId == wishlist.Id);
+        if (targetCollection == null)
+        {
+            return new ErrorResult("Koleksiyon bulunamadı.");
+        }
+
+        var wishlistItem = await _wishlistItemDal.GetAsync(wi => wi.WishlistId == wishlist.Id && wi.ProductId == productId);
+        if (wishlistItem == null)
+        {
+            return new ErrorResult("Favori ürünü bulunamadı.");
+        }
+
+        if (wishlistItem.CollectionId == collectionId)
+        {
+            return new SuccessResult("Ürün zaten bu koleksiyonda.");
+        }
+
+        var movedRowCount = await _wishlistItemDal.MoveToCollectionAsync(wishlist.Id, productId, collectionId);
+        if (movedRowCount == 0)
+        {
+            return new ErrorResult("Ürün koleksiyona taşınamadı.");
+        }
+
+        await _auditService.LogActionAsync(
+            userId.ToString(),
+            "WishlistItemMoved",
+            "WishlistCollection",
+            new { WishlistId = wishlist.Id, ProductId = productId, CollectionId = collectionId });
+
+        return new SuccessResult("Ürün koleksiyona taşındı.");
     }
 
     [CacheAspect(duration: 10)]
@@ -183,14 +292,7 @@ public class WishlistManager : IWishlistService
 
         if (string.IsNullOrWhiteSpace(cursor) && !limit.HasValue)
         {
-            var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
-            wishlist.Items = new List<WishlistItem>();
-
-            foreach (var item in items)
-            {
-                item.Product = await _productDal.GetAsync(p => p.Id == item.ProductId);
-                wishlist.Items.Add(item);
-            }
+            wishlist.Items = (await _wishlistItemDal.GetByWishlistIdWithDetailsAsync(wishlist.Id)).ToList();
 
             return new SuccessDataResult<SharedWishlistDto>(new SharedWishlistDto
             {
@@ -230,7 +332,8 @@ public class WishlistManager : IWishlistService
     }
 
     [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
-    public async Task<IResult> AddItemToWishlistAsync(int userId, int productId)
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
+    public async Task<IResult> AddItemToWishlistAsync(int userId, int productId, int? collectionId = null)
     {
         var product = await _productDal.GetAsync(p => p.Id == productId);
         if (product == null)
@@ -244,6 +347,14 @@ public class WishlistManager : IWishlistService
         }
 
         var wishlist = await _wishlistDal.GetOrCreateByUserIdAsync(userId);
+        var targetCollection = collectionId.HasValue
+            ? await _wishlistCollectionDal.GetAsync(c => c.Id == collectionId.Value && c.WishlistId == wishlist.Id)
+            : await _wishlistCollectionDal.GetOrCreateDefaultCollectionAsync(wishlist.Id);
+
+        if (targetCollection == null)
+        {
+            return new ErrorResult("Koleksiyon bulunamadı.");
+        }
 
         var itemCount = await _wishlistItemDal.CountAsync(wi => wi.WishlistId == wishlist.Id);
         if (itemCount >= 500)
@@ -265,6 +376,7 @@ public class WishlistManager : IWishlistService
         {
             WishlistId = wishlist.Id,
             ProductId = productId,
+            CollectionId = targetCollection.Id,
             AddedAtPrice = product.Price,
             AddedAt = now,
             CreatedAt = now,
@@ -302,6 +414,7 @@ public class WishlistManager : IWishlistService
     }
 
     [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
     public async Task<IResult> RemoveItemFromWishlistAsync(int userId, int productId)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
@@ -348,6 +461,7 @@ public class WishlistManager : IWishlistService
     }
 
     [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
     public async Task<IResult> ClearWishlistAsync(int userId)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
@@ -610,6 +724,18 @@ public class WishlistManager : IWishlistService
         }
 
         return $"{result.RequestedCount} üründen {result.AddedCount} ürün sepete eklendi, {result.SkippedCount} ürün atlandı.";
+    }
+
+    private async Task<IList<WishlistCollection>> EnsureCollectionsAsync(int wishlistId)
+    {
+        var collections = await _wishlistCollectionDal.GetByWishlistIdAsync(wishlistId);
+        if (collections.Count > 0)
+        {
+            return collections;
+        }
+
+        await _wishlistCollectionDal.GetOrCreateDefaultCollectionAsync(wishlistId);
+        return await _wishlistCollectionDal.GetByWishlistIdAsync(wishlistId);
     }
 
     private static WishlistShareSettingsDto CreateShareSettingsDto(Wishlist wishlist)

@@ -35,6 +35,8 @@ public class WishlistMapper : IWishlistMapper
             ProductName = item.Product?.Name ?? "Ürün artık mevcut değil",
             ProductPrice = item.Product?.Price ?? fallbackPrice,
             ProductCurrency = item.Product?.Currency ?? "TRY",
+            CollectionId = item.CollectionId,
+            CollectionName = item.Collection?.Name ?? "Favorilerim",
             IsAvailable = isAvailable,
             UnavailableReason = isAvailable ? null : "Bu ürün artık mevcut değil.",
             AddedAt = fallbackAddedAt,

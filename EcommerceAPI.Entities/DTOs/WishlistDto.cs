@@ -6,6 +6,7 @@ public class WishlistDto
 {
     public int Id { get; set; }
     public int UserId { get; set; }
+    public int? ActiveCollectionId { get; set; }
     public int Limit { get; set; }
     public bool HasMore { get; set; }
     public string? NextCursor { get; set; }
@@ -20,6 +21,8 @@ public class WishlistItemDto
     public decimal ProductPrice { get; set; }
     public string ProductCurrency { get; set; } = string.Empty;
     public string? ProductImageUrl { get; set; }
+    public int CollectionId { get; set; }
+    public string CollectionName { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public string? UnavailableReason { get; set; }
     public DateTime AddedAt { get; set; }
