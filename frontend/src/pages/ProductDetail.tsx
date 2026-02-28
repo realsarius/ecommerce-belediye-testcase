@@ -8,11 +8,13 @@ import { Skeleton } from '@/components/common/skeleton';
 import { Separator } from '@/components/common/separator';
 import { ShoppingCart, Package, ArrowLeft, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { ReviewList } from '@/components/reviews/ReviewList';
+import { StarRating } from '@/components/reviews/StarRating';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const productId = parseInt(id || '0');
-  
+
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const { data: product, isLoading, error } = useGetProductQuery(productId);
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
@@ -93,6 +95,14 @@ export default function ProductDetail() {
             {product.price.toLocaleString('tr-TR')} {product.currency}
           </div>
 
+          {/* Average Rating (Eğer varsa) */}
+          <div className="flex items-center gap-2 mt-2">
+            <StarRating rating={Math.round(product.averageRating || 0)} readOnly size="sm" />
+            <span className="text-sm text-muted-foreground">
+              {product.averageRating ? product.averageRating.toFixed(1) : '0.0'} ({product.reviewCount || 0} değerlendirme)
+            </span>
+          </div>
+
           <Separator />
 
           <div>
@@ -134,6 +144,9 @@ export default function ProductDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Yorumlar Bölümü */}
+      <ReviewList productId={product.id} />
     </div>
   );
 }

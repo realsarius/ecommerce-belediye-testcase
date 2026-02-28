@@ -5,6 +5,9 @@ import type {
   CreateProductRequest,
   UpdateProductRequest,
   UpdateStockRequest,
+  ProductReviewDto,
+  ReviewSummaryDto,
+  CreateReviewRequest,
 } from './types';
 import type { PaginatedResponse } from '@/types/api';
 
@@ -79,6 +82,55 @@ export const productsApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: Product[] }) => response.data,
       providesTags: ['Products'],
     }),
+
+    // --- Product Reviews ---
+    getProductReviews: builder.query<ProductReviewDto[], number>({
+      query: (productId) => `/products/${productId}/reviews`,
+      transformResponse: (response: { data: ProductReviewDto[] }) => response.data,
+      providesTags: (_result, _error, productId) => [{ type: 'Product', id: `reviews-${productId}` }],
+    }),
+    getReviewSummary: builder.query<ReviewSummaryDto, number>({
+      query: (productId) => `/products/${productId}/reviews/summary`,
+      transformResponse: (response: { data: ReviewSummaryDto }) => response.data,
+      providesTags: (_result, _error, productId) => [{ type: 'Product', id: `summary-${productId}` }],
+    }),
+    createReview: builder.mutation<ProductReviewDto, { productId: number; data: CreateReviewRequest }>({
+      query: ({ productId, data }) => ({
+        url: `/products/${productId}/reviews`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: 'Product', id: `reviews-${productId}` },
+        { type: 'Product', id: `summary-${productId}` },
+      ],
+    }),
+    updateReview: builder.mutation<ProductReviewDto, { productId: number; reviewId: number; data: { rating: number; comment: string } }>({
+      query: ({ productId, reviewId, data }) => ({
+        url: `/products/${productId}/reviews/${reviewId}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: 'Product', id: `reviews-${productId}` },
+        { type: 'Product', id: `summary-${productId}` },
+      ],
+    }),
+    deleteReview: builder.mutation<void, { productId: number; reviewId: number }>({
+      query: ({ productId, reviewId }) => ({
+        url: `/products/${productId}/reviews/${reviewId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: 'Product', id: `reviews-${productId}` },
+        { type: 'Product', id: `summary-${productId}` },
+      ],
+    }),
+    canUserReview: builder.query<boolean, number>({
+      query: (productId) => `/products/${productId}/reviews/can-review`,
+      transformResponse: (response: { data: boolean }) => response.data,
+      providesTags: (_result, _error, productId) => [{ type: 'Product', id: `canreview-${productId}` }],
+    }),
   }),
 });
 
@@ -91,4 +143,10 @@ export const {
   useUpdateStockMutation,
   useSearchProductsQuery,
   useSearchSuggestionsQuery,
+  useGetProductReviewsQuery,
+  useGetReviewSummaryQuery,
+  useCreateReviewMutation,
+  useUpdateReviewMutation,
+  useDeleteReviewMutation,
+  useCanUserReviewQuery,
 } = productsApi;

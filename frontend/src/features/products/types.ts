@@ -12,6 +12,30 @@ export interface Product {
   categoryName: string;
   stockQuantity: number;
   createdAt: string;
+  averageRating: number;
+  reviewCount: number;
+}
+
+export interface ProductReviewDto {
+  id: number;
+  productId: number;
+  userId: number;
+  userFullName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewSummaryDto {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: Record<number, number>;
+}
+
+export interface CreateReviewRequest {
+  rating: number;
+  comment: string;
 }
 
 export interface ProductListRequest {
