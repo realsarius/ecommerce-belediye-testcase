@@ -30,6 +30,19 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetWishlist_WithCursorPaginationQuery_ReturnsOk()
+    {
+        var client = _factory.CreateClient().AsCustomer(1);
+        var response = await client.GetAsync("/api/v1/wishlists?limit=5");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<WishlistDto>>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.Data!.Limit.Should().Be(5);
+    }
+
+    [Fact]
     public async Task GetWishlist_WithoutAuth_ReturnsUnauthorized()
     {
         var client = _factory.CreateClient(); // No auth

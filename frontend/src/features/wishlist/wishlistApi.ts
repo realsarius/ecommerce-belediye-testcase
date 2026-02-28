@@ -1,11 +1,24 @@
 import { baseApi } from '@/app/api';
-import type { Wishlist, AddWishlistItemRequest } from './types';
+import type { Wishlist, AddWishlistItemRequest, GetWishlistRequest } from './types';
 import type { ApiResponse } from '@/types/api';
 
 export const wishlistApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
-        getWishlist: builder.query<Wishlist, void>({
-            query: () => '/wishlists',
+        getWishlist: builder.query<Wishlist, GetWishlistRequest | void>({
+            query: (arg) => {
+                const params = new URLSearchParams();
+
+                if (arg?.cursor) {
+                    params.set('cursor', arg.cursor);
+                }
+
+                if (typeof arg?.limit === 'number') {
+                    params.set('limit', String(arg.limit));
+                }
+
+                const query = params.toString();
+                return query ? `/wishlists?${query}` : '/wishlists';
+            },
             transformResponse: (response: ApiResponse<Wishlist>) => response.data!,
             providesTags: (result) => result
                 ? [
@@ -23,6 +36,7 @@ export const wishlistApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, arg) => [
                 'Wishlists',
                 { type: 'WishlistItem' as const, id: arg.productId },
+                { type: 'Product' as const, id: arg.productId },
             ],
         }),
         removeWishlistItem: builder.mutation<void, number>({
@@ -33,6 +47,7 @@ export const wishlistApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, productId) => [
                 'Wishlists',
                 { type: 'WishlistItem' as const, id: productId },
+                { type: 'Product' as const, id: productId },
             ],
         }),
         clearWishlist: builder.mutation<void, void>({
@@ -40,13 +55,14 @@ export const wishlistApi = baseApi.injectEndpoints({
                 url: '/wishlists',
                 method: 'DELETE',
             }),
-            invalidatesTags: ['Wishlists'],
+            invalidatesTags: ['Wishlists', 'Products'],
         }),
     }),
 });
 
 export const {
     useGetWishlistQuery,
+    useLazyGetWishlistQuery,
     useAddWishlistItemMutation,
     useRemoveWishlistItemMutation,
     useClearWishlistMutation,

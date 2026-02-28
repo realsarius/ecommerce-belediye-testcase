@@ -9,7 +9,7 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/features/wishlist/wishlistApi')>();
     return {
         ...actual,
-        useGetWishlistQuery: vi.fn(),
+        useLazyGetWishlistQuery: vi.fn(),
         useRemoveWishlistItemMutation: () => [vi.fn()],
         useClearWishlistMutation: () => [vi.fn()],
     };
@@ -17,10 +17,10 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
 
 describe('Wishlist Component', () => {
     it('renders login prompt when user is not authenticated', () => {
-        vi.mocked(wishlistApi.useGetWishlistQuery).mockReturnValue({
-            data: undefined,
-            isLoading: false,
-        } as any);
+        vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue([
+            vi.fn(),
+            { data: undefined, isLoading: false },
+        ] as any);
 
         renderWithProviders(<Wishlist />, {
             store: createTestStore({
@@ -34,15 +34,18 @@ describe('Wishlist Component', () => {
         });
 
         expect(screen.getByText('Giriş Yapmanız Gerekiyor')).toBeInTheDocument();
-        expect(screen.getByText('Favorilerinizi görmek için lütfen giriş yapın.')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Giriş Yap' })).toBeInTheDocument();
+        expect(screen.getByText('Favorilerinizi hesabinizla senkronize etmek ve tum cihazlarinizda gormek icin lutfen giris yapin.')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Giris Yap' })).toBeInTheDocument();
     });
 
-    it('renders empty state when authenticated but wishlist is empty', () => {
-        vi.mocked(wishlistApi.useGetWishlistQuery).mockReturnValue({
-            data: { id: 1, userId: 1, items: [] },
-            isLoading: false,
-        } as any);
+    it('renders empty state when authenticated but wishlist is empty', async () => {
+        const trigger = vi.fn().mockReturnValue({
+            unwrap: () => Promise.resolve({ id: 1, userId: 1, items: [], hasMore: false, nextCursor: null }),
+        });
+        vi.mocked(wishlistApi.useLazyGetWishlistQuery).mockReturnValue([
+            trigger,
+            { data: undefined, isLoading: false },
+        ] as any);
 
         renderWithProviders(<Wishlist />, {
             store: createTestStore({
@@ -55,9 +58,8 @@ describe('Wishlist Component', () => {
             })
         });
 
-        // The exact empty text from Wishlist.tsx
-        expect(screen.getByText('Favorileriniz Boş')).toBeInTheDocument();
-        expect(screen.getByText('Henüz favorilerinize hiçbir ürün eklemediniz.')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Ürünlere Göz At' })).toBeInTheDocument();
+        expect(await screen.findByText('Favorileriniz Boş')).toBeInTheDocument();
+        expect(await screen.findByText('Henüz favorilerinize hiçbir ürün eklemediniz.')).toBeInTheDocument();
+        expect(await screen.findByRole('link', { name: 'Ürünlere Göz At' })).toBeInTheDocument();
     });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/common/badge';
@@ -6,19 +6,52 @@ import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
 import { useAppSelector } from '@/app/hooks';
+import type { Wishlist as WishlistResponse } from '@/features/wishlist/types';
 import { clearGuestWishlistProducts, useGuestWishlist } from '@/features/wishlist';
-import { useGetWishlistQuery, useRemoveWishlistItemMutation, useClearWishlistMutation } from '@/features/wishlist/wishlistApi';
+import { useLazyGetWishlistQuery, useRemoveWishlistItemMutation, useClearWishlistMutation } from '@/features/wishlist/wishlistApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { toast } from 'sonner';
+
+const WISHLIST_PAGE_SIZE = 20;
 
 export default function Wishlist() {
     const { isAuthenticated } = useAppSelector((state) => state.auth);
     const { pendingCount } = useGuestWishlist();
-    const { data: wishlist, isLoading } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
+    const [fetchWishlistPage] = useLazyGetWishlistQuery();
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [removeFromWishlist] = useRemoveWishlistItemMutation();
     const [clearWishlist] = useClearWishlistMutation();
     const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
+    const [wishlist, setWishlist] = useState<WishlistResponse | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [loadFailed, setLoadFailed] = useState(false);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setWishlist(null);
+            setLoadFailed(false);
+            setIsLoading(false);
+            setIsLoadingMore(false);
+            return;
+        }
+
+        const loadInitialPage = async () => {
+            setIsLoading(true);
+            setLoadFailed(false);
+
+            try {
+                const nextWishlist = await fetchWishlistPage({ limit: WISHLIST_PAGE_SIZE }).unwrap();
+                setWishlist(nextWishlist);
+            } catch {
+                setLoadFailed(true);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        void loadInitialPage();
+    }, [fetchWishlistPage, isAuthenticated]);
 
     if (!isAuthenticated) {
         const hasPendingWishlist = pendingCount > 0;
@@ -75,7 +108,36 @@ export default function Wishlist() {
         );
     }
 
-    if (isLoading) {
+    if (loadFailed && !wishlist) {
+        return (
+            <div className="container mx-auto px-4 py-16 text-center">
+                <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                <h2 className="text-2xl font-semibold mb-2">Favoriler Yüklenemedi</h2>
+                <p className="text-muted-foreground mb-6">
+                    Favorileriniz şu anda yüklenemedi. Lütfen tekrar deneyin.
+                </p>
+                <Button
+                    onClick={async () => {
+                        setIsLoading(true);
+                        setLoadFailed(false);
+
+                        try {
+                            const nextWishlist = await fetchWishlistPage({ limit: WISHLIST_PAGE_SIZE }).unwrap();
+                            setWishlist(nextWishlist);
+                        } catch {
+                            setLoadFailed(true);
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }}
+                >
+                    Tekrar Dene
+                </Button>
+            </div>
+        );
+    }
+
+    if (isLoading || (!wishlist && !loadFailed)) {
         return (
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-8">Favorilerim</h1>
@@ -117,6 +179,9 @@ export default function Wishlist() {
     const handleRemove = async (productId: number) => {
         try {
             await removeFromWishlist(productId).unwrap();
+            setWishlist((current) => current
+                ? { ...current, items: current.items.filter((item) => item.productId !== productId) }
+                : current);
             toast.success('Ürün favorilerden çıkarıldı.');
         } catch {
             toast.error('Ürün favorilerden çıkarılamadı.');
@@ -126,6 +191,9 @@ export default function Wishlist() {
     const handleClear = async () => {
         try {
             await clearWishlist().unwrap();
+            setWishlist((current) => current
+                ? { ...current, items: [], hasMore: false, nextCursor: null }
+                : current);
             toast.success('Favoriler temizlendi.');
         } catch {
             toast.error('Favoriler temizlenirken bir hata oluştu.');
@@ -138,6 +206,42 @@ export default function Wishlist() {
             toast.success(`${productName} sepete eklendi.`);
         } catch {
             toast.error('Ürün sepete eklenemedi.');
+        }
+    };
+
+    const handleLoadMore = async () => {
+        if (!wishlist?.nextCursor || isLoadingMore) {
+            return;
+        }
+
+        setIsLoadingMore(true);
+        try {
+            const nextPage = await fetchWishlistPage({
+                cursor: wishlist.nextCursor,
+                limit: WISHLIST_PAGE_SIZE,
+            }).unwrap();
+
+            setWishlist((current) => {
+                if (!current) {
+                    return nextPage;
+                }
+
+                const existingIds = new Set(current.items.map((item) => item.id));
+                const mergedItems = [
+                    ...current.items,
+                    ...nextPage.items.filter((item) => !existingIds.has(item.id)),
+                ];
+
+                return {
+                    ...current,
+                    ...nextPage,
+                    items: mergedItems,
+                };
+            });
+        } catch {
+            toast.error('Favorilerin devamı yüklenemedi.');
+        } finally {
+            setIsLoadingMore(false);
         }
     };
 
@@ -307,6 +411,18 @@ export default function Wishlist() {
                     )
                 ))}
             </div>
+
+            {wishlist.hasMore && (
+                <div className="flex justify-center mt-8">
+                    <Button
+                        variant="outline"
+                        onClick={() => void handleLoadMore()}
+                        disabled={isLoadingMore}
+                    >
+                        {isLoadingMore ? 'Yukleniyor...' : 'Daha Fazla Yukle'}
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }

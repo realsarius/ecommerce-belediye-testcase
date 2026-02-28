@@ -31,4 +31,32 @@ public class EfWishlistItemDal : EfEntityRepositoryBase<WishlistItem, AppDbConte
             WHERE ""WishlistId"" = {wishlistId}
               AND ""ProductId"" = {productId}");
     }
+
+    public async Task<IList<WishlistItem>> GetPagedByWishlistIdAsync(
+        int wishlistId,
+        DateTime? cursorAddedAt,
+        int? cursorItemId,
+        int take)
+    {
+        var query = _context.WishlistItems
+            .AsNoTracking()
+            .Include(x => x.Product)
+            .Where(x => x.WishlistId == wishlistId);
+
+        if (cursorAddedAt.HasValue && cursorItemId.HasValue)
+        {
+            var cursorDate = cursorAddedAt.Value;
+            var cursorId = cursorItemId.Value;
+
+            query = query.Where(x =>
+                x.AddedAt < cursorDate ||
+                (x.AddedAt == cursorDate && x.Id < cursorId));
+        }
+
+        return await query
+            .OrderByDescending(x => x.AddedAt)
+            .ThenByDescending(x => x.Id)
+            .Take(take)
+            .ToListAsync();
+    }
 }

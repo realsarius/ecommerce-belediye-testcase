@@ -237,4 +237,48 @@ public class WishlistManagerTests
         result.Data.Items.Should().HaveCount(2);
         result.Data.Items.Select(i => i.ProductId).Should().Contain(new[] { 1, 2 });
     }
+
+    [Fact]
+    public async Task GetWishlistByUserIdAsync_WhenPaginationRequested_ReturnsCursorMetadata()
+    {
+        const int userId = 1;
+        var wishlist = new Wishlist { Id = 10, UserId = userId };
+        var addedAt = DateTime.UtcNow;
+
+        var items = new List<WishlistItem>
+        {
+            new() { Id = 3, ProductId = 3, WishlistId = 10, AddedAt = addedAt, AddedAtPrice = 300m, Product = new Product { Id = 3, Name = "P3", Price = 300m, Currency = "TRY", IsActive = true } },
+            new() { Id = 2, ProductId = 2, WishlistId = 10, AddedAt = addedAt.AddMinutes(-1), AddedAtPrice = 200m, Product = new Product { Id = 2, Name = "P2", Price = 200m, Currency = "TRY", IsActive = true } },
+            new() { Id = 1, ProductId = 1, WishlistId = 10, AddedAt = addedAt.AddMinutes(-2), AddedAtPrice = 100m, Product = new Product { Id = 1, Name = "P1", Price = 100m, Currency = "TRY", IsActive = true } }
+        };
+
+        _wishlistDalMock
+            .Setup(d => d.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Wishlist, bool>>>()))
+            .ReturnsAsync(wishlist);
+
+        _wishlistItemDalMock
+            .Setup(d => d.GetPagedByWishlistIdAsync(wishlist.Id, null, null, 3))
+            .ReturnsAsync(items);
+        _mapperMock
+            .Setup(m => m.ToWishlistItemDto(It.IsAny<WishlistItem>()))
+            .Returns((WishlistItem item) => new WishlistItemDto
+            {
+                Id = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.Product?.Name ?? string.Empty,
+                ProductPrice = item.Product?.Price ?? item.AddedAtPrice,
+                ProductCurrency = item.Product?.Currency ?? "TRY",
+                AddedAt = item.AddedAt,
+                AddedAtPrice = item.AddedAtPrice,
+                IsAvailable = item.Product?.IsActive == true
+            });
+
+        var result = await _manager.GetWishlistByUserIdAsync(userId, limit: 2);
+
+        result.Success.Should().BeTrue();
+        result.Data.Items.Should().HaveCount(2);
+        result.Data.HasMore.Should().BeTrue();
+        result.Data.NextCursor.Should().NotBeNullOrWhiteSpace();
+        result.Data.Limit.Should().Be(2);
+    }
 }

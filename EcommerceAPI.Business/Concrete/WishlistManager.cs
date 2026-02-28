@@ -11,11 +11,14 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace EcommerceAPI.Business.Concrete;
 
 public class WishlistManager : IWishlistService
 {
+    private const int DefaultWishlistPageSize = 20;
+    private const int MaxWishlistPageSize = 50;
     private readonly IWishlistDal _wishlistDal;
     private readonly IWishlistItemDal _wishlistItemDal;
     private readonly IProductDal _productDal;
@@ -46,24 +49,60 @@ public class WishlistManager : IWishlistService
     }
 
     [CacheAspect(duration: 10)]
-    public async Task<IDataResult<WishlistDto>> GetWishlistByUserIdAsync(int userId)
+    public async Task<IDataResult<WishlistDto>> GetWishlistByUserIdAsync(int userId, string? cursor = null, int? limit = null)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
         if (wishlist == null)
         {
-            return new SuccessDataResult<WishlistDto>(new WishlistDto { UserId = userId });
+            return new SuccessDataResult<WishlistDto>(new WishlistDto
+            {
+                UserId = userId,
+                Limit = limit ?? 0
+            });
         }
 
-        var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
-        wishlist.Items = new List<WishlistItem>();
-
-        foreach (var item in items)
+        if (string.IsNullOrWhiteSpace(cursor) && !limit.HasValue)
         {
-            item.Product = await _productDal.GetAsync(p => p.Id == item.ProductId);
-            wishlist.Items.Add(item);
+            var items = await _wishlistItemDal.GetListAsync(wi => wi.WishlistId == wishlist.Id);
+            wishlist.Items = new List<WishlistItem>();
+
+            foreach (var item in items)
+            {
+                item.Product = await _productDal.GetAsync(p => p.Id == item.ProductId);
+                wishlist.Items.Add(item);
+            }
+
+            var fullDto = _wishlistMapper.ToWishlistDto(wishlist);
+            fullDto.Limit = fullDto.Items.Count;
+            return new SuccessDataResult<WishlistDto>(fullDto);
         }
 
-        var dto = _wishlistMapper.ToWishlistDto(wishlist);
+        var normalizedLimit = NormalizeLimit(limit);
+        var (cursorAddedAt, cursorItemId) = TryDecodeCursor(cursor);
+        var pagedItems = await _wishlistItemDal.GetPagedByWishlistIdAsync(
+            wishlist.Id,
+            cursorAddedAt,
+            cursorItemId,
+            normalizedLimit + 1);
+
+        var hasMore = pagedItems.Count > normalizedLimit;
+        var visibleItems = pagedItems.Take(normalizedLimit).ToList();
+
+        var dto = new WishlistDto
+        {
+            Id = wishlist.Id,
+            UserId = wishlist.UserId,
+            Limit = normalizedLimit,
+            HasMore = hasMore,
+            Items = visibleItems.Select(_wishlistMapper.ToWishlistItemDto).ToList()
+        };
+
+        if (hasMore && visibleItems.Count > 0)
+        {
+            var lastVisibleItem = visibleItems[^1];
+            dto.NextCursor = EncodeCursor(lastVisibleItem.AddedAt, lastVisibleItem.Id);
+        }
+
         return new SuccessDataResult<WishlistDto>(dto);
     }
 
@@ -299,5 +338,50 @@ public class WishlistManager : IWishlistService
             WishlistItemRemovedEvent removedEvent => removedEvent.ProductId,
             _ => 0
         };
+    }
+
+    private static int NormalizeLimit(int? limit)
+    {
+        if (!limit.HasValue)
+        {
+            return DefaultWishlistPageSize;
+        }
+
+        return Math.Clamp(limit.Value, 1, MaxWishlistPageSize);
+    }
+
+    private static string EncodeCursor(DateTime addedAt, int itemId)
+    {
+        var payload = $"{addedAt.Ticks}:{itemId}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
+    }
+
+    private static (DateTime? AddedAt, int? ItemId) TryDecodeCursor(string? cursor)
+    {
+        if (string.IsNullOrWhiteSpace(cursor))
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var parts = decoded.Split(':', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+            {
+                return (null, null);
+            }
+
+            if (!long.TryParse(parts[0], out var ticks) || !int.TryParse(parts[1], out var itemId))
+            {
+                return (null, null);
+            }
+
+            return (new DateTime(ticks, DateTimeKind.Utc), itemId);
+        }
+        catch
+        {
+            return (null, null);
+        }
     }
 }

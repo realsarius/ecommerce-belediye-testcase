@@ -33,12 +33,12 @@ public class WishlistsController : BaseApiController
 
     [HttpGet]
     [EnableRateLimiting("wishlist-read")]
-    public async Task<IActionResult> GetWishlist()
+    public async Task<IActionResult> GetWishlist([FromQuery] string? cursor = null, [FromQuery] int? limit = null)
     {
         int userId = GetCurrentUserId();
         if (userId == 0) return Unauthorized();
 
-        var result = await _wishlistService.GetWishlistByUserIdAsync(userId);
+        var result = await _wishlistService.GetWishlistByUserIdAsync(userId, cursor, limit);
         return HandleResult(result);
     }
 

@@ -6,6 +6,9 @@ public class WishlistDto
 {
     public int Id { get; set; }
     public int UserId { get; set; }
+    public int Limit { get; set; }
+    public bool HasMore { get; set; }
+    public string? NextCursor { get; set; }
     public List<WishlistItemDto> Items { get; set; } = new();
 }
 

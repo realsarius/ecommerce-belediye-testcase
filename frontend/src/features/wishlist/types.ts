@@ -16,9 +16,17 @@ export interface WishlistItem {
 export interface Wishlist {
     id: number;
     userId: number;
+    limit?: number;
+    hasMore?: boolean;
+    nextCursor?: string | null;
     items: WishlistItem[];
 }
 
 export interface AddWishlistItemRequest {
     productId: number;
+}
+
+export interface GetWishlistRequest {
+    cursor?: string;
+    limit?: number;
 }
