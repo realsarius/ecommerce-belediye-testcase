@@ -10,9 +10,13 @@ vi.mock('@/features/wishlist/wishlistApi', async (importOriginal) => {
     return {
         ...actual,
         useLazyGetWishlistQuery: vi.fn(),
+        useGetWishlistShareSettingsQuery: vi.fn(),
+        useEnableWishlistSharingMutation: () => [vi.fn(), { isLoading: false }],
+        useDisableWishlistSharingMutation: () => [vi.fn(), { isLoading: false }],
         useGetWishlistPriceAlertsQuery: vi.fn(),
         useUpsertWishlistPriceAlertMutation: () => [vi.fn()],
         useRemoveWishlistPriceAlertMutation: () => [vi.fn()],
+        useAddAllWishlistItemsToCartMutation: () => [vi.fn(), { isLoading: false }],
         useRemoveWishlistItemMutation: () => [vi.fn()],
         useClearWishlistMutation: () => [vi.fn()],
     };
@@ -26,6 +30,10 @@ describe('Wishlist Component', () => {
         ] as any);
         vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue({
             data: [],
+            isLoading: false,
+        } as any);
+        vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue({
+            data: { isPublic: false },
             isLoading: false,
         } as any);
 
@@ -55,6 +63,10 @@ describe('Wishlist Component', () => {
         ] as any);
         vi.mocked(wishlistApi.useGetWishlistPriceAlertsQuery).mockReturnValue({
             data: [],
+            isLoading: false,
+        } as any);
+        vi.mocked(wishlistApi.useGetWishlistShareSettingsQuery).mockReturnValue({
+            data: { isPublic: false },
             isLoading: false,
         } as any);
 

@@ -25,6 +25,7 @@ public class WishlistManagerTests
     private Mock<IAuditService> _mockAuditService = null!;
     private Mock<ILogger<WishlistManager>> _mockLogger = null!;
     private Mock<IPublishEndpoint> _mockPublishEndpoint = null!;
+    private Mock<ICartCacheService> _mockCartCacheService = null!;
     private WishlistManager _wishlistManager = null!;
 
     [SetUp]
@@ -38,6 +39,7 @@ public class WishlistManagerTests
         _mockAuditService = new Mock<IAuditService>();
         _mockLogger = new Mock<ILogger<WishlistManager>>();
         _mockPublishEndpoint = new Mock<IPublishEndpoint>();
+        _mockCartCacheService = new Mock<ICartCacheService>();
         _mockPublishEndpoint
             .Setup(x => x.Publish(It.IsAny<WishlistItemAddedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -53,7 +55,8 @@ public class WishlistManagerTests
             _mockUnitOfWork.Object,
             _mockAuditService.Object,
             _mockLogger.Object,
-            _mockPublishEndpoint.Object
+            _mockPublishEndpoint.Object,
+            _mockCartCacheService.Object
         );
     }
 

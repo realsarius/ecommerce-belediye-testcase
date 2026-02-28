@@ -23,6 +23,7 @@ public class WishlistManagerTests
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<WishlistManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly Mock<ICartCacheService> _cartCacheServiceMock;
     private readonly WishlistManager _manager;
 
     public WishlistManagerTests()
@@ -35,6 +36,7 @@ public class WishlistManagerTests
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<WishlistManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _cartCacheServiceMock = new Mock<ICartCacheService>();
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<WishlistItemAddedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -50,7 +52,8 @@ public class WishlistManagerTests
             _uowMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
-            _publishEndpointMock.Object
+            _publishEndpointMock.Object,
+            _cartCacheServiceMock.Object
         );
     }
 
@@ -67,6 +70,101 @@ public class WishlistManagerTests
         result.Success.Should().BeTrue();
         result.Data.UserId.Should().Be(userId);
         result.Data.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EnableSharingAsync_WhenWishlistExists_ReturnsShareToken()
+    {
+        const int userId = 1;
+        var wishlist = new Wishlist { Id = 10, UserId = userId, IsPublic = false, ShareToken = null };
+
+        _wishlistDalMock
+            .Setup(d => d.GetOrCreateByUserIdAsync(userId))
+            .ReturnsAsync(wishlist);
+
+        var result = await _manager.EnableSharingAsync(userId);
+
+        result.Success.Should().BeTrue();
+        result.Data.IsPublic.Should().BeTrue();
+        result.Data.ShareToken.Should().NotBeNull();
+        result.Data.SharePath.Should().Contain("/wishlist/share/");
+        _wishlistDalMock.Verify(d => d.Update(It.Is<Wishlist>(w =>
+            w.Id == wishlist.Id &&
+            w.IsPublic &&
+            w.ShareToken.HasValue)), Times.Once);
+        _uowMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPublicWishlistByShareTokenAsync_WhenWishlistIsPublic_ReturnsSharedWishlist()
+    {
+        var shareToken = Guid.NewGuid();
+        var wishlist = new Wishlist
+        {
+            Id = 10,
+            UserId = 1,
+            IsPublic = true,
+            ShareToken = shareToken,
+            User = new User
+            {
+                Id = 1,
+                FirstName = "Ada",
+                LastName = "Lovelace",
+                Email = "ada@example.com"
+            }
+        };
+        var addedAt = DateTime.UtcNow;
+        var pagedItems = new List<WishlistItem>
+        {
+            new()
+            {
+                Id = 3,
+                ProductId = 3,
+                WishlistId = wishlist.Id,
+                AddedAt = addedAt,
+                AddedAtPrice = 300m,
+                Product = new Product { Id = 3, Name = "P3", Price = 300m, Currency = "TRY", IsActive = true }
+            },
+            new()
+            {
+                Id = 2,
+                ProductId = 2,
+                WishlistId = wishlist.Id,
+                AddedAt = addedAt.AddMinutes(-1),
+                AddedAtPrice = 200m,
+                Product = new Product { Id = 2, Name = "P2", Price = 200m, Currency = "TRY", IsActive = true }
+            }
+        };
+
+        _wishlistDalMock
+            .Setup(d => d.GetByShareTokenAsync(shareToken))
+            .ReturnsAsync(wishlist);
+
+        _wishlistItemDalMock
+            .Setup(d => d.GetPagedByWishlistIdAsync(wishlist.Id, null, null, 2))
+            .ReturnsAsync(pagedItems);
+
+        _mapperMock
+            .Setup(m => m.ToWishlistItemDto(It.IsAny<WishlistItem>()))
+            .Returns((WishlistItem item) => new WishlistItemDto
+            {
+                Id = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.Product?.Name ?? string.Empty,
+                ProductPrice = item.Product?.Price ?? 0,
+                ProductCurrency = item.Product?.Currency ?? "TRY",
+                IsAvailable = item.Product?.IsActive == true,
+                AddedAt = item.AddedAt,
+                AddedAtPrice = item.AddedAtPrice
+            });
+
+        var result = await _manager.GetPublicWishlistByShareTokenAsync(shareToken, null, 1);
+
+        result.Success.Should().BeTrue();
+        result.Data.OwnerDisplayName.Should().Be("Ada Lovelace");
+        result.Data.Items.Should().ContainSingle();
+        result.Data.HasMore.Should().BeTrue();
+        result.Data.NextCursor.Should().NotBeNull();
     }
 
     [Fact]
@@ -280,5 +378,46 @@ public class WishlistManagerTests
         result.Data.HasMore.Should().BeTrue();
         result.Data.NextCursor.Should().NotBeNullOrWhiteSpace();
         result.Data.Limit.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task AddAvailableItemsToCartAsync_ReturnsAddedAndSkippedSummary()
+    {
+        const int userId = 1;
+        var wishlist = new Wishlist { Id = 10, UserId = userId };
+        var wishlistItems = new List<WishlistItem>
+        {
+            new() { Id = 1, WishlistId = 10, ProductId = 1 },
+            new() { Id = 2, WishlistId = 10, ProductId = 2 },
+            new() { Id = 3, WishlistId = 10, ProductId = 3 }
+        };
+        var products = new List<Product>
+        {
+            new() { Id = 1, Name = "P1", IsActive = true, Inventory = new Inventory { QuantityAvailable = 5 } },
+            new() { Id = 2, Name = "P2", IsActive = false, Inventory = new Inventory { QuantityAvailable = 5 } },
+            new() { Id = 3, Name = "P3", IsActive = true, Inventory = new Inventory { QuantityAvailable = 0 } }
+        };
+
+        _wishlistDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Wishlist, bool>>>()))
+            .ReturnsAsync(wishlist);
+        _wishlistItemDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WishlistItem, bool>>>()))
+            .ReturnsAsync(wishlistItems);
+        _productDalMock
+            .Setup(x => x.GetByIdsWithInventoryAsync(It.IsAny<List<int>>()))
+            .ReturnsAsync(products);
+        _cartCacheServiceMock
+            .Setup(x => x.GetCartItemsAsync(userId))
+            .ReturnsAsync(new Dictionary<int, int>());
+
+        var result = await _manager.AddAvailableItemsToCartAsync(userId);
+
+        result.Success.Should().BeTrue();
+        result.Data.RequestedCount.Should().Be(3);
+        result.Data.AddedCount.Should().Be(1);
+        result.Data.SkippedCount.Should().Be(2);
+        result.Message.Should().Contain("1 ürün sepete eklendi");
+        _cartCacheServiceMock.Verify(x => x.IncrementItemQuantityAsync(userId, 1, 1), Times.Once);
     }
 }
