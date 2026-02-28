@@ -103,7 +103,7 @@ public class OrderManagerTests
         capturedOrder.TotalAmount.Should().Be(154.90m); 
         result.Success.Should().BeTrue();
         result.Data.TotalAmount.Should().Be(154.90m);
-        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Once);
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
         _uowMock.Verify(x => x.CommitTransactionAsync(), Times.Once);
         _cartServiceMock.Verify(x => x.ClearCartAsync(userId), Times.Once);
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()), Times.Once);

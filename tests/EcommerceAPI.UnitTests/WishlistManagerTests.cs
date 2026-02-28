@@ -5,7 +5,10 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.IntegrationEvents;
 using FluentAssertions;
+using MassTransit;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace EcommerceAPI.UnitTests;
@@ -18,6 +21,8 @@ public class WishlistManagerTests
     private readonly Mock<IWishlistMapper> _mapperMock;
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<IAuditService> _auditServiceMock;
+    private readonly Mock<ILogger<WishlistManager>> _loggerMock;
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly WishlistManager _manager;
 
     public WishlistManagerTests()
@@ -28,6 +33,14 @@ public class WishlistManagerTests
         _mapperMock = new Mock<IWishlistMapper>();
         _uowMock = new Mock<IUnitOfWork>();
         _auditServiceMock = new Mock<IAuditService>();
+        _loggerMock = new Mock<ILogger<WishlistManager>>();
+        _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<WishlistItemAddedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<WishlistItemRemovedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _manager = new WishlistManager(
             _wishlistDalMock.Object,
@@ -35,7 +48,9 @@ public class WishlistManagerTests
             _productDalMock.Object,
             _mapperMock.Object,
             _uowMock.Object,
-            _auditServiceMock.Object
+            _auditServiceMock.Object,
+            _loggerMock.Object,
+            _publishEndpointMock.Object
         );
     }
 
@@ -103,6 +118,13 @@ public class WishlistManagerTests
             p.Id == productId &&
             p.WishlistCount == 1)), Times.Once);
         _uowMock.Verify(u => u.SaveChangesAsync(), Times.Once);
+        _uowMock.Verify(u => u.BeginTransactionAsync(), Times.Once);
+        _uowMock.Verify(u => u.CommitTransactionAsync(), Times.Once);
+        _publishEndpointMock.Verify(x => x.Publish(It.Is<WishlistItemAddedEvent>(e =>
+            e.UserId == userId &&
+            e.WishlistId == wishlist.Id &&
+            e.ProductId == productId &&
+            e.PriceAtTime == productPrice), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -129,6 +151,7 @@ public class WishlistManagerTests
         result.Success.Should().BeTrue();
         _productDalMock.Verify(d => d.Update(It.IsAny<Product>()), Times.Never);
         _uowMock.Verify(u => u.SaveChangesAsync(), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<WishlistItemAddedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

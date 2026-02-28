@@ -5,6 +5,9 @@ using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
+using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 using System.Linq.Expressions;
@@ -20,6 +23,8 @@ public class WishlistManagerTests
     private Mock<IWishlistMapper> _mockWishlistMapper = null!;
     private Mock<IUnitOfWork> _mockUnitOfWork = null!;
     private Mock<IAuditService> _mockAuditService = null!;
+    private Mock<ILogger<WishlistManager>> _mockLogger = null!;
+    private Mock<IPublishEndpoint> _mockPublishEndpoint = null!;
     private WishlistManager _wishlistManager = null!;
 
     [SetUp]
@@ -31,6 +36,14 @@ public class WishlistManagerTests
         _mockWishlistMapper = new Mock<IWishlistMapper>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockAuditService = new Mock<IAuditService>();
+        _mockLogger = new Mock<ILogger<WishlistManager>>();
+        _mockPublishEndpoint = new Mock<IPublishEndpoint>();
+        _mockPublishEndpoint
+            .Setup(x => x.Publish(It.IsAny<WishlistItemAddedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockPublishEndpoint
+            .Setup(x => x.Publish(It.IsAny<WishlistItemRemovedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _wishlistManager = new WishlistManager(
             _mockWishlistDal.Object,
@@ -38,7 +51,9 @@ public class WishlistManagerTests
             _mockProductDal.Object,
             _mockWishlistMapper.Object,
             _mockUnitOfWork.Object,
-            _mockAuditService.Object
+            _mockAuditService.Object,
+            _mockLogger.Object,
+            _mockPublishEndpoint.Object
         );
     }
 
