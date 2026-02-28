@@ -103,4 +103,14 @@ public static class Messages
     public static string SupportUnauthorizedAction = "Bu işlem için yetkiniz yok";
     public static string SupportInvalidSupportUser = "Geçersiz destek kullanıcı bilgisi";
 
+    // Product Review
+    public static string ReviewProductNotFound = "Ürün bulunamadı";
+    public static string ReviewNotPurchased = "Bu ürünü değerlendirmek için satın almış olmanız ve siparişinizin teslim edilmiş olması gerekir.";
+    public static string ReviewAlreadyExists = "Bu ürüne zaten bir değerlendirme yapmışsınız.";
+    public static string ReviewNotFound = "Değerlendirme bulunamadı.";
+    public static string ReviewUnauthorized = "Bu değerlendirme üzerinde işlem yapma yetkiniz yok.";
+    public static string ReviewDeleted = "Değerlendirme silindi.";
+    public static string ReviewDeletedByAdmin = "Değerlendirme admin tarafından silindi.";
+    public static string ReviewRatingInvalid = "Puan 1 ile 5 arasında olmalıdır.";
+    public static string ReviewCommentTooLong = "Yorum en fazla 1000 karakter olabilir.";
 }
