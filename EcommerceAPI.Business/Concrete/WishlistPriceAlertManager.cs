@@ -192,12 +192,18 @@ public class WishlistPriceAlertManager : IWishlistPriceAlertService
                 hasChanges = true;
 
                 _logger.LogInformation(
-                    "Wishlist price alert triggered. UserId={UserId}, ProductId={ProductId}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}",
+                    "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, OccurredAt={OccurredAt}",
+                    "Wishlist",
+                    "WishlistPriceAlertTriggered",
                     alert.UserId,
                     alert.ProductId,
+                    product.Name,
+                    product.Category?.Name,
                     previousPrice,
                     currentPrice,
-                    alert.TargetPrice);
+                    alert.TargetPrice,
+                    product.Currency,
+                    DateTime.UtcNow);
             }
 
             if (alert.LastKnownPrice != currentPrice)

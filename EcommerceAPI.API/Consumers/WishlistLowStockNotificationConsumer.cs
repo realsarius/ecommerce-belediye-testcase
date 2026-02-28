@@ -45,18 +45,48 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
             return;
         }
 
+        var userIds = await _dbContext.WishlistItems
+            .AsNoTracking()
+            .Where(item => item.ProductId == message.ProductId)
+            .Join(
+                _dbContext.Wishlists.AsNoTracking(),
+                item => item.WishlistId,
+                wishlist => wishlist.Id,
+                (item, wishlist) => wishlist.UserId)
+            .Distinct()
+            .ToListAsync(context.CancellationToken);
+
         var product = await _dbContext.Products
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == message.ProductId, context.CancellationToken);
+            .Where(p => p.Id == message.ProductId)
+            .Select(p => new
+            {
+                p.Name,
+                Category = p.Category != null ? p.Category.Name : null,
+                p.IsActive
+            })
+            .FirstOrDefaultAsync(context.CancellationToken);
 
-        if (product?.IsActive == true)
+        if (product?.IsActive == false)
         {
-            var userIds = await _dbContext.WishlistItems
-                .AsNoTracking()
-                .Where(item => item.ProductId == message.ProductId)
-                .Select(item => item.Wishlist.UserId)
-                .Distinct()
-                .ToListAsync(context.CancellationToken);
+            _logger.LogInformation(
+                "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, ProductId={ProductId}, StockQuantity={StockQuantity}, Threshold={Threshold}, Reason={Reason}, NotifiedUsers={UserCount}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+                "Wishlist",
+                "WishlistLowStockSkipped",
+                message.ProductId,
+                message.StockQuantity,
+                message.Threshold,
+                message.Reason,
+                userIds.Count,
+                false,
+                messageId,
+                message.OccurredAt);
+        }
+        else if (userIds.Count > 0)
+        {
+            var productName = string.IsNullOrWhiteSpace(product?.Name)
+                ? $"Ürün #{message.ProductId}"
+                : product.Name;
 
             foreach (var userId in userIds)
             {
@@ -66,7 +96,7 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
                         new
                         {
                             message.ProductId,
-                            ProductName = product.Name,
+                            ProductName = productName,
                             message.StockQuantity,
                             message.Threshold,
                             message.OccurredAt
@@ -75,12 +105,20 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
             }
 
             _logger.LogInformation(
-                "Wishlist low stock notifications delivered. ProductId={ProductId}, StockQuantity={StockQuantity}, Threshold={Threshold}, NotifiedUsers={UserCount}, MessageId={MessageId}",
+                "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, StockQuantity={StockQuantity}, Threshold={Threshold}, Reason={Reason}, NotifiedUsers={UserCount}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+                "Wishlist",
+                "WishlistLowStockDelivered",
+                "SignalR",
                 message.ProductId,
+                productName,
+                product?.Category,
                 message.StockQuantity,
                 message.Threshold,
+                message.Reason,
                 userIds.Count,
-                messageId);
+                product?.IsActive,
+                messageId,
+                message.OccurredAt);
         }
 
         _dbContext.InboxMessages.Add(new InboxMessage

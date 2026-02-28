@@ -46,6 +46,16 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
             return;
         }
 
+        var productInfo = await _dbContext.Products
+            .AsNoTracking()
+            .Where(p => p.Id == message.ProductId)
+            .Select(p => new
+            {
+                Category = p.Category != null ? p.Category.Name : null,
+                p.IsActive
+            })
+            .FirstOrDefaultAsync(context.CancellationToken);
+
         await _hubContext.Clients.Group(WishlistHub.UserGroup(message.UserId))
             .SendAsync(
                 "PriceAlertTriggered",
@@ -62,13 +72,21 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
                 context.CancellationToken);
 
         _logger.LogInformation(
-            "Wishlist price alert notification delivered. UserId={UserId}, ProductId={ProductId}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, MessageId={MessageId}",
+            "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+            "Wishlist",
+            "WishlistPriceAlertDelivered",
+            "SignalR",
             message.UserId,
             message.ProductId,
+            message.ProductName,
+            productInfo?.Category,
             message.OldPrice,
             message.NewPrice,
             message.TargetPrice,
-            messageId);
+            message.Currency,
+            productInfo?.IsActive,
+            messageId,
+            message.OccurredAt);
 
         _dbContext.InboxMessages.Add(new InboxMessage
         {

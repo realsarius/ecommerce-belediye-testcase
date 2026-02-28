@@ -552,6 +552,19 @@ public class WishlistManager : IWishlistService
             if (!productsById.TryGetValue(wishlistItem.ProductId, out var product) || !product.IsActive)
             {
                 result.SkippedItems.Add(CreateSkippedItem(wishlistItem.ProductId, product?.Name, "Ürün artık satışta değil."));
+                _logger.LogInformation(
+                    "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, Reason={Reason}, Currency={Currency}, OccurredAt={OccurredAt}",
+                    "Wishlist",
+                    "WishlistItemAddToCartSkipped",
+                    "WishlistToCart",
+                    userId,
+                    wishlist.Id,
+                    wishlistItem.ProductId,
+                    product?.Name ?? $"Ürün #{wishlistItem.ProductId}",
+                    product?.Category?.Name,
+                    "Ürün artık satışta değil.",
+                    product?.Currency ?? "TRY",
+                    DateTime.UtcNow);
                 continue;
             }
 
@@ -559,6 +572,20 @@ public class WishlistManager : IWishlistService
             if (availableStock <= 0)
             {
                 result.SkippedItems.Add(CreateSkippedItem(product.Id, product.Name, "Ürün stokta yok."));
+                _logger.LogInformation(
+                    "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, Reason={Reason}, Currency={Currency}, StockQuantity={StockQuantity}, OccurredAt={OccurredAt}",
+                    "Wishlist",
+                    "WishlistItemAddToCartSkipped",
+                    "WishlistToCart",
+                    userId,
+                    wishlist.Id,
+                    product.Id,
+                    product.Name,
+                    product.Category?.Name,
+                    "Ürün stokta yok.",
+                    product.Currency,
+                    availableStock,
+                    DateTime.UtcNow);
                 continue;
             }
 
@@ -566,12 +593,42 @@ public class WishlistManager : IWishlistService
             if (currentQuantity >= availableStock)
             {
                 result.SkippedItems.Add(CreateSkippedItem(product.Id, product.Name, "Sepetteki miktar stok sınırına ulaştı."));
+                _logger.LogInformation(
+                    "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, Reason={Reason}, Currency={Currency}, StockQuantity={StockQuantity}, CartQuantity={CartQuantity}, OccurredAt={OccurredAt}",
+                    "Wishlist",
+                    "WishlistItemAddToCartSkipped",
+                    "WishlistToCart",
+                    userId,
+                    wishlist.Id,
+                    product.Id,
+                    product.Name,
+                    product.Category?.Name,
+                    "Sepetteki miktar stok sınırına ulaştı.",
+                    product.Currency,
+                    availableStock,
+                    currentQuantity,
+                    DateTime.UtcNow);
                 continue;
             }
 
             await _cartCacheService.IncrementItemQuantityAsync(userId, product.Id, 1);
             currentCartItems[product.Id] = currentQuantity + 1;
             result.AddedCount++;
+            _logger.LogInformation(
+                "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, ProductPrice={ProductPrice}, Currency={Currency}, StockQuantity={StockQuantity}, CartQuantity={CartQuantity}, OccurredAt={OccurredAt}",
+                "Wishlist",
+                "WishlistItemAddedToCart",
+                "WishlistToCart",
+                userId,
+                wishlist.Id,
+                product.Id,
+                product.Name,
+                product.Category?.Name,
+                product.Price,
+                product.Currency,
+                availableStock,
+                currentCartItems[product.Id],
+                DateTime.UtcNow);
         }
 
         result.SkippedCount = result.SkippedItems.Count;
@@ -587,6 +644,18 @@ public class WishlistManager : IWishlistService
                 result.SkippedCount,
                 SkippedItems = result.SkippedItems.Select(item => new { item.ProductId, item.Reason }).ToList()
             });
+
+        _logger.LogInformation(
+            "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, FunnelStage={FunnelStage}, UserId={UserId}, WishlistId={WishlistId}, RequestedCount={RequestedCount}, AddedCount={AddedCount}, SkippedCount={SkippedCount}, OccurredAt={OccurredAt}",
+            "Wishlist",
+            "WishlistBulkAddToCartCompleted",
+            "WishlistToCart",
+            userId,
+            wishlist.Id,
+            result.RequestedCount,
+            result.AddedCount,
+            result.SkippedCount,
+            DateTime.UtcNow);
 
         return new SuccessDataResult<WishlistBulkAddToCartResultDto>(
             result,

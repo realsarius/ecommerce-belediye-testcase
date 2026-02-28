@@ -16,6 +16,7 @@ public class EfPriceAlertDal : EfEntityRepositoryBase<PriceAlert, AppDbContext>,
     {
         return _context.PriceAlerts
             .Include(pa => pa.Product)
+            .ThenInclude(product => product!.Category)
             .FirstOrDefaultAsync(pa => pa.UserId == userId && pa.ProductId == productId);
     }
 
@@ -23,6 +24,7 @@ public class EfPriceAlertDal : EfEntityRepositoryBase<PriceAlert, AppDbContext>,
     {
         return await _context.PriceAlerts
             .Include(pa => pa.Product)
+            .ThenInclude(product => product!.Category)
             .Where(pa => pa.UserId == userId && pa.IsActive)
             .OrderByDescending(pa => pa.CreatedAt)
             .ToListAsync();
@@ -32,6 +34,7 @@ public class EfPriceAlertDal : EfEntityRepositoryBase<PriceAlert, AppDbContext>,
     {
         return await _context.PriceAlerts
             .Include(pa => pa.Product)
+            .ThenInclude(product => product!.Category)
             .Where(pa => pa.IsActive)
             .ToListAsync();
     }
