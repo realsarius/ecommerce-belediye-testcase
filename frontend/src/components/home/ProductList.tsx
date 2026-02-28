@@ -1,10 +1,12 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Package } from 'lucide-react';
+import { ShoppingCart, Package, Heart } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { useAppSelector } from '@/app/hooks';
+import { toast } from 'sonner';
+import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -23,6 +25,38 @@ export const ProductList = ({
 }: ProductListProps) => {
   const [, setSearchParams] = useSearchParams();
   const { page } = useAppSelector((state) => state.products);
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
+
+  const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
+  const [addToWishlist] = useAddWishlistItemMutation();
+  const [removeFromWishlist] = useRemoveWishlistItemMutation();
+
+  const isProductInWishlist = (productId: number) => {
+    return wishlistData?.items?.some((item: { productId: number }) => item.productId === productId);
+  };
+
+  const handleWishlistToggle = async (e: React.MouseEvent, productId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isAuthenticated) {
+      toast.error('Favorilere eklemek için giriş yapmalısınız');
+      return;
+    }
+
+    try {
+      if (isProductInWishlist(productId)) {
+        await removeFromWishlist(productId).unwrap();
+        toast.success('Ürün favorilerden çıkarıldı.');
+      } else {
+        await addToWishlist({ productId }).unwrap();
+        toast.success('Ürün favorilere eklendi.');
+      }
+    } catch {
+      toast.error('İşlem başarısız oldu.');
+    }
+  };
+
 
   const handlePageChange = (newPage: number) => {
     setSearchParams(prev => {
@@ -62,14 +96,24 @@ export const ProductList = ({
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 place-items-center sm:place-items-stretch">
         {productsData?.items?.map((product) => (
-          <Card key={product.id} className="overflow-hidden group w-full max-w-sm">
+          <Card key={product.id} className="overflow-hidden group w-full max-w-sm relative">
             <div className="relative h-48 bg-muted flex items-center justify-center">
               <Package className="h-16 w-16 text-muted-foreground" />
               {product.stockQuantity === 0 && (
-                <Badge variant="destructive" className="absolute top-2 right-2">
+                <Badge variant="destructive" className="absolute top-2 left-2">
                   Stokta Yok
                 </Badge>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 rounded-full bg-background/50 backdrop-blur-sm hover:bg-background/80"
+                onClick={(e) => handleWishlistToggle(e, product.id)}
+              >
+                <Heart
+                  className={`h-5 w-5 ${isProductInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-foreground'}`}
+                />
+              </Button>
             </div>
             <CardContent className="p-4">
               <Link to={`/products/${product.id}`}>

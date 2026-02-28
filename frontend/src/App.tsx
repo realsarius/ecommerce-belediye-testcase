@@ -25,6 +25,7 @@ const Addresses = lazy(() => import('@/pages/Addresses'));
 const CreditCards = lazy(() => import('@/pages/CreditCards'));
 const Help = lazy(() => import('@/pages/Help'));
 const Support = lazy(() => import('@/pages/Support'));
+const Wishlist = lazy(() => import('@/pages/Wishlist'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
@@ -65,6 +66,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Cart />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/wishlist"
+                      element={
+                        <ProtectedRoute>
+                          <Wishlist />
                         </ProtectedRoute>
                       }
                     />
