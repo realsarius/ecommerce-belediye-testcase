@@ -22,6 +22,7 @@ public static class DependencyInjection
         // ...
 
         services.AddScoped<ICartMapper, CartMapper>();
+        services.AddScoped<IWishlistMapper, WishlistMapper>();
 
         services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
