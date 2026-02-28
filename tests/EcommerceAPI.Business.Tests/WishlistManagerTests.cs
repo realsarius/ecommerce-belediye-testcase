@@ -1,26 +1,26 @@
 using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Business.Mappers;
+using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
-using EcommerceAPI.Entities.DTOs;
 using Moq;
 using NUnit.Framework;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Threading.Tasks;
 
 namespace EcommerceAPI.Business.Tests;
 
 [TestFixture]
 public class WishlistManagerTests
 {
-    private Mock<IWishlistDal> _mockWishlistDal;
-    private Mock<IWishlistItemDal> _mockWishlistItemDal;
-    private Mock<IProductDal> _mockProductDal;
-    private Mock<IWishlistMapper> _mockWishlistMapper;
-    private WishlistManager _wishlistManager;
+    private Mock<IWishlistDal> _mockWishlistDal = null!;
+    private Mock<IWishlistItemDal> _mockWishlistItemDal = null!;
+    private Mock<IProductDal> _mockProductDal = null!;
+    private Mock<IWishlistMapper> _mockWishlistMapper = null!;
+    private Mock<IUnitOfWork> _mockUnitOfWork = null!;
+    private Mock<IAuditService> _mockAuditService = null!;
+    private WishlistManager _wishlistManager = null!;
 
     [SetUp]
     public void Setup()
@@ -29,48 +29,53 @@ public class WishlistManagerTests
         _mockWishlistItemDal = new Mock<IWishlistItemDal>();
         _mockProductDal = new Mock<IProductDal>();
         _mockWishlistMapper = new Mock<IWishlistMapper>();
+        _mockUnitOfWork = new Mock<IUnitOfWork>();
+        _mockAuditService = new Mock<IAuditService>();
 
         _wishlistManager = new WishlistManager(
             _mockWishlistDal.Object,
             _mockWishlistItemDal.Object,
             _mockProductDal.Object,
-            _mockWishlistMapper.Object
+            _mockWishlistMapper.Object,
+            _mockUnitOfWork.Object,
+            _mockAuditService.Object
         );
     }
 
     [Test]
     public async Task AddItemToWishlistAsync_ProductNotFound_ReturnsError()
     {
-        // Arrange
-        _mockProductDal.Setup(d => d.GetAsync(It.IsAny<Expression<System.Func<Product, bool>>>(), null))
-            .ReturnsAsync((Product)null!);
+        _mockProductDal.Setup(d => d.GetAsync(It.IsAny<Expression<Func<Product, bool>>>()))
+            .ReturnsAsync((Product?)null);
 
-        // Act
         var result = await _wishlistManager.AddItemToWishlistAsync(1, 99);
 
-        // Assert
-        Assert.IsFalse(result.Success);
-        Assert.AreEqual(Messages.ProductNotFound, result.Message);
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Message, Is.EqualTo(Messages.ProductNotFound));
     }
 
     [Test]
     public async Task AddItemToWishlistAsync_Success_AddsItem()
     {
-        // Arrange
-        _mockProductDal.Setup(d => d.GetAsync(It.IsAny<Expression<System.Func<Product, bool>>>(), null))
-            .ReturnsAsync(new Product { Id = 1 });
+        var product = new Product { Id = 1, Price = 120m, IsActive = true };
 
-        _mockWishlistDal.Setup(d => d.GetAsync(It.IsAny<Expression<System.Func<Wishlist, bool>>>(), null))
+        _mockProductDal.SetupSequence(d => d.GetAsync(It.IsAny<Expression<Func<Product, bool>>>()))
+            .ReturnsAsync(product)
+            .ReturnsAsync(product);
+
+        _mockWishlistDal.Setup(d => d.GetOrCreateByUserIdAsync(1))
             .ReturnsAsync(new Wishlist { Id = 1, UserId = 1 });
 
-        _mockWishlistItemDal.Setup(d => d.GetAsync(It.IsAny<Expression<System.Func<WishlistItem, bool>>>(), null))
-            .ReturnsAsync((WishlistItem)null!); // Item doesn't exist yet
+        _mockWishlistItemDal.SetupSequence(d => d.CountAsync(It.IsAny<Expression<Func<WishlistItem, bool>>>()))
+            .ReturnsAsync(0)
+            .ReturnsAsync(1);
 
-        // Act
+        _mockWishlistItemDal.Setup(d => d.AddIfNotExistsAsync(It.IsAny<WishlistItem>()))
+            .ReturnsAsync(true);
+
         var result = await _wishlistManager.AddItemToWishlistAsync(1, 1);
 
-        // Assert
-        Assert.IsTrue(result.Success);
-        _mockWishlistItemDal.Verify(d => d.AddAsync(It.Is<WishlistItem>(w => w.ProductId == 1 && w.WishlistId == 1)), Times.Once);
+        Assert.That(result.Success, Is.True);
+        _mockWishlistItemDal.Verify(d => d.AddIfNotExistsAsync(It.Is<WishlistItem>(w => w.ProductId == 1 && w.WishlistId == 1)), Times.Once);
     }
 }
