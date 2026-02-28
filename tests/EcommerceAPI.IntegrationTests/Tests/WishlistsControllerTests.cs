@@ -192,6 +192,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         const int userId = 510301;
         const int categoryId = 510310;
         const int productId = 510311;
+        var collectionName = $"Teknoloji-{Guid.NewGuid():N}";
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -207,19 +208,19 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createCollectionResponse = await client.PostAsJsonAsync(
             "/api/v1/wishlists/collections",
-            new CreateWishlistCollectionRequest { Name = "Teknoloji" });
+            new CreateWishlistCollectionRequest { Name = collectionName });
 
         createCollectionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var createdCollection = await createCollectionResponse.Content.ReadFromJsonAsync<ApiResult<WishlistCollectionDto>>();
         createdCollection.Should().NotBeNull();
         createdCollection!.Success.Should().BeTrue();
-        createdCollection.Data!.Name.Should().Be("Teknoloji");
+        createdCollection.Data!.Name.Should().Be(collectionName);
 
         var collectionsResponse = await client.GetAsync("/api/v1/wishlists/collections");
         collectionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var collections = await collectionsResponse.Content.ReadFromJsonAsync<ApiResult<List<WishlistCollectionDto>>>();
         collections.Should().NotBeNull();
-        collections!.Data.Should().Contain(collection => collection.Name == "Teknoloji");
+        collections!.Data.Should().Contain(collection => collection.Name == collectionName);
         collections.Data.Should().Contain(collection => collection.IsDefault);
 
         await client.PostAsJsonAsync("/api/v1/wishlists/items", new AddWishlistItemRequest { ProductId = productId });
@@ -239,6 +240,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         filteredWishlist.Data.Items.Should().ContainSingle(item =>
             item.ProductId == productId &&
             item.CollectionId == createdCollection.Data.Id &&
-            item.CollectionName == "Teknoloji");
+            item.CollectionName == collectionName);
     }
 }

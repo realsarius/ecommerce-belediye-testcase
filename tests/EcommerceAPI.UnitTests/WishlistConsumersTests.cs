@@ -180,6 +180,14 @@ public class WishlistConsumersTests
             RoleId = 1
         };
         var wishlist = new Wishlist { Id = 8, UserId = user.Id, User = user };
+        var collection = new WishlistCollection
+        {
+            Id = 16,
+            WishlistId = wishlist.Id,
+            Wishlist = wishlist,
+            Name = "Favorilerim",
+            IsDefault = true
+        };
         var product = new Product
         {
             Id = 99,
@@ -196,12 +204,15 @@ public class WishlistConsumersTests
             WishlistId = wishlist.Id,
             Wishlist = wishlist,
             ProductId = product.Id,
+            CollectionId = collection.Id,
+            Collection = collection,
             AddedAtPrice = 999m,
             AddedAt = DateTime.UtcNow
         };
 
         dbContext.Users.Add(user);
         dbContext.Wishlists.Add(wishlist);
+        dbContext.WishlistCollections.Add(collection);
         dbContext.Products.Add(product);
         dbContext.WishlistItems.Add(wishlistItem);
         await dbContext.SaveChangesAsync();
