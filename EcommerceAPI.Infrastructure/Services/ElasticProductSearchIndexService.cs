@@ -764,6 +764,7 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                 "name" => "name.keyword",
                 "created" => "createdAt",
                 "createdat" => "createdAt",
+                "wishlistcount" => "wishlistCount",
                 _ => "name.keyword"
             };
 
@@ -789,9 +790,14 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         };
 
         var requestedSort = request.SortBy?.ToLowerInvariant();
-        if (requestedSort is "price" or "created" or "createdat")
+        if (requestedSort is "price" or "created" or "createdat" or "wishlistcount")
         {
-            var sortField = requestedSort == "price" ? "price" : "createdAt";
+            var sortField = requestedSort switch
+            {
+                "price" => "price",
+                "wishlistcount" => "wishlistCount",
+                _ => "createdAt"
+            };
             sort.Add(new Dictionary<string, object>
             {
                 [sortField] = new { order = request.SortDescending ? "desc" : "asc" }

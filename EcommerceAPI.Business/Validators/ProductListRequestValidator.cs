@@ -26,7 +26,7 @@ public class ProductListRequestValidator : AbstractValidator<ProductListRequest>
             .WithMessage("Minimum fiyat maksimum fiyattan büyük olamaz");
 
         RuleFor(x => x.SortBy)
-            .Must(sortBy => new[] { "name", "price", "createdat" }.Contains(sortBy.ToLower()))
-            .WithMessage("Geçersiz sıralama alanı. Geçerli değerler: name, price, createdAt");
+            .Must(sortBy => new[] { "name", "price", "createdat", "wishlistcount" }.Contains(sortBy.ToLower()))
+            .WithMessage("Geçersiz sıralama alanı. Geçerli değerler: name, price, createdAt, wishlistCount");
     }
 }

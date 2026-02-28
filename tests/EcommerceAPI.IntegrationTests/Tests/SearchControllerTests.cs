@@ -197,17 +197,61 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.Items.Should().Contain(x => x.Id == productId && x.WishlistCount == 9);
     }
 
+    [Fact]
+    public async Task SearchProducts_ShouldSortByWishlistCountDescending()
+    {
+        var unique = $"s{Guid.NewGuid():N}"[..12].ToLowerInvariant();
+        var firstProductId = Random.Shared.Next(1_900_001, 2_000_000);
+        var secondProductId = Random.Shared.Next(2_000_001, 2_100_000);
+        var categoryId = Random.Shared.Next(1_050_001, 1_150_000);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var searchIndexService = scope.ServiceProvider.GetRequiredService<IProductSearchIndexService>();
+
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"Sort Category {unique}");
+
+            var higherWishlisted = await TestDataSeeder.EnsureProductWithStockAsync(db, firstProductId, categoryId, 7);
+            higherWishlisted.Name = $"Wish Sort A {unique}";
+            higherWishlisted.SKU = $"SORT-A-{unique}".ToUpperInvariant();
+            higherWishlisted.IsActive = true;
+            higherWishlisted.WishlistCount = 20;
+
+            var lowerWishlisted = await TestDataSeeder.EnsureProductWithStockAsync(db, secondProductId, categoryId, 7);
+            lowerWishlisted.Name = $"Wish Sort B {unique}";
+            lowerWishlisted.SKU = $"SORT-B-{unique}".ToUpperInvariant();
+            lowerWishlisted.IsActive = true;
+            lowerWishlisted.WishlistCount = 3;
+
+            await db.SaveChangesAsync();
+            await searchIndexService.IndexProductAsync(higherWishlisted.Id);
+            await searchIndexService.IndexProductAsync(lowerWishlisted.Id);
+        }
+
+        var result = await WaitForSearchAsync(
+            unique,
+            data => data.Items.Count >= 2 &&
+                    data.Items.Any(x => x.Id == firstProductId && x.WishlistCount == 20) &&
+                    data.Items.Any(x => x.Id == secondProductId && x.WishlistCount == 3),
+            requestUri: $"/api/v1/search/products?q={Uri.EscapeDataString(unique)}&page=1&pageSize=10&sortBy=wishlistCount&sortDescending=true");
+
+        result.Items.Select(item => item.Id).Should().ContainInOrder(firstProductId, secondProductId);
+    }
+
     private async Task<PaginatedResponse<ProductDto>> WaitForSearchAsync(
         string query,
         Func<PaginatedResponse<ProductDto>, bool> predicate,
+        string? requestUri = null,
         int retries = 8,
         int delayMs = 250)
     {
         var client = _factory.CreateClient();
+        var uri = requestUri ?? $"/api/v1/search/products?q={Uri.EscapeDataString(query)}&page=1&pageSize=20";
 
         for (var attempt = 0; attempt < retries; attempt++)
         {
-            var response = await client.GetAsync($"/api/v1/search/products?q={Uri.EscapeDataString(query)}&page=1&pageSize=20");
+            var response = await client.GetAsync(uri);
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
             var result = await response.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();
@@ -222,7 +266,7 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
             await Task.Delay(delayMs);
         }
 
-        var finalResponse = await client.GetAsync($"/api/v1/search/products?q={Uri.EscapeDataString(query)}&page=1&pageSize=20");
+        var finalResponse = await client.GetAsync(uri);
         finalResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var finalResult = await finalResponse.Content.ReadFromJsonAsync<ApiResult<PaginatedResponse<ProductDto>>>();

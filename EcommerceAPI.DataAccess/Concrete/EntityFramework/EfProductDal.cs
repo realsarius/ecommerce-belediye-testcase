@@ -48,6 +48,7 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         {
             "price" => sortDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price),
             "created" => sortDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt),
+            "wishlistcount" => sortDescending ? query.OrderByDescending(p => p.WishlistCount) : query.OrderBy(p => p.WishlistCount),
             "name" => sortDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
             _ => query.OrderByDescending(p => p.CreatedAt)
         };

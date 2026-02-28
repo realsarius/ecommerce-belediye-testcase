@@ -5,6 +5,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.IntegrationEvents;
 using FluentAssertions;
 using MassTransit;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -164,6 +165,86 @@ public class WishlistConsumersTests
             x.MessageId == message.EventId);
     }
 
+    [Fact]
+    public async Task WishlistLowStockNotificationConsumer_WhenEventConsumed_NotifiesWishlistUsersAndSavesInbox()
+    {
+        await using var dbContext = CreateDbContext();
+        var user = new User
+        {
+            Id = 42,
+            Email = "test@example.com",
+            FirstName = "Test",
+            LastName = "User",
+            PasswordHash = "hash",
+            EmailHash = "email-hash",
+            RoleId = 1
+        };
+        var wishlist = new Wishlist { Id = 8, UserId = user.Id, User = user };
+        var product = new Product
+        {
+            Id = 99,
+            Name = "Mekanik Klavye",
+            Description = "Test urunu",
+            Price = 999m,
+            CategoryId = 1,
+            IsActive = true,
+            SKU = "SKU-99"
+        };
+        var wishlistItem = new WishlistItem
+        {
+            Id = 1,
+            WishlistId = wishlist.Id,
+            Wishlist = wishlist,
+            ProductId = product.Id,
+            AddedAtPrice = 999m,
+            AddedAt = DateTime.UtcNow
+        };
+
+        dbContext.Users.Add(user);
+        dbContext.Wishlists.Add(wishlist);
+        dbContext.Products.Add(product);
+        dbContext.WishlistItems.Add(wishlistItem);
+        await dbContext.SaveChangesAsync();
+
+        var clientProxy = new Mock<IClientProxy>();
+        var hubClients = new Mock<IHubClients>();
+        hubClients
+            .Setup(x => x.Group("wishlist-user-42"))
+            .Returns(clientProxy.Object);
+
+        var hubContext = new Mock<IHubContext<EcommerceAPI.API.Hubs.WishlistHub>>();
+        hubContext.SetupGet(x => x.Clients).Returns(hubClients.Object);
+
+        var consumer = new WishlistLowStockNotificationConsumer(
+            dbContext,
+            hubContext.Object,
+            Mock.Of<ILogger<WishlistLowStockNotificationConsumer>>());
+
+        var message = new WishlistProductLowStockEvent
+        {
+            EventId = Guid.NewGuid(),
+            ProductId = product.Id,
+            StockQuantity = 3,
+            Threshold = 5,
+            Reason = "Order Reservation"
+        };
+
+        var context = CreateConsumeContext(message);
+
+        await consumer.Consume(context.Object);
+
+        clientProxy.Verify(
+            x => x.SendCoreAsync(
+                "LowStockAlertTriggered",
+                It.Is<object?[]>(args => args.Length == 1),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        dbContext.InboxMessages.Should().ContainSingle(x =>
+            x.ConsumerName == "WishlistLowStockNotificationConsumer" &&
+            x.MessageId == message.EventId);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
@@ -194,6 +275,7 @@ public class WishlistConsumersTests
         {
             WishlistItemAddedEvent added => added.EventId,
             WishlistItemRemovedEvent removed => removed.EventId,
+            WishlistProductLowStockEvent lowStock => lowStock.EventId,
             _ => Guid.NewGuid()
         };
     }
