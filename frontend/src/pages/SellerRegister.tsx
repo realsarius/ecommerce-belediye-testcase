@@ -13,13 +13,13 @@ export default function SellerRegister() {
       lastUpdated="Mart 2026"
     >
       <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
-        <CardHeader className="px-7 pt-7 pb-3">
+        <CardHeader className="px-8 pt-8 pb-4">
           <CardTitle className="flex items-center gap-2">
             <Store className="h-5 w-5 text-rose-500 dark:text-rose-300" />
             Başvuru akışı yakında
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5 px-7 pb-7 pt-1">
+        <CardContent className="space-y-6 px-8 pb-8 pt-1">
           <p>
             Satıcı onboarding formu ve değerlendirme akışı ayrı bir fazda açılacak. Bu sırada satıcı rehberini ve
             komisyon yapısını inceleyerek hazırlık yapabilirsiniz.

@@ -51,19 +51,19 @@ export default function Help() {
       description="En sık ihtiyaç duyulan destek konularını kategoriler halinde bir araya getirdik. Doğru sayfaya daha hızlı ulaşmak için aşağıdaki kartlardan birini seçin."
       lastUpdated="Mart 2026"
     >
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
         {helpCards.map((item) => (
           <Card
             key={item.title}
             className="border-border/70 bg-card/80 py-0 shadow-sm transition-transform duration-200 hover:-translate-y-1"
           >
-            <CardHeader className="px-7 pt-7 pb-3">
+            <CardHeader className="px-8 pt-8 pb-4">
               <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/10 dark:bg-white/10">
                 <item.icon className="h-5 w-5 text-rose-500 dark:text-rose-200" />
               </div>
               <CardTitle>{item.title}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5 px-7 pb-7 pt-1">
+            <CardContent className="space-y-6 px-8 pb-8 pt-1">
               <p className="text-sm leading-7 text-muted-foreground">{item.description}</p>
               <Button asChild variant="outline">
                 <Link to={item.to}>İlgili içeriğe git</Link>
@@ -73,7 +73,7 @@ export default function Help() {
         ))}
       </div>
 
-      <section className="rounded-3xl border border-border/70 bg-card/80 p-7 shadow-sm sm:p-8">
+      <section className="rounded-3xl border border-border/70 bg-card/80 p-8 shadow-sm sm:p-10">
         <h2 className="text-xl font-semibold text-foreground">Ek destek kanalları</h2>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
           Genel sorular için SSS ve yardım merkezi içeriklerini, siparişe bağlı işlemler için sipariş ekranlarını,

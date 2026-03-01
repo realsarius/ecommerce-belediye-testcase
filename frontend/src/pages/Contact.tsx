@@ -57,12 +57,12 @@ export default function Contact() {
       lastUpdated="Mart 2026"
       actions={<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">İletişim formu aktif</span>}
     >
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-8">
+      <div className="grid gap-7 lg:grid-cols-[1.15fr_0.85fr] lg:gap-9">
         <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
-          <CardHeader className="px-7 pt-7 pb-3">
+          <CardHeader className="px-8 pt-8 pb-4">
             <CardTitle>Mesaj Gönderin</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5 px-7 pb-7">
+          <CardContent className="space-y-6 px-8 pb-8">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="contact-name">Ad Soyad</Label>
@@ -99,12 +99,12 @@ export default function Contact() {
           </CardContent>
         </Card>
 
-        <div className="space-y-5">
+        <div className="space-y-6">
           <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
-            <CardHeader className="px-7 pt-6 pb-2">
+            <CardHeader className="px-8 pt-7 pb-3">
               <CardTitle>Adres</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-start gap-4 px-7 pb-6 pt-1">
+            <CardContent className="flex items-start gap-4 px-8 pb-8 pt-1">
               <MapPin className="mt-1 h-5 w-5 text-rose-500 dark:text-rose-300" />
               <div className="space-y-1">
                 <p>Maslak Mah. Teknoloji Cad. No:12</p>
@@ -113,10 +113,10 @@ export default function Contact() {
             </CardContent>
           </Card>
           <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
-            <CardHeader className="px-7 pt-6 pb-2">
+            <CardHeader className="px-8 pt-7 pb-3">
               <CardTitle>Telefon</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-start gap-4 px-7 pb-6 pt-1">
+            <CardContent className="flex items-start gap-4 px-8 pb-8 pt-1">
               <Phone className="mt-1 h-5 w-5 text-rose-500 dark:text-rose-300" />
               <div className="space-y-1">
                 <p>0850 000 00 00</p>
@@ -125,10 +125,10 @@ export default function Contact() {
             </CardContent>
           </Card>
           <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
-            <CardHeader className="px-7 pt-6 pb-2">
+            <CardHeader className="px-8 pt-7 pb-3">
               <CardTitle>E-posta</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-start gap-4 px-7 pb-6 pt-1">
+            <CardContent className="flex items-start gap-4 px-8 pb-8 pt-1">
               <Mail className="mt-1 h-5 w-5 text-rose-500 dark:text-rose-300" />
               <div className="space-y-1">
                 <p>destek@eticaret.com</p>
