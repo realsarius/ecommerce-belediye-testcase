@@ -122,6 +122,32 @@ public static class TestDataSeeder
         return user;
     }
 
+    public static async Task<SellerProfile> EnsureSellerProfileAsync(AppDbContext db, int userId, string? brandName = null)
+    {
+        var existingProfile = await db.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+
+        if (existingProfile != null)
+        {
+            return existingProfile;
+        }
+
+        var user = await EnsureUserAsync(db, userId, "Seller");
+
+        var sellerProfile = new SellerProfile
+        {
+            UserId = user.Id,
+            BrandName = string.IsNullOrWhiteSpace(brandName) ? $"Seller Brand {userId}" : brandName,
+            BrandDescription = "Seller profile for integration tests",
+            IsVerified = true
+        };
+
+        db.SellerProfiles.Add(sellerProfile);
+        await db.SaveChangesAsync();
+
+        return sellerProfile;
+    }
+
     public static async Task<Category> EnsureCategoryAsync(AppDbContext db, int categoryId = 1, string? name = null)
     {
         var category = await db.Categories.FindAsync(categoryId);
@@ -155,7 +181,8 @@ public static class TestDataSeeder
         AppDbContext db, 
         int productId = 1, 
         int categoryId = 1,
-        int stockQuantity = 100)
+        int stockQuantity = 100,
+        int? sellerId = null)
     {
         await EnsureCategoryAsync(db, categoryId);
         
@@ -173,6 +200,7 @@ public static class TestDataSeeder
             Price = 99.99m,
             SKU = $"TEST-{productId:D4}",
             CategoryId = categoryId,
+            SellerId = sellerId,
             IsActive = true
         };
         
@@ -200,11 +228,12 @@ public static class TestDataSeeder
         int categoryId,
         string orderNumber,
         string paymentIdempotencyKey,
+        int? sellerId = null,
         OrderStatus orderStatus = OrderStatus.Paid,
         PaymentStatus paymentStatus = PaymentStatus.Success)
     {
         await EnsureUserAsync(db, userId);
-        var product = await EnsureProductWithStockAsync(db, productId, categoryId, 25);
+        var product = await EnsureProductWithStockAsync(db, productId, categoryId, 25, sellerId);
 
         var existingOrder = await db.Orders
             .Include(o => o.Payment)

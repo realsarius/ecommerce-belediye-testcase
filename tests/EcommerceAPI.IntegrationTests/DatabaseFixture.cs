@@ -22,7 +22,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.MigrateAsync();
 
         _connection = new NpgsqlConnection(db.Database.GetConnectionString());
         await _connection.OpenAsync();
