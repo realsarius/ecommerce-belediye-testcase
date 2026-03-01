@@ -11,6 +11,8 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -23,6 +25,7 @@ public class ReturnRequestManager : IReturnRequestService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditService _auditService;
     private readonly ILogger<ReturnRequestManager> _logger;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     public ReturnRequestManager(
         IReturnRequestDal returnRequestDal,
@@ -30,7 +33,8 @@ public class ReturnRequestManager : IReturnRequestService
         IOrderDal orderDal,
         IUnitOfWork unitOfWork,
         IAuditService auditService,
-        ILogger<ReturnRequestManager> logger)
+        ILogger<ReturnRequestManager> logger,
+        IPublishEndpoint publishEndpoint)
     {
         _returnRequestDal = returnRequestDal;
         _refundRequestDal = refundRequestDal;
@@ -38,6 +42,7 @@ public class ReturnRequestManager : IReturnRequestService
         _unitOfWork = unitOfWork;
         _auditService = auditService;
         _logger = logger;
+        _publishEndpoint = publishEndpoint;
     }
 
     [LogAspect]
@@ -147,6 +152,8 @@ public class ReturnRequestManager : IReturnRequestService
         returnRequest.ReviewedAt = DateTime.UtcNow;
         returnRequest.ReviewNote = string.IsNullOrWhiteSpace(request.ReviewNote) ? null : request.ReviewNote.Trim();
 
+        RefundRequest? createdRefundRequest = null;
+
         if (targetStatus == ReturnRequestStatus.Rejected)
         {
             returnRequest.Status = ReturnRequestStatus.Rejected;
@@ -158,7 +165,7 @@ public class ReturnRequestManager : IReturnRequestService
             var existingRefundRequest = await _refundRequestDal.GetByReturnRequestIdAsync(returnRequest.Id);
             if (existingRefundRequest == null)
             {
-                await _refundRequestDal.AddAsync(new RefundRequest
+                createdRefundRequest = new RefundRequest
                 {
                     ReturnRequestId = returnRequest.Id,
                     OrderId = returnRequest.OrderId,
@@ -166,7 +173,9 @@ public class ReturnRequestManager : IReturnRequestService
                     Amount = returnRequest.RequestedRefundAmount,
                     Status = RefundRequestStatus.Pending,
                     IdempotencyKey = $"refund:{returnRequest.Id}:{Guid.NewGuid():N}"
-                });
+                };
+
+                await _refundRequestDal.AddAsync(createdRefundRequest);
             }
         }
         else
@@ -176,6 +185,21 @@ public class ReturnRequestManager : IReturnRequestService
 
         _returnRequestDal.Update(returnRequest);
         await _unitOfWork.SaveChangesAsync();
+
+        if (createdRefundRequest != null)
+        {
+            await _publishEndpoint.Publish(new RefundRequestedEvent
+            {
+                RefundRequestId = createdRefundRequest.Id,
+                ReturnRequestId = returnRequest.Id,
+                OrderId = returnRequest.OrderId,
+                UserId = returnRequest.UserId,
+                Amount = createdRefundRequest.Amount,
+                Currency = returnRequest.Order.Payment?.Currency ?? returnRequest.Order.Currency
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+        }
 
         await _auditService.LogActionAsync(
             reviewerUserId.ToString(),
