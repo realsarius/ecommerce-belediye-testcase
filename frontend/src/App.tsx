@@ -19,6 +19,7 @@ const Cart = lazy(() => import('@/pages/Cart'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
 const Orders = lazy(() => import('@/pages/Orders'));
 const OrderDetail = lazy(() => import('@/pages/OrderDetail'));
+const Returns = lazy(() => import('@/pages/Returns'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Account = lazy(() => import('@/pages/Account'));
 const Addresses = lazy(() => import('@/pages/Addresses'));
@@ -93,6 +94,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <OrderDetail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/returns"
+                      element={
+                        <ProtectedRoute>
+                          <Returns />
                         </ProtectedRoute>
                       }
                     />

@@ -11,9 +11,11 @@ export type OrderStatus =
 
 export interface Order {
   id: number;
+  orderNumber?: string;
   userId: number;
   status: OrderStatus;
   totalAmount: number;
+  currency?: string;
   items: OrderItem[];
   customerName?: string;
   shippingAddress: string;

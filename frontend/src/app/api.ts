@@ -133,6 +133,7 @@ export const baseApi = createApi({
     'WishlistItem',
     'WishlistPriceAlerts',
     'WishlistShare',
+    'Returns',
   ],
   endpoints: () => ({}),
 });
