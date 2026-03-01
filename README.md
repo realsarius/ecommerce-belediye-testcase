@@ -12,6 +12,7 @@
 - [7. Kurulum ve Çalıştırma](#7-kurulum-ve-çalıştırma)
 - [8. Frontend](#8-frontend)
 - [9. Production Notes](#9-production-notes)
+- [10. Lisans ve Kullanım Notu](#10-lisans-ve-kullanım-notu)
 - [Ek Dokümanlar](#ek-dokümanlar)
 
 ## 0. Hızlı kurulum
@@ -578,6 +579,16 @@ Uygulama ayağa kalktıktan sonra hızlı doğrulama için doğrudan smoke scrip
 ```bash
 ./scripts/ci/run_api_smoke.sh
 ```
+
+## 10. Lisans ve Kullanım Notu
+
+Bu repo açık kaynak olarak lisanslanmamıştır.
+
+- Kaynak kod ve ilişkili materyaller `All Rights Reserved` kapsamında korunur.
+- Yazılı izin olmadan kodun kopyalanması, yeniden kullanılması, dağıtılması, türev iş üretilmesi veya production ortamında kullanılması yasaktır.
+- Kullanılan üçüncü parti paketler kendi lisans koşullarına tabidir.
+
+Detaylı metin için kök dizindeki [`LICENSE`](LICENSE) dosyasına bakabilirsiniz.
 
 Production smoke icin:
 
