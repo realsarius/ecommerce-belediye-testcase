@@ -15,17 +15,20 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
     private readonly AppDbContext _dbContext;
     private readonly IRefundService _refundService;
     private readonly IEmailNotificationService _emailNotificationService;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<RefundRequestedConsumer> _logger;
 
     public RefundRequestedConsumer(
         AppDbContext dbContext,
         IRefundService refundService,
         IEmailNotificationService emailNotificationService,
+        INotificationService notificationService,
         ILogger<RefundRequestedConsumer> logger)
     {
         _dbContext = dbContext;
         _refundService = refundService;
         _emailNotificationService = emailNotificationService;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -52,6 +55,15 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
 
         if (result.Success)
         {
+            await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+            {
+                UserId = result.Data.UserId,
+                Type = "Refund",
+                Title = "İade işleminiz tamamlandı",
+                Body = $"{result.Data.OrderNumber} siparişi için {result.Data.Amount:N2} {result.Data.Currency} iade edildi.",
+                DeepLink = "/returns"
+            });
+
             await _emailNotificationService.SendAsync(
                 result.Data.CustomerEmail,
                 $"{result.Data.OrderNumber} siparişiniz için iade tamamlandı",
@@ -74,6 +86,18 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         }
         else
         {
+            if (result.Data != null)
+            {
+                await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                {
+                    UserId = result.Data.UserId,
+                    Type = "Refund",
+                    Title = "İade işlemi tamamlanamadı",
+                    Body = result.Data.FailureReason ?? $"{result.Data.OrderNumber} siparişi için iade işlemi başarısız oldu.",
+                    DeepLink = "/returns"
+                });
+            }
+
             if (result.Data != null && !string.IsNullOrWhiteSpace(result.Data.CustomerEmail))
             {
                 await _emailNotificationService.SendAsync(

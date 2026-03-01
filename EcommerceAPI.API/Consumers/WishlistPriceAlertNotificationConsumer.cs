@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using EcommerceAPI.API.Hubs;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
@@ -16,17 +17,20 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
     private readonly AppDbContext _dbContext;
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly IHubContext<WishlistHub> _hubContext;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<WishlistPriceAlertNotificationConsumer> _logger;
 
     public WishlistPriceAlertNotificationConsumer(
         AppDbContext dbContext,
         IEmailNotificationService emailNotificationService,
         IHubContext<WishlistHub> hubContext,
+        INotificationService notificationService,
         ILogger<WishlistPriceAlertNotificationConsumer> logger)
     {
         _dbContext = dbContext;
         _emailNotificationService = emailNotificationService;
         _hubContext = hubContext;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -85,6 +89,15 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
                     message.OccurredAt
                 },
                 context.CancellationToken);
+
+        await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+        {
+            UserId = message.UserId,
+            Type = "Wishlist",
+            Title = $"{message.ProductName} fiyatı düştü",
+            Body = $"{message.NewPrice:N2} {message.Currency} fiyatı hedefinize ulaştı.",
+            DeepLink = $"/products/{message.ProductId}"
+        });
 
         _logger.LogInformation(
             "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
