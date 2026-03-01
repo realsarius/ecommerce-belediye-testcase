@@ -482,6 +482,15 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                     .ThenBy(x => x.Product.Price)
                     .ThenByDescending(GetProductStock)
                     .ThenByDescending(x => x.Product.CreatedAt),
+            "wishlistcount" => request.SortDescending
+                ? products.OrderByDescending(x => x.Score)
+                    .ThenByDescending(x => x.Product.WishlistCount)
+                    .ThenByDescending(GetProductStock)
+                    .ThenByDescending(x => x.Product.CreatedAt)
+                : products.OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.Product.WishlistCount)
+                    .ThenByDescending(GetProductStock)
+                    .ThenByDescending(x => x.Product.CreatedAt),
             "created" or "createdat" => request.SortDescending
                 ? products.OrderByDescending(x => x.Score)
                     .ThenByDescending(x => x.Product.CreatedAt)
