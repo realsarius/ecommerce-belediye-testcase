@@ -6,6 +6,8 @@ public static class RedisKeys
 
     public static string ProductLock(int productId) => $"lock:product:{productId}";
 
+    public static string PaymentLock(int orderId) => $"lock:payment:order:{orderId}";
+
     public static string RateLimitUser(int userId) => $"ratelimit:user:{userId}";
 
     public static string RateLimitIp(string ipAddress) => $"ratelimit:ip:{ipAddress}";
@@ -20,6 +22,7 @@ public static class RedisKeys
     {
         public const string Cart = "cart:user:";
         public const string ProductLock = "lock:product:";
+        public const string PaymentLock = "lock:payment:";
         public const string RateLimit = "ratelimit:";
         public const string Session = "session:";
         public const string Cache = "cache:";
