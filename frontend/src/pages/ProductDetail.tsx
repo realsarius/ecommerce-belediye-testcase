@@ -57,7 +57,7 @@ export default function ProductDetail() {
     void trackProductView({ productId, sessionId }).unwrap().catch(() => undefined);
   }, [productId, trackProductView]);
 
-  const handleRecommendationClick = (targetProductId: number, source: 'also-viewed' | 'frequently-bought') => {
+  const handleRecommendationClick = (targetProductId: number, source: 'also-viewed' | 'frequently-bought' | 'for-you') => {
     const sessionId = getRecommendationSessionId();
     void trackRecommendationClick({
       productId,

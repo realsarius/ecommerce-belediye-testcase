@@ -41,6 +41,11 @@ export const productsApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: Product[] }) => response.data,
       providesTags: (_result, _error, { productId }) => [{ type: 'Product', id: `frequently-bought-${productId}` }],
     }),
+    getPersonalizedRecommendations: builder.query<Product[], { take?: number } | void>({
+      query: (args) => `/products/recommendations/for-you?take=${args?.take ?? 4}`,
+      transformResponse: (response: { data: Product[] }) => response.data,
+      providesTags: ['Products'],
+    }),
     trackProductView: builder.mutation<void, { productId: number; sessionId?: string | null }>({
       query: ({ productId, sessionId }) => ({
         url: `/products/${productId}/views`,
@@ -48,7 +53,7 @@ export const productsApi = baseApi.injectEndpoints({
         headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
       }),
     }),
-    trackRecommendationClick: builder.mutation<void, { productId: number; targetProductId: number; source: 'also-viewed' | 'frequently-bought'; sessionId?: string | null }>({
+    trackRecommendationClick: builder.mutation<void, { productId: number; targetProductId: number; source: 'also-viewed' | 'frequently-bought' | 'for-you'; sessionId?: string | null }>({
       query: ({ productId, targetProductId, source, sessionId }) => ({
         url: `/products/${productId}/recommendations/click`,
         method: 'POST',
@@ -177,6 +182,7 @@ export const {
   useGetProductQuery,
   useGetAlsoViewedRecommendationsQuery,
   useGetFrequentlyBoughtRecommendationsQuery,
+  useGetPersonalizedRecommendationsQuery,
   useTrackProductViewMutation,
   useTrackRecommendationClickMutation,
   useCreateProductMutation,

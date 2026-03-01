@@ -5,7 +5,7 @@ import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import type { Product } from '@/features/products/types';
 
-type RecommendationSource = 'also-viewed' | 'frequently-bought';
+type RecommendationSource = 'also-viewed' | 'frequently-bought' | 'for-you';
 
 interface ProductRecommendationSectionProps {
   title: string;

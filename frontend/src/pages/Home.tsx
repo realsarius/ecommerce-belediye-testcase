@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useHome } from '@/hooks/useHome';
 import { HomeFilters } from '@/components/home/HomeFilters';
 import { ProductList } from '@/components/home/ProductList';
+import { PersonalizedRecommendations } from '@/components/home/PersonalizedRecommendations';
 import { TopWishlistedProducts } from '@/components/home/TopWishlistedProducts';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { 
@@ -74,6 +75,7 @@ export default function Home() {
 
         {/* Product Grid */}
         <main className="flex-1 w-full">
+          <PersonalizedRecommendations />
           <TopWishlistedProducts
             categoryId={selectedCategory?.id}
             categoryName={selectedCategory?.name}
