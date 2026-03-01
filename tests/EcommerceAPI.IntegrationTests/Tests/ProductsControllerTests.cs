@@ -50,6 +50,56 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
+    public async Task GetProduct_WhenActiveCampaignExists_ReturnsCampaignPrice()
+    {
+        var categoryId = Random.Shared.Next(966_001, 967_000);
+        var productId = Random.Shared.Next(967_001, 968_000);
+        var campaignId = Random.Shared.Next(968_001, 969_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var product = await TestDataSeeder.EnsureProductWithStockAsync(db, productId, categoryId, 20);
+
+            if (!await db.Campaigns.AnyAsync(x => x.Id == campaignId))
+            {
+                db.Campaigns.Add(new Campaign
+                {
+                    Id = campaignId,
+                    Name = $"Flash Sale {campaignId}",
+                    BadgeText = "Flash Sale",
+                    Status = CampaignStatus.Active,
+                    Type = CampaignType.FlashSale,
+                    IsEnabled = true,
+                    StartsAt = DateTime.UtcNow.AddHours(-1),
+                    EndsAt = DateTime.UtcNow.AddHours(3),
+                    CampaignProducts =
+                    [
+                        new CampaignProduct
+                        {
+                            ProductId = product.Id,
+                            CampaignPrice = product.Price - 25m,
+                            OriginalPriceSnapshot = product.Price,
+                            IsFeatured = true
+                        }
+                    ]
+                });
+
+                await db.SaveChangesAsync();
+            }
+        }
+
+        var response = await _client.GetAsync($"/api/v1/products/{productId}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        result.Should().NotBeNull();
+        result!.Data.HasActiveCampaign.Should().BeTrue();
+        result.Data.Price.Should().Be(result.Data.CampaignPrice);
+        result.Data.OriginalPrice.Should().BeGreaterThan(result.Data.Price);
+    }
+
+    [Fact]
     public async Task GetFrequentlyBoughtRecommendations_WhenOrderHistoryExists_ReturnsRelatedProducts()
     {
         var userId = Random.Shared.Next(953_001, 954_000);
