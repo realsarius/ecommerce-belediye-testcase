@@ -30,6 +30,19 @@ const Help = lazy(() => import('@/pages/Help'));
 const Support = lazy(() => import('@/pages/Support'));
 const Wishlist = lazy(() => import('@/pages/Wishlist'));
 const SharedWishlist = lazy(() => import('@/pages/SharedWishlist'));
+const About = lazy(() => import('@/pages/About'));
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
+const Kvkk = lazy(() => import('@/pages/Kvkk'));
+const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
+const DistanceSalesContract = lazy(() => import('@/pages/DistanceSalesContract'));
+const Shipping = lazy(() => import('@/pages/Shipping'));
+const Faq = lazy(() => import('@/pages/Faq'));
+const Contact = lazy(() => import('@/pages/Contact'));
+const CookiePolicy = lazy(() => import('@/pages/CookiePolicy'));
+const SellerGuide = lazy(() => import('@/pages/SellerGuide'));
+const SellerPricing = lazy(() => import('@/pages/SellerPricing'));
+const SellerRegister = lazy(() => import('@/pages/SellerRegister'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
@@ -64,6 +77,19 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/products/:id" element={<ProductDetail />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                    <Route path="/terms-of-service" element={<TermsOfService />} />
+                    <Route path="/kvkk" element={<Kvkk />} />
+                    <Route path="/refund-policy" element={<RefundPolicy />} />
+                    <Route path="/distance-sales-contract" element={<DistanceSalesContract />} />
+                    <Route path="/shipping" element={<Shipping />} />
+                    <Route path="/faq" element={<Faq />} />
+                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/cookie-policy" element={<CookiePolicy />} />
+                    <Route path="/seller/guide" element={<SellerGuide />} />
+                    <Route path="/seller/pricing" element={<SellerPricing />} />
+                    <Route path="/seller/register" element={<SellerRegister />} />
 
                     <Route
                       path="/cart"
