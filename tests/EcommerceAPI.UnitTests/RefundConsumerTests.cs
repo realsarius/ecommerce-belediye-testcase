@@ -44,11 +44,16 @@ public class RefundConsumerTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        var notificationService = new Mock<INotificationService>();
+        notificationService
+            .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
+            .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
 
         var consumer = new RefundRequestedConsumer(
             dbContext,
             refundService.Object,
             emailService.Object,
+            notificationService.Object,
             Mock.Of<ILogger<RefundRequestedConsumer>>());
 
         var message = new RefundRequestedEvent

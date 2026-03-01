@@ -234,11 +234,17 @@ public class WishlistConsumersTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        var notificationService = new Mock<INotificationService>();
+        notificationService
+            .Setup(x => x.CreateNotificationAsync(It.IsAny<EcommerceAPI.Entities.DTOs.CreateNotificationRequest>()))
+            .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<EcommerceAPI.Entities.DTOs.NotificationDto>(
+                new EcommerceAPI.Entities.DTOs.NotificationDto()));
 
         var consumer = new WishlistLowStockNotificationConsumer(
             dbContext,
             emailService.Object,
             hubContext.Object,
+            notificationService.Object,
             Mock.Of<ILogger<WishlistLowStockNotificationConsumer>>());
 
         var message = new WishlistProductLowStockEvent
