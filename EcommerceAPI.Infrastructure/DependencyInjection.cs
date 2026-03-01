@@ -104,6 +104,7 @@ public static class DependencyInjection
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
         services.AddScoped<IRecommendationCacheService, RedisRecommendationCacheService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
+        services.AddScoped<IContactRateLimitService, RedisContactRateLimitService>();
         services.AddScoped<IAuditService, ElasticAuditService>();
 
         services.AddScoped<ICacheService, RedisCacheManager>();
