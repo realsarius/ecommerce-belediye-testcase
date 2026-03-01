@@ -60,6 +60,7 @@ public class AppDbContext : DbContext
     public DbSet<WishlistCollection> WishlistCollections => Set<WishlistCollection>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<PriceAlert> PriceAlerts => Set<PriceAlert>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
     public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -87,6 +88,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new WishlistCollectionConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistItemConfiguration());
         modelBuilder.ApplyConfiguration(new PriceAlertConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationConfiguration());
         modelBuilder.ApplyConfiguration(new ReturnRequestConfiguration());
         modelBuilder.ApplyConfiguration(new RefundRequestConfiguration());
         modelBuilder.AddInboxStateEntity();
