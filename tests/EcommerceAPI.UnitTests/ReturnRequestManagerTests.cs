@@ -6,7 +6,9 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.IntegrationEvents;
 using FluentAssertions;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -20,6 +22,7 @@ public class ReturnRequestManagerTests
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<ReturnRequestManager>> _loggerMock;
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly ReturnRequestManager _manager;
 
     public ReturnRequestManagerTests()
@@ -30,6 +33,10 @@ public class ReturnRequestManagerTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<ReturnRequestManager>>();
+        _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _manager = new ReturnRequestManager(
             _returnRequestDalMock.Object,
@@ -37,7 +44,8 @@ public class ReturnRequestManagerTests
             _orderDalMock.Object,
             _unitOfWorkMock.Object,
             _auditServiceMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _publishEndpointMock.Object);
     }
 
     [Fact]
@@ -123,7 +131,8 @@ public class ReturnRequestManagerTests
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(ReturnRequestStatus.RefundPending.ToString());
         _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Once);
-        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
     }
 
     private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus)
