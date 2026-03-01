@@ -62,6 +62,22 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
             .ToListAsync();
     }
 
+    public async Task<IList<ReturnRequest>> GetBySellerIdAsync(int sellerId)
+    {
+        return await _context.ReturnRequests
+            .Include(rr => rr.Order)
+                .ThenInclude(order => order.Payment)
+            .Include(rr => rr.Order)
+                .ThenInclude(order => order.OrderItems)
+                    .ThenInclude(item => item.Product)
+            .Include(rr => rr.User)
+            .Include(rr => rr.ReviewedByUser)
+            .Include(rr => rr.RefundRequest)
+            .Where(rr => rr.Order.OrderItems.Any(item => item.Product.SellerId == sellerId))
+            .OrderByDescending(rr => rr.CreatedAt)
+            .ToListAsync();
+    }
+
     public Task<bool> HasActiveRequestForOrderAsync(int orderId)
     {
         return _context.ReturnRequests.AnyAsync(rr =>

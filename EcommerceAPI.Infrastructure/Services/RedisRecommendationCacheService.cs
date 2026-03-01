@@ -12,6 +12,7 @@ public sealed class RedisRecommendationCacheService : IRecommendationCacheServic
     private static readonly TimeSpan RecentViewTtl = TimeSpan.FromDays(14);
     private static readonly TimeSpan AlsoViewedTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan SearchHistoryTtl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan DailyViewTtl = TimeSpan.FromDays(90);
     private readonly IConnectionMultiplexer _redis;
 
     public RedisRecommendationCacheService(IConnectionMultiplexer redis)
@@ -34,6 +35,7 @@ public sealed class RedisRecommendationCacheService : IRecommendationCacheServic
 
         var db = _redis.GetDatabase();
         var recentKey = RedisKeys.RecommendationRecentlyViewed(scope);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var recentItems = await db.ListRangeAsync(recentKey, 0, RecentViewHistoryLength - 1);
 
         var relatedProductIds = recentItems
@@ -55,6 +57,9 @@ public sealed class RedisRecommendationCacheService : IRecommendationCacheServic
         await db.ListLeftPushAsync(recentKey, productId);
         await db.ListTrimAsync(recentKey, 0, RecentViewHistoryLength - 1);
         await db.KeyExpireAsync(recentKey, RecentViewTtl);
+        await db.StringIncrementAsync(RedisKeys.RecommendationProductViews(productId));
+        await db.StringIncrementAsync(RedisKeys.RecommendationProductViewsDaily(productId, today));
+        await db.KeyExpireAsync(RedisKeys.RecommendationProductViewsDaily(productId, today), DailyViewTtl);
     }
 
     public async Task TrackSearchQueryAsync(int userId, string query, CancellationToken cancellationToken = default)
@@ -153,6 +158,72 @@ public sealed class RedisRecommendationCacheService : IRecommendationCacheServic
         var db = _redis.GetDatabase();
         var payload = JsonSerializer.Serialize(productIds.Distinct().ToArray());
         await db.StringSetAsync(RedisKeys.RecommendationFrequentlyBought(productId), payload, ttl);
+    }
+
+    public async Task<IReadOnlyDictionary<int, long>> GetProductViewCountsAsync(IEnumerable<int> productIds, CancellationToken cancellationToken = default)
+    {
+        var ids = productIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0)
+        {
+            return new Dictionary<int, long>();
+        }
+
+        var db = _redis.GetDatabase();
+        var keys = ids.Select(id => (RedisKey)RedisKeys.RecommendationProductViews(id)).ToArray();
+        var values = await db.StringGetAsync(keys);
+
+        var result = new Dictionary<int, long>(ids.Length);
+        for (var index = 0; index < ids.Length; index++)
+        {
+            result[ids[index]] = values[index].HasValue && long.TryParse(values[index], out var count) ? count : 0;
+        }
+
+        return result;
+    }
+
+    public async Task<IReadOnlyDictionary<DateOnly, long>> GetProductViewTrendAsync(IEnumerable<int> productIds, int days, CancellationToken cancellationToken = default)
+    {
+        var ids = productIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0 || days <= 0)
+        {
+            return new Dictionary<DateOnly, long>();
+        }
+
+        var db = _redis.GetDatabase();
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-(days - 1)));
+        var dates = Enumerable.Range(0, days).Select(offset => startDate.AddDays(offset)).ToArray();
+
+        var keyMap = new List<(DateOnly Date, RedisKey Key)>(ids.Length * dates.Length);
+        foreach (var date in dates)
+        {
+            foreach (var productId in ids)
+            {
+                keyMap.Add((date, RedisKeys.RecommendationProductViewsDaily(productId, date)));
+            }
+        }
+
+        var values = await db.StringGetAsync(keyMap.Select(entry => entry.Key).ToArray());
+        var trend = dates.ToDictionary(date => date, _ => 0L);
+
+        for (var index = 0; index < keyMap.Count; index++)
+        {
+            if (!values[index].HasValue || !long.TryParse(values[index], out var count))
+            {
+                continue;
+            }
+
+            trend[keyMap[index].Date] += count;
+        }
+
+        return trend;
     }
 
     private static string? ResolveScope(int? userId, string? sessionId)
