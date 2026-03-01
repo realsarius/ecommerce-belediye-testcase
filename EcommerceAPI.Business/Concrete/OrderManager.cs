@@ -26,6 +26,7 @@ public class OrderManager : IOrderService
     private readonly ICartService _cartService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICouponService _couponService;
+    private readonly ILoyaltyService _loyaltyService;
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
@@ -41,6 +42,7 @@ public class OrderManager : IOrderService
         ICartService cartService,
         IUnitOfWork unitOfWork,
         ICouponService couponService,
+        ILoyaltyService loyaltyService,
         IAuditService auditService,
         ILogger<OrderManager> logger,
         IPublishEndpoint publishEndpoint)
@@ -51,6 +53,7 @@ public class OrderManager : IOrderService
         _cartService = cartService;
         _unitOfWork = unitOfWork;
         _couponService = couponService;
+        _loyaltyService = loyaltyService;
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
@@ -80,10 +83,13 @@ public class OrderManager : IOrderService
         var couponResult = await ValidateCouponAsync(request.CouponCode, subtotal);
         if (!couponResult.Success) return new ErrorDataResult<OrderDto>(couponResult.Message);
         var couponData = couponResult.Data;
+        var amountAfterCoupon = Math.Max(0m, subtotal - couponData.Amount + shippingCost);
+        var loyaltyRedemption = await ResolveLoyaltyRedemptionAsync(userId, request.LoyaltyPointsToUse, amountAfterCoupon);
+        if (!loyaltyRedemption.Success) return new ErrorDataResult<OrderDto>(loyaltyRedemption.Message);
 
 
         var productQuantities = cartDto.Items.ToDictionary(i => i.ProductId, i => i.Quantity);
-        var order = CreateOrderEntity(userId, request, cartDto, subtotal, shippingCost, couponData);
+        var order = CreateOrderEntity(userId, request, cartDto, subtotal, shippingCost, couponData, loyaltyRedemption.Data);
 
         OrderCreatedEvent? orderCreatedEvent = null;
 
@@ -101,6 +107,24 @@ public class OrderManager : IOrderService
 
 
             await _orderDal.AddAsync(order);
+            var requiresEarlyPersistence = order.LoyaltyPointsUsed > 0;
+
+            if (requiresEarlyPersistence)
+            {
+                await _unitOfWork.SaveChangesAsync();
+
+                var loyaltyRedeemResult = await _loyaltyService.RedeemPointsForOrderAsync(
+                    userId,
+                    order.Id,
+                    order.LoyaltyPointsUsed,
+                    order.LoyaltyDiscountAmount,
+                    $"Sipariş için puan kullanımı ({order.OrderNumber})");
+
+                if (!loyaltyRedeemResult.Success)
+                {
+                    throw new InvalidOperationException(loyaltyRedeemResult.Message);
+                }
+            }
 
             await ProcessCouponUsageAsync(order, couponData.Id);
             
@@ -232,6 +256,18 @@ public class OrderManager : IOrderService
         try
         {
             await _inventoryService.ReleaseStocksAsync(stockReturns, userId, $"Sipariş İptali - Sipariş No: {order.OrderNumber}");
+            if (order.LoyaltyPointsUsed > 0)
+            {
+                var restoreResult = await _loyaltyService.RestoreRedeemedPointsAsync(
+                    userId,
+                    order.Id,
+                    $"Sipariş iptali sonrası puan iadesi ({order.OrderNumber})");
+
+                if (!restoreResult.Success)
+                {
+                    throw new InvalidOperationException(restoreResult.Message);
+                }
+            }
             _orderDal.Update(order);
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
@@ -271,6 +307,18 @@ public class OrderManager : IOrderService
                 var stockReturns = order.OrderItems.ToDictionary(i => i.ProductId, i => i.Quantity);
                 
                 await _inventoryService.ReleaseStocksAsync(stockReturns, order.UserId, $"Sistem İptali - Sipariş No: {order.OrderNumber}");
+                if (order.LoyaltyPointsUsed > 0)
+                {
+                    var restoreResult = await _loyaltyService.RestoreRedeemedPointsAsync(
+                        order.UserId,
+                        order.Id,
+                        $"Ödeme zaman aşımı sonrası puan iadesi ({order.OrderNumber})");
+
+                    if (!restoreResult.Success)
+                    {
+                        throw new InvalidOperationException(restoreResult.Message);
+                    }
+                }
                 _orderDal.Update(order);
             }
             catch (Exception ex)
@@ -417,6 +465,8 @@ public class OrderManager : IOrderService
             return new ErrorResult(Messages.OrderNotFound);
         if (order.Status != OrderStatus.PendingPayment)
             return new ErrorResult(Messages.OnlyPendingOrderCanBeUpdated);
+        if (order.LoyaltyPointsUsed > 0)
+            return new ErrorResult("Sadakat puanı kullanılan siparişler düzenlenemez.");
         return new SuccessResult();
     }
 
@@ -555,7 +605,14 @@ public class OrderManager : IOrderService
         return new SuccessDataResult<(int? Id, string? Code, decimal Amount)>((validation.Coupon!.Id, validation.Coupon.Code, validation.DiscountAmount));
     }
 
-    private Order CreateOrderEntity(int userId, CheckoutRequest request, CartDto cartDto, decimal subtotal, decimal shippingCost, (int? Id, string? Code, decimal Amount) couponData)
+    private Order CreateOrderEntity(
+        int userId,
+        CheckoutRequest request,
+        CartDto cartDto,
+        decimal subtotal,
+        decimal shippingCost,
+        (int? Id, string? Code, decimal Amount) couponData,
+        LoyaltyRedemptionPreviewDto loyaltyRedemption)
     {
         var order = new Order
         {
@@ -564,10 +621,13 @@ public class OrderManager : IOrderService
             Status = OrderStatus.PendingPayment,
             ShippingAddress = request.ShippingAddress,
             Notes = request.Notes ?? string.Empty,
-            TotalAmount = subtotal - couponData.Amount + shippingCost,
+            SubtotalAmount = subtotal,
+            TotalAmount = subtotal - couponData.Amount + shippingCost - loyaltyRedemption.DiscountAmount,
             CouponId = couponData.Id,
             CouponCode = couponData.Code,
-            DiscountAmount = couponData.Amount
+            DiscountAmount = couponData.Amount,
+            LoyaltyPointsUsed = loyaltyRedemption.AppliedPoints,
+            LoyaltyDiscountAmount = loyaltyRedemption.DiscountAmount
         };
 
         foreach (var cartItem in cartDto.Items)
@@ -599,5 +659,15 @@ public class OrderManager : IOrderService
             if (!usageResult.Success)
                 throw new Exception("Kupon kullanımı kaydedilemedi.");
         }
+    }
+
+    private async Task<IDataResult<LoyaltyRedemptionPreviewDto>> ResolveLoyaltyRedemptionAsync(int userId, int? requestedPoints, decimal amountAfterCoupon)
+    {
+        if (!requestedPoints.HasValue || requestedPoints.Value <= 0)
+        {
+            return new SuccessDataResult<LoyaltyRedemptionPreviewDto>(new LoyaltyRedemptionPreviewDto());
+        }
+
+        return await _loyaltyService.CalculateRedemptionAsync(userId, requestedPoints.Value, amountAfterCoupon);
     }
 }

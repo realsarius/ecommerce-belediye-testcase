@@ -21,6 +21,9 @@ public static class MappingExtensions
             CancelledAt = order.CancelledAt,
             CouponCode = order.CouponCode,
             DiscountAmount = order.DiscountAmount,
+            LoyaltyPointsUsed = order.LoyaltyPointsUsed,
+            LoyaltyPointsEarned = order.LoyaltyPointsEarned,
+            LoyaltyDiscountAmount = order.LoyaltyDiscountAmount,
             Items = order.OrderItems.Select(oi => new OrderItemDto
             {
                 Id = oi.Id,
