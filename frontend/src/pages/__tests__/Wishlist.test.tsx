@@ -66,8 +66,8 @@ describe('Wishlist Component', () => {
         });
 
         expect(screen.getByText('Giriş Yapmanız Gerekiyor')).toBeInTheDocument();
-        expect(screen.getByText('Favorilerinizi hesabinizla senkronize etmek ve tum cihazlarinizda gormek icin lutfen giris yapin.')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Giris Yap' })).toBeInTheDocument();
+        expect(screen.getByText('Favorilerinizi hesabınızla senkronize etmek ve tüm cihazlarınızda görmek için lütfen giriş yapın.')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Giriş Yap' })).toBeInTheDocument();
     });
 
     it('renders empty state when authenticated but wishlist is empty', async () => {

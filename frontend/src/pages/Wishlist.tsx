@@ -1,13 +1,10 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ShoppingCart, Package, Heart, LayoutGrid, List, TrendingDown, TrendingUp, BellRing, BellOff, Share2, Copy, Link2Off, FolderPlus } from 'lucide-react';
+import { Trash2, ShoppingCart, Heart, LayoutGrid, List, Share2, Copy, Link2Off, FolderPlus } from 'lucide-react';
 import { Badge } from '@/components/common/badge';
 import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
-import { Input } from '@/components/common/input';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/common/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/common/select';
 import { useAppSelector } from '@/app/hooks';
 import type { Wishlist as WishlistResponse } from '@/features/wishlist/types';
 import { clearGuestWishlistProducts, getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
@@ -28,6 +25,9 @@ import {
 } from '@/features/wishlist/wishlistApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { toast } from 'sonner';
+import { WishlistCreateCollectionDialog } from '@/features/wishlist/components/WishlistCreateCollectionDialog';
+import { WishlistGuestState } from '@/features/wishlist/components/WishlistGuestState';
+import { WishlistItemsView } from '@/features/wishlist/components/WishlistItemsView';
 
 const WISHLIST_PAGE_SIZE = 20;
 
@@ -175,57 +175,14 @@ export default function Wishlist() {
     }, [priceAlerts, wishlist]);
 
     if (!isAuthenticated) {
-        const hasPendingWishlist = pendingCount > 0;
-
         return (
-            <div className="container mx-auto px-4 py-16 text-center">
-                <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-semibold mb-2">
-                    {hasPendingWishlist ? 'Bekleyen Favorileriniz Hazır' : 'Giriş Yapmanız Gerekiyor'}
-                </h2>
-                <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
-                    {hasPendingWishlist
-                        ? `${pendingCount} ürün favorilerinize eklenmek için bekliyor. Giriş yaptığınızda bu ürünleri hesabınızla otomatik olarak senkronize edeceğiz.`
-                        : 'Favorilerinizi hesabınızla senkronize etmek ve tüm cihazlarınızda görmek için lütfen giriş yapın.'}
-                </p>
-                <div className="max-w-md mx-auto mb-6">
-                    <Card>
-                        <CardContent className="p-6 space-y-3 text-left">
-                            <div className="flex items-center justify-between gap-4">
-                                <span className="text-sm text-muted-foreground">Bekleyen favori sayısı</span>
-                                <Badge variant={hasPendingWishlist ? 'default' : 'secondary'}>
-                                    {pendingCount}
-                                </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                {hasPendingWishlist
-                                    ? 'Giriş yaptığınız anda bu ürünler hesabınızdaki favori listenize aktarılacak.'
-                                    : 'Ürün sayfalarındaki kalp butonu ile favori ürünleri burada biriktirebilirsiniz.'}
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <Button asChild>
-                        <Link to="/login">Giriş Yap</Link>
-                    </Button>
-                    <Button asChild variant="outline">
-                        <Link to="/">Ürünlere Göz At</Link>
-                    </Button>
-                    {hasPendingWishlist && (
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                clearGuestWishlistProducts();
-                                toast.success('Bekleyen favoriler temizlendi.');
-                            }}
-                        >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Bekleyenleri Temizle
-                        </Button>
-                    )}
-                </div>
-            </div>
+            <WishlistGuestState
+                pendingCount={pendingCount}
+                onClearPending={() => {
+                    clearGuestWishlistProducts();
+                    toast.success('Bekleyen favoriler temizlendi.');
+                }}
+            />
         );
     }
 
@@ -326,49 +283,20 @@ export default function Wishlist() {
                     </Button>
                 </div>
 
-                <Dialog open={isCreateCollectionOpen} onOpenChange={setIsCreateCollectionOpen}>
-                    <DialogContent className="max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Yeni Koleksiyon Oluştur</DialogTitle>
-                            <DialogDescription>
-                                Favori ürünlerinizi başlıklara ayırarak daha kolay takip edin.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <Input
-                            value={newCollectionName}
-                            onChange={(event) => setNewCollectionName(event.target.value)}
-                            placeholder="Örn. Hediye Fikirleri"
-                            maxLength={80}
-                        />
-                        <DialogFooter>
-                            <Button variant="ghost" onClick={() => setIsCreateCollectionOpen(false)}>
-                                Vazgeç
-                            </Button>
-                            <Button
-                                disabled={isCreatingCollection || newCollectionName.trim().length < 2}
-                                onClick={async () => {
-                                    const name = newCollectionName.trim();
-                                    if (name.length < 2) {
-                                        toast.error('Koleksiyon adı en az 2 karakter olmalıdır.');
-                                        return;
-                                    }
-
-                                    try {
-                                        const collection = await createWishlistCollection({ name }).unwrap();
-                                        setSelectedCollectionId(collection.id);
-                                        setNewCollectionName('');
-                                        setIsCreateCollectionOpen(false);
-                                        toast.success(`${collection.name} koleksiyonu oluşturuldu.`);
-                                    } catch (error) {
-                                        toast.error(getWishlistErrorMessage(error, 'Koleksiyon oluşturulamadı.'));
-                                    }
-                                }}
-                            >
-                                {isCreatingCollection ? 'Oluşturuluyor...' : 'Koleksiyonu Oluştur'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <WishlistCreateCollectionDialog
+                    open={isCreateCollectionOpen}
+                    title="Yeni Koleksiyon Oluştur"
+                    description="Favori ürünlerinizi başlıklara ayırarak daha kolay takip edin."
+                    placeholder="Örn. Hediye Fikirleri"
+                    confirmLabel="Koleksiyonu Oluştur"
+                    name={newCollectionName}
+                    isCreating={isCreatingCollection}
+                    onOpenChange={setIsCreateCollectionOpen}
+                    onNameChange={setNewCollectionName}
+                    onCreate={() => {
+                        void handleCreateCollection();
+                    }}
+                />
             </div>
         );
     }
@@ -483,68 +411,6 @@ export default function Wishlist() {
         } catch (error) {
             toast.error(getWishlistErrorMessage(error, 'Fiyat alarmı kaldırılamadı.'));
         }
-    };
-
-    const renderPriceAlertControls = (item: WishlistResponse['items'][number]) => {
-        const activeAlert = priceAlerts.find((alert) => alert.productId === item.productId);
-        const alertDraft = alertDrafts[item.productId] ?? '';
-
-        return (
-            <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <p className="text-sm font-medium flex items-center gap-2">
-                            <BellRing className="h-4 w-4 text-amber-500" />
-                            Fiyat alarmı
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Ürün {alertDraft || 'hedef'} {item.productCurrency} seviyesine indiğinde haber verelim.
-                        </p>
-                        {activeAlert && (
-                            <p className="text-xs text-muted-foreground mt-2">
-                                Aktif hedef: {activeAlert.targetPrice.toLocaleString('tr-TR')} {activeAlert.currency}
-                                {activeAlert.lastNotifiedAt && ` • Son bildirim: ${new Date(activeAlert.lastNotifiedAt).toLocaleString('tr-TR')}`}
-                            </p>
-                        )}
-                    </div>
-                    {activeAlert && (
-                        <Badge variant="secondary">
-                            Alarm aktif
-                        </Badge>
-                    )}
-                </div>
-
-                <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                    <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={alertDraft}
-                        disabled={!item.isAvailable}
-                        onChange={(event) => handleAlertDraftChange(item.productId, event.target.value)}
-                        placeholder="Hedef fiyat"
-                        className="sm:max-w-[180px]"
-                    />
-                    <Button
-                        variant="outline"
-                        disabled={!item.isAvailable}
-                        onClick={() => void handleSavePriceAlert(item)}
-                    >
-                        <BellRing className="h-4 w-4 mr-2" />
-                        {activeAlert ? 'Alarmı Güncelle' : 'Alarm Kur'}
-                    </Button>
-                    {activeAlert && (
-                        <Button
-                            variant="ghost"
-                            onClick={() => void handleRemovePriceAlert(item.productId)}
-                        >
-                            <BellOff className="h-4 w-4 mr-2" />
-                            Alarmı Kaldır
-                        </Button>
-                    )}
-                </div>
-            </div>
-        );
     };
 
     const handleAddAllToCart = async () => {
@@ -920,182 +786,30 @@ export default function Wishlist() {
                 </div>
             </div>
 
-            <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "grid grid-cols-1 gap-4"}>
-                {wishlist.items.map((item) => (
-                    viewMode === 'list' ? (
-                        <Card key={item.id} className="overflow-hidden">
-                            <CardContent className="p-0 sm:p-4">
-                                <div className="flex flex-col sm:flex-row items-center gap-4">
-                                    <div className="w-full sm:w-24 h-24 bg-muted flex items-center justify-center shrink-0">
-                                        <Package className="h-8 w-8 text-muted-foreground" />
-                                    </div>
-
-                                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-between w-full p-4 sm:p-0 gap-4">
-                                        <div className="flex-1 min-w-0 text-center sm:text-left">
-                                            {item.isAvailable ? (
-                                                <Link to={`/products/${item.productId}`} className="font-semibold hover:text-primary transition-colors hover:underline truncate block">
-                                                    {item.productName}
-                                                </Link>
-                                            ) : (
-                                                <span className="font-semibold text-muted-foreground truncate block">
-                                                    {item.productName}
-                                                </span>
-                                            )}
-                                            {!item.isAvailable && (
-                                                <Badge variant="secondary" className="mt-2">
-                                                    Satışta Değil
-                                                </Badge>
-                                            )}
-                                            <div className="flex items-center gap-2 justify-center sm:justify-start mt-1">
-                                                <p className="text-sm font-medium">
-                                                    {item.productPrice.toLocaleString('tr-TR')} {item.productCurrency}
-                                                </p>
-                                                {item.isAvailable && item.priceChange !== 0 && item.priceChange !== undefined && (
-                                                    <span className={`text-xs flex items-center gap-1 ${item.priceChange > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                        {item.priceChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                                        {Math.abs(item.priceChangePercentage || 0).toFixed(1)}%
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Eklenme: {new Date(item.addedAt).toLocaleDateString('tr-TR')} • {item.addedAtPrice.toLocaleString('tr-TR')} {item.productCurrency}
-                                            </p>
-                                            <div className="mt-2 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-                                                <Badge variant="outline">{item.collectionName}</Badge>
-                                            </div>
-                                            {!item.isAvailable && item.unavailableReason && (
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {item.unavailableReason}
-                                                </p>
-                                            )}
-                                            {renderPriceAlertControls(item)}
-                                        </div>
-
-                                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                                            <Select
-                                                value={String(item.collectionId)}
-                                                onValueChange={(value) => void handleMoveToCollection(item.productId, value)}
-                                            >
-                                                <SelectTrigger className="w-full sm:w-[180px]">
-                                                    <SelectValue placeholder="Koleksiyon seçin" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {collections.map((collection) => (
-                                                        <SelectItem key={collection.id} value={String(collection.id)}>
-                                                            {collection.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <Button
-                                                variant="default"
-                                                className="w-full sm:w-auto"
-                                                disabled={!item.isAvailable || isAddingToCart}
-                                                onClick={() => handleAddToCart(item.productId, item.productName)}
-                                            >
-                                                <ShoppingCart className="h-4 w-4 mr-2" />
-                                                Sepete Ekle
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="icon"
-                                                className="w-full sm:w-10"
-                                                onClick={() => handleRemove(item.productId)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Card key={item.id} className="overflow-hidden flex flex-col h-full group">
-                            <div className="relative h-48 bg-muted flex items-center justify-center">
-                                <Package className="h-16 w-16 text-muted-foreground" />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute top-2 right-2 rounded-full h-8 w-8 bg-background/50 hover:bg-background/80"
-                                    onClick={() => handleRemove(item.productId)}
-                                >
-                                    <Heart className="h-5 w-5 fill-red-500 text-red-500" />
-                                </Button>
-                            </div>
-                            <CardContent className="p-4 flex-1">
-                                {item.isAvailable ? (
-                                    <Link to={`/products/${item.productId}`}>
-                                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                                            {item.productName}
-                                        </h3>
-                                    </Link>
-                                ) : (
-                                    <h3 className="font-semibold truncate text-muted-foreground">
-                                        {item.productName}
-                                    </h3>
-                                )}
-                                {!item.isAvailable && (
-                                    <Badge variant="secondary" className="mt-2">
-                                        Satışta Değil
-                                    </Badge>
-                                )}
-                                <div className="flex items-center gap-2 mt-2">
-                                    <p className="text-lg font-bold">
-                                        {item.productPrice.toLocaleString('tr-TR')} {item.productCurrency}
-                                    </p>
-                                    {item.isAvailable && item.priceChange !== 0 && item.priceChange !== undefined && (
-                                        <span className={`text-sm flex items-center gap-1 ${item.priceChange > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                            {item.priceChange > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                                            {Math.abs(item.priceChangePercentage || 0).toFixed(1)}%
-                                        </span>
-                                    )}
-                                </div>
-                                {item.addedAtPrice !== item.productPrice && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Eklendiğinde: {item.addedAtPrice.toLocaleString('tr-TR')} {item.productCurrency}
-                                    </p>
-                                )}
-                                <div className="mt-2 flex items-center gap-2">
-                                    <Badge variant="outline">{item.collectionName}</Badge>
-                                </div>
-                                {!item.isAvailable && item.unavailableReason && (
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                        {item.unavailableReason}
-                                    </p>
-                                )}
-                                {renderPriceAlertControls(item)}
-                                <div className="mt-3">
-                                    <Select
-                                        value={String(item.collectionId)}
-                                        onValueChange={(value) => void handleMoveToCollection(item.productId, value)}
-                                    >
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Koleksiyon seçin" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {collections.map((collection) => (
-                                                <SelectItem key={collection.id} value={String(collection.id)}>
-                                                    {collection.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </CardContent>
-                            <div className="p-4 pt-0 mt-auto">
-                                <Button
-                                    className="w-full"
-                                    disabled={!item.isAvailable || isAddingToCart}
-                                    onClick={() => handleAddToCart(item.productId, item.productName)}
-                                >
-                                    <ShoppingCart className="mr-2 h-4 w-4" />
-                                    Sepete Ekle
-                                </Button>
-                            </div>
-                        </Card>
-                    )
-                ))}
-            </div>
+            <WishlistItemsView
+                items={wishlist.items}
+                viewMode={viewMode}
+                collections={collections}
+                priceAlerts={priceAlerts}
+                alertDrafts={alertDrafts}
+                isAddingToCart={isAddingToCart}
+                onAlertDraftChange={handleAlertDraftChange}
+                onSavePriceAlert={(item) => {
+                    void handleSavePriceAlert(item);
+                }}
+                onRemovePriceAlert={(productId) => {
+                    void handleRemovePriceAlert(productId);
+                }}
+                onMoveToCollection={(productId, value) => {
+                    void handleMoveToCollection(productId, value);
+                }}
+                onAddToCart={(productId, productName) => {
+                    void handleAddToCart(productId, productName);
+                }}
+                onRemove={(productId) => {
+                    void handleRemove(productId);
+                }}
+            />
 
             {wishlist.hasMore && (
                 <div className="flex justify-center mt-8">
@@ -1109,49 +823,25 @@ export default function Wishlist() {
                 </div>
             )}
 
-            <Dialog
+            <WishlistCreateCollectionDialog
                 open={isCreateCollectionOpen}
+                title="Yeni Koleksiyon Oluştur"
+                description='Örneğin "Ev Dekorasyonu", "Teknoloji" veya "Hediye Fikirleri" gibi ayrı listeler oluşturabilirsiniz.'
+                placeholder="Koleksiyon adı"
+                confirmLabel="Koleksiyon Oluştur"
+                name={newCollectionName}
+                isCreating={isCreatingCollection}
                 onOpenChange={(open) => {
                     setIsCreateCollectionOpen(open);
                     if (!open) {
                         setNewCollectionName('');
                     }
                 }}
-            >
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Yeni Koleksiyon Oluştur</DialogTitle>
-                        <DialogDescription>
-                            Örneğin "Ev Dekorasyonu", "Teknoloji" veya "Hediye Fikirleri" gibi ayrı listeler oluşturabilirsiniz.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <Input
-                        value={newCollectionName}
-                        onChange={(event) => setNewCollectionName(event.target.value)}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                                event.preventDefault();
-                                void handleCreateCollection();
-                            }
-                        }}
-                        maxLength={80}
-                        placeholder="Koleksiyon adı"
-                    />
-
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsCreateCollectionOpen(false)}>
-                            Vazgeç
-                        </Button>
-                        <Button
-                            onClick={() => void handleCreateCollection()}
-                            disabled={isCreatingCollection || newCollectionName.trim().length < 2}
-                        >
-                            {isCreatingCollection ? 'Oluşturuluyor...' : 'Koleksiyon Oluştur'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                onNameChange={setNewCollectionName}
+                onCreate={() => {
+                    void handleCreateCollection();
+                }}
+            />
         </div>
     );
 }
