@@ -12,6 +12,7 @@
 - [7. Kurulum ve Çalıştırma](#7-kurulum-ve-çalıştırma)
 - [8. Frontend](#8-frontend)
 - [9. Production Notes](#9-production-notes)
+- [Ek Dokümanlar](#ek-dokümanlar)
 
 ## 0. Hızlı kurulum
 
@@ -58,6 +59,8 @@ docker compose down
 
 **Stok Yönetimi ve Tutarlılık**: Eşzamanlı siparişlerde stok tutarlılığı için Redis Distributed Lock (ürün bazlı, `product:{id}`) kullandım. Aynı ürüne eşzamanlı gelen taleplerde race condition ve oversell önleniyor.
 
+**Wishlist Deneyimi**: Favoriler akışı ürünleştirildi. Fiyat ve eklenme tarihi snapshot'ı, guest wishlist senkronizasyonu, koleksiyonlar, paylaşılabilir wishlist, fiyat alarmı, düşük stok bildirimi, cursor bazlı listeleme, wishlist count senkronizasyonu ve favoriden toplu sepete ekleme akışları aktif durumda.
+
 ## 2. Teknoloji Yığını (Technology Stack)
 
 | Kategori | Teknoloji / Kütüphane | Kullanım Amacı |
@@ -103,6 +106,12 @@ Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 16. **RefreshTokens**: Oturum yenileme anahtarları.
 17. **SupportConversations**: Canlı destek konuşma başlıkları.
 18. **SupportMessages**: Canlı destek mesaj kayıtları.
+19. **Wishlists**: Kullanıcıya ait favori liste kök kaydı.
+20. **WishlistCollections**: Çoklu favori listeleri / koleksiyonlar.
+21. **WishlistItems**: Favoriye eklenen ürün kayıtları ve fiyat snapshot bilgisi.
+22. **PriceAlerts**: Hedef fiyat bazlı wishlist alarm kayıtları.
+23. **InboxMessages**: Consumer idempotency ve dedupe kayıtları.
+24. **MassTransit Outbox Tabloları**: Transactional event publish altyapısı.
 
 ### 3.2 Migration ve Şema Yönetimi
 
@@ -196,6 +205,22 @@ Tüm endpoint'ler Swagger UI üzerinden interaktif olarak test edilebilir. JWT A
 curl "http://localhost:5000/api/v1/search/products?q=adida&page=1&pageSize=10"
 ```
 
+### 4.6 Wishlist API Öne Çıkanları
+
+Wishlist akışı standart CRUD'den öte, event-driven ve kullanıcı deneyimi odaklı ek sözleşmeler içerir:
+
+- `GET /api/v1/wishlists?cursor=&limit=&collectionId=`: cursor bazlı favori listeleme ve koleksiyon filtresi
+- `POST /api/v1/wishlists/items`: favoriye ürün ekleme
+- `PATCH /api/v1/wishlists/items/{productId}/collection`: ürünü koleksiyonlar arasında taşıma
+- `GET /api/v1/wishlists/collections`: kullanıcının koleksiyonlarını listeleme
+- `POST /api/v1/wishlists/collections`: yeni koleksiyon oluşturma
+- `POST /api/v1/wishlists/add-all-to-cart`: uygun wishlist ürünlerini toplu olarak sepete ekleme
+- `GET/POST/DELETE /api/v1/wishlists/share`: paylaşım ayarlarını yönetme
+- `GET /api/v1/wishlists/share/{shareToken}`: public paylaşılmış wishlist okuma
+- `GET/PUT/DELETE /api/v1/wishlists/price-alerts`: fiyat alarmı yönetimi
+
+Bu akışlar Redis rate limiting, audit log, wishlist count senkronizasyonu ve MassTransit event publish zinciri ile çalışır.
+
 ## 5. Loglama, İzlenebilirlik ve Hata Yönetimi (Observability)
 
 ### 5.1 Structured Logging (Serilog + Elasticsearch)
@@ -219,6 +244,44 @@ Tüm hata yönetimi merkezi `ExceptionHandlingMiddleware` içinde:
 ### 5.4 Audit Log (Kritik İş Akışları)
 
 İş süreci izlenebilirliği için Stok Değişimleri gibi işlemler audit log ile kaydediliyor.
+
+### 5.5 Wishlist Analytics ve Kibana
+
+Wishlist feature set'i için Kibana dashboard kurulumunu kolaylaştırmak amacıyla structured analytics alanları eklendi. Aşağıdaki akışlar artık ortak bir analytics dili ile loglanıyor:
+
+- wishlist add / remove event'leri
+- favoriden toplu sepete ekleme ve atlanan ürünler
+- fiyat alarmı tetiklenmesi ve teslimi
+- düşük stok bildirimi teslimi
+
+Temel log alanları:
+
+- `AnalyticsStream`
+- `AnalyticsEvent`
+- `FunnelStage`
+- `NotificationChannel`
+- `UserId`
+- `WishlistId`
+- `ProductId`
+- `ProductName`
+- `Category`
+- `PriceAtTime`
+- `Currency`
+- `WishlistCount`
+- `RequestedCount`
+- `AddedCount`
+- `SkippedCount`
+- `Reason`
+- `TargetPrice`
+- `OldPrice`
+- `NewPrice`
+- `StockQuantity`
+- `Threshold`
+- `OccurredAt`
+
+Detaylı wishlist mimarisi ve Kibana panel önerileri için:
+
+- [Wishlist Feature Status](docs/wishlist-feature-status.md)
 
 ## 6. Test Stratejisi (Testing)
 
@@ -558,6 +621,15 @@ Pratik rollback yaklaşımı:
 3. Sorun son değişiklikten geldiyse bir önceki stabil image/tag'e dönün.
 4. Rollback sonrası `health/ready`, temel smoke ve queue kontrollerini tekrar çalıştırın.
 5. `_error` kuyruğu, latency ve log akışı normale dönmeden rollback'i tamamlanmış saymayın.
+
+## Ek Dokümanlar
+
+- [Wishlist Feature Status](docs/wishlist-feature-status.md)
+- [Wishlist Kibana Dashboard Setup](docs/wishlist-kibana-dashboard-setup.md)
+- [Wishlist Smoke Checklist](docs/wishlist-smoke-checklist.md)
+- [Backup Restore Plan](docs/backup-restore-plan.md)
+- [Deployment Readiness Checklist](docs/deployment-readiness-checklist.md)
+- [Rollback Runbook](docs/rollback-runbook.md)
 
 ### 9.6 Backup / Restore Planı
 
