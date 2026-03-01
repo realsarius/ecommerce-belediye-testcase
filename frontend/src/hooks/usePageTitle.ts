@@ -12,6 +12,7 @@ const pageTitles: Record<string, string> = {
   '/checkout': 'Ödeme',
   '/orders': 'Siparişlerim',
   '/returns': 'İadelerim',
+  '/compare': 'Ürün Karşılaştırma',
   '/loyalty': 'Puanlarım ve Ödüllerim',
   '/notifications': 'Bildirimler',
   '/account': 'Hesabım',

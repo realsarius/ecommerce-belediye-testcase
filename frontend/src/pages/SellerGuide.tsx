@@ -17,13 +17,13 @@ export default function SellerGuide() {
       lastUpdated="Mart 2026"
     >
       <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
-        <CardHeader className="px-7 pt-7 pb-3">
+        <CardHeader className="px-8 pt-8 pb-4">
           <CardTitle>Başlangıç kontrol listesi</CardTitle>
         </CardHeader>
-        <CardContent className="px-7 pb-7 pt-1">
+        <CardContent className="px-8 pb-8 pt-1">
           <ul className="space-y-4">
             {guideSteps.map((step) => (
-              <li key={step} className="flex gap-4">
+              <li key={step} className="flex gap-4 rounded-2xl border border-border/60 bg-background/40 px-4 py-3">
                 <span className="mt-2 h-2 w-2 rounded-full bg-rose-500/80 dark:bg-rose-300" />
                 <span>{step}</span>
               </li>

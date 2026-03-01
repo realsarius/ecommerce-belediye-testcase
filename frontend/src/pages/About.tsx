@@ -27,26 +27,26 @@ export default function About() {
       description="E-Ticaret, müşteri deneyimini, güvenliği ve operasyonel netliği aynı anda önemseyen modern bir alışveriş platformudur."
       lastUpdated="Mart 2026"
     >
-      <section className="grid gap-6 md:grid-cols-3">
+      <section className="grid gap-7 md:grid-cols-3">
         {values.map((value) => (
           <Card key={value.title} className="border-border/70 bg-card/80 py-0 shadow-sm">
-            <CardHeader className="px-7 pt-7 pb-3">
+            <CardHeader className="px-8 pt-8 pb-4">
               <CardTitle>{value.title}</CardTitle>
             </CardHeader>
-            <CardContent className="px-7 pb-7 pt-1">
+            <CardContent className="px-8 pb-8 pt-1">
               <p>{value.description}</p>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <section className="space-y-5">
+      <section className="rounded-3xl border border-border/70 bg-card/80 p-8 shadow-sm sm:p-10">
         <h2 className="text-xl font-semibold text-foreground">Ne sunuyoruz?</h2>
-        <p>
+        <p className="mt-4">
           Platformumuz; ürün keşfi, kampanya yönetimi, istek listeleri, iade süreçleri, sadakat puanı,
           bildirim merkezi ve kişiselleştirilmiş öneriler gibi akışları tek bir deneyimde birleştirir.
         </p>
-        <p>
+        <p className="mt-4">
           Amacımız yalnızca ürün listeleyen bir vitrin olmak değil, kullanıcıların tekrar tekrar dönmek
           isteyeceği güvenilir ve akıcı bir alışveriş deneyimi oluşturmaktır.
         </p>
