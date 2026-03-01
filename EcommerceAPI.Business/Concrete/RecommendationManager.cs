@@ -15,17 +15,20 @@ public class RecommendationManager : IRecommendationService
     private readonly IRecommendationCacheService _recommendationCacheService;
     private readonly IProductDal _productDal;
     private readonly IOrderDal _orderDal;
+    private readonly IProductSearchIndexService _productSearchIndexService;
     private readonly ILogger<RecommendationManager> _logger;
 
     public RecommendationManager(
         IRecommendationCacheService recommendationCacheService,
         IProductDal productDal,
         IOrderDal orderDal,
+        IProductSearchIndexService productSearchIndexService,
         ILogger<RecommendationManager> logger)
     {
         _recommendationCacheService = recommendationCacheService;
         _productDal = productDal;
         _orderDal = orderDal;
+        _productSearchIndexService = productSearchIndexService;
         _logger = logger;
     }
 
@@ -47,6 +50,26 @@ public class RecommendationManager : IRecommendationService
             userId,
             sessionId,
             product.Category?.Name,
+            DateTime.UtcNow);
+
+        return new SuccessResult();
+    }
+
+    public async Task<IResult> TrackSearchQueryAsync(int userId, string query, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0 || string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+        {
+            return new SuccessResult();
+        }
+
+        await _recommendationCacheService.TrackSearchQueryAsync(userId, query, cancellationToken);
+
+        _logger.LogInformation(
+            "Recommendation analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, UserId={UserId}, Query={Query}, OccurredAt={OccurredAt}",
+            "Recommendation",
+            "SearchTracked",
+            userId,
+            query.Trim(),
             DateTime.UtcNow);
 
         return new SuccessResult();
@@ -152,6 +175,36 @@ public class RecommendationManager : IRecommendationService
         return new SuccessDataResult<List<ProductDto>>(products.Select(p => p.ToDto()).ToList());
     }
 
+    public async Task<IDataResult<List<ProductDto>>> GetPersonalizedProductsAsync(int userId, int take = 4, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0)
+        {
+            return new ErrorDataResult<List<ProductDto>>("Kişiselleştirilmiş öneriler için kullanıcı bulunamadı.");
+        }
+
+        var categoryScores = await _recommendationCacheService.GetWishlistCategoryScoresAsync(userId, cancellationToken);
+        var recentSearchQueries = await _recommendationCacheService.GetRecentSearchQueriesAsync(userId, 5, cancellationToken);
+
+        var products = await _productSearchIndexService.GetPersonalizedRecommendationsAsync(
+            categoryScores,
+            recentSearchQueries,
+            Math.Clamp(take, 1, 12),
+            cancellationToken);
+
+        _logger.LogInformation(
+            "Recommendation analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, Source={Source}, UserId={UserId}, CategorySignalCount={CategorySignalCount}, SearchSignalCount={SearchSignalCount}, ResultCount={ResultCount}, OccurredAt={OccurredAt}",
+            "Recommendation",
+            "RecommendationServed",
+            "ForYou",
+            userId,
+            categoryScores.Count,
+            recentSearchQueries.Count,
+            products.Count,
+            DateTime.UtcNow);
+
+        return new SuccessDataResult<List<ProductDto>>(products);
+    }
+
     private async Task<List<Product>> LoadProductsByIdsPreservingOrderAsync(IEnumerable<int> ids, int currentProductId, int take)
     {
         var orderedIds = ids.Where(id => id != currentProductId).Distinct().ToList();
@@ -194,6 +247,7 @@ public class RecommendationManager : IRecommendationService
         {
             "also-viewed" => "AlsoViewed",
             "frequently-bought" => "FrequentlyBoughtTogether",
+            "for-you" => "ForYou",
             _ => null
         };
     }

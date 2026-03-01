@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcommerceAPI.API.Controllers;
@@ -73,6 +74,25 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> GetFrequentlyBoughtTogether(int id, [FromQuery] int take = 4)
     {
         var result = await _recommendationService.GetFrequentlyBoughtTogetherProductsAsync(id, take, HttpContext.RequestAborted);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+
+        return BadRequest(result);
+    }
+
+    [Authorize]
+    [HttpGet("recommendations/for-you")]
+    public async Task<IActionResult> GetForYouRecommendations([FromQuery] int take = 4)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _recommendationService.GetPersonalizedProductsAsync(userId, take, HttpContext.RequestAborted);
         if (result.Success)
         {
             return Ok(result);
