@@ -16,15 +16,15 @@ export default function SellerGuide() {
       description="Platformda satışa hızlı başlamak isteyen satıcılar için kısa başlangıç adımlarını burada topladık."
       lastUpdated="Mart 2026"
     >
-      <Card className="border-white/10 bg-white/[0.03] py-0">
-        <CardHeader>
+      <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
+        <CardHeader className="px-7 pt-7 pb-3">
           <CardTitle>Başlangıç kontrol listesi</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ul className="space-y-3">
+        <CardContent className="px-7 pb-7 pt-1">
+          <ul className="space-y-4">
             {guideSteps.map((step) => (
-              <li key={step} className="flex gap-3">
-                <span className="mt-2 h-2 w-2 rounded-full bg-rose-300" />
+              <li key={step} className="flex gap-4">
+                <span className="mt-2 h-2 w-2 rounded-full bg-rose-500/80 dark:bg-rose-300" />
                 <span>{step}</span>
               </li>
             ))}

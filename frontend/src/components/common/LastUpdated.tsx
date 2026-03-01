@@ -4,7 +4,7 @@ type LastUpdatedProps = {
 
 export function LastUpdated({ date }: LastUpdatedProps) {
   return (
-    <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-gray-300">
+    <div className="inline-flex items-center rounded-full border border-border/70 bg-muted/70 px-3 py-1 text-xs font-medium text-muted-foreground">
       Son güncelleme: {date}
     </div>
   );

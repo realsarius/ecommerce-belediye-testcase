@@ -28,15 +28,15 @@ export default function Faq() {
       description="Hesap, sipariş, ödeme, iade ve teslimat süreçlerinde en çok merak edilen konuları burada topladık."
       lastUpdated="Mart 2026"
     >
-      <Card className="border-white/10 bg-white/[0.03] py-0">
+      <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
         <CardContent className="pt-6">
           <Accordion type="single" collapsible className="w-full">
             {faqItems.map(([question, answer], index) => (
-              <AccordionItem key={question} value={`faq-${index}`} className="border-white/10">
-                <AccordionTrigger className="text-base text-white hover:no-underline">
+              <AccordionItem key={question} value={`faq-${index}`} className="border-border/60">
+                <AccordionTrigger className="text-base text-foreground hover:no-underline">
                   {question}
                 </AccordionTrigger>
-                <AccordionContent className="text-sm leading-7 text-gray-300">{answer}</AccordionContent>
+                <AccordionContent className="text-sm leading-7 text-muted-foreground">{answer}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

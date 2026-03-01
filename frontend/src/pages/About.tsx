@@ -29,19 +29,19 @@ export default function About() {
     >
       <section className="grid gap-6 md:grid-cols-3">
         {values.map((value) => (
-          <Card key={value.title} className="border-white/10 bg-white/[0.03] py-0">
-            <CardHeader>
+          <Card key={value.title} className="border-border/70 bg-card/80 py-0 shadow-sm">
+            <CardHeader className="px-7 pt-7 pb-3">
               <CardTitle>{value.title}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-7 pb-7 pt-1">
               <p>{value.description}</p>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-white">Ne sunuyoruz?</h2>
+      <section className="space-y-5">
+        <h2 className="text-xl font-semibold text-foreground">Ne sunuyoruz?</h2>
         <p>
           Platformumuz; ürün keşfi, kampanya yönetimi, istek listeleri, iade süreçleri, sadakat puanı,
           bildirim merkezi ve kişiselleştirilmiş öneriler gibi akışları tek bir deneyimde birleştirir.

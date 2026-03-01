@@ -12,14 +12,14 @@ export default function SellerRegister() {
       description="Satıcı başvuru deneyimi ayrı bir onboarding akışıyla genişletilecek. İlk aşamada temel bilgi ve rehber içeriklere buradan erişebilirsiniz."
       lastUpdated="Mart 2026"
     >
-      <Card className="border-white/10 bg-white/[0.03] py-0">
-        <CardHeader>
+      <Card className="border-border/70 bg-card/80 py-0 shadow-sm">
+        <CardHeader className="px-7 pt-7 pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Store className="h-5 w-5 text-rose-300" />
+            <Store className="h-5 w-5 text-rose-500 dark:text-rose-300" />
             Başvuru akışı yakında
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-7 pb-7 pt-1">
           <p>
             Satıcı onboarding formu ve değerlendirme akışı ayrı bir fazda açılacak. Bu sırada satıcı rehberini ve
             komisyon yapısını inceleyerek hazırlık yapabilirsiniz.

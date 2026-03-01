@@ -9,7 +9,7 @@ export default function RefundPolicy() {
       lastUpdated="Mart 2026"
     >
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">Sipariş İptali</h2>
+        <h2 className="text-xl font-semibold text-foreground">Sipariş İptali</h2>
         <p>
           Siparişiniz henüz kargo sürecine alınmadıysa sipariş detay ekranı üzerinden iptal talebi oluşturabilirsiniz.
           İptal onaylandığında ödeme iadesi ilgili ödeme kuruluşu kurallarına göre başlatılır.
@@ -17,7 +17,7 @@ export default function RefundPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">14 Günlük Cayma Hakkı</h2>
+        <h2 className="text-xl font-semibold text-foreground">14 Günlük Cayma Hakkı</h2>
         <p>
           Mesafeli Satışlar Yönetmeliği kapsamında, yasal istisnalar saklı kalmak kaydıyla teslimattan itibaren 14 gün
           içinde cayma hakkınızı kullanabilirsiniz. Ürünün kullanılmamış ve yeniden satılabilir durumda olması gerekir.
@@ -25,7 +25,7 @@ export default function RefundPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">İade Süreci</h2>
+        <h2 className="text-xl font-semibold text-foreground">İade Süreci</h2>
         <p>
           İade talebinizi <strong>İadelerim</strong> ekranından veya ilgili sipariş detayından oluşturabilirsiniz.
           Talep incelendikten sonra uygun durumlarda iade kargo yönlendirmesi ve ödeme iadesi süreci başlatılır.
@@ -33,7 +33,7 @@ export default function RefundPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">İade Edilemeyen Ürünler</h2>
+        <h2 className="text-xl font-semibold text-foreground">İade Edilemeyen Ürünler</h2>
         <p>
           Hijyen nedeniyle yeniden satışı mümkün olmayan ürünler, kişiye özel hazırlanan ürünler ve mevzuat gereği
           cayma hakkı kapsamında değerlendirilemeyen ürünlerde iade kabul edilmeyebilir.
@@ -41,7 +41,7 @@ export default function RefundPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">Para İadesi Süresi</h2>
+        <h2 className="text-xl font-semibold text-foreground">Para İadesi Süresi</h2>
         <p>
           İade onayını takip eden süreçte ücret iadesi ödeme kuruluşu üzerinden başlatılır. Banka ve kart sağlayıcısına
           bağlı olarak iadenin yansıması genellikle birkaç iş günü sürebilir.

@@ -55,21 +55,17 @@ export default function Help() {
         {helpCards.map((item) => (
           <Card
             key={item.title}
-            className="border-white/10 bg-white/[0.03] py-0 transition-transform duration-200 hover:-translate-y-1"
+            className="border-border/70 bg-card/80 py-0 shadow-sm transition-transform duration-200 hover:-translate-y-1"
           >
-            <CardHeader>
-              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-                <item.icon className="h-5 w-5 text-rose-200" />
+            <CardHeader className="px-7 pt-7 pb-3">
+              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/10 dark:bg-white/10">
+                <item.icon className="h-5 w-5 text-rose-500 dark:text-rose-200" />
               </div>
               <CardTitle>{item.title}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm leading-7 text-gray-300">{item.description}</p>
-              <Button
-                asChild
-                variant="outline"
-                className="border-white/15 bg-white/5 text-gray-100 hover:bg-white/10"
-              >
+            <CardContent className="space-y-5 px-7 pb-7 pt-1">
+              <p className="text-sm leading-7 text-muted-foreground">{item.description}</p>
+              <Button asChild variant="outline">
                 <Link to={item.to}>İlgili içeriğe git</Link>
               </Button>
             </CardContent>
@@ -77,9 +73,9 @@ export default function Help() {
         ))}
       </div>
 
-      <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-        <h2 className="text-xl font-semibold text-white">Ek destek kanalları</h2>
-        <p className="mt-3 text-sm leading-7 text-gray-300">
+      <section className="rounded-3xl border border-border/70 bg-card/80 p-7 shadow-sm sm:p-8">
+        <h2 className="text-xl font-semibold text-foreground">Ek destek kanalları</h2>
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">
           Genel sorular için SSS ve yardım merkezi içeriklerini, siparişe bağlı işlemler için sipariş ekranlarını,
           daha özel durumlar için ise iletişim ve canlı destek akışlarını kullanabilirsiniz.
         </p>

@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
       lastUpdated="Mart 2026"
     >
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">1. Toplanan Veriler</h2>
+        <h2 className="text-xl font-semibold text-foreground">1. Toplanan Veriler</h2>
         <p>
           Üyelik, sipariş, teslimat ve destek süreçlerinde ad, soyad, e-posta adresi, telefon numarası,
           teslimat adresi, fatura bilgileri ve ödeme işlemlerine ilişkin sınırlı özet kayıtlar işlenebilir.
@@ -18,7 +18,7 @@ export default function PrivacyPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">2. Verilerin Kullanım Amacı</h2>
+        <h2 className="text-xl font-semibold text-foreground">2. Verilerin Kullanım Amacı</h2>
         <p>
           Toplanan veriler siparişlerinizi oluşturmak, ödemeleri tamamlamak, teslimatı sağlamak, destek
           taleplerinizi cevaplamak, iade süreçlerini yürütmek ve hesap güvenliğini sağlamak amacıyla kullanılır.
@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">3. Üçüncü Taraflarla Paylaşım</h2>
+        <h2 className="text-xl font-semibold text-foreground">3. Üçüncü Taraflarla Paylaşım</h2>
         <p>
           Ödeme işlemlerinde Iyzico, teslimat süreçlerinde anlaşmalı kargo firmaları ve yasal yükümlülükler
           kapsamında yetkili kamu kurumları ile sınırlı veri paylaşımı yapılabilir. Paylaşımlar, hizmetin
@@ -35,7 +35,7 @@ export default function PrivacyPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">4. Çerezler</h2>
+        <h2 className="text-xl font-semibold text-foreground">4. Çerezler</h2>
         <p>
           Oturum yönetimi, güvenlik, tercihlerin hatırlanması ve deneyim iyileştirme amacıyla çerezler
           kullanılabilir. Çerez tercihlerinizi yayınlanacak çerez ayarları paneli üzerinden yönetebilirsiniz.
@@ -43,7 +43,7 @@ export default function PrivacyPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">5. Haklarınız</h2>
+        <h2 className="text-xl font-semibold text-foreground">5. Haklarınız</h2>
         <p>
           KVKK 11. madde kapsamında kişisel verilerinizin işlenip işlenmediğini öğrenme, düzeltilmesini
           isteme, silinmesini talep etme, aktarıldığı üçüncü kişileri öğrenme ve itiraz etme haklarına sahipsiniz.
@@ -51,7 +51,7 @@ export default function PrivacyPolicy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">6. İletişim</h2>
+        <h2 className="text-xl font-semibold text-foreground">6. İletişim</h2>
         <p>
           Gizlilik politikasıyla ilgili tüm talepleriniz için <strong>destek@eticaret.com</strong> adresine
           yazabilir veya iletişim sayfamızı kullanabilirsiniz.

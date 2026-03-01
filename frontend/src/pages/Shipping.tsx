@@ -26,19 +26,19 @@ export default function Shipping() {
     >
       <section className="grid gap-6 md:grid-cols-3">
         {shippingCards.map((card) => (
-          <Card key={card.title} className="border-white/10 bg-white/[0.03] py-0">
-            <CardHeader>
+          <Card key={card.title} className="border-border/70 bg-card/80 py-0 shadow-sm">
+            <CardHeader className="px-7 pt-7 pb-3">
               <CardTitle>{card.title}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-7 pb-7 pt-1">
               <p>{card.description}</p>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-white">Teslimat sürecinde bilmeniz gerekenler</h2>
+      <section className="space-y-5">
+        <h2 className="text-xl font-semibold text-foreground">Teslimat sürecinde bilmeniz gerekenler</h2>
         <p>
           Siparişiniz kargoya verildiğinde hesabınızdaki sipariş detay sayfası üzerinden gönderi durumunu ve kargo
           takip numarasını görüntüleyebilirsiniz. Resmi tatiller, hava koşulları veya yoğun kampanya dönemleri teslimat
