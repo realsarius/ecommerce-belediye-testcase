@@ -8,6 +8,8 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -19,19 +21,22 @@ public class CampaignManager : ICampaignService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditService _auditService;
     private readonly ILogger<CampaignManager> _logger;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     public CampaignManager(
         ICampaignDal campaignDal,
         IProductDal productDal,
         IUnitOfWork unitOfWork,
         IAuditService auditService,
-        ILogger<CampaignManager> logger)
+        ILogger<CampaignManager> logger,
+        IPublishEndpoint publishEndpoint)
     {
         _campaignDal = campaignDal;
         _productDal = productDal;
         _unitOfWork = unitOfWork;
         _auditService = auditService;
         _logger = logger;
+        _publishEndpoint = publishEndpoint;
     }
 
     [LogAspect]
@@ -222,11 +227,13 @@ public class CampaignManager : ICampaignService
         var campaigns = await _campaignDal.GetListAsync();
         var now = DateTime.UtcNow;
         var changedCount = 0;
+        var changedCampaignEvents = new List<CampaignStatusChangedEvent>();
 
         foreach (var campaign in campaigns)
         {
+            var previousStatus = campaign.Status;
             var nextStatus = DetermineStatus(campaign.IsEnabled, campaign.StartsAt, campaign.EndsAt, now);
-            if (campaign.Status == nextStatus)
+            if (previousStatus == nextStatus)
             {
                 continue;
             }
@@ -235,11 +242,29 @@ public class CampaignManager : ICampaignService
             campaign.UpdatedAt = now;
             _campaignDal.Update(campaign);
             changedCount++;
+
+            changedCampaignEvents.Add(new CampaignStatusChangedEvent
+            {
+                CampaignId = campaign.Id,
+                CampaignName = campaign.Name,
+                BadgeText = campaign.BadgeText,
+                PreviousStatus = previousStatus,
+                CurrentStatus = nextStatus,
+                StartsAt = campaign.StartsAt,
+                EndsAt = campaign.EndsAt,
+                ProductCount = campaign.CampaignProducts.Count,
+                OccurredAt = now
+            });
         }
 
         if (changedCount > 0)
         {
             await _unitOfWork.SaveChangesAsync();
+
+            foreach (var eventMessage in changedCampaignEvents)
+            {
+                await _publishEndpoint.Publish(eventMessage);
+            }
         }
 
         _logger.LogInformation(
@@ -248,6 +273,40 @@ public class CampaignManager : ICampaignService
             now);
 
         return new SuccessResult($"{changedCount} kampanya statüsü güncellendi.");
+    }
+
+    [LogAspect]
+    public async Task<IResult> TrackInteractionAsync(int campaignId, string interactionType, int? productId = null, int? userId = null, string? sessionId = null)
+    {
+        var normalizedInteraction = interactionType?.Trim().ToLowerInvariant();
+        if (normalizedInteraction is not ("impression" or "click"))
+        {
+            return new ErrorResult("Geçersiz kampanya etkileşim tipi.");
+        }
+
+        var campaign = await _campaignDal.GetByIdWithProductsAsync(campaignId);
+        if (campaign == null)
+        {
+            return new ErrorResult("Kampanya bulunamadı.");
+        }
+
+        _logger.LogInformation(
+            "Campaign analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, CampaignId={CampaignId}, CampaignName={CampaignName}, InteractionType={InteractionType}, ProductId={ProductId}, SessionId={SessionId}, UserId={UserId}, Status={Status}, StartsAt={StartsAt}, EndsAt={EndsAt}, ProductCount={ProductCount}, OccurredAt={OccurredAt}",
+            "Campaign",
+            normalizedInteraction == "click" ? "CampaignClicked" : "CampaignImpression",
+            campaign.Id,
+            campaign.Name,
+            normalizedInteraction,
+            productId,
+            sessionId,
+            userId,
+            campaign.Status,
+            campaign.StartsAt,
+            campaign.EndsAt,
+            campaign.CampaignProducts.Count,
+            DateTime.UtcNow);
+
+        return new SuccessResult();
     }
 
     private async Task<IDataResult<List<CampaignProduct>>> BuildCampaignProductsAsync(IEnumerable<CreateCampaignProductRequest> requests)

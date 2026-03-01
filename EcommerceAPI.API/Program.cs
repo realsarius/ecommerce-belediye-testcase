@@ -274,6 +274,7 @@ builder.Services.AddMassTransit(configurator =>
     configurator.AddConsumer<WishlistPersonalizationConsumer, WishlistPersonalizationConsumerDefinition>();
     configurator.AddConsumer<WishlistPriceAlertNotificationConsumer, WishlistPriceAlertNotificationConsumerDefinition>();
     configurator.AddConsumer<WishlistLowStockNotificationConsumer, WishlistLowStockNotificationConsumerDefinition>();
+    configurator.AddConsumer<CampaignStatusChangedConsumer, CampaignStatusChangedConsumerDefinition>();
     if (!builder.Environment.IsEnvironment("Test"))
     {
         configurator.AddConsumer<RefundRequestedConsumer, RefundRequestedConsumerDefinition>();
