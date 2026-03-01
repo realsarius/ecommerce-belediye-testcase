@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/ca
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
-import { ShoppingBag, Package, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Package, ArrowRight, RotateCcw } from 'lucide-react';
 import type { OrderStatus } from '@/features/orders/types';
 
 const statusColors: Record<OrderStatus, string> = {
@@ -25,6 +25,18 @@ const statusLabels: Record<OrderStatus, string> = {
   Delivered: 'Teslim Edildi',
   Cancelled: 'İptal Edildi',
   Refunded: 'İade Edildi',
+};
+
+const getEligibleReturnAction = (orderStatus: OrderStatus) => {
+  if (orderStatus === 'Delivered') {
+    return 'İade Talebi Oluştur';
+  }
+
+  if (orderStatus === 'PendingPayment' || orderStatus === 'Paid' || orderStatus === 'Processing') {
+    return 'İptal Talebi Oluştur';
+  }
+
+  return null;
 };
 
 export default function Orders() {
@@ -63,7 +75,10 @@ export default function Orders() {
       <h1 className="text-3xl font-bold mb-8">Siparişlerim</h1>
 
       <div className="space-y-4">
-        {orders.map((order) => (
+        {orders.map((order) => {
+          const returnActionLabel = getEligibleReturnAction(order.status);
+
+          return (
           <Card key={order.id}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -109,16 +124,26 @@ export default function Orders() {
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" asChild>
-                  <Link to={`/orders/${order.id}`}>
-                    Detaylar
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-2">
+                  {returnActionLabel && (
+                    <Button variant="outline" asChild>
+                      <Link to={`/returns?orderId=${order.id}`}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        {returnActionLabel}
+                      </Link>
+                    </Button>
+                  )}
+                  <Button variant="ghost" asChild>
+                    <Link to={`/orders/${order.id}`}>
+                      Detaylar
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
-        ))}
+        )})}
       </div>
     </div>
   );

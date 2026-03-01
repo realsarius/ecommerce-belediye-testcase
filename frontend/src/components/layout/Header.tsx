@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import {
@@ -137,6 +137,9 @@ export function Header() {
                 <>
                   <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
                     Siparişlerim
+                  </Link>
+                  <Link to="/returns" className="text-sm font-medium hover:text-primary transition-colors">
+                    İadelerim
                   </Link>
                   <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
                     Sepetim
@@ -301,6 +304,12 @@ export function Header() {
                       Tüm Siparişlerim
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/returns" className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 text-primary" />
+                      İade ve İptal Taleplerim
+                    </Link>
+                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
 
@@ -426,6 +435,9 @@ export function Header() {
                         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Siparişlerim</p>
                         <Link to="/orders" className="text-lg font-medium">
                           Tüm Siparişlerim
+                        </Link>
+                        <Link to="/returns" className="mt-3 text-lg font-medium">
+                          İade ve İptal Taleplerim
                         </Link>
                       </div>
                       <div className="border-t pt-4">
