@@ -132,6 +132,68 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         }
     }
 
+    public async Task<List<ProductDto>> GetPersonalizedRecommendationsAsync(
+        IReadOnlyDictionary<int, double> categoryScores,
+        IReadOnlyList<string> recentSearchQueries,
+        int limit = 8,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedLimit = Math.Clamp(limit, 1, 20);
+        var normalizedCategoryScores = categoryScores
+            .Where(x => x.Key > 0 && x.Value > 0)
+            .OrderByDescending(x => x.Value)
+            .Take(5)
+            .ToDictionary(x => x.Key, x => x.Value);
+        var normalizedQueries = recentSearchQueries
+            .Where(query => !string.IsNullOrWhiteSpace(query))
+            .Select(query => query.Trim())
+            .Where(query => query.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList();
+
+        if (normalizedCategoryScores.Count == 0 && normalizedQueries.Count == 0)
+        {
+            return await FallbackPersonalizedRecommendationsAsync(
+                new Dictionary<int, double>(),
+                Array.Empty<string>(),
+                normalizedLimit);
+        }
+
+        try
+        {
+            await EnsureIndexAsync(cancellationToken);
+
+            var payload = BuildPersonalizedRecommendationPayload(normalizedCategoryScores, normalizedQueries, normalizedLimit);
+            var response = await _httpClient.PostAsJsonAsync($"/{IndexName}/_search", payload, JsonOptions, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Elasticsearch personalized recommendation search failed: {Status}", response.StatusCode);
+                return await FallbackPersonalizedRecommendationsAsync(normalizedCategoryScores, normalizedQueries, normalizedLimit);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var searchResponse = await JsonSerializer.DeserializeAsync<ElasticSearchResponse>(stream, JsonOptions, cancellationToken);
+
+            var items = searchResponse?.Hits?.Hits?
+                .Select(h => h.Source)
+                .Where(s => s is not null)
+                .Select(s => MapToDto(s!))
+                .Take(normalizedLimit)
+                .ToList();
+
+            return items is { Count: > 0 }
+                ? items
+                : await FallbackPersonalizedRecommendationsAsync(normalizedCategoryScores, normalizedQueries, normalizedLimit);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Elasticsearch unavailable, fallback to DB personalized recommendations.");
+            return await FallbackPersonalizedRecommendationsAsync(normalizedCategoryScores, normalizedQueries, normalizedLimit);
+        }
+    }
+
 
     public async Task IndexProductAsync(int productId, CancellationToken cancellationToken = default)
     {
@@ -412,6 +474,76 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         return items.Select(x => x.ToDto()).Take(limit).ToList();
     }
 
+    private async Task<List<ProductDto>> FallbackPersonalizedRecommendationsAsync(
+        IReadOnlyDictionary<int, double> categoryScores,
+        IReadOnlyList<string> recentSearchQueries,
+        int limit)
+    {
+        var topCategoryIds = categoryScores
+            .OrderByDescending(x => x.Value)
+            .Select(x => x.Key)
+            .Take(3)
+            .ToList();
+        var queries = recentSearchQueries.Take(2).ToList();
+        var results = new List<ProductDto>();
+        var seenProductIds = new HashSet<int>();
+
+        async Task AddBatchAsync(int? categoryId, string? search)
+        {
+            if (results.Count >= limit)
+            {
+                return;
+            }
+
+            var (items, _) = await _productDal.GetPagedAsync(
+                page: 1,
+                pageSize: Math.Max(limit, 1) * 2,
+                categoryId: categoryId,
+                search: search,
+                inStock: true,
+                sortBy: "wishlistcount",
+                sortDescending: true);
+
+            foreach (var item in items)
+            {
+                if (!seenProductIds.Add(item.Id))
+                {
+                    continue;
+                }
+
+                results.Add(item.ToDto());
+                if (results.Count >= limit)
+                {
+                    break;
+                }
+            }
+        }
+
+        foreach (var categoryId in topCategoryIds)
+        {
+            foreach (var query in queries.DefaultIfEmpty(null))
+            {
+                await AddBatchAsync(categoryId, query);
+                if (results.Count >= limit)
+                {
+                    return results;
+                }
+            }
+        }
+
+        foreach (var query in queries)
+        {
+            await AddBatchAsync(null, query);
+            if (results.Count >= limit)
+            {
+                return results;
+            }
+        }
+
+        await AddBatchAsync(null, null);
+        return results.Take(limit).ToList();
+    }
+
 
     private async Task<PaginatedResponse<ProductDto>> FallbackSearchAsync(ProductListRequest request)
     {
@@ -686,6 +818,90 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             size = request.PageSize,
             query,
             sort = BuildSearchSort(request, hasSearch)
+        };
+    }
+
+    private static object BuildPersonalizedRecommendationPayload(
+        IReadOnlyDictionary<int, double> categoryScores,
+        IReadOnlyList<string> recentSearchQueries,
+        int limit)
+    {
+        var filter = new List<object>
+        {
+            new { term = new Dictionary<string, object> { ["isActive"] = true } }
+        };
+
+        var shouldClauses = recentSearchQueries
+            .SelectMany(BuildSearchShouldClauses)
+            .ToArray();
+
+        var functions = new List<object>
+        {
+            new
+            {
+                filter = new
+                {
+                    range = new
+                    {
+                        stockQuantity = new { gte = 1 }
+                    }
+                },
+                weight = 1.1
+            }
+        };
+
+        foreach (var categoryScore in categoryScores.OrderByDescending(x => x.Value).Take(5))
+        {
+            functions.Add(new
+            {
+                filter = new
+                {
+                    term = new Dictionary<string, object>
+                    {
+                        ["categoryId"] = categoryScore.Key
+                    }
+                },
+                weight = 1 + Math.Min(categoryScore.Value, 10) * 0.2
+            });
+        }
+
+        return new
+        {
+            from = 0,
+            size = limit,
+            query = new
+            {
+                function_score = new
+                {
+                    query = new
+                    {
+                        @bool = new
+                        {
+                            filter,
+                            should = shouldClauses,
+                            minimum_should_match = 0
+                        }
+                    },
+                    functions = functions.ToArray(),
+                    score_mode = "sum",
+                    boost_mode = "sum"
+                }
+            },
+            sort = new object[]
+            {
+                new Dictionary<string, object>
+                {
+                    ["_score"] = new { order = "desc" }
+                },
+                new Dictionary<string, object>
+                {
+                    ["wishlistCount"] = new { order = "desc" }
+                },
+                new Dictionary<string, object>
+                {
+                    ["createdAt"] = new { order = "desc" }
+                }
+            }
         };
     }
 

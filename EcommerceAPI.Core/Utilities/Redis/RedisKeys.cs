@@ -18,6 +18,8 @@ public static class RedisKeys
     public static string RecommendationRecentlyViewed(string scope) => $"recommendation:recent:{scope}";
     public static string RecommendationAlsoViewed(int productId) => $"recommendation:also-viewed:{productId}";
     public static string RecommendationFrequentlyBought(int productId) => $"recommendation:frequently-bought:{productId}";
+    public static string RecommendationSearchHistory(int userId) => $"recommendation:search-history:user:{userId}";
+    public static string RecommendationWishlistPreferences(int userId) => $"wishlist:preferences:user:{userId}";
 
     public static string CategoriesCache() => "cache:categories";
 

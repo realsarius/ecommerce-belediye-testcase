@@ -8,8 +8,10 @@ namespace EcommerceAPI.Infrastructure.Services;
 public sealed class RedisRecommendationCacheService : IRecommendationCacheService
 {
     private const int RecentViewHistoryLength = 12;
+    private const int SearchHistoryLength = 10;
     private static readonly TimeSpan RecentViewTtl = TimeSpan.FromDays(14);
     private static readonly TimeSpan AlsoViewedTtl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan SearchHistoryTtl = TimeSpan.FromDays(30);
     private readonly IConnectionMultiplexer _redis;
 
     public RedisRecommendationCacheService(IConnectionMultiplexer redis)
@@ -53,6 +55,63 @@ public sealed class RedisRecommendationCacheService : IRecommendationCacheServic
         await db.ListLeftPushAsync(recentKey, productId);
         await db.ListTrimAsync(recentKey, 0, RecentViewHistoryLength - 1);
         await db.KeyExpireAsync(recentKey, RecentViewTtl);
+    }
+
+    public async Task TrackSearchQueryAsync(int userId, string query, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0 || string.IsNullOrWhiteSpace(query))
+        {
+            return;
+        }
+
+        var normalized = query.Trim();
+        if (normalized.Length < 2)
+        {
+            return;
+        }
+
+        var db = _redis.GetDatabase();
+        var key = RedisKeys.RecommendationSearchHistory(userId);
+        await db.ListRemoveAsync(key, normalized, 0);
+        await db.ListLeftPushAsync(key, normalized);
+        await db.ListTrimAsync(key, 0, SearchHistoryLength - 1);
+        await db.KeyExpireAsync(key, SearchHistoryTtl);
+    }
+
+    public async Task<IReadOnlyDictionary<int, double>> GetWishlistCategoryScoresAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0)
+        {
+            return new Dictionary<int, double>();
+        }
+
+        var db = _redis.GetDatabase();
+        var entries = await db.HashGetAllAsync(RedisKeys.RecommendationWishlistPreferences(userId));
+
+        return entries
+            .Select(entry =>
+            {
+                var keyParsed = int.TryParse(entry.Name, out var categoryId);
+                var valueParsed = double.TryParse(entry.Value, out var score);
+                return new { keyParsed, categoryId, valueParsed, score };
+            })
+            .Where(entry => entry.keyParsed && entry.valueParsed && entry.categoryId > 0 && entry.score > 0)
+            .ToDictionary(entry => entry.categoryId, entry => entry.score);
+    }
+
+    public async Task<IReadOnlyList<string>> GetRecentSearchQueriesAsync(int userId, int take = 5, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0)
+        {
+            return [];
+        }
+
+        var db = _redis.GetDatabase();
+        var values = await db.ListRangeAsync(RedisKeys.RecommendationSearchHistory(userId), 0, Math.Max(take, 1) - 1);
+        return values
+            .Select(value => value.ToString())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<int>> GetAlsoViewedProductIdsAsync(int productId, int take, CancellationToken cancellationToken = default)
