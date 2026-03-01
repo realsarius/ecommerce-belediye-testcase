@@ -7,7 +7,7 @@ import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { Separator } from '@/components/common/separator';
-import { ShoppingCart, Package, ArrowLeft, Check, X, Heart } from 'lucide-react';
+import { ShoppingCart, Package, ArrowLeft, Check, X, Heart, GitCompareArrows } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReviewList } from '@/components/reviews/ReviewList';
 import { StarRating } from '@/components/reviews/StarRating';
@@ -22,6 +22,7 @@ import {
 import { getRecommendationSessionId } from '@/features/products/recommendationSession';
 import { ProductRecommendationSection } from '@/components/products/ProductRecommendationSection';
 import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
+import { buildCompareUrl, useProductCompare } from '@/features/compare';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +46,7 @@ export default function ProductDetail() {
   const [addToWishlist] = useAddWishlistItemMutation();
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
+  const { addProduct: addCompareProduct, compareIds, containsProduct, removeProduct: removeCompareProduct } = useProductCompare();
 
   const isProductInServerWishlist = wishlistData?.items?.some((item: { productId: number }) => item.productId === productId) ?? false;
   const isProductInWishlist = isProductInServerWishlist || isPending(productId);
@@ -114,6 +116,26 @@ export default function ProductDetail() {
     } catch {
       toast.error('Ürün sepete eklenemedi');
     }
+  };
+
+  const handleCompareToggle = () => {
+    if (!product) {
+      return;
+    }
+
+    if (containsProduct(product.id)) {
+      removeCompareProduct(product.id);
+      toast.info(`${product.name} karşılaştırma listesinden çıkarıldı.`);
+      return;
+    }
+
+    const result = addCompareProduct(product.id);
+    if (result.limitReached) {
+      toast.error('Karşılaştırma listesi en fazla 4 ürün içerebilir.');
+      return;
+    }
+
+    toast.success(`${product.name} karşılaştırma listesine eklendi.`);
   };
 
   if (isLoading) {
@@ -262,7 +284,23 @@ export default function ProductDetail() {
                 className={`h-5 w-5 ${isProductInWishlist ? 'fill-red-500 text-red-500' : ''}`}
               />
             </Button>
+            <Button
+              size="lg"
+              variant={containsProduct(product.id) ? 'secondary' : 'outline'}
+              className="px-4"
+              onClick={handleCompareToggle}
+            >
+              <GitCompareArrows className="h-5 w-5" />
+            </Button>
           </div>
+
+          {compareIds.length > 0 && (
+            <Button variant="ghost" asChild className="w-fit px-0">
+              <Link to={buildCompareUrl(compareIds)}>
+                Karşılaştırma listesini aç ({compareIds.length})
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

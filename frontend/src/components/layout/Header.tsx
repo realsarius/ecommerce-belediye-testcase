@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell, Gift } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell, Gift, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import {
@@ -26,6 +26,7 @@ import { useSearchSuggestionsQuery } from '@/features/products/productsApi';
 import { useGetWishlistQuery } from '@/features/wishlist/wishlistApi';
 import { useGuestWishlist } from '@/features/wishlist';
 import { useGetUnreadNotificationCountQuery } from '@/features/notifications/notificationsApi';
+import { buildCompareUrl, useProductCompare } from '@/features/compare';
 
 const INITIAL_SUGGESTION_LIMIT = 6;
 const SUGGESTION_STEP = 10;
@@ -39,6 +40,7 @@ export function Header() {
   const { data: wishlist } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
   const { data: notificationSummary } = useGetUnreadNotificationCountQuery(undefined, { skip: !isAuthenticated });
   const { pendingCount } = useGuestWishlist();
+  const { compareIds, compareCount } = useProductCompare();
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
@@ -238,6 +240,20 @@ export function Header() {
                     className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
                   >
                     {wishlistItemCount}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
+
+            <Button variant="ghost" size="icon" className="relative" asChild>
+              <Link to={buildCompareUrl(compareIds)}>
+                <GitCompareArrows className="h-5 w-5" />
+                {compareCount > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center p-0 text-xs"
+                  >
+                    {compareCount}
                   </Badge>
                 )}
               </Link>
@@ -475,6 +491,9 @@ export function Header() {
                       </Link>
                       <Link to="/notifications" className="text-lg font-medium">
                         Bildirimler ({unreadNotificationCount})
+                      </Link>
+                      <Link to={buildCompareUrl(compareIds)} className="text-lg font-medium">
+                        Karşılaştır ({compareCount})
                       </Link>
                       <div className="border-t pt-4">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Siparişlerim</p>

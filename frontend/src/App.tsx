@@ -20,6 +20,7 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
 const Orders = lazy(() => import('@/pages/Orders'));
 const OrderDetail = lazy(() => import('@/pages/OrderDetail'));
 const Returns = lazy(() => import('@/pages/Returns'));
+const Compare = lazy(() => import('@/pages/Compare'));
 const Notifications = lazy(() => import('@/pages/Notifications'));
 const Loyalty = lazy(() => import('@/pages/Loyalty'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
@@ -77,6 +78,7 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/products/:id" element={<ProductDetail />} />
+                    <Route path="/compare" element={<Compare />} />
                     <Route path="/about" element={<About />} />
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                     <Route path="/terms-of-service" element={<TermsOfService />} />

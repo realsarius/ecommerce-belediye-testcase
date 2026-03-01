@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Package, Heart } from 'lucide-react';
+import { ShoppingCart, Package, Heart, GitCompareArrows } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
@@ -9,6 +9,7 @@ import { useAppSelector } from '@/app/hooks';
 import { toast } from 'sonner';
 import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
 import { getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
+import { buildCompareUrl, useProductCompare } from '@/features/compare';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -33,6 +34,7 @@ export const ProductList = ({
   const [addToWishlist] = useAddWishlistItemMutation();
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
+  const { addProduct: addCompareProduct, containsProduct, removeProduct: removeCompareProduct, compareIds } = useProductCompare();
 
   const isProductInServerWishlist = (productId: number) =>
     wishlistData?.items?.some((item: { productId: number }) => item.productId === productId) ?? false;
@@ -75,6 +77,30 @@ export const ProductList = ({
     } catch (error) {
       toast.error(getWishlistErrorMessage(error, 'İşlem başarısız oldu.'));
     }
+  };
+
+  const handleCompareToggle = (e: React.MouseEvent, productId: number, productName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (containsProduct(productId)) {
+      removeCompareProduct(productId);
+      toast.info(`${productName} karşılaştırma listesinden çıkarıldı.`);
+      return;
+    }
+
+    const result = addCompareProduct(productId);
+    if (result.limitReached) {
+      toast.error('Karşılaştırma listesi en fazla 4 ürün içerebilir.');
+      return;
+    }
+
+    if (result.alreadyExists) {
+      toast.info(`${productName} zaten karşılaştırma listesinde.`);
+      return;
+    }
+
+    toast.success(`${productName} karşılaştırma listesine eklendi.`);
   };
 
 
@@ -170,7 +196,7 @@ export const ProductList = ({
                 {product.price.toLocaleString('tr-TR')} {product.currency}
               </p>
             </CardContent>
-            <CardFooter className="p-4 pt-0">
+            <CardFooter className="flex flex-col gap-2 p-4 pt-0">
               <Button
                 className="w-full"
                 disabled={product.stockQuantity === 0 || isAddingToCart}
@@ -178,6 +204,14 @@ export const ProductList = ({
               >
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Sepete Ekle
+              </Button>
+              <Button
+                variant={containsProduct(product.id) ? 'secondary' : 'outline'}
+                className="w-full"
+                onClick={(e) => handleCompareToggle(e, product.id, product.name)}
+              >
+                <GitCompareArrows className="mr-2 h-4 w-4" />
+                {containsProduct(product.id) ? 'Karşılaştırılıyor' : 'Karşılaştırmaya Ekle'}
               </Button>
             </CardFooter>
           </Card>
@@ -203,6 +237,17 @@ export const ProductList = ({
             onClick={() => handlePageChange(page + 1)}
           >
             Sonraki
+          </Button>
+        </div>
+      )}
+
+      {compareIds.length > 0 && (
+        <div className="mt-6 flex justify-center">
+          <Button variant="outline" asChild>
+            <Link to={buildCompareUrl(compareIds)}>
+              <GitCompareArrows className="h-4 w-4" />
+              Karşılaştırma listesini aç ({compareIds.length})
+            </Link>
           </Button>
         </div>
       )}
