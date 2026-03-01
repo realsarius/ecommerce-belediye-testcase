@@ -200,4 +200,44 @@ public class RecommendationManagerTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    [Fact]
+    public async Task WarmFrequentlyBoughtRecommendationsAsync_WhenRelatedProductsExist_ShouldCacheWarmResults()
+    {
+        _productDalMock
+            .Setup(x => x.GetPagedAsync(1, 50, null, null, null, null, true, "wishlistcount", true))
+            .ReturnsAsync((
+                new List<Product>
+                {
+                    new() { Id = 10, Name = "A", Description = "d", Price = 10, SKU = "A", CategoryId = 1, IsActive = true },
+                    new() { Id = 20, Name = "B", Description = "d", Price = 10, SKU = "B", CategoryId = 1, IsActive = true }
+                }.AsEnumerable(),
+                2));
+
+        _orderDalMock
+            .Setup(x => x.GetFrequentlyBoughtTogetherProductIdsAsync(10, 8))
+            .ReturnsAsync([99, 98]);
+
+        _orderDalMock
+            .Setup(x => x.GetFrequentlyBoughtTogetherProductIdsAsync(20, 8))
+            .ReturnsAsync([]);
+
+        var result = await _manager.WarmFrequentlyBoughtRecommendationsAsync();
+
+        result.Success.Should().BeTrue();
+        _recommendationCacheServiceMock.Verify(
+            x => x.CacheFrequentlyBoughtTogetherProductIdsAsync(
+                10,
+                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 99, 98 })),
+                It.IsAny<TimeSpan>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _recommendationCacheServiceMock.Verify(
+            x => x.CacheFrequentlyBoughtTogetherProductIdsAsync(
+                20,
+                It.IsAny<IEnumerable<int>>(),
+                It.IsAny<TimeSpan>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }
