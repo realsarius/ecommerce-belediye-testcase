@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/common/card';
 import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
+import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
 import { useAppSelector } from '@/app/hooks';
 import { toast } from 'sonner';
 import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
@@ -143,13 +144,29 @@ export const ProductList = ({
               <p className="text-sm text-muted-foreground truncate">
                 {product.categoryName}
               </p>
+              {product.hasActiveCampaign && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-200">
+                    {product.campaignBadgeText || 'Kampanya'}
+                  </Badge>
+                  <CampaignCountdown
+                    endsAt={product.campaignEndsAt}
+                    className="text-xs text-amber-700/80 dark:text-amber-200/80"
+                  />
+                </div>
+              )}
               {product.wishlistCount > 0 && (
                 <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                   <Heart className="h-3.5 w-3.5 text-red-500" />
-                  <span>{product.wishlistCount} kisi favoriledi</span>
+                  <span>{product.wishlistCount} kişi favoriledi</span>
                 </div>
               )}
-              <p className="text-lg font-bold mt-2">
+              {product.hasActiveCampaign && (
+                <p className="mt-3 text-xs text-muted-foreground line-through">
+                  {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
+                </p>
+              )}
+              <p className="text-lg font-bold mt-1">
                 {product.price.toLocaleString('tr-TR')} {product.currency}
               </p>
             </CardContent>

@@ -49,6 +49,8 @@ public class AppDbContext : DbContext
     public DbSet<ShippingAddress> ShippingAddresses => Set<ShippingAddress>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<CreditCard> CreditCards => Set<CreditCard>();
     public DbSet<SupportConversation> SupportConversations => Set<SupportConversation>();
@@ -60,6 +62,9 @@ public class AppDbContext : DbContext
     public DbSet<WishlistCollection> WishlistCollections => Set<WishlistCollection>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<PriceAlert> PriceAlerts => Set<PriceAlert>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
+    public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -76,6 +81,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new SellerProfileConfiguration());
         modelBuilder.ApplyConfiguration(new CouponConfiguration());
+        modelBuilder.ApplyConfiguration(new CampaignConfiguration());
+        modelBuilder.ApplyConfiguration(new CampaignProductConfiguration());
         modelBuilder.ApplyConfiguration(new SupportConversationConfiguration());
         modelBuilder.ApplyConfiguration(new SupportMessageConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
@@ -85,6 +92,9 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new WishlistCollectionConfiguration());
         modelBuilder.ApplyConfiguration(new WishlistItemConfiguration());
         modelBuilder.ApplyConfiguration(new PriceAlertConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationConfiguration());
+        modelBuilder.ApplyConfiguration(new ReturnRequestConfiguration());
+        modelBuilder.ApplyConfiguration(new RefundRequestConfiguration());
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();

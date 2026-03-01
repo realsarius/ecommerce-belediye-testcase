@@ -19,6 +19,8 @@ const Cart = lazy(() => import('@/pages/Cart'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
 const Orders = lazy(() => import('@/pages/Orders'));
 const OrderDetail = lazy(() => import('@/pages/OrderDetail'));
+const Returns = lazy(() => import('@/pages/Returns'));
+const Notifications = lazy(() => import('@/pages/Notifications'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Account = lazy(() => import('@/pages/Account'));
 const Addresses = lazy(() => import('@/pages/Addresses'));
@@ -81,6 +83,14 @@ function App() {
                       }
                     />
                     <Route
+                      path="/notifications"
+                      element={
+                        <ProtectedRoute>
+                          <Notifications />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/orders"
                       element={
                         <ProtectedRoute>
@@ -93,6 +103,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <OrderDetail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/returns"
+                      element={
+                        <ProtectedRoute>
+                          <Returns />
                         </ProtectedRoute>
                       }
                     />

@@ -7,6 +7,7 @@ using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Core.Aspects.Autofac.Validation;
 using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Business.Extensions;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -49,7 +50,7 @@ public class CartManager : ICartService
             var product = await _productDal.GetByIdWithDetailsAsync(productId);
             if (product != null && product.IsActive)
             {
-                var price = product.Price;
+                var price = product.GetEffectivePrice();
                 var itemTotal = price * quantity;
                 
                 cartDto.Items.Add(new CartItemDto

@@ -5,6 +5,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  originalPrice: number;
   currency: string;
   sku: string;
   isActive: boolean;
@@ -15,6 +16,12 @@ export interface Product {
   averageRating: number;
   reviewCount: number;
   wishlistCount: number;
+  hasActiveCampaign: boolean;
+  campaignPrice?: number | null;
+  campaignName?: string | null;
+  campaignBadgeText?: string | null;
+  campaignEndsAt?: string | null;
+  isCampaignFeatured: boolean;
 }
 
 export interface ProductReviewDto {

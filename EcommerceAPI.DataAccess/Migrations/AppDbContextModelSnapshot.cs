@@ -22,6 +22,96 @@ namespace EcommerceAPI.DataAccess.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Campaign", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BadgeText")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("IsEnabled", "StartsAt", "EndsAt");
+
+                    b.ToTable("TBL_Campaigns", (string)null);
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.CampaignProduct", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CampaignId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CampaignPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("OriginalPriceSnapshot")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("CampaignId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("TBL_CampaignProducts", (string)null);
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Cart", b =>
                 {
                     b.Property<int>("Id")
@@ -344,6 +434,57 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("TBL_InventoryMovements", (string)null);
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeepLink")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsRead", "CreatedAt");
+
+                    b.HasIndex("UserId", "Type", "CreatedAt");
+
+                    b.ToTable("TBL_Notifications", (string)null);
                 });
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Order", b =>
@@ -768,6 +909,129 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("TBL_RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.RefundRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PaymentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProviderRefundId")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("ReturnRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("ReturnRequestId")
+                        .IsUnique();
+
+                    b.ToTable("TBL_RefundRequests", (string)null);
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.ReturnRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("RequestNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal>("RequestedRefundAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TBL_ReturnRequests", (string)null);
                 });
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Role", b =>
@@ -1339,6 +1603,25 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.ToTable("OutboxState");
                 });
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.CampaignProduct", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.Campaign", "Campaign")
+                        .WithMany("CampaignProducts")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EcommerceAPI.Entities.Concrete.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Cart", b =>
                 {
                     b.HasOne("EcommerceAPI.Entities.Concrete.User", "User")
@@ -1406,6 +1689,17 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Notification", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -1520,6 +1814,58 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.RefundRequest", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EcommerceAPI.Entities.Concrete.Payment", "Payment")
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("EcommerceAPI.Entities.Concrete.ReturnRequest", "ReturnRequest")
+                        .WithOne("RefundRequest")
+                        .HasForeignKey("EcommerceAPI.Entities.Concrete.RefundRequest", "ReturnRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("ReturnRequest");
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.ReturnRequest", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EcommerceAPI.Entities.Concrete.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EcommerceAPI.Entities.Concrete.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("ReviewedByUser");
 
                     b.Navigation("User");
                 });
@@ -1643,6 +1989,11 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Navigation("Wishlist");
                 });
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Campaign", b =>
+                {
+                    b.Navigation("CampaignProducts");
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Cart", b =>
                 {
                     b.Navigation("Items");
@@ -1678,6 +2029,11 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Navigation("Reviews");
 
                     b.Navigation("WishlistItems");
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.ReturnRequest", b =>
+                {
+                    b.Navigation("RefundRequest");
                 });
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Role", b =>

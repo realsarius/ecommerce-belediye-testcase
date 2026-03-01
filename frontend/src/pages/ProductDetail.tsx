@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useGetProductQuery } from '@/features/products/productsApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { useAppSelector } from '@/app/hooks';
@@ -12,6 +13,15 @@ import { ReviewList } from '@/components/reviews/ReviewList';
 import { StarRating } from '@/components/reviews/StarRating';
 import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
 import { getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
+import {
+  useGetAlsoViewedRecommendationsQuery,
+  useGetFrequentlyBoughtRecommendationsQuery,
+  useTrackProductViewMutation,
+  useTrackRecommendationClickMutation,
+} from '@/features/products/productsApi';
+import { getRecommendationSessionId } from '@/features/products/recommendationSession';
+import { ProductRecommendationSection } from '@/components/products/ProductRecommendationSection';
+import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +30,16 @@ export default function ProductDetail() {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const { data: product, isLoading, error } = useGetProductQuery(productId);
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
+  const [trackProductView] = useTrackProductViewMutation();
+  const [trackRecommendationClick] = useTrackRecommendationClickMutation();
+  const { data: alsoViewedRecommendations = [], isLoading: isLoadingAlsoViewed } = useGetAlsoViewedRecommendationsQuery(
+    { productId, take: 4 },
+    { skip: productId <= 0 }
+  );
+  const { data: frequentlyBoughtRecommendations = [], isLoading: isLoadingFrequentlyBought } = useGetFrequentlyBoughtRecommendationsQuery(
+    { productId, take: 4 },
+    { skip: productId <= 0 }
+  );
 
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
   const [addToWishlist] = useAddWishlistItemMutation();
@@ -28,6 +48,25 @@ export default function ProductDetail() {
 
   const isProductInServerWishlist = wishlistData?.items?.some((item: { productId: number }) => item.productId === productId) ?? false;
   const isProductInWishlist = isProductInServerWishlist || isPending(productId);
+
+  useEffect(() => {
+    if (productId <= 0) {
+      return;
+    }
+
+    const sessionId = getRecommendationSessionId();
+    void trackProductView({ productId, sessionId }).unwrap().catch(() => undefined);
+  }, [productId, trackProductView]);
+
+  const handleRecommendationClick = (targetProductId: number, source: 'also-viewed' | 'frequently-bought' | 'for-you') => {
+    const sessionId = getRecommendationSessionId();
+    void trackRecommendationClick({
+      productId,
+      targetProductId,
+      source,
+      sessionId,
+    }).unwrap().catch(() => undefined);
+  };
 
   const handleWishlistToggle = async () => {
     if (!isAuthenticated) {
@@ -131,12 +170,30 @@ export default function ProductDetail() {
             <Badge variant="secondary" className="mb-2">
               {product.categoryName}
             </Badge>
+            {product.hasActiveCampaign && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-200">
+                  {product.campaignBadgeText || product.campaignName || 'Kampanya'}
+                </Badge>
+                <CampaignCountdown
+                  endsAt={product.campaignEndsAt}
+                  className="text-sm font-medium text-amber-700 dark:text-amber-200"
+                />
+              </div>
+            )}
             <h1 className="text-3xl font-bold">{product.name}</h1>
             <p className="text-muted-foreground mt-1">SKU: {product.sku}</p>
           </div>
 
-          <div className="text-4xl font-bold text-primary">
-            {product.price.toLocaleString('tr-TR')} {product.currency}
+          <div className="space-y-2">
+            {product.hasActiveCampaign && (
+              <p className="text-lg text-muted-foreground line-through">
+                {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
+              </p>
+            )}
+            <div className="text-4xl font-bold text-primary">
+              {product.price.toLocaleString('tr-TR')} {product.currency}
+            </div>
           </div>
 
           {product.wishlistCount > 0 && (
@@ -210,6 +267,26 @@ export default function ProductDetail() {
       </div>
 
       {/* Yorumlar Bölümü */}
+      <div className="mt-12 space-y-10">
+        <ProductRecommendationSection
+          title="Bu ürünü görüntüleyenler bunlara da baktı"
+          description="Redis tabanlı davranış sinyallerinden gelen hızlı öneriler."
+          source="also-viewed"
+          products={alsoViewedRecommendations}
+          isLoading={isLoadingAlsoViewed}
+          onProductClick={handleRecommendationClick}
+        />
+
+        <ProductRecommendationSection
+          title="Bunu alanlar şunu da aldı"
+          description="Sipariş birlikteliği ve cache katmanı ile oluşturulan tamamlayıcı öneriler."
+          source="frequently-bought"
+          products={frequentlyBoughtRecommendations}
+          isLoading={isLoadingFrequentlyBought}
+          onProductClick={handleRecommendationClick}
+        />
+      </div>
+
       <ReviewList productId={product.id} />
     </div>
   );

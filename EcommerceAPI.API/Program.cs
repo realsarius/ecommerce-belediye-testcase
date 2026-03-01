@@ -274,6 +274,11 @@ builder.Services.AddMassTransit(configurator =>
     configurator.AddConsumer<WishlistPersonalizationConsumer, WishlistPersonalizationConsumerDefinition>();
     configurator.AddConsumer<WishlistPriceAlertNotificationConsumer, WishlistPriceAlertNotificationConsumerDefinition>();
     configurator.AddConsumer<WishlistLowStockNotificationConsumer, WishlistLowStockNotificationConsumerDefinition>();
+    configurator.AddConsumer<CampaignStatusChangedConsumer, CampaignStatusChangedConsumerDefinition>();
+    if (!builder.Environment.IsEnvironment("Test"))
+    {
+        configurator.AddConsumer<RefundRequestedConsumer, RefundRequestedConsumerDefinition>();
+    }
 
     if (builder.Environment.IsEnvironment("Test"))
     {
@@ -527,6 +532,16 @@ if (hangfireEnabled)
         "wishlist-price-alert-checker",
         service => service.ProcessPriceAlertsAsync(),
         Cron.Hourly());
+
+    recurringJobManager.AddOrUpdate<IRecommendationService>(
+        "recommendation-frequently-bought-warmup",
+        service => service.WarmFrequentlyBoughtRecommendationsAsync(),
+        Cron.Daily());
+
+    recurringJobManager.AddOrUpdate<ICampaignService>(
+        "campaign-lifecycle-sync",
+        service => service.ProcessCampaignLifecycleAsync(),
+        "*/10 * * * *");
 }
 
 app.UseCorrelationId();

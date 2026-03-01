@@ -24,7 +24,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
-import { ArrowLeft, Package, MapPin, CreditCard, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, CreditCard, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { OrderStatus, OrderItem } from '@/features/orders/types';
 import type { Product } from '@/features/products/types';
@@ -63,6 +63,18 @@ const mapOrderItemsToEditable = (items: OrderItem[]): EditableOrderItem[] =>
     quantity: item.quantity,
     priceSnapshot: item.priceSnapshot,
   }));
+
+const getReturnActionLabel = (orderStatus: OrderStatus) => {
+  if (orderStatus === 'Delivered') {
+    return 'İade Talebi Oluştur';
+  }
+
+  if (orderStatus === 'Paid' || orderStatus === 'Processing') {
+    return 'İptal Talebi Oluştur';
+  }
+
+  return null;
+};
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -277,8 +289,9 @@ export default function OrderDetail() {
     );
   }
 
-  const canCancel = ['PendingPayment', 'Paid', 'Processing'].includes(order.status);
+  const canCancel = order.status === 'PendingPayment';
   const canEdit = order.status === 'PendingPayment';
+  const returnActionLabel = getReturnActionLabel(order.status);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -349,6 +362,14 @@ export default function OrderDetail() {
 
           {/* Action Buttons */}
           <div className="flex gap-4">
+            {returnActionLabel && (
+              <Button variant="outline" asChild>
+                <Link to={`/returns?orderId=${order.id}`}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  {returnActionLabel}
+                </Link>
+              </Button>
+            )}
             {canCancel && (
               <Button
                 variant="destructive"

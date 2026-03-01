@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using EcommerceAPI.API.Hubs;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
@@ -16,17 +17,20 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
     private readonly AppDbContext _dbContext;
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly IHubContext<WishlistHub> _hubContext;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<WishlistLowStockNotificationConsumer> _logger;
 
     public WishlistLowStockNotificationConsumer(
         AppDbContext dbContext,
         IEmailNotificationService emailNotificationService,
         IHubContext<WishlistHub> hubContext,
+        INotificationService notificationService,
         ILogger<WishlistLowStockNotificationConsumer> logger)
     {
         _dbContext = dbContext;
         _emailNotificationService = emailNotificationService;
         _hubContext = hubContext;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -118,6 +122,15 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
                             message.OccurredAt
                         },
                         context.CancellationToken);
+
+                await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                {
+                    UserId = userId,
+                    Type = "Wishlist",
+                    Title = $"{productName} stokta azalıyor",
+                    Body = $"Kalan stok: {message.StockQuantity}. Ürünü kaçırmamak için göz atın.",
+                    DeepLink = $"/products/{message.ProductId}"
+                });
             }
 
             _logger.LogInformation(

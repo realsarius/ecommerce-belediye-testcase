@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.API;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.IntegrationTests.Utilities;
 
 namespace EcommerceAPI.IntegrationTests;
@@ -121,15 +122,51 @@ public static class TestDataSeeder
         return user;
     }
 
-    public static async Task<Category> EnsureCategoryAsync(AppDbContext db, int categoryId = 1, string name = "Test Category")
+    public static async Task<SellerProfile> EnsureSellerProfileAsync(AppDbContext db, int userId, string? brandName = null)
+    {
+        var existingProfile = await db.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+
+        if (existingProfile != null)
+        {
+            return existingProfile;
+        }
+
+        var user = await EnsureUserAsync(db, userId, "Seller");
+
+        var sellerProfile = new SellerProfile
+        {
+            UserId = user.Id,
+            BrandName = string.IsNullOrWhiteSpace(brandName) ? $"Seller Brand {userId}" : brandName,
+            BrandDescription = "Seller profile for integration tests",
+            IsVerified = true
+        };
+
+        db.SellerProfiles.Add(sellerProfile);
+        await db.SaveChangesAsync();
+
+        return sellerProfile;
+    }
+
+    public static async Task<Category> EnsureCategoryAsync(AppDbContext db, int categoryId = 1, string? name = null)
     {
         var category = await db.Categories.FindAsync(categoryId);
         if (category != null) return category;
 
+        var categoryName = string.IsNullOrWhiteSpace(name)
+            ? $"Test Category {categoryId}"
+            : name;
+
+        var existingByName = await db.Categories.FirstOrDefaultAsync(c => c.Name == categoryName);
+        if (existingByName != null)
+        {
+            return existingByName;
+        }
+
         category = new Category
         {
             Id = categoryId,
-            Name = name,
+            Name = categoryName,
             Description = "Category for integration tests",
             IsActive = true
         };
@@ -144,7 +181,8 @@ public static class TestDataSeeder
         AppDbContext db, 
         int productId = 1, 
         int categoryId = 1,
-        int stockQuantity = 100)
+        int stockQuantity = 100,
+        int? sellerId = null)
     {
         await EnsureCategoryAsync(db, categoryId);
         
@@ -162,6 +200,7 @@ public static class TestDataSeeder
             Price = 99.99m,
             SKU = $"TEST-{productId:D4}",
             CategoryId = categoryId,
+            SellerId = sellerId,
             IsActive = true
         };
         
@@ -179,5 +218,64 @@ public static class TestDataSeeder
         await db.SaveChangesAsync();
         
         return product;
+    }
+
+    public static async Task<Order> EnsureOrderWithPaymentAsync(
+        AppDbContext db,
+        int orderId,
+        int userId,
+        int productId,
+        int categoryId,
+        string orderNumber,
+        string paymentIdempotencyKey,
+        int? sellerId = null,
+        OrderStatus orderStatus = OrderStatus.Paid,
+        PaymentStatus paymentStatus = PaymentStatus.Success)
+    {
+        await EnsureUserAsync(db, userId);
+        var product = await EnsureProductWithStockAsync(db, productId, categoryId, 25, sellerId);
+
+        var existingOrder = await db.Orders
+            .Include(o => o.Payment)
+            .Include(o => o.OrderItems)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (existingOrder != null)
+        {
+            return existingOrder;
+        }
+
+        var order = new Order
+        {
+            Id = orderId,
+            UserId = userId,
+            OrderNumber = orderNumber,
+            Status = orderStatus,
+            TotalAmount = product.Price,
+            ShippingAddress = "Integration Test Address 123",
+            Notes = "Integration seeded order"
+        };
+
+        order.OrderItems.Add(new OrderItem
+        {
+            ProductId = product.Id,
+            Quantity = 1,
+            PriceSnapshot = product.Price
+        });
+
+        order.Payment = new Payment
+        {
+            Amount = product.Price,
+            Currency = "TRY",
+            Status = paymentStatus,
+            PaymentMethod = "CreditCard",
+            PaymentProviderId = paymentStatus == PaymentStatus.Success ? $"PAY-{orderNumber}" : null,
+            IdempotencyKey = paymentIdempotencyKey
+        };
+
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        return order;
     }
 }

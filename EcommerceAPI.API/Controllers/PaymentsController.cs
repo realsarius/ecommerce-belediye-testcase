@@ -33,6 +33,8 @@ public class PaymentsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request)
     {
+        ApplyIdempotencyKeyHeader(request);
+
         var userId = GetUserId();
         var result = await _paymentService.ProcessPaymentAsync(userId, request);
         
@@ -43,5 +45,23 @@ public class PaymentsController : ControllerBase
         }
         return BadRequest(result);
     }
-}
 
+    private void ApplyIdempotencyKeyHeader(ProcessPaymentRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            return;
+        }
+
+        if (!Request.Headers.TryGetValue("Idempotency-Key", out var headerValues))
+        {
+            return;
+        }
+
+        var headerKey = headerValues.ToString().Trim();
+        if (!string.IsNullOrEmpty(headerKey))
+        {
+            request.IdempotencyKey = headerKey;
+        }
+    }
+}

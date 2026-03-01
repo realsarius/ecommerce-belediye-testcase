@@ -25,6 +25,8 @@ public static class DependencyInjection
         services.AddScoped<IPaymentDal, EfPaymentDal>();
         services.AddScoped<IShippingAddressDal, EfShippingAddressDal>();
         services.AddScoped<ICouponDal, EfCouponDal>();
+        services.AddScoped<ICampaignDal, EfCampaignDal>();
+        services.AddScoped<ICampaignProductDal, EfCampaignProductDal>();
         services.AddScoped<ISellerProfileDal, EfSellerProfileDal>();
         services.AddScoped<ICreditCardDal, EfCreditCardDal>();
         services.AddScoped<ISupportConversationDal, EfSupportConversationDal>();
@@ -34,6 +36,9 @@ public static class DependencyInjection
         services.AddScoped<IWishlistCollectionDal, EfWishlistCollectionDal>();
         services.AddScoped<IWishlistItemDal, EfWishlistItemDal>();
         services.AddScoped<IPriceAlertDal, EfPriceAlertDal>();
+        services.AddScoped<INotificationDal, EfNotificationDal>();
+        services.AddScoped<IReturnRequestDal, EfReturnRequestDal>();
+        services.AddScoped<IRefundRequestDal, EfRefundRequestDal>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

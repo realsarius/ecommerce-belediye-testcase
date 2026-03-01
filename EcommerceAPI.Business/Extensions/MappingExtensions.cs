@@ -45,12 +45,14 @@ public static class MappingExtensions
 
     public static ProductDto ToDto(this Product p)
     {
+        var activeCampaign = p.GetActiveCampaignProduct();
+
         return new ProductDto
         {
             Id = p.Id,
             Name = p.Name,
             Description = p.Description,
-            Price = p.Price,
+            Price = activeCampaign?.CampaignPrice ?? p.Price,
             Currency = p.Currency,
             SKU = p.SKU,
             IsActive = p.IsActive,
@@ -59,7 +61,14 @@ public static class MappingExtensions
             StockQuantity = p.Inventory?.QuantityAvailable ?? 0,
             SellerId = p.SellerId,
             SellerBrandName = p.Seller?.BrandName,
-            WishlistCount = p.WishlistCount
+            WishlistCount = p.WishlistCount,
+            HasActiveCampaign = activeCampaign != null,
+            OriginalPrice = p.Price,
+            CampaignPrice = activeCampaign?.CampaignPrice,
+            CampaignName = activeCampaign?.Campaign?.Name,
+            CampaignBadgeText = activeCampaign?.Campaign?.BadgeText,
+            CampaignEndsAt = activeCampaign?.Campaign?.EndsAt,
+            IsCampaignFeatured = activeCampaign?.IsFeatured ?? false
         };
     }
 }

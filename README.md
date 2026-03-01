@@ -132,6 +132,8 @@ Tüm endpoint'ler RESTful prensiplerine uygun ve versiyonlama stratejisi benimse
 
 - **Base URL:** `/api/v1/{resource}` (Örn: `/api/v1/products`, `/api/v1/orders`)
 - **HTTP Metotları:** GET, POST, PUT, DELETE, PATCH standartlara uygun.
+- **Versiyonlama Kuralı:** Yeni public API sürümleri path tabanlı ilerler (`/api/v2/...`). `v1` içinde breaking change yapılmaz; geriye dönük uyumluluğu bozan değişiklikler yeni sürüm altında açılır.
+- **Audit Sonucu:** Mevcut controller route'ları tarandı ve aktif HTTP yüzeyinde `/api/v1` standardından kaçan endpoint tespit edilmedi.
 
 ### 4.2 Response ve Hata Modeli
 

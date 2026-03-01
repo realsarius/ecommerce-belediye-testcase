@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -75,6 +77,50 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task ProcessPayment_WithExistingSuccessfulIdempotencyKey_ShouldReturnExistingPayment()
+    {
+        var userId = Random.Shared.Next(850_001, 860_000);
+        var categoryId = Random.Shared.Next(860_001, 870_000);
+        var productId = Random.Shared.Next(870_001, 880_000);
+        var orderId = Random.Shared.Next(880_001, 890_000);
+        var orderNumber = $"ORD-INTEGRATION-{orderId}";
+        var idempotencyKey = $"integration-payment-idempotency-{orderId}";
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                userId,
+                productId,
+                categoryId,
+                orderNumber,
+                idempotencyKey);
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+        client.DefaultRequestHeaders.Remove("Idempotency-Key");
+        client.DefaultRequestHeaders.Add("Idempotency-Key", idempotencyKey);
+
+        var response = await client.PostAsJsonAsync("/api/v1/payments", new ProcessPaymentRequest
+        {
+            OrderId = orderId,
+            CardNumber = SuccessCard.Number,
+            CardHolderName = "Test User",
+            ExpiryDate = "12/26",
+            CVV = "123"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<PaymentDto>>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.Data.Status.Should().Be("Success");
+    }
+
     [Theory]
     [MemberData(nameof(GetIyzicoErrorCardsTestData))]
     public async Task ProcessPayment_IyzicoErrorCard_ReturnsExpectedError(
@@ -84,7 +130,7 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);
         
         await authenticatedClient.PostAsJsonAsync("/api/v1/cart/items", new AddToCartRequest { ProductId = 1, Quantity = 1 });
-        var checkoutResponse = await authenticatedClient.PostAsJsonAsync("/api/v1/orders/checkout", new CheckoutRequest
+        var checkoutResponse = await authenticatedClient.PostAsJsonAsync("/api/v1/orders", new CheckoutRequest
         {
             ShippingAddress = "Test Address 123, Istanbul",
             PaymentMethod = "CreditCard"

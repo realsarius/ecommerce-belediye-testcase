@@ -6,6 +6,7 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Core.Utilities.Redis;
 using Iyzipay;
 using Iyzipay.Model;
 using Iyzipay.Request;
@@ -23,6 +24,7 @@ public class IyzicoPaymentService : IPaymentService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IyzicoSettings _settings;
     private readonly ICreditCardService _creditCardService;
+    private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
 
     public IyzicoPaymentService(
@@ -30,12 +32,14 @@ public class IyzicoPaymentService : IPaymentService
         IUnitOfWork unitOfWork,
         IOptions<IyzicoSettings> settings,
         ICreditCardService creditCardService,
+        IDistributedLockService lockService,
         Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
     {
         _orderDal = orderDal;
         _unitOfWork = unitOfWork;
         _settings = settings.Value;
         _creditCardService = creditCardService;
+        _lockService = lockService;
         _logger = logger;
     }
 
@@ -43,67 +47,81 @@ public class IyzicoPaymentService : IPaymentService
     {
         _logger.LogInformation("RAW PAYMENT REQUEST: User={UserId}, OrderId={OrderId}, SavedCardId={SavedCardId}, CardNoLen={CardLen}", 
             userId, request.OrderId, request.SavedCardId, request.CardNumber?.Length ?? 0);
+        var lockKey = RedisKeys.PaymentLock(request.OrderId);
+        var lockToken = await _lockService.TryAcquireLockAsync(lockKey);
 
-        var order = await _orderDal.GetByIdWithDetailsAsync(request.OrderId);
-
-        if (order == null || order.UserId != userId)
+        if (lockToken == null)
+        {
             return new ErrorDataResult<PaymentDto>(
-                Constants.InfrastructureConstants.Payment.OrderNotFoundCode, 
-                $"Sipariş bulunamadı: {request.OrderId}");
+                Constants.InfrastructureConstants.Redis.SystemBusyMessage,
+                Constants.InfrastructureConstants.Redis.SystemBusyCode);
+        }
 
-        if (order.Payment == null)
+        try
+        {
+            var order = await _orderDal.GetByIdWithDetailsAsync(request.OrderId);
+
+            if (order == null || order.UserId != userId)
+                return new ErrorDataResult<PaymentDto>(
+                    Constants.InfrastructureConstants.Payment.OrderNotFoundCode, 
+                    $"Sipariş bulunamadı: {request.OrderId}");
+
+            if (order.Payment == null)
+                return new ErrorDataResult<PaymentDto>(
+                    Constants.InfrastructureConstants.Payment.PaymentRecordNotFoundCode,
+                    "Bu siparişe ait ödeme kaydı bulunamadı.");
+
+            var idempotencyKey = string.IsNullOrWhiteSpace(request.IdempotencyKey)
+                ? $"{order.OrderNumber}-{userId}-{DateTime.UtcNow:yyyyMMddHHmmss}"
+                : request.IdempotencyKey.Trim();
+
+            request.IdempotencyKey = idempotencyKey;
+
+            if (order.Payment.IdempotencyKey == idempotencyKey &&
+                order.Payment.Status == PaymentStatus.Success)
+            {
+                return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
+            }
+
+            if (order.Payment.Status == PaymentStatus.Success)
+                return new ErrorDataResult<PaymentDto>(
+                    Constants.InfrastructureConstants.Payment.AlreadyPaidCode,
+                    "Bu sipariş için ödeme zaten alınmış.");
+
+            var iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
+
+            if (iyzicoPayment.Status == "success")
+            {
+                order.Payment.Status = PaymentStatus.Success;
+                order.Payment.PaymentProviderId = iyzicoPayment.PaymentId;
+                order.Status = OrderStatus.Paid;
+            }
+            else
+            {
+                order.Payment.Status = PaymentStatus.Failed;
+                order.Payment.ErrorMessage = iyzicoPayment.ErrorMessage ?? "Ödeme işlemi başarısız oldu.";
+            }
+
+            order.Payment.IdempotencyKey = idempotencyKey;
+
+            _orderDal.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+
+            if (order.Payment.Status == PaymentStatus.Success)
+            {
+                return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
+            }
+            
             return new ErrorDataResult<PaymentDto>(
-                Constants.InfrastructureConstants.Payment.PaymentRecordNotFoundCode,
-                "Bu siparişe ait ödeme kaydı bulunamadı.");
-
-        // Generate idempotency key if not provided
-        var idempotencyKey = string.IsNullOrEmpty(request.IdempotencyKey) 
-            ? $"{order.OrderNumber}-{userId}-{DateTime.UtcNow:yyyyMMddHHmmss}" 
-            : request.IdempotencyKey;
-
-        // Idempotency kontrolü
-        if (order.Payment.IdempotencyKey == idempotencyKey &&
-            order.Payment.Status == PaymentStatus.Success)
-        {
-            return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
+                MapToDto(order.Payment), 
+                order.Payment.ErrorMessage ?? Constants.InfrastructureConstants.Payment.DefaultErrorMessage,
+                order.Payment.Status == PaymentStatus.Failed ? Constants.InfrastructureConstants.Payment.DefaultErrorCode : null,
+                iyzicoPayment.ErrorMessage);
         }
-
-        if (order.Payment.Status == PaymentStatus.Success)
-            return new ErrorDataResult<PaymentDto>(
-                Constants.InfrastructureConstants.Payment.AlreadyPaidCode,
-                "Bu sipariş için ödeme zaten alınmış.");
-
-        // Iyzico API isteği
-        var iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
-
-        // Sonucu işle
-        if (iyzicoPayment.Status == "success")
+        finally
         {
-            order.Payment.Status = PaymentStatus.Success;
-            order.Payment.PaymentProviderId = iyzicoPayment.PaymentId;
-            order.Status = OrderStatus.Paid;
+            await _lockService.ReleaseLockAsync(lockKey, lockToken);
         }
-        else
-        {
-            order.Payment.Status = PaymentStatus.Failed;
-            order.Payment.ErrorMessage = iyzicoPayment.ErrorMessage ?? "Ödeme işlemi başarısız oldu.";
-        }
-
-        order.Payment.IdempotencyKey = idempotencyKey;
-
-        _orderDal.Update(order);
-        await _unitOfWork.SaveChangesAsync();
-
-        if (order.Payment.Status == PaymentStatus.Success)
-        {
-            return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
-        }
-        
-        return new ErrorDataResult<PaymentDto>(
-            MapToDto(order.Payment), 
-            order.Payment.ErrorMessage ?? Constants.InfrastructureConstants.Payment.DefaultErrorMessage,
-            order.Payment.Status == PaymentStatus.Failed ? Constants.InfrastructureConstants.Payment.DefaultErrorCode : null,
-            iyzicoPayment.ErrorMessage);
     }
 
     private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request)

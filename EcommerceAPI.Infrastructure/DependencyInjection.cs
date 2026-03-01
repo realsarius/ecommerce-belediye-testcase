@@ -99,7 +99,10 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IPaymentService, IyzicoPaymentService>();
+        services.AddScoped<IRefundService, IyzicoRefundService>();
+        services.AddScoped<IIyzicoRefundGateway, IyzicoRefundGateway>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
+        services.AddScoped<IRecommendationCacheService, RedisRecommendationCacheService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
         services.AddScoped<IAuditService, ElasticAuditService>();
 

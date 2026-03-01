@@ -1,11 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Core.Utilities.Redis;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
@@ -237,6 +239,32 @@ public class SearchControllerTests : IClassFixture<CustomWebApplicationFactory>
             requestUri: $"/api/v1/search/products?q={Uri.EscapeDataString(unique)}&page=1&pageSize=10&sortBy=wishlistCount&sortDescending=true");
 
         result.Items.Select(item => item.Id).Should().ContainInOrder(firstProductId, secondProductId);
+    }
+
+    [Fact]
+    public async Task SearchProducts_WhenAuthenticated_ShouldTrackSearchQueryForPersonalization()
+    {
+        var userId = Random.Shared.Next(2_100_001, 2_200_000);
+        var query = $"lego-{Guid.NewGuid():N}"[..10];
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
+            await TestDataSeeder.EnsureUserAsync(db, userId);
+            await redis.GetDatabase().KeyDeleteAsync(RedisKeys.RecommendationSearchHistory(userId));
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+        var response = await client.GetAsync($"/api/v1/search/products?q={Uri.EscapeDataString(query)}&page=1&pageSize=5");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
+            var values = await redis.GetDatabase().ListRangeAsync(RedisKeys.RecommendationSearchHistory(userId), 0, 0);
+            values.Select(x => x.ToString()).Should().Contain(query);
+        }
     }
 
     private async Task<PaginatedResponse<ProductDto>> WaitForSearchAsync(

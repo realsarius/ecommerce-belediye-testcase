@@ -11,6 +11,8 @@ using Microsoft.Extensions.Logging;
 using EcommerceAPI.Infrastructure.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -20,6 +22,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<IOptions<IyzicoSettings>> _optionsMock;
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
+    private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
     private readonly IyzicoPaymentService _paymentService;
 
@@ -29,6 +32,7 @@ public class IyzicoPaymentServiceTests
         _uowMock = new Mock<IUnitOfWork>();
         _optionsMock = new Mock<IOptions<IyzicoSettings>>();
         _creditCardServiceMock = new Mock<ICreditCardService>();
+        _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
         
         _optionsMock.Setup(o => o.Value).Returns(new IyzicoSettings 
@@ -38,11 +42,17 @@ public class IyzicoPaymentServiceTests
             BaseUrl = "https://sandbox-api.iyzipay.com" 
         });
 
+        _lockServiceMock.Setup(x => x.TryAcquireLockAsync(It.IsAny<string>(), It.IsAny<int>()))
+            .ReturnsAsync("lock-token");
+        _lockServiceMock.Setup(x => x.ReleaseLockAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
             _uowMock.Object,
             _optionsMock.Object,
             _creditCardServiceMock.Object,
+            _lockServiceMock.Object,
             _loggerMock.Object
         );
     }
@@ -92,5 +102,67 @@ public class IyzicoPaymentServiceTests
         _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
-}
 
+    [Fact]
+    public async Task ProcessPaymentAsync_WhenPaymentLockCannotBeAcquired_ShouldReturnSystemBusy()
+    {
+        _lockServiceMock.Setup(x => x.TryAcquireLockAsync(It.IsAny<string>(), It.IsAny<int>()))
+            .ReturnsAsync((string?)null);
+
+        var result = await _paymentService.ProcessPaymentAsync(1, new ProcessPaymentRequest
+        {
+            OrderId = 99,
+            IdempotencyKey = "payment-key"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(EcommerceAPI.Infrastructure.Constants.InfrastructureConstants.Redis.SystemBusyCode);
+        _orderDalMock.Verify(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenOrderAlreadyPaid_ShouldReturnSuccessWithoutMutation()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "PAYMENT",
+            PaymentId = "PAY-123",
+            PaymentConversationId = "ORD-PAID",
+            Status = "SUCCESS"
+        };
+
+        var existingOrder = new Order
+        {
+            Id = 77,
+            OrderNumber = "ORD-PAID",
+            Status = OrderStatus.Paid,
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Success,
+                IdempotencyKey = "paid-key",
+                Amount = 100,
+                Currency = "TRY"
+            }
+        };
+
+        _orderDalMock.Setup(x => x.GetByOrderNumberAsync("ORD-PAID"))
+            .ReturnsAsync(existingOrder);
+
+        var signature = ComputeSignature(request, "test");
+
+        var result = await _paymentService.ProcessWebhookAsync(request, signature);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Already paid");
+        _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
+    }
+
+    private static string ComputeSignature(IyzicoWebhookRequest request, string secretKey)
+    {
+        var payload = $"{secretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+}

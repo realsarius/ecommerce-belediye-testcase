@@ -31,6 +31,39 @@ export const productsApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: Product }) => response.data,
       providesTags: (_result, _error, id) => [{ type: 'Product', id }],
     }),
+    getAlsoViewedRecommendations: builder.query<Product[], { productId: number; take?: number }>({
+      query: ({ productId, take = 4 }) => `/products/${productId}/recommendations/also-viewed?take=${take}`,
+      transformResponse: (response: { data: Product[] }) => response.data,
+      providesTags: (_result, _error, { productId }) => [{ type: 'Product', id: `also-viewed-${productId}` }],
+    }),
+    getFrequentlyBoughtRecommendations: builder.query<Product[], { productId: number; take?: number }>({
+      query: ({ productId, take = 4 }) => `/products/${productId}/recommendations/frequently-bought?take=${take}`,
+      transformResponse: (response: { data: Product[] }) => response.data,
+      providesTags: (_result, _error, { productId }) => [{ type: 'Product', id: `frequently-bought-${productId}` }],
+    }),
+    getPersonalizedRecommendations: builder.query<Product[], { take?: number } | void>({
+      query: (args) => `/products/recommendations/for-you?take=${args?.take ?? 4}`,
+      transformResponse: (response: { data: Product[] }) => response.data,
+      providesTags: ['Products'],
+    }),
+    trackProductView: builder.mutation<void, { productId: number; sessionId?: string | null }>({
+      query: ({ productId, sessionId }) => ({
+        url: `/products/${productId}/views`,
+        method: 'POST',
+        headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
+      }),
+    }),
+    trackRecommendationClick: builder.mutation<void, { productId: number; targetProductId: number; source: 'also-viewed' | 'frequently-bought' | 'for-you'; sessionId?: string | null }>({
+      query: ({ productId, targetProductId, source, sessionId }) => ({
+        url: `/products/${productId}/recommendations/click`,
+        method: 'POST',
+        headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
+        body: {
+          targetProductId,
+          source,
+        },
+      }),
+    }),
     createProduct: builder.mutation<Product, CreateProductRequest>({
       query: (data) => ({
         url: '/admin/products',
@@ -147,6 +180,11 @@ export const productsApi = baseApi.injectEndpoints({
 export const {
   useGetProductsQuery,
   useGetProductQuery,
+  useGetAlsoViewedRecommendationsQuery,
+  useGetFrequentlyBoughtRecommendationsQuery,
+  useGetPersonalizedRecommendationsQuery,
+  useTrackProductViewMutation,
+  useTrackRecommendationClickMutation,
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
