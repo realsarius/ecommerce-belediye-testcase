@@ -22,5 +22,10 @@ public class CheckoutRequestValidator : AbstractValidator<CheckoutRequest>
 
         RuleFor(x => x.IdempotencyKey)
             .MaximumLength(100);
+
+        RuleFor(x => x.LoyaltyPointsToUse)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.LoyaltyPointsToUse.HasValue)
+            .WithMessage("Sadakat puanı negatif olamaz.");
     }
 }

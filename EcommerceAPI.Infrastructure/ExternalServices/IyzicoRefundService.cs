@@ -14,6 +14,7 @@ public class IyzicoRefundService : IRefundService
     private readonly IRefundRequestDal _refundRequestDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IIyzicoRefundGateway _refundGateway;
+    private readonly ILoyaltyService _loyaltyService;
     private readonly IAuditService _auditService;
     private readonly ILogger<IyzicoRefundService> _logger;
 
@@ -21,12 +22,14 @@ public class IyzicoRefundService : IRefundService
         IRefundRequestDal refundRequestDal,
         IUnitOfWork unitOfWork,
         IIyzicoRefundGateway refundGateway,
+        ILoyaltyService loyaltyService,
         IAuditService auditService,
         ILogger<IyzicoRefundService> logger)
     {
         _refundRequestDal = refundRequestDal;
         _unitOfWork = unitOfWork;
         _refundGateway = refundGateway;
+        _loyaltyService = loyaltyService;
         _auditService = auditService;
         _logger = logger;
     }
@@ -98,6 +101,32 @@ public class IyzicoRefundService : IRefundService
             refundRequest.Payment.ErrorMessage = null;
             refundRequest.Order.Status = OrderStatus.Refunded;
             refundRequest.ReturnRequest.Status = ReturnRequestStatus.Refunded;
+
+            if (refundRequest.Order.LoyaltyPointsUsed > 0)
+            {
+                var restoreResult = await _loyaltyService.RestoreRedeemedPointsAsync(
+                    refundRequest.ReturnRequest.UserId,
+                    refundRequest.OrderId,
+                    $"Refund sonrası kullanılan puan iadesi ({refundRequest.Order.OrderNumber})");
+
+                if (!restoreResult.Success)
+                {
+                    return new ErrorDataResult<RefundRequestDto>(restoreResult.Message);
+                }
+            }
+
+            if (refundRequest.Order.LoyaltyPointsEarned > 0)
+            {
+                var reverseResult = await _loyaltyService.ReverseEarnedPointsAsync(
+                    refundRequest.ReturnRequest.UserId,
+                    refundRequest.OrderId,
+                    $"Refund sonrası kazanılan puan geri alındı ({refundRequest.Order.OrderNumber})");
+
+                if (!reverseResult.Success)
+                {
+                    return new ErrorDataResult<RefundRequestDto>(reverseResult.Message);
+                }
+            }
 
             _refundRequestDal.Update(refundRequest);
             await _unitOfWork.SaveChangesAsync();

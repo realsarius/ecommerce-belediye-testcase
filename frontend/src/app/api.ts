@@ -135,6 +135,7 @@ export const baseApi = createApi({
     'WishlistShare',
     'Returns',
     'Notifications',
+    'Loyalty',
   ],
   endpoints: () => ({}),
 });

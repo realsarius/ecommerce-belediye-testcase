@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell, Gift } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import {
@@ -143,6 +143,9 @@ export function Header() {
                   </Link>
                   <Link to="/returns" className="text-sm font-medium hover:text-primary transition-colors">
                     İadelerim
+                  </Link>
+                  <Link to="/loyalty" className="text-sm font-medium hover:text-primary transition-colors">
+                    Puanlarım
                   </Link>
                   <Link to="/notifications" className="text-sm font-medium hover:text-primary transition-colors">
                     Bildirimler
@@ -363,6 +366,12 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/loyalty" className="flex items-center gap-2">
+                      <Gift className="h-4 w-4 text-amber-600" />
+                      Puanlarım ve Ödüllerim
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/help" className="flex items-center gap-2">
                       <HelpCircle className="h-4 w-4 text-primary" />
                       Yardım
@@ -484,6 +493,9 @@ export function Header() {
                           </Link>
                           <Link to="/account/addresses" className="text-lg font-medium">
                             Adres Bilgilerim
+                          </Link>
+                          <Link to="/loyalty" className="text-lg font-medium">
+                            Puanlarım ve Ödüllerim
                           </Link>
                           <Link to="/help" className="text-lg font-medium">
                             Yardım

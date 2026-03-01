@@ -24,6 +24,7 @@ public class IyzicoPaymentService : IPaymentService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IyzicoSettings _settings;
     private readonly ICreditCardService _creditCardService;
+    private readonly ILoyaltyService _loyaltyService;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
 
@@ -32,6 +33,7 @@ public class IyzicoPaymentService : IPaymentService
         IUnitOfWork unitOfWork,
         IOptions<IyzicoSettings> settings,
         ICreditCardService creditCardService,
+        ILoyaltyService loyaltyService,
         IDistributedLockService lockService,
         Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
     {
@@ -39,6 +41,7 @@ public class IyzicoPaymentService : IPaymentService
         _unitOfWork = unitOfWork;
         _settings = settings.Value;
         _creditCardService = creditCardService;
+        _loyaltyService = loyaltyService;
         _lockService = lockService;
         _logger = logger;
     }
@@ -95,6 +98,12 @@ public class IyzicoPaymentService : IPaymentService
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.PaymentProviderId = iyzicoPayment.PaymentId;
                 order.Status = OrderStatus.Paid;
+
+                var loyaltyResult = await _loyaltyService.AwardPointsForOrderAsync(userId, order.Id, order.TotalAmount);
+                if (!loyaltyResult.Success)
+                {
+                    return new ErrorDataResult<PaymentDto>(loyaltyResult.Message);
+                }
             }
             else
             {
@@ -355,6 +364,13 @@ public class IyzicoPaymentService : IPaymentService
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.PaymentProviderId = request.IyziPaymentId ?? request.PaymentId;
                 order.Status = OrderStatus.Paid;
+
+                var loyaltyResult = await _loyaltyService.AwardPointsForOrderAsync(order.UserId, order.Id, order.TotalAmount);
+                if (!loyaltyResult.Success)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return new ErrorResult(loyaltyResult.Message);
+                }
             }
             else
             {
@@ -409,6 +425,13 @@ public class IyzicoPaymentService : IPaymentService
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.PaymentProviderId = checkoutForm.PaymentId;
                 order.Status = OrderStatus.Paid;
+
+                var loyaltyResult = await _loyaltyService.AwardPointsForOrderAsync(order.UserId, order.Id, order.TotalAmount);
+                if (!loyaltyResult.Success)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return new ErrorResult(loyaltyResult.Message);
+                }
             }
             else
             {

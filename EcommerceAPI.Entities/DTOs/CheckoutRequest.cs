@@ -9,4 +9,5 @@ public class CheckoutRequest : IDto
     public string PaymentMethod { get; set; } = string.Empty;
     public string? CouponCode { get; set; }
     public string? IdempotencyKey { get; set; }
+    public int? LoyaltyPointsToUse { get; set; }
 }

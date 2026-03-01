@@ -22,6 +22,14 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
         builder.Property(o => o.TotalAmount)
             .IsRequired()
             .HasPrecision(18, 2);
+
+        builder.Property(o => o.SubtotalAmount)
+            .IsRequired()
+            .HasPrecision(18, 2);
+
+        builder.Property(o => o.LoyaltyDiscountAmount)
+            .IsRequired()
+            .HasPrecision(18, 2);
         
         builder.Property(o => o.Currency)
             .IsRequired()
@@ -44,5 +52,10 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
             .WithOne(p => p.Order)
             .HasForeignKey<Payment>(p => p.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(o => o.LoyaltyTransactions)
+            .WithOne(t => t.Order)
+            .HasForeignKey(t => t.OrderId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

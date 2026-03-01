@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Infrastructure.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
+using EcommerceAPI.Core.Utilities.Results;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Text;
@@ -22,6 +23,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<IOptions<IyzicoSettings>> _optionsMock;
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
+    private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
     private readonly IyzicoPaymentService _paymentService;
@@ -32,6 +34,7 @@ public class IyzicoPaymentServiceTests
         _uowMock = new Mock<IUnitOfWork>();
         _optionsMock = new Mock<IOptions<IyzicoSettings>>();
         _creditCardServiceMock = new Mock<ICreditCardService>();
+        _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
         
@@ -46,12 +49,16 @@ public class IyzicoPaymentServiceTests
             .ReturnsAsync("lock-token");
         _lockServiceMock.Setup(x => x.ReleaseLockAsync(It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
+        _loyaltyServiceMock
+            .Setup(x => x.AwardPointsForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessResult());
 
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
             _uowMock.Object,
             _optionsMock.Object,
             _creditCardServiceMock.Object,
+            _loyaltyServiceMock.Object,
             _lockServiceMock.Object,
             _loggerMock.Object
         );

@@ -251,6 +251,7 @@ public static class TestDataSeeder
             UserId = userId,
             OrderNumber = orderNumber,
             Status = orderStatus,
+            SubtotalAmount = product.Price,
             TotalAmount = product.Price,
             ShippingAddress = "Integration Test Address 123",
             Notes = "Integration seeded order"
