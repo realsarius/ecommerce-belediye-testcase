@@ -29,6 +29,7 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request)
     {
+        ApplyIdempotencyKeyHeader(request);
 
         var userId = GetUserId();
         var result = await _orderService.CheckoutAsync(userId, request);
@@ -38,6 +39,25 @@ public class OrdersController : ControllerBase
             return CreatedAtAction(nameof(GetOrder), new { id = result.Data.Id }, result);
         }
         return BadRequest(result);
+    }
+
+    private void ApplyIdempotencyKeyHeader(CheckoutRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            return;
+        }
+
+        if (!Request.Headers.TryGetValue("Idempotency-Key", out var headerValues))
+        {
+            return;
+        }
+
+        var headerKey = headerValues.ToString().Trim();
+        if (!string.IsNullOrEmpty(headerKey))
+        {
+            request.IdempotencyKey = headerKey;
+        }
     }
 
     [HttpGet]
@@ -90,5 +110,4 @@ public class OrdersController : ControllerBase
         return BadRequest(result);
     }
 }
-
 

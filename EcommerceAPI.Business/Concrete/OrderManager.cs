@@ -14,6 +14,7 @@ using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -59,14 +60,15 @@ public class OrderManager : IOrderService
     [ValidationAspect(typeof(CheckoutRequestValidator))]
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
+        var idempotencyKey = NormalizeIdempotencyKey(request.IdempotencyKey);
+        request.IdempotencyKey = idempotencyKey;
 
-        if (!string.IsNullOrEmpty(request.IdempotencyKey))
+        if (!string.IsNullOrEmpty(idempotencyKey))
         {
-            var existingOrder = await _orderDal.GetAsync(o => o.Payment != null && o.Payment.IdempotencyKey == request.IdempotencyKey);
-            if (existingOrder != null)
+            var existingResult = await TryGetExistingIdempotentOrderAsync(idempotencyKey);
+            if (existingResult != null)
             {
-                var existingOrderDetails = await _orderDal.GetByIdWithDetailsAsync(existingOrder.Id);
-                return new SuccessDataResult<OrderDto>(existingOrderDetails!.ToDto(), "Order already created (Idempotent)");
+                return existingResult;
             }
         }
 
@@ -126,6 +128,23 @@ public class OrderManager : IOrderService
 
             await _unitOfWork.CommitTransactionAsync();
         }
+        catch (DbUpdateException ex) when (!string.IsNullOrEmpty(idempotencyKey))
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+
+            var existingResult = await TryGetExistingIdempotentOrderAsync(idempotencyKey);
+            if (existingResult != null)
+            {
+                _logger.LogInformation(
+                    "Checkout replay detected after persistence conflict. UserId={UserId}, IdempotencyKey={IdempotencyKey}",
+                    userId,
+                    idempotencyKey);
+
+                return existingResult;
+            }
+
+            return new ErrorDataResult<OrderDto>($"Sipariş oluşturulamadı: {ex.Message}");
+        }
         catch (Exception ex)
         {
             await _unitOfWork.RollbackTransactionAsync();
@@ -142,6 +161,33 @@ public class OrderManager : IOrderService
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, TotalAmount = order.TotalAmount });
         
         return new SuccessDataResult<OrderDto>(createdOrder!.ToDto(), Messages.OrderCreated);
+    }
+
+    private async Task<IDataResult<OrderDto>?> TryGetExistingIdempotentOrderAsync(string idempotencyKey)
+    {
+        var existingOrder = await _orderDal.GetAsync(o => o.Payment != null && o.Payment.IdempotencyKey == idempotencyKey);
+        if (existingOrder == null)
+        {
+            return null;
+        }
+
+        var existingOrderDetails = await _orderDal.GetByIdWithDetailsAsync(existingOrder.Id);
+        if (existingOrderDetails == null)
+        {
+            return null;
+        }
+
+        return new SuccessDataResult<OrderDto>(existingOrderDetails.ToDto(), "Order already created (Idempotent)");
+    }
+
+    private static string? NormalizeIdempotencyKey(string? idempotencyKey)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return null;
+        }
+
+        return idempotencyKey.Trim();
     }
 
     [LogAspect]

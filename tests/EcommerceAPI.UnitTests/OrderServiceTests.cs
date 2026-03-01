@@ -13,6 +13,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using Microsoft.Extensions.Logging;
 using MassTransit;
 using EcommerceAPI.Entities.IntegrationEvents;
+using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -162,5 +163,106 @@ public class OrderManagerTests
         _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
 
         _inventoryServiceMock.Verify(x => x.ReleaseStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WithExistingIdempotencyKey_ShouldReturnExistingOrder()
+    {
+        var userId = 100;
+        const string idempotencyKey = "checkout-key-1";
+
+        var existingOrder = new Order
+        {
+            Id = 45,
+            UserId = userId,
+            OrderNumber = "ORD-EXISTING",
+            ShippingAddress = "Test Address 123",
+            TotalAmount = 249.90m,
+            Payment = new Payment
+            {
+                Id = 9,
+                Amount = 249.90m,
+                PaymentMethod = "CreditCard",
+                IdempotencyKey = idempotencyKey
+            }
+        };
+
+        _orderDalMock.Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Order, bool>>>()))
+            .ReturnsAsync(existingOrder);
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(existingOrder.Id))
+            .ReturnsAsync(existingOrder);
+
+        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address 123",
+            PaymentMethod = "CreditCard",
+            IdempotencyKey = idempotencyKey
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Id.Should().Be(existingOrder.Id);
+        _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenPersistenceConflictHitsSameIdempotencyKey_ShouldReturnExistingOrder()
+    {
+        var userId = 100;
+        const string idempotencyKey = "checkout-key-race";
+
+        var cartDto = new CartDto
+        {
+            Id = 1,
+            TotalAmount = 125m,
+            Items = new List<CartItemDto>
+            {
+                new() { ProductId = 1, ProductName = "P1", Quantity = 2, UnitPrice = 50, AvailableStock = 10 },
+                new() { ProductId = 2, ProductName = "P2", Quantity = 1, UnitPrice = 25, AvailableStock = 10 }
+            }
+        };
+
+        var existingOrder = new Order
+        {
+            Id = 46,
+            UserId = userId,
+            OrderNumber = "ORD-RACE",
+            ShippingAddress = "Test Address 123",
+            TotalAmount = 154.90m,
+            Payment = new Payment
+            {
+                Id = 10,
+                Amount = 154.90m,
+                PaymentMethod = "CreditCard",
+                IdempotencyKey = idempotencyKey
+            }
+        };
+
+        _orderDalMock.SetupSequence(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Order, bool>>>()))
+            .ReturnsAsync((Order?)null)
+            .ReturnsAsync(existingOrder);
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(existingOrder.Id))
+            .ReturnsAsync(existingOrder);
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId))
+            .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true, DiscountAmount = 0 }));
+
+        _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
+            .ThrowsAsync(new DbUpdateException("duplicate key", new Exception("duplicate key")));
+
+        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address 123",
+            PaymentMethod = "CreditCard",
+            IdempotencyKey = idempotencyKey
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Id.Should().Be(existingOrder.Id);
+        _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
     }
 }
