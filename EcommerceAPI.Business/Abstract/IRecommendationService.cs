@@ -11,4 +11,5 @@ public interface IRecommendationService
     Task<IDataResult<List<ProductDto>>> GetAlsoViewedProductsAsync(int productId, int take = 4, CancellationToken cancellationToken = default);
     Task<IDataResult<List<ProductDto>>> GetFrequentlyBoughtTogetherProductsAsync(int productId, int take = 4, CancellationToken cancellationToken = default);
     Task<IDataResult<List<ProductDto>>> GetPersonalizedProductsAsync(int userId, int take = 4, CancellationToken cancellationToken = default);
+    Task<IResult> WarmFrequentlyBoughtRecommendationsAsync();
 }

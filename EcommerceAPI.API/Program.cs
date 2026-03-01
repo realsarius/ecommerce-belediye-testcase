@@ -531,6 +531,11 @@ if (hangfireEnabled)
         "wishlist-price-alert-checker",
         service => service.ProcessPriceAlertsAsync(),
         Cron.Hourly());
+
+    recurringJobManager.AddOrUpdate<IRecommendationService>(
+        "recommendation-frequently-bought-warmup",
+        service => service.WarmFrequentlyBoughtRecommendationsAsync(),
+        Cron.Daily());
 }
 
 app.UseCorrelationId();

@@ -12,6 +12,8 @@ namespace EcommerceAPI.Business.Concrete;
 public class RecommendationManager : IRecommendationService
 {
     private static readonly TimeSpan FrequentlyBoughtCacheTtl = TimeSpan.FromHours(6);
+    private const int WarmupProductCount = 50;
+    private const int WarmupRecommendationCount = 8;
     private readonly IRecommendationCacheService _recommendationCacheService;
     private readonly IProductDal _productDal;
     private readonly IOrderDal _orderDal;
@@ -203,6 +205,47 @@ public class RecommendationManager : IRecommendationService
             DateTime.UtcNow);
 
         return new SuccessDataResult<List<ProductDto>>(products);
+    }
+
+    public async Task<IResult> WarmFrequentlyBoughtRecommendationsAsync()
+    {
+        var (products, _) = await _productDal.GetPagedAsync(
+            page: 1,
+            pageSize: WarmupProductCount,
+            inStock: true,
+            sortBy: "wishlistcount",
+            sortDescending: true);
+
+        var warmedProductCount = 0;
+
+        foreach (var product in products.Where(product => product.IsActive))
+        {
+            var relatedProductIds = await _orderDal.GetFrequentlyBoughtTogetherProductIdsAsync(
+                product.Id,
+                WarmupRecommendationCount);
+
+            if (relatedProductIds.Count == 0)
+            {
+                continue;
+            }
+
+            await _recommendationCacheService.CacheFrequentlyBoughtTogetherProductIdsAsync(
+                product.Id,
+                relatedProductIds,
+                FrequentlyBoughtCacheTtl);
+
+            warmedProductCount++;
+        }
+
+        _logger.LogInformation(
+            "Recommendation warmup completed. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, WarmedProductCount={WarmedProductCount}, CandidateCount={CandidateCount}, OccurredAt={OccurredAt}",
+            "Recommendation",
+            "FrequentlyBoughtWarmupCompleted",
+            warmedProductCount,
+            products.Count(),
+            DateTime.UtcNow);
+
+        return new SuccessResult($"{warmedProductCount} ürün için recommendation cache yenilendi.");
     }
 
     private async Task<List<Product>> LoadProductsByIdsPreservingOrderAsync(IEnumerable<int> ids, int currentProductId, int take)
