@@ -97,4 +97,49 @@ public class CampaignsControllerTests : IClassFixture<CustomWebApplicationFactor
         result.Should().NotBeNull();
         result!.Data.Should().Contain(x => x.Name == "Aktif Kampanya");
     }
+
+    [Fact]
+    public async Task TrackCampaignInteraction_WhenCampaignExists_ReturnsOk()
+    {
+        var adminId = Random.Shared.Next(976_001, 977_000);
+        var categoryId = Random.Shared.Next(977_001, 978_000);
+        var productId = Random.Shared.Next(978_001, 979_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, adminId, "Admin");
+            await TestDataSeeder.EnsureProductWithStockAsync(db, productId, categoryId, 15);
+        }
+
+        var adminClient = _factory.CreateClient().AsAdmin(adminId);
+        var createResponse = await adminClient.PostAsJsonAsync("/api/v1/admin/campaigns", new CreateCampaignRequest
+        {
+            Name = "Tracking Kampanyası",
+            StartsAt = DateTime.UtcNow.AddMinutes(-5),
+            EndsAt = DateTime.UtcNow.AddHours(1),
+            Products =
+            [
+                new CreateCampaignProductRequest
+                {
+                    ProductId = productId,
+                    CampaignPrice = 89.99m,
+                    IsFeatured = true
+                }
+            ]
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResult<CampaignDto>>();
+        created.Should().NotBeNull();
+
+        var response = await _factory.CreateClient().PostAsJsonAsync(
+            $"/api/v1/campaigns/{created!.Data.Id}/interactions",
+            new TrackCampaignInteractionRequest
+            {
+                InteractionType = "click",
+                ProductId = productId
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 }

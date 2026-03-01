@@ -6,6 +6,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using FluentAssertions;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -17,6 +18,7 @@ public class CampaignManagerTests
     private readonly Mock<IProductDal> _productDalMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IAuditService> _auditServiceMock;
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly CampaignManager _manager;
 
     public CampaignManagerTests()
@@ -25,13 +27,15 @@ public class CampaignManagerTests
         _productDalMock = new Mock<IProductDal>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _auditServiceMock = new Mock<IAuditService>();
+        _publishEndpointMock = new Mock<IPublishEndpoint>();
 
         _manager = new CampaignManager(
             _campaignDalMock.Object,
             _productDalMock.Object,
             _unitOfWorkMock.Object,
             _auditServiceMock.Object,
-            Mock.Of<ILogger<CampaignManager>>());
+            Mock.Of<ILogger<CampaignManager>>(),
+            _publishEndpointMock.Object);
     }
 
     [Fact]
@@ -117,6 +121,9 @@ public class CampaignManagerTests
         campaigns[0].Status.Should().Be(CampaignStatus.Active);
         campaigns[1].Status.Should().Be(CampaignStatus.Ended);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
+        _publishEndpointMock.Verify(
+            x => x.Publish(It.IsAny<EcommerceAPI.Entities.IntegrationEvents.CampaignStatusChangedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
     }
 
     [Fact]
@@ -145,5 +152,25 @@ public class CampaignManagerTests
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("çakışan");
         _campaignDalMock.Verify(x => x.AddAsync(It.IsAny<Campaign>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TrackInteractionAsync_WithValidImpression_ShouldReturnSuccess()
+    {
+        _campaignDalMock
+            .Setup(x => x.GetByIdWithProductsAsync(12))
+            .ReturnsAsync(new Campaign
+            {
+                Id = 12,
+                Name = "Test Kampanya",
+                Status = CampaignStatus.Active,
+                IsEnabled = true,
+                StartsAt = DateTime.UtcNow.AddHours(-1),
+                EndsAt = DateTime.UtcNow.AddHours(2)
+            });
+
+        var result = await _manager.TrackInteractionAsync(12, "impression", null, 42, "session-1");
+
+        result.Success.Should().BeTrue();
     }
 }
