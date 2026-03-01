@@ -89,4 +89,35 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .AsNoTracking()
             .ToListAsync();
     }
+
+    public async Task<IReadOnlyList<int>> GetFrequentlyBoughtTogetherProductIdsAsync(int productId, int take = 8)
+    {
+        var orderIds = await _context.OrderItems
+            .Where(item => item.ProductId == productId)
+            .Select(item => item.OrderId)
+            .Distinct()
+            .ToListAsync();
+
+        if (orderIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await _context.OrderItems
+            .Where(item => orderIds.Contains(item.OrderId) && item.ProductId != productId)
+            .Join(
+                _context.Orders.Where(order =>
+                    order.Payment != null &&
+                    order.Payment.Status == PaymentStatus.Success &&
+                    order.Status != OrderStatus.Cancelled),
+                item => item.OrderId,
+                order => order.Id,
+                (item, _) => item.ProductId)
+            .GroupBy(relatedProductId => relatedProductId)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .Select(group => group.Key)
+            .Take(take)
+            .ToListAsync();
+    }
 }

@@ -12,4 +12,5 @@ public interface IOrderDal : IEntityRepository<Order>
     Task<IList<Order>> GetUserOrdersWithDetailsAsync(int userId);
     Task<IList<Order>> GetAllOrdersWithDetailsAsync();
     Task<IList<Order>> GetOrdersBySellerIdAsync(int sellerId);
+    Task<IReadOnlyList<int>> GetFrequentlyBoughtTogetherProductIdsAsync(int productId, int take = 8);
 }
