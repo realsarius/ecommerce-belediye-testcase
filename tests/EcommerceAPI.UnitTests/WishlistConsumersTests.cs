@@ -1,5 +1,6 @@
 using EcommerceAPI.API.Consumers;
 using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.IntegrationEvents;
@@ -225,9 +226,18 @@ public class WishlistConsumersTests
 
         var hubContext = new Mock<IHubContext<EcommerceAPI.API.Hubs.WishlistHub>>();
         hubContext.SetupGet(x => x.Clients).Returns(hubClients.Object);
+        var emailService = new Mock<IEmailNotificationService>();
+        emailService
+            .Setup(x => x.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var consumer = new WishlistLowStockNotificationConsumer(
             dbContext,
+            emailService.Object,
             hubContext.Object,
             Mock.Of<ILogger<WishlistLowStockNotificationConsumer>>());
 
