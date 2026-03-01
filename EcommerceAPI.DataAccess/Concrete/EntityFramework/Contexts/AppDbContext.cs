@@ -49,6 +49,8 @@ public class AppDbContext : DbContext
     public DbSet<ShippingAddress> ShippingAddresses => Set<ShippingAddress>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<CreditCard> CreditCards => Set<CreditCard>();
     public DbSet<SupportConversation> SupportConversations => Set<SupportConversation>();
@@ -79,6 +81,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new SellerProfileConfiguration());
         modelBuilder.ApplyConfiguration(new CouponConfiguration());
+        modelBuilder.ApplyConfiguration(new CampaignConfiguration());
+        modelBuilder.ApplyConfiguration(new CampaignProductConfiguration());
         modelBuilder.ApplyConfiguration(new SupportConversationConfiguration());
         modelBuilder.ApplyConfiguration(new SupportMessageConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());

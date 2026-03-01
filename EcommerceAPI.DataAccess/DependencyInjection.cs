@@ -25,6 +25,8 @@ public static class DependencyInjection
         services.AddScoped<IPaymentDal, EfPaymentDal>();
         services.AddScoped<IShippingAddressDal, EfShippingAddressDal>();
         services.AddScoped<ICouponDal, EfCouponDal>();
+        services.AddScoped<ICampaignDal, EfCampaignDal>();
+        services.AddScoped<ICampaignProductDal, EfCampaignProductDal>();
         services.AddScoped<ISellerProfileDal, EfSellerProfileDal>();
         services.AddScoped<ICreditCardDal, EfCreditCardDal>();
         services.AddScoped<ISupportConversationDal, EfSupportConversationDal>();
