@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.Core.Utilities.Redis;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
@@ -8,6 +9,7 @@ using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
@@ -66,7 +68,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
             if (!await db.Orders.AnyAsync(o => o.Id == orderId))
             {
-                var order = new Order
+                var order = new EcommerceAPI.Entities.Concrete.Order
                 {
                     Id = orderId,
                     UserId = userId,
@@ -127,5 +129,58 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var result = await response.Content.ReadFromJsonAsync<ApiResult<List<ProductDto>>>();
         result.Should().NotBeNull();
         result!.Data.Should().Contain(item => item.Id == relatedProductId);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_WhenUserHasSignals_ReturnsPersonalizedProducts()
+    {
+        var userId = Random.Shared.Next(961_001, 962_000);
+        var primaryCategoryId = Random.Shared.Next(962_001, 963_000);
+        var secondaryCategoryId = Random.Shared.Next(963_001, 964_000);
+        var preferredProductId = Random.Shared.Next(964_001, 965_000);
+        var secondaryProductId = Random.Shared.Next(965_001, 966_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
+            var searchIndexService = scope.ServiceProvider.GetRequiredService<EcommerceAPI.Business.Abstract.IProductSearchIndexService>();
+            var cacheDb = redis.GetDatabase();
+
+            await TestDataSeeder.EnsureUserAsync(db, userId);
+            var preferredCategory = await TestDataSeeder.EnsureCategoryAsync(db, primaryCategoryId, $"Personal Category {userId}");
+            await TestDataSeeder.EnsureCategoryAsync(db, secondaryCategoryId, $"Search Category {userId}");
+
+            var preferredProduct = await TestDataSeeder.EnsureProductWithStockAsync(db, preferredProductId, preferredCategory.Id, 12);
+            preferredProduct.Name = $"Lego Set {userId}";
+            preferredProduct.Description = "Oyuncak yapı seti";
+            preferredProduct.WishlistCount = 18;
+            preferredProduct.IsActive = true;
+
+            var secondaryProduct = await TestDataSeeder.EnsureProductWithStockAsync(db, secondaryProductId, secondaryCategoryId, 11);
+            secondaryProduct.Name = $"Puzzle {userId}";
+            secondaryProduct.Description = "Zeka oyunu";
+            secondaryProduct.WishlistCount = 9;
+            secondaryProduct.IsActive = true;
+
+            await db.SaveChangesAsync();
+            await searchIndexService.IndexProductAsync(preferredProduct.Id);
+            await searchIndexService.IndexProductAsync(secondaryProduct.Id);
+
+            await cacheDb.KeyDeleteAsync(RedisKeys.RecommendationWishlistPreferences(userId));
+            await cacheDb.KeyDeleteAsync(RedisKeys.RecommendationSearchHistory(userId));
+            await cacheDb.HashIncrementAsync(RedisKeys.RecommendationWishlistPreferences(userId), preferredCategory.Id.ToString(), 4);
+            await cacheDb.ListLeftPushAsync(RedisKeys.RecommendationSearchHistory(userId), "lego");
+        }
+
+        var response = await _client
+            .AsCustomer(userId)
+            .GetAsync("/api/v1/products/recommendations/for-you?take=4");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<List<ProductDto>>>();
+        result.Should().NotBeNull();
+        result!.Data.Should().Contain(item => item.Id == preferredProductId);
     }
 }
