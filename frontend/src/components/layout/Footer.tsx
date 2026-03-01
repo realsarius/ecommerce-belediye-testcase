@@ -1,8 +1,9 @@
+import { openCookieSettings } from '@/features/cookies/cookieConsent';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { CircleHelp, Cookie, Instagram, Linkedin, MessageSquareText, Package, Play, ShieldCheck, Store } from 'lucide-react';
 
-const disabledSoonClass = 'cursor-not-allowed text-gray-500 transition-colors';
+const disabledSoonClass = 'cursor-not-allowed text-muted-foreground/80 transition-colors dark:text-slate-500';
 
 function SoonBadge() {
   return (
@@ -20,7 +21,10 @@ function FooterLink({
   children: ReactNode;
 }) {
   return (
-    <Link to={to} className="text-gray-400 transition-colors hover:text-white">
+    <Link
+      to={to}
+      className="block text-muted-foreground transition-colors hover:text-foreground dark:hover:text-white"
+    >
       {children}
     </Link>
   );
@@ -41,7 +45,7 @@ function ExternalIconLink({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="rounded-full border border-white/10 bg-white/5 p-2 text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+      className="rounded-full border border-border/70 bg-background/70 p-2 text-muted-foreground transition-colors hover:border-border hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20 dark:hover:text-white"
     >
       {children}
     </a>
@@ -50,7 +54,7 @@ function ExternalIconLink({
 
 function PaymentMark({ label }: { label: string }) {
   return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-gray-200">
+    <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-semibold tracking-wide text-foreground/80 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
       {label}
     </span>
   );
@@ -58,20 +62,20 @@ function PaymentMark({ label }: { label: string }) {
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/10 bg-[#1a1a2e] text-white">
+    <footer className="border-t border-border bg-[linear-gradient(180deg,rgba(250,250,252,0.98),rgba(244,244,247,0.96))] text-foreground dark:border-white/10 dark:bg-none dark:bg-[#111318] dark:text-white">
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-                <Package className="h-6 w-6 text-rose-200" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-foreground/5 dark:bg-white/8">
+                <Package className="h-6 w-6 text-rose-300" />
               </div>
               <div>
                 <p className="text-lg font-semibold">E-Ticaret</p>
-                <p className="text-xs uppercase tracking-[0.22em] text-gray-500">Kurumsal</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Kurumsal</p>
               </div>
             </div>
-            <p className="max-w-xs text-sm leading-7 text-gray-400">
+            <p className="max-w-xs text-sm leading-7 text-muted-foreground">
               Güvenli ödeme, hızlı operasyon ve şeffaf destek akışlarıyla modern bir alışveriş deneyimi sunuyoruz.
             </p>
             <div className="space-y-3 text-sm">
@@ -94,7 +98,7 @@ export function Footer() {
 
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <CircleHelp className="h-4 w-4 text-rose-200" />
+              <CircleHelp className="h-4 w-4 text-rose-300" />
               <h2 className="font-semibold">Müşteri Hizmetleri</h2>
             </div>
             <div className="space-y-3 text-sm">
@@ -109,7 +113,7 @@ export function Footer() {
 
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Store className="h-4 w-4 text-rose-200" />
+              <Store className="h-4 w-4 text-rose-300" />
               <h2 className="font-semibold">Satıcı Ol</h2>
             </div>
             <div className="space-y-3 text-sm">
@@ -122,7 +126,7 @@ export function Footer() {
 
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-rose-200" />
+              <ShieldCheck className="h-4 w-4 text-rose-300" />
               <h2 className="font-semibold">Güvenlik &amp; Gizlilik</h2>
             </div>
             <div className="space-y-3 text-sm">
@@ -132,8 +136,8 @@ export function Footer() {
                 <FooterLink to="/cookie-policy">Çerez Politikası</FooterLink>
                 <button
                   type="button"
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 transition-colors hover:border-white/20 hover:text-white"
-                  disabled
+                  onClick={openCookieSettings}
+                  className="inline-flex items-center rounded-full border border-border/70 bg-background/70 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-border hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-white/20 dark:hover:text-white"
                 >
                   <Cookie className="mr-1 h-3 w-3" />
                   Çerez Ayarları
@@ -146,8 +150,8 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-5 border-t border-gray-700 pt-6 lg:flex-row lg:items-center lg:justify-between">
-          <p className="text-sm text-gray-400">© 2026 E-Ticaret. Tüm hakları saklıdır.</p>
+        <div className="mt-10 flex flex-col gap-5 border-t border-border/70 pt-6 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+          <p className="text-sm text-muted-foreground dark:text-slate-400">© 2026 E-Ticaret. Tüm hakları saklıdır.</p>
 
           <div className="flex items-center gap-3">
             <ExternalIconLink href="https://instagram.com" label="Instagram">
