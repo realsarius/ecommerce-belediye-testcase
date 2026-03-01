@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
+import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
 
 interface TopWishlistedProductsProps {
   categoryId?: number;
@@ -109,6 +110,22 @@ export function TopWishlistedProducts({
                     </div>
 
                     <div className="mt-5">
+                      {product.hasActiveCampaign && (
+                        <>
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <Badge className="border border-amber-400/20 bg-amber-500/10 text-amber-100">
+                              {product.campaignBadgeText || 'Kampanya'}
+                            </Badge>
+                            <CampaignCountdown
+                              endsAt={product.campaignEndsAt}
+                              className="text-[11px] text-amber-100/75"
+                            />
+                          </div>
+                          <p className="text-xs text-white/40 line-through">
+                            {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
+                          </p>
+                        </>
+                      )}
                       <p className="text-lg font-bold text-white">
                         {product.price.toLocaleString('tr-TR')} {product.currency}
                       </p>

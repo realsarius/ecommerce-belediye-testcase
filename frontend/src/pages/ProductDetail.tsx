@@ -21,6 +21,7 @@ import {
 } from '@/features/products/productsApi';
 import { getRecommendationSessionId } from '@/features/products/recommendationSession';
 import { ProductRecommendationSection } from '@/components/products/ProductRecommendationSection';
+import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -169,12 +170,30 @@ export default function ProductDetail() {
             <Badge variant="secondary" className="mb-2">
               {product.categoryName}
             </Badge>
+            {product.hasActiveCampaign && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-200">
+                  {product.campaignBadgeText || product.campaignName || 'Kampanya'}
+                </Badge>
+                <CampaignCountdown
+                  endsAt={product.campaignEndsAt}
+                  className="text-sm font-medium text-amber-700 dark:text-amber-200"
+                />
+              </div>
+            )}
             <h1 className="text-3xl font-bold">{product.name}</h1>
             <p className="text-muted-foreground mt-1">SKU: {product.sku}</p>
           </div>
 
-          <div className="text-4xl font-bold text-primary">
-            {product.price.toLocaleString('tr-TR')} {product.currency}
+          <div className="space-y-2">
+            {product.hasActiveCampaign && (
+              <p className="text-lg text-muted-foreground line-through">
+                {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
+              </p>
+            )}
+            <div className="text-4xl font-bold text-primary">
+              {product.price.toLocaleString('tr-TR')} {product.currency}
+            </div>
           </div>
 
           {product.wishlistCount > 0 && (

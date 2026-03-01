@@ -3,6 +3,7 @@ import { Heart, Package, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
+import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
 import type { Product } from '@/features/products/types';
 
 type RecommendationSource = 'also-viewed' | 'frequently-bought' | 'for-you';
@@ -100,6 +101,22 @@ export function ProductRecommendationSection({
                   <p className="line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
                 </div>
                 <div className="space-y-1">
+                  {product.hasActiveCampaign && (
+                    <>
+                      <p className="text-xs text-muted-foreground line-through">
+                        {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-200">
+                          {product.campaignBadgeText || 'Kampanya'}
+                        </Badge>
+                        <CampaignCountdown
+                          endsAt={product.campaignEndsAt}
+                          className="text-[11px] text-amber-700/80 dark:text-amber-200/80"
+                        />
+                      </div>
+                    </>
+                  )}
                   <p className="text-lg font-bold">
                     {product.price.toLocaleString('tr-TR')} {product.currency}
                   </p>
