@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import {
@@ -25,6 +25,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useSearchSuggestionsQuery } from '@/features/products/productsApi';
 import { useGetWishlistQuery } from '@/features/wishlist/wishlistApi';
 import { useGuestWishlist } from '@/features/wishlist';
+import { useGetUnreadNotificationCountQuery } from '@/features/notifications/notificationsApi';
 
 const INITIAL_SUGGESTION_LIMIT = 6;
 const SUGGESTION_STEP = 10;
@@ -36,6 +37,7 @@ export function Header() {
   const navigate = useNavigate();
   const { data: cart } = useGetCartQuery(undefined, { skip: !isAuthenticated });
   const { data: wishlist } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
+  const { data: notificationSummary } = useGetUnreadNotificationCountQuery(undefined, { skip: !isAuthenticated });
   const { pendingCount } = useGuestWishlist();
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
@@ -48,6 +50,7 @@ export function Header() {
 
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const wishlistItemCount = isAuthenticated ? (wishlist?.items?.length || 0) : pendingCount;
+  const unreadNotificationCount = notificationSummary?.unreadCount || 0;
   const currentSearchQuery = new URLSearchParams(location.search).get('q') ?? '';
   const debouncedSearch = useDebounce(searchInput.trim(), 300);
   const shouldFetchSuggestions = debouncedSearch.length >= 2;
@@ -140,6 +143,9 @@ export function Header() {
                   </Link>
                   <Link to="/returns" className="text-sm font-medium hover:text-primary transition-colors">
                     İadelerim
+                  </Link>
+                  <Link to="/notifications" className="text-sm font-medium hover:text-primary transition-colors">
+                    Bildirimler
                   </Link>
                   <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
                     Sepetim
@@ -236,6 +242,22 @@ export function Header() {
 
             {/* Cart */}
             {isAuthenticated && (
+              <Button variant="ghost" size="icon" className="relative" asChild>
+                <Link to="/notifications">
+                  <Bell className="h-5 w-5" />
+                  {unreadNotificationCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center p-0 text-xs"
+                    >
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </Badge>
+                  )}
+                </Link>
+              </Button>
+            )}
+
+            {isAuthenticated && (
               <CartDrawer>
                 <Button variant="ghost" size="icon" className="relative">
                   <ShoppingCart className="h-5 w-5" />
@@ -302,6 +324,17 @@ export function Header() {
                     <Link to="/orders" className="flex items-center gap-2">
                       <Package className="h-4 w-4 text-primary" />
                       Tüm Siparişlerim
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/notifications" className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-primary" />
+                      Bildirim Merkezi
+                      {unreadNotificationCount > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {unreadNotificationCount}
+                        </Badge>
+                      )}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -430,6 +463,9 @@ export function Header() {
                       </Link>
                       <Link to="/cart" className="text-lg font-medium">
                         Sepetim ({cartItemCount})
+                      </Link>
+                      <Link to="/notifications" className="text-lg font-medium">
+                        Bildirimler ({unreadNotificationCount})
                       </Link>
                       <div className="border-t pt-4">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Siparişlerim</p>
