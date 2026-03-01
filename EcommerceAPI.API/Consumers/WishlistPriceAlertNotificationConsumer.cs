@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using EcommerceAPI.API.Hubs;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.IntegrationEvents;
@@ -13,15 +14,18 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
 {
     private const string ConsumerName = nameof(WishlistPriceAlertNotificationConsumer);
     private readonly AppDbContext _dbContext;
+    private readonly IEmailNotificationService _emailNotificationService;
     private readonly IHubContext<WishlistHub> _hubContext;
     private readonly ILogger<WishlistPriceAlertNotificationConsumer> _logger;
 
     public WishlistPriceAlertNotificationConsumer(
         AppDbContext dbContext,
+        IEmailNotificationService emailNotificationService,
         IHubContext<WishlistHub> hubContext,
         ILogger<WishlistPriceAlertNotificationConsumer> logger)
     {
         _dbContext = dbContext;
+        _emailNotificationService = emailNotificationService;
         _hubContext = hubContext;
         _logger = logger;
     }
@@ -56,6 +60,17 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
             })
             .FirstOrDefaultAsync(context.CancellationToken);
 
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.Id == message.UserId)
+            .Select(u => new
+            {
+                u.Email,
+                u.FirstName,
+                u.LastName
+            })
+            .FirstOrDefaultAsync(context.CancellationToken);
+
         await _hubContext.Clients.Group(WishlistHub.UserGroup(message.UserId))
             .SendAsync(
                 "PriceAlertTriggered",
@@ -87,6 +102,34 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
             productInfo?.IsActive,
             messageId,
             message.OccurredAt);
+
+        var emailSent = await _emailNotificationService.SendAsync(
+            user?.Email ?? string.Empty,
+            $"{message.ProductName} için fiyat alarmınız tetiklendi",
+            BuildPriceAlertEmailBody(
+                string.Join(' ', new[] { user?.FirstName, user?.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                message),
+            context.CancellationToken);
+
+        if (emailSent)
+        {
+            _logger.LogInformation(
+                "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+                "Wishlist",
+                "WishlistPriceAlertDelivered",
+                "Email",
+                message.UserId,
+                message.ProductId,
+                message.ProductName,
+                productInfo?.Category,
+                message.OldPrice,
+                message.NewPrice,
+                message.TargetPrice,
+                message.Currency,
+                productInfo?.IsActive,
+                messageId,
+                message.OccurredAt);
+        }
 
         _dbContext.InboxMessages.Add(new InboxMessage
         {
@@ -127,5 +170,21 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
     private static bool IsDuplicateKeyException(DbUpdateException ex)
     {
         return ex.InnerException?.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static string BuildPriceAlertEmailBody(string fullName, WishlistProductPriceDropEvent message)
+    {
+        var greeting = string.IsNullOrWhiteSpace(fullName) ? "Merhaba" : $"Merhaba {fullName}";
+
+        return $"""
+                <p>{greeting},</p>
+                <p><strong>{message.ProductName}</strong> için belirlediğiniz fiyat alarmı tetiklendi.</p>
+                <ul>
+                  <li>Hedef fiyat: {message.TargetPrice:N2} {message.Currency}</li>
+                  <li>Eski fiyat: {message.OldPrice:N2} {message.Currency}</li>
+                  <li>Yeni fiyat: {message.NewPrice:N2} {message.Currency}</li>
+                </ul>
+                <p>Ürünü incelemek için uygulamayı ziyaret edebilirsiniz.</p>
+                """;
     }
 }

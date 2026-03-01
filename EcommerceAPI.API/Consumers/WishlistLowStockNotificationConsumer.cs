@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using EcommerceAPI.API.Hubs;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.IntegrationEvents;
@@ -13,15 +14,18 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
 {
     private const string ConsumerName = nameof(WishlistLowStockNotificationConsumer);
     private readonly AppDbContext _dbContext;
+    private readonly IEmailNotificationService _emailNotificationService;
     private readonly IHubContext<WishlistHub> _hubContext;
     private readonly ILogger<WishlistLowStockNotificationConsumer> _logger;
 
     public WishlistLowStockNotificationConsumer(
         AppDbContext dbContext,
+        IEmailNotificationService emailNotificationService,
         IHubContext<WishlistHub> hubContext,
         ILogger<WishlistLowStockNotificationConsumer> logger)
     {
         _dbContext = dbContext;
+        _emailNotificationService = emailNotificationService;
         _hubContext = hubContext;
         _logger = logger;
     }
@@ -54,6 +58,18 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
                 wishlist => wishlist.Id,
                 (item, wishlist) => wishlist.UserId)
             .Distinct()
+            .ToListAsync(context.CancellationToken);
+
+        var users = await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.FirstName,
+                u.LastName
+            })
             .ToListAsync(context.CancellationToken);
 
         var product = await _dbContext.Products
@@ -119,6 +135,43 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
                 product?.IsActive,
                 messageId,
                 message.OccurredAt);
+
+            var emailedUsers = 0;
+            foreach (var user in users)
+            {
+                var emailSent = await _emailNotificationService.SendAsync(
+                    user.Email,
+                    $"{productName} için stok azalıyor",
+                    BuildLowStockEmailBody(
+                        string.Join(' ', new[] { user.FirstName, user.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                        productName,
+                        message),
+                    context.CancellationToken);
+
+                if (emailSent)
+                {
+                    emailedUsers++;
+                }
+            }
+
+            if (emailedUsers > 0)
+            {
+                _logger.LogInformation(
+                    "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, StockQuantity={StockQuantity}, Threshold={Threshold}, Reason={Reason}, NotifiedUsers={UserCount}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+                    "Wishlist",
+                    "WishlistLowStockDelivered",
+                    "Email",
+                    message.ProductId,
+                    productName,
+                    product?.Category,
+                    message.StockQuantity,
+                    message.Threshold,
+                    message.Reason,
+                    emailedUsers,
+                    product?.IsActive,
+                    messageId,
+                    message.OccurredAt);
+            }
         }
 
         _dbContext.InboxMessages.Add(new InboxMessage
@@ -160,5 +213,23 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
     private static bool IsDuplicateKeyException(DbUpdateException ex)
     {
         return ex.InnerException?.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static string BuildLowStockEmailBody(
+        string fullName,
+        string productName,
+        WishlistProductLowStockEvent message)
+    {
+        var greeting = string.IsNullOrWhiteSpace(fullName) ? "Merhaba" : $"Merhaba {fullName}";
+
+        return $"""
+                <p>{greeting},</p>
+                <p>Favorilerinizde bulunan <strong>{productName}</strong> ürünü için stok azalıyor.</p>
+                <ul>
+                  <li>Kalan stok: {message.StockQuantity}</li>
+                  <li>Bildirim eşiği: {message.Threshold}</li>
+                </ul>
+                <p>Ürünü kaçırmamak için uygulamayı ziyaret edebilirsiniz.</p>
+                """;
     }
 }

@@ -69,6 +69,35 @@ public static class DependencyInjection
                               ?? "https://sandbox-api.iyzipay.com";
         });
 
+        services.Configure<EmailNotificationSettings>(options =>
+        {
+            var config = configuration.GetSection("EmailNotifications");
+            options.Enabled = bool.TryParse(Environment.GetEnvironmentVariable("EMAIL_NOTIFICATIONS_ENABLED"), out var enabled)
+                ? enabled
+                : config.GetValue("Enabled", false);
+            options.Host = Environment.GetEnvironmentVariable("EMAIL_SMTP_HOST")
+                           ?? config["Host"]
+                           ?? string.Empty;
+            options.Port = int.TryParse(Environment.GetEnvironmentVariable("EMAIL_SMTP_PORT"), out var port)
+                ? port
+                : config.GetValue("Port", 587);
+            options.Username = Environment.GetEnvironmentVariable("EMAIL_SMTP_USERNAME")
+                               ?? config["Username"]
+                               ?? string.Empty;
+            options.Password = Environment.GetEnvironmentVariable("EMAIL_SMTP_PASSWORD")
+                               ?? config["Password"]
+                               ?? string.Empty;
+            options.EnableSsl = bool.TryParse(Environment.GetEnvironmentVariable("EMAIL_SMTP_ENABLE_SSL"), out var enableSsl)
+                ? enableSsl
+                : config.GetValue("EnableSsl", true);
+            options.FromAddress = Environment.GetEnvironmentVariable("EMAIL_FROM_ADDRESS")
+                                  ?? config["FromAddress"]
+                                  ?? string.Empty;
+            options.FromName = Environment.GetEnvironmentVariable("EMAIL_FROM_NAME")
+                               ?? config["FromName"]
+                               ?? "E-Ticaret";
+        });
+
         services.AddScoped<IPaymentService, IyzicoPaymentService>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
@@ -77,6 +106,7 @@ public static class DependencyInjection
         services.AddScoped<ICacheService, RedisCacheManager>();
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
+        services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
 
