@@ -114,8 +114,8 @@ builder.Services.AddDataProtection()
     .SetApplicationName("EcommerceAPI");
 
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(redisConnectionString));
+var redisMultiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redisMultiplexer);
 
 var allowedOrigins = ResolveAllowedOrigins(
     builder.Environment.EnvironmentName,
@@ -348,86 +348,7 @@ if (rateLimitingEnabled)
             }, token);
         };
 
-        options.AddRedisFixedWindowLimiter("auth", (opt) =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") 
-                ?? builder.Configuration["Redis:ConnectionString"] 
-                ?? "localhost:6379");
-            opt.PermitLimit = 5;
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
-        options.AddRedisSlidingWindowLimiter("payment", (opt) =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") 
-                ?? builder.Configuration["Redis:ConnectionString"] 
-                ?? "localhost:6379");
-            opt.PermitLimit = 10;
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-        
-        options.AddRedisFixedWindowLimiter("global", (opt) =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") 
-                ?? builder.Configuration["Redis:ConnectionString"] 
-                ?? "localhost:6379");
-            opt.PermitLimit = 100;
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
-        options.AddRedisFixedWindowLimiter("search", opt =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
-                ?? builder.Configuration["Redis:ConnectionString"]
-                ?? "localhost:6379");
-            opt.PermitLimit = 60; // 1 dakikada 60 arama
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
-        options.AddRedisSlidingWindowLimiter("wishlist", opt =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
-                ?? builder.Configuration["Redis:ConnectionString"]
-                ?? "localhost:6379");
-            opt.PermitLimit = 30;
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
-        options.AddRedisFixedWindowLimiter("wishlist-read", opt =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
-                ?? builder.Configuration["Redis:ConnectionString"]
-                ?? "localhost:6379");
-            opt.PermitLimit = 120;
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
-        options.AddRedisFixedWindowLimiter("support-message-http", opt =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
-                ?? builder.Configuration["Redis:ConnectionString"]
-                ?? "localhost:6379");
-            opt.PermitLimit = 20; // 1 dakikada 20 mesaj (HTTP fallback)
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
-        options.AddRedisFixedWindowLimiter("support-hub-connect", opt =>
-        {
-            opt.ConnectionMultiplexerFactory = () => ConnectionMultiplexer.Connect(
-                Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
-                ?? builder.Configuration["Redis:ConnectionString"]
-                ?? "localhost:6379");
-            opt.PermitLimit = 30; // 1 dakikada 30 hub connect
-            opt.Window = TimeSpan.FromMinutes(1);
-        });
-
+        ConfigureRedisRateLimiterPolicies(options, redisMultiplexer);
     });
 }
 
@@ -744,6 +665,48 @@ static bool IsElasticsearchRequest(Uri? uri)
     }
 
     return uri.Port == 9200;
+}
+
+static void ConfigureRedisRateLimiterPolicies(Microsoft.AspNetCore.RateLimiting.RateLimiterOptions options, IConnectionMultiplexer redisMultiplexer)
+{
+    AddRedisFixedWindowLimiter(options, "auth", redisMultiplexer, 5, TimeSpan.FromMinutes(1));
+    AddRedisSlidingWindowLimiter(options, "payment", redisMultiplexer, 10, TimeSpan.FromMinutes(1));
+    AddRedisFixedWindowLimiter(options, "global", redisMultiplexer, 100, TimeSpan.FromMinutes(1));
+    AddRedisFixedWindowLimiter(options, "search", redisMultiplexer, 60, TimeSpan.FromMinutes(1));
+    AddRedisSlidingWindowLimiter(options, "wishlist", redisMultiplexer, 30, TimeSpan.FromMinutes(1));
+    AddRedisFixedWindowLimiter(options, "wishlist-read", redisMultiplexer, 120, TimeSpan.FromMinutes(1));
+    AddRedisFixedWindowLimiter(options, "support-message-http", redisMultiplexer, 20, TimeSpan.FromMinutes(1));
+    AddRedisFixedWindowLimiter(options, "support-hub-connect", redisMultiplexer, 30, TimeSpan.FromMinutes(1));
+}
+
+static void AddRedisFixedWindowLimiter(
+    Microsoft.AspNetCore.RateLimiting.RateLimiterOptions options,
+    string policyName,
+    IConnectionMultiplexer redisMultiplexer,
+    int permitLimit,
+    TimeSpan window)
+{
+    options.AddRedisFixedWindowLimiter(policyName, limiterOptions =>
+    {
+        limiterOptions.ConnectionMultiplexerFactory = () => redisMultiplexer;
+        limiterOptions.PermitLimit = permitLimit;
+        limiterOptions.Window = window;
+    });
+}
+
+static void AddRedisSlidingWindowLimiter(
+    Microsoft.AspNetCore.RateLimiting.RateLimiterOptions options,
+    string policyName,
+    IConnectionMultiplexer redisMultiplexer,
+    int permitLimit,
+    TimeSpan window)
+{
+    options.AddRedisSlidingWindowLimiter(policyName, limiterOptions =>
+    {
+        limiterOptions.ConnectionMultiplexerFactory = () => redisMultiplexer;
+        limiterOptions.PermitLimit = permitLimit;
+        limiterOptions.Window = window;
+    });
 }
 
 app.Run();
