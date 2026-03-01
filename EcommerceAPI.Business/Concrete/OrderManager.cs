@@ -490,7 +490,7 @@ public class OrderManager : IOrderService
             {
                 ProductId = pid,
                 Quantity = newItems[pid].Quantity,
-                PriceSnapshot = product.Price
+                PriceSnapshot = product.GetEffectivePrice()
             });
         }
 

@@ -18,4 +18,11 @@ public class ProductDto : IDto
     public double AverageRating { get; set; }
     public int ReviewCount { get; set; }
     public int WishlistCount { get; set; }
+    public bool HasActiveCampaign { get; set; }
+    public decimal OriginalPrice { get; set; }
+    public decimal? CampaignPrice { get; set; }
+    public string? CampaignName { get; set; }
+    public string? CampaignBadgeText { get; set; }
+    public DateTime? CampaignEndsAt { get; set; }
+    public bool IsCampaignFeatured { get; set; }
 }

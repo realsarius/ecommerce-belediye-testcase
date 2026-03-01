@@ -18,6 +18,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
     {
         var query = _dbSet.Include(p => p.Category)
                           .Include(p => p.Inventory)
+                          .Include(p => p.CampaignProducts)
+                          .ThenInclude(cp => cp.Campaign)
                           .AsNoTracking()
                           .AsQueryable();
 
@@ -74,6 +76,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
     public async Task<List<Product>> GetByIdsWithInventoryAsync(List<int> ids)
     {
         return await _dbSet.Include(p => p.Inventory)
+                           .Include(p => p.CampaignProducts)
+                           .ThenInclude(cp => cp.Campaign)
                            .Include(p => p.Category)
                            .Where(p => ids.Contains(p.Id))
                            .AsNoTracking()
@@ -85,6 +89,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         return await _dbSet
             .Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.CampaignProducts)
+            .ThenInclude(cp => cp.Campaign)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
     }
@@ -96,6 +102,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         var query = _dbSet.Include(p => p.Category)
                           .Include(p => p.Inventory)
                           .Include(p => p.Seller)
+                          .Include(p => p.CampaignProducts)
+                          .ThenInclude(cp => cp.Campaign)
                           .Where(p => p.SellerId == sellerId)
                           .AsNoTracking()
                           .AsQueryable();
@@ -139,6 +147,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .Include(p => p.Category)
             .Include(p => p.Inventory)
             .Include(p => p.Seller)
+            .Include(p => p.CampaignProducts)
+            .ThenInclude(cp => cp.Campaign)
             .Where(p => p.IsActive)
             .AsNoTracking()
             .ToListAsync();
