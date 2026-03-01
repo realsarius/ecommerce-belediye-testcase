@@ -8,5 +8,6 @@ public interface IReturnRequestDal : IEntityRepository<ReturnRequest>
     Task<ReturnRequest?> GetByIdWithDetailsAsync(int id);
     Task<IList<ReturnRequest>> GetUserRequestsAsync(int userId);
     Task<IList<ReturnRequest>> GetPendingRequestsAsync(int? sellerId = null);
+    Task<IList<ReturnRequest>> GetBySellerIdAsync(int sellerId);
     Task<bool> HasActiveRequestForOrderAsync(int orderId);
 }

@@ -30,7 +30,7 @@ describe('Sayfa Render Smoke Testleri', () => {
         it('çökmeden render edilmeli ve başlık görünmeli', () => {
             renderWithProviders(<Help />, { route: '/help' });
 
-            expect(screen.getByText(/yardım merkezi/i)).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: /yardım merkezi/i })).toBeInTheDocument();
         });
     });
 });

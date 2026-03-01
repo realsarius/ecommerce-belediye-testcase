@@ -6,6 +6,8 @@ import type {
   CreateSellerProfileRequest,
   UpdateSellerProfileRequest,
   HasProfileResponse,
+  SellerAnalyticsSummary,
+  SellerAnalyticsTrendPoint,
 } from './types';
 
 export const sellerApi = baseApi.injectEndpoints({
@@ -39,6 +41,21 @@ export const sellerApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: { data: SellerProfile }) => response.data,
       invalidatesTags: ['SellerProfile'],
+    }),
+
+    getSellerAnalyticsSummary: builder.query<SellerAnalyticsSummary, void>({
+      query: () => '/seller/analytics/summary',
+      transformResponse: (response: { data: SellerAnalyticsSummary }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerAnalyticsTrends: builder.query<SellerAnalyticsTrendPoint[], number | void>({
+      query: (days = 30) => ({
+        url: '/seller/analytics/trends',
+        params: { days },
+      }),
+      transformResponse: (response: { data: SellerAnalyticsTrendPoint[] }) => response.data,
+      providesTags: ['SellerAnalytics'],
     }),
 
     // Seller Products endpoints (uses admin/products but filtered for seller)
@@ -86,6 +103,8 @@ export const {
   useCheckSellerProfileQuery,
   useCreateSellerProfileMutation,
   useUpdateSellerProfileMutation,
+  useGetSellerAnalyticsSummaryQuery,
+  useGetSellerAnalyticsTrendsQuery,
   useGetSellerProductsQuery,
   useCreateSellerProductMutation,
   useUpdateSellerProductMutation,

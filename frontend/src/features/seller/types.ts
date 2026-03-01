@@ -26,3 +26,28 @@ export interface UpdateSellerProfileRequest {
 export interface HasProfileResponse {
   hasProfile: boolean;
 }
+
+export interface SellerAnalyticsSummary {
+  totalProducts: number;
+  activeProducts: number;
+  totalViews: number;
+  totalWishlistCount: number;
+  favoriteRate: number;
+  conversionRate: number;
+  averageRating: number;
+  reviewCount: number;
+  returnRate: number;
+  successfulOrderCount: number;
+  returnedRequestCount: number;
+  grossRevenue: number;
+  currency: string;
+}
+
+export interface SellerAnalyticsTrendPoint {
+  date: string;
+  views: number;
+  favorites: number;
+  orders: number;
+  revenue: number;
+  averageRating: number;
+}

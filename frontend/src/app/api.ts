@@ -126,6 +126,7 @@ export const baseApi = createApi({
     'Coupon',
     'SellerProfile',
     'SellerProducts',
+    'SellerAnalytics',
     'SupportConversations',
     'SupportMessages',
     'Wishlists',
