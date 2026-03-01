@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppSelector } from '@/app/hooks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/common/card';
 import { Button } from '@/components/common/button';
@@ -7,7 +8,7 @@ import { Label } from '@/components/common/label';
 import { Separator } from '@/components/common/separator';
 import { Skeleton } from '@/components/common/skeleton';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
-import { User, Mail, Phone, Calendar, Shield, Save, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Shield, Save, Loader2, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Account() {
@@ -210,7 +211,11 @@ export default function Account() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Son Hareketler</h3>
-                    <span className="text-xs text-muted-foreground">En yeni 10 işlem</span>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to="/loyalty">
+                        Tümünü Gör
+                      </Link>
+                    </Button>
                   </div>
 
                   {loyaltySummary?.recentTransactions?.length ? (
@@ -240,6 +245,25 @@ export default function Account() {
                       Henüz sadakat puanı hareketin bulunmuyor.
                     </div>
                   )}
+                </div>
+
+                <div className="rounded-xl border border-dashed border-border/70 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-xl bg-primary/10 p-2">
+                        <Gift className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Ayrı sadakat sayfasını aç</p>
+                        <p className="text-sm text-muted-foreground">
+                          Tüm puan geçmişini, özetini ve ödül mantığını tek ekranda görüntüle.
+                        </p>
+                      </div>
+                    </div>
+                    <Button asChild variant="outline">
+                      <Link to="/loyalty">Puanlarım</Link>
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
