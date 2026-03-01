@@ -76,6 +76,8 @@ export default function Wishlist() {
     const totalCollectionItemCount = totalWishlistItemCount > 0
         ? totalWishlistItemCount
         : totalVisibleCount;
+    const availableItemCount = wishlist?.items.filter((item) => item.isAvailable).length ?? 0;
+    const activePriceAlertCount = priceAlerts.filter((alert) => alert.isActive).length;
     const selectedCollectionName = selectedCollectionId === null
         ? 'Tüm Favoriler'
         : collectionNameById.get(selectedCollectionId) ?? 'Seçili Koleksiyon';
@@ -183,32 +185,32 @@ export default function Wishlist() {
                 </h2>
                 <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
                     {hasPendingWishlist
-                        ? `${pendingCount} urun favorilerinize eklenmek icin bekliyor. Giris yaptiginizda bu urunleri hesabinizla otomatik olarak senkronize edecegiz.`
-                        : 'Favorilerinizi hesabinizla senkronize etmek ve tum cihazlarinizda gormek icin lutfen giris yapin.'}
+                        ? `${pendingCount} ürün favorilerinize eklenmek için bekliyor. Giriş yaptığınızda bu ürünleri hesabınızla otomatik olarak senkronize edeceğiz.`
+                        : 'Favorilerinizi hesabınızla senkronize etmek ve tüm cihazlarınızda görmek için lütfen giriş yapın.'}
                 </p>
                 <div className="max-w-md mx-auto mb-6">
                     <Card>
                         <CardContent className="p-6 space-y-3 text-left">
                             <div className="flex items-center justify-between gap-4">
-                                <span className="text-sm text-muted-foreground">Bekleyen favori sayisi</span>
+                                <span className="text-sm text-muted-foreground">Bekleyen favori sayısı</span>
                                 <Badge variant={hasPendingWishlist ? 'default' : 'secondary'}>
                                     {pendingCount}
                                 </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">
                                 {hasPendingWishlist
-                                    ? 'Giris yaptiginiz anda bu urunler hesabinizdaki favori listenize aktarilacak.'
-                                    : 'Urun sayfalarindaki kalp butonu ile favori urunleri burada biriktirebilirsiniz.'}
+                                    ? 'Giriş yaptığınız anda bu ürünler hesabınızdaki favori listenize aktarılacak.'
+                                    : 'Ürün sayfalarındaki kalp butonu ile favori ürünleri burada biriktirebilirsiniz.'}
                             </p>
                         </CardContent>
                     </Card>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                     <Button asChild>
-                        <Link to="/login">Giris Yap</Link>
+                        <Link to="/login">Giriş Yap</Link>
                     </Button>
                     <Button asChild variant="outline">
-                        <Link to="/">Urunlere Goz At</Link>
+                        <Link to="/">Ürünlere Göz At</Link>
                     </Button>
                     {hasPendingWishlist && (
                         <Button
@@ -677,9 +679,138 @@ export default function Wishlist() {
 
     return (
         <div className="container mx-auto px-4 py-8">
+            <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.14),_transparent_24%),linear-gradient(135deg,_rgba(24,24,27,0.92),_rgba(10,10,12,0.96))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="max-w-2xl">
+                        <Badge variant="secondary" className="mb-3 border border-rose-400/20 bg-rose-500/10 text-rose-100">
+                            Kişisel alan
+                        </Badge>
+                        <h1 className="text-3xl font-bold text-white">Favorilerim</h1>
+                        <p className="mt-2 text-sm text-white/65">
+                            Fiyatını takip etmek, koleksiyonlara ayırmak ve doğru zamanda sepete taşımak istediğiniz ürünleri burada yönetin.
+                        </p>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {selectedCollectionName}
+                            </Badge>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {totalVisibleCount} ürün görüntüleniyor
+                            </Badge>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {availableItemCount} ürün sepete uygun
+                            </Badge>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {activePriceAlertCount} aktif alarm
+                            </Badge>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {shareSettings?.isPublic ? 'Paylaşım açık' : 'Özel liste'}
+                            </Badge>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                        <div className="flex items-center border border-white/10 rounded-md p-1 bg-white/5">
+                            <Button
+                                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setViewMode('grid')}
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setViewMode('list')}
+                            >
+                                <List className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        {shareSettings?.isPublic ? (
+                            <>
+                                <Button variant="outline" onClick={() => void handleCopyShareUrl()}>
+                                    <Copy className="h-4 w-4 mr-2" />
+                                    Linki Kopyala
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => void handleDisableSharing()}
+                                    disabled={isDisablingSharing}
+                                >
+                                    <Link2Off className="h-4 w-4 mr-2" />
+                                    {isDisablingSharing ? 'Kapatılıyor...' : 'Paylaşımı Kapat'}
+                                </Button>
+                            </>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={() => void handleEnableSharing()}
+                                disabled={isEnablingSharing}
+                            >
+                                <Share2 className="h-4 w-4 mr-2" />
+                                {isEnablingSharing ? 'Hazırlanıyor...' : 'Paylaşılabilir Link Oluştur'}
+                            </Button>
+                        )}
+                        <Button
+                            onClick={() => void handleAddAllToCart()}
+                            disabled={!wishlist.items.some((item) => item.isAvailable) || isBulkAddingToCart}
+                        >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            {isBulkAddingToCart
+                                ? 'Ekleniyor...'
+                                : selectedCollectionId === null
+                                    ? 'Tümünü Sepete Ekle'
+                                    : 'Tüm Favorileri Sepete Ekle'}
+                        </Button>
+                        <Button variant="outline" onClick={handleClear} disabled={wishlist.items.length === 0}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Listeyi Temizle
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Card className="border-border/60 bg-muted/20">
+                    <CardContent className="p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Toplam birikim</p>
+                        <p className="mt-2 text-2xl font-semibold">{totalCollectionItemCount}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Koleksiyonlar içindeki toplam favori</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-border/60 bg-muted/20">
+                    <CardContent className="p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Görünen alan</p>
+                        <p className="mt-2 text-2xl font-semibold">{totalVisibleCount}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{selectedCollectionName} için aktif görünüm</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-border/60 bg-muted/20">
+                    <CardContent className="p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Fiyat takibi</p>
+                        <p className="mt-2 text-2xl font-semibold">{activePriceAlertCount}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Aktif fiyat alarmı bulunuyor</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-border/60 bg-muted/20">
+                    <CardContent className="p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Paylaşım durumu</p>
+                        <p className="mt-2 text-2xl font-semibold">{shareSettings?.isPublic ? 'Açık' : 'Kapalı'}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Liste erişimi {shareSettings?.isPublic ? 'link ile açık' : 'yalnızca size özel'}</p>
+                    </CardContent>
+                </Card>
+            </div>
+
             <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold">Favorilerim</h1>
-                <div className="flex items-center gap-2">
+                <div>
+                    <h2 className="text-xl font-semibold">{selectedCollectionName}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Ürünleri koleksiyonlara ayırın, alarm kurun ve satın alma zamanlamanızı yönetin.
+                    </p>
+                </div>
+                <div className="hidden lg:flex items-center gap-2">
                     <div className="flex items-center border rounded-md p-1 bg-muted/20">
                         <Button
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -698,46 +829,6 @@ export default function Wishlist() {
                             <List className="h-4 w-4" />
                         </Button>
                     </div>
-                    {shareSettings?.isPublic ? (
-                        <>
-                            <Button variant="outline" onClick={() => void handleCopyShareUrl()}>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Linki Kopyala
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                onClick={() => void handleDisableSharing()}
-                                disabled={isDisablingSharing}
-                            >
-                                <Link2Off className="h-4 w-4 mr-2" />
-                                {isDisablingSharing ? 'Kapatılıyor...' : 'Paylaşımı Kapat'}
-                            </Button>
-                        </>
-                    ) : (
-                        <Button
-                            variant="outline"
-                            onClick={() => void handleEnableSharing()}
-                            disabled={isEnablingSharing}
-                        >
-                            <Share2 className="h-4 w-4 mr-2" />
-                            {isEnablingSharing ? 'Hazırlanıyor...' : 'Paylaşılabilir Link Oluştur'}
-                        </Button>
-                    )}
-                    <Button
-                        onClick={() => void handleAddAllToCart()}
-                        disabled={!wishlist.items.some((item) => item.isAvailable) || isBulkAddingToCart}
-                    >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        {isBulkAddingToCart
-                            ? 'Ekleniyor...'
-                            : selectedCollectionId === null
-                                ? 'Tümünü Sepete Ekle'
-                                : 'Tüm Favorileri Sepete Ekle'}
-                    </Button>
-                    <Button variant="outline" onClick={handleClear} disabled={wishlist.items.length === 0}>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Listeyi Temizle
-                    </Button>
                 </div>
             </div>
 
@@ -1013,7 +1104,7 @@ export default function Wishlist() {
                         onClick={() => void handleLoadMore()}
                         disabled={isLoadingMore}
                     >
-                        {isLoadingMore ? 'Yukleniyor...' : 'Daha Fazla Yukle'}
+                        {isLoadingMore ? 'Yükleniyor...' : 'Daha Fazla Yükle'}
                     </Button>
                 </div>
             )}

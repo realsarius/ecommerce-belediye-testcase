@@ -122,32 +122,47 @@ export default function SharedWishlist() {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                    <Badge variant="secondary" className="mb-3">Paylaşılan liste</Badge>
-                    <h1 className="text-3xl font-bold">{wishlist.ownerDisplayName} için Favoriler</h1>
-                    <p className="mt-2 text-muted-foreground">
-                        Bu liste salt okunur olarak paylaşıldı. Ürünleri inceleyebilir ve bağlantıyı başkalarıyla paylaşabilirsiniz.
-                    </p>
+            <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.12),_transparent_24%),linear-gradient(135deg,_rgba(24,24,27,0.92),_rgba(10,10,12,0.96))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                    <div className="max-w-2xl">
+                        <Badge variant="secondary" className="mb-3 border border-sky-400/20 bg-sky-500/10 text-sky-100">
+                            Paylaşılan liste
+                        </Badge>
+                        <h1 className="text-3xl font-bold text-white">{wishlist.ownerDisplayName} için Favoriler</h1>
+                        <p className="mt-2 text-sm text-white/65">
+                            Bu liste salt okunur olarak paylaşıldı. Ürünleri inceleyebilir, fiyat değişimlerini görebilir ve bağlantıyı başkalarıyla paylaşabilirsiniz.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {wishlist.items.length} ürün görünür
+                            </Badge>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                {wishlist.hasMore ? 'Sayfalanmış görünüm' : 'Tek sayfada görüntü'}
+                            </Badge>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                                Salt okunur bağlantı
+                            </Badge>
+                        </div>
+                    </div>
+                    <Button
+                        variant="outline"
+                        onClick={async () => {
+                            try {
+                                await navigator.clipboard.writeText(window.location.href);
+                                toast.success('Paylaşım bağlantısı kopyalandı.');
+                            } catch {
+                                toast.error('Bağlantı kopyalanamadı.');
+                            }
+                        }}
+                    >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Linki Kopyala
+                    </Button>
                 </div>
-                <Button
-                    variant="outline"
-                    onClick={async () => {
-                        try {
-                            await navigator.clipboard.writeText(window.location.href);
-                            toast.success('Paylaşım bağlantısı kopyalandı.');
-                        } catch {
-                            toast.error('Bağlantı kopyalanamadı.');
-                        }
-                    }}
-                >
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Linki Kopyala
-                </Button>
             </div>
 
             {wishlist.items.length === 0 ? (
-                <Card>
+                <Card className="border-border/60 bg-muted/20">
                     <CardContent className="py-12 text-center">
                         <Heart className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                         <h2 className="text-xl font-semibold">Bu listede henüz ürün yok</h2>
@@ -191,6 +206,9 @@ export default function SharedWishlist() {
                                                 <p className="mt-2 text-xs text-muted-foreground">
                                                     Eklenme tarihi: {new Date(item.addedAt).toLocaleDateString('tr-TR')}
                                                 </p>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    <Badge variant="outline">{item.collectionName}</Badge>
+                                                </div>
                                                 {!item.isAvailable && (
                                                     <Badge variant="secondary" className="mt-2">
                                                         {item.unavailableReason ?? 'Bu ürün artık mevcut değil.'}
