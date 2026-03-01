@@ -12,4 +12,5 @@ public interface ICampaignService
     Task<IDataResult<CampaignDto>> UpdateAsync(int id, UpdateCampaignRequest request);
     Task<IResult> DeleteAsync(int id);
     Task<IResult> ProcessCampaignLifecycleAsync();
+    Task<IResult> TrackInteractionAsync(int campaignId, string interactionType, int? productId = null, int? userId = null, string? sessionId = null);
 }
