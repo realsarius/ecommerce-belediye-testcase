@@ -1,14 +1,38 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { Timer, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/common/badge';
 import { Card, CardContent } from '@/components/common/card';
 import { Skeleton } from '@/components/common/skeleton';
 import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
-import { useGetActiveCampaignsQuery } from '@/features/campaigns/campaignsApi';
+import { useGetActiveCampaignsQuery, useTrackCampaignInteractionMutation } from '@/features/campaigns/campaignsApi';
+import { getCampaignSessionId } from '@/features/campaigns/campaignSession';
 
 export function ActiveCampaignSpotlight() {
   const { data, isLoading } = useGetActiveCampaignsQuery();
+  const [trackCampaignInteraction] = useTrackCampaignInteractionMutation();
+  const trackedImpressionsRef = useRef<Set<number>>(new Set());
   const campaigns = (data ?? []).filter((campaign) => campaign.products.length > 0).slice(0, 3);
+  const sessionId = useMemo(() => getCampaignSessionId(), []);
+
+  useEffect(() => {
+    if (campaigns.length === 0) {
+      return;
+    }
+
+    campaigns.forEach((campaign) => {
+      if (trackedImpressionsRef.current.has(campaign.id)) {
+        return;
+      }
+
+      trackedImpressionsRef.current.add(campaign.id);
+      void trackCampaignInteraction({
+        campaignId: campaign.id,
+        interactionType: 'impression',
+        sessionId,
+      }).unwrap().catch(() => undefined);
+    });
+  }, [campaigns, sessionId, trackCampaignInteraction]);
 
   if (!isLoading && campaigns.length === 0) {
     return null;
@@ -87,6 +111,14 @@ export function ActiveCampaignSpotlight() {
                           <Link
                             key={`${campaign.id}-${product.productId}`}
                             to={`/products/${product.productId}`}
+                            onClick={() => {
+                              void trackCampaignInteraction({
+                                campaignId: campaign.id,
+                                interactionType: 'click',
+                                productId: product.productId,
+                                sessionId,
+                              }).unwrap().catch(() => undefined);
+                            }}
                             className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm transition-colors hover:bg-white/[0.06]"
                           >
                             <div className="min-w-0">

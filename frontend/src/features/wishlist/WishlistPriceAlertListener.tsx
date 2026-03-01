@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
-import { useAppSelector } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { createWishlistConnection, ensureWishlistConnectionStarted } from './wishlistHub';
-import type { WishlistLowStockNotification, WishlistPriceAlertNotification } from './types';
+import type { CampaignStatusChangedNotification, WishlistLowStockNotification, WishlistPriceAlertNotification } from './types';
 import { toast } from 'sonner';
+import { baseApi } from '@/app/api';
 
 export function WishlistPriceAlertListener() {
     const { isAuthenticated, token } = useAppSelector((state) => state.auth);
+    const dispatch = useAppDispatch();
 
     useEffect(() => {
         if (!isAuthenticated || !token) {
@@ -30,6 +32,16 @@ export function WishlistPriceAlertListener() {
                 });
         });
 
+        connection.on('CampaignStatusChanged', (payload: CampaignStatusChangedNotification) => {
+            toast.info(
+                `${payload.campaignName} kampanyası sona erdi`,
+                {
+                    description: 'Takip ettiğiniz kampanya tamamlandı. Yeni fırsatlar için ana sayfayı kontrol edin.',
+                });
+
+            dispatch(baseApi.util.invalidateTags(['Products', 'Notifications']));
+        });
+
         void ensureWishlistConnectionStarted(connection).catch(() => {
             // Fiyat alarmı dinleyicisi arka planda sessizce yeniden denenecek.
         });
@@ -37,9 +49,10 @@ export function WishlistPriceAlertListener() {
         return () => {
             connection.off('PriceAlertTriggered');
             connection.off('LowStockAlertTriggered');
+            connection.off('CampaignStatusChanged');
             void connection.stop();
         };
-    }, [isAuthenticated, token]);
+    }, [dispatch, isAuthenticated, token]);
 
     return null;
 }

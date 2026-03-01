@@ -102,6 +102,15 @@ export interface WishlistLowStockNotification {
     occurredAt: string;
 }
 
+export interface CampaignStatusChangedNotification {
+    campaignId: number;
+    campaignName: string;
+    previousStatus: string;
+    currentStatus: string;
+    endsAt: string;
+    badgeText?: string | null;
+}
+
 export interface WishlistBulkAddToCartSkippedItem {
     productId: number;
     productName: string;
