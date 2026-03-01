@@ -536,6 +536,11 @@ if (hangfireEnabled)
         "recommendation-frequently-bought-warmup",
         service => service.WarmFrequentlyBoughtRecommendationsAsync(),
         Cron.Daily());
+
+    recurringJobManager.AddOrUpdate<ICampaignService>(
+        "campaign-lifecycle-sync",
+        service => service.ProcessCampaignLifecycleAsync(),
+        "*/10 * * * *");
 }
 
 app.UseCorrelationId();
