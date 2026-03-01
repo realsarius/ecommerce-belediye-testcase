@@ -34,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<IWishlistCollectionDal, EfWishlistCollectionDal>();
         services.AddScoped<IWishlistItemDal, EfWishlistItemDal>();
         services.AddScoped<IPriceAlertDal, EfPriceAlertDal>();
+        services.AddScoped<IReturnRequestDal, EfReturnRequestDal>();
+        services.AddScoped<IRefundRequestDal, EfRefundRequestDal>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
