@@ -19,4 +19,5 @@ public class User : BaseEntity
     public ICollection<ShippingAddress> ShippingAddresses { get; set; } = new List<ShippingAddress>();
     public ICollection<CreditCard> CreditCards { get; set; } = new List<CreditCard>();
     public Wishlist? Wishlist { get; set; }
+    public ICollection<LoyaltyTransaction> LoyaltyTransactions { get; set; } = new List<LoyaltyTransaction>();
 }
