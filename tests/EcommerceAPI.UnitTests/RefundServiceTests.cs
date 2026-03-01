@@ -5,6 +5,7 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Infrastructure.ExternalServices;
+using EcommerceAPI.Core.Utilities.Results;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,6 +17,7 @@ public class RefundServiceTests
     private readonly Mock<IRefundRequestDal> _refundRequestDalMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IIyzicoRefundGateway> _refundGatewayMock;
+    private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<IyzicoRefundService>> _loggerMock;
     private readonly IRefundService _refundService;
@@ -25,13 +27,19 @@ public class RefundServiceTests
         _refundRequestDalMock = new Mock<IRefundRequestDal>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _refundGatewayMock = new Mock<IIyzicoRefundGateway>();
+        _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<IyzicoRefundService>>();
+        _loyaltyServiceMock.Setup(x => x.RestoreRedeemedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _loyaltyServiceMock.Setup(x => x.ReverseEarnedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
 
         _refundService = new IyzicoRefundService(
             _refundRequestDalMock.Object,
             _unitOfWorkMock.Object,
             _refundGatewayMock.Object,
+            _loyaltyServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object);
     }
