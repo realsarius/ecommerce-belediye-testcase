@@ -21,6 +21,11 @@ export interface Order {
   shippingAddress: string;
   createdAt: string;
   updatedAt: string;
+  couponCode?: string;
+  discountAmount?: number;
+  loyaltyPointsUsed?: number;
+  loyaltyPointsEarned?: number;
+  loyaltyDiscountAmount?: number;
   payment?: Payment;
 }
 

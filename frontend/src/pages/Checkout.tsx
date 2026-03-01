@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { useValidateCouponMutation } from '@/features/coupons/couponsApi';
 import type { CouponValidationResult } from '@/features/coupons/types';
+import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ export default function Checkout() {
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const { data: savedCards } = useGetCreditCardsQuery();
   const [addCreditCard] = useAddCreditCardMutation();
+  const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressDialog, setShowAddressDialog] = useState(false);
@@ -73,6 +75,7 @@ export default function Checkout() {
 
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
+  const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState('');
   const [validateCoupon, { isLoading: isValidatingCoupon }] = useValidateCouponMutation();
   const couponCodeFromState = location.state?.couponCode;
 
@@ -160,6 +163,15 @@ export default function Checkout() {
   
 
   const displayCart = cartSnapshot || cart;
+  const subtotal = displayCart?.totalAmount ?? 0;
+  const shippingCost = subtotal >= 1000 ? 0 : 29.9;
+  const amountAfterCoupon = appliedCoupon?.isValid ? appliedCoupon.finalTotal : subtotal;
+  const normalizedRequestedPoints = Math.max(0, Math.floor((Number(loyaltyPointsToUse) || 0) / 100) * 100);
+  const maxPointsByBalance = loyaltySummary?.availablePoints ?? 0;
+  const maxPointsByTotal = Math.max(0, Math.floor((Math.max(0, amountAfterCoupon + shippingCost - 1) * 100)) / 100) * 100;
+  const appliedLoyaltyPoints = Math.min(normalizedRequestedPoints, maxPointsByBalance, maxPointsByTotal);
+  const loyaltyDiscountAmount = appliedLoyaltyPoints / 100;
+  const grandTotal = amountAfterCoupon + shippingCost - loyaltyDiscountAmount;
 
   const handleAddressSubmit = async () => {
     try {
@@ -253,6 +265,7 @@ export default function Checkout() {
           notes: '',
           idempotencyKey: uuidv4(),
           couponCode: appliedCoupon?.isValid ? appliedCoupon.coupon?.code : undefined,
+          loyaltyPointsToUse: appliedLoyaltyPoints > 0 ? appliedLoyaltyPoints : undefined,
         }).unwrap();
 
         orderIdToUse = order.id;
@@ -654,9 +667,44 @@ export default function Checkout() {
               </div>
               
               <Separator />
+
+              <div className="space-y-2 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Sadakat Puanı Kullan</p>
+                    <p className="text-xs text-muted-foreground">
+                      Kullanılabilir: {(loyaltySummary?.availablePoints ?? 0).toLocaleString('tr-TR')} puan
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLoyaltyPointsToUse(String(loyaltySummary?.availablePoints ?? 0))}
+                    disabled={!loyaltySummary?.availablePoints}
+                  >
+                    Maksimumu Kullan
+                  </Button>
+                </div>
+                <Input
+                  placeholder="Örn. 500"
+                  value={loyaltyPointsToUse}
+                  onChange={(e) => setLoyaltyPointsToUse(e.target.value.replace(/\D/g, ''))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  100 puan = 1 TL. Puanlar 100'lük adımlarla uygulanır ve toplamı 1 TL altına düşüremez.
+                </p>
+                {appliedLoyaltyPoints > 0 && (
+                  <div className="text-sm text-emerald-600">
+                    {appliedLoyaltyPoints.toLocaleString('tr-TR')} puan kullanılıyor, tahmini indirim {loyaltyDiscountAmount.toLocaleString('tr-TR')} ₺
+                  </div>
+                )}
+              </div>
+
+              <Separator />
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ara Toplam</span>
-                <span>{displayCart.totalAmount.toLocaleString('tr-TR')} ₺</span>
+                <span>{subtotal.toLocaleString('tr-TR')} ₺</span>
               </div>
               {appliedCoupon?.isValid && (
                 <div className="flex justify-between text-green-600">
@@ -664,9 +712,15 @@ export default function Checkout() {
                   <span>-{appliedCoupon.discountAmount.toLocaleString('tr-TR')} ₺</span>
                 </div>
               )}
+              {appliedLoyaltyPoints > 0 && (
+                <div className="flex justify-between text-amber-600">
+                  <span>Sadakat Puanı</span>
+                  <span>-{loyaltyDiscountAmount.toLocaleString('tr-TR')} ₺</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Kargo</span>
-                {displayCart.totalAmount >= 1000 ? (
+                {shippingCost === 0 ? (
                   <span className="text-green-600 font-medium">Ücretsiz</span>
                 ) : (
                   <span>29,90 ₺</span>
@@ -675,9 +729,7 @@ export default function Checkout() {
               <Separator />
               <div className="flex justify-between text-lg font-bold">
                 <span>Toplam</span>
-                <span>
-                  {((appliedCoupon?.isValid ? appliedCoupon.finalTotal : displayCart.totalAmount) + (displayCart.totalAmount >= 1000 ? 0 : 29.90)).toLocaleString('tr-TR')} ₺
-                </span>
+                <span>{grandTotal.toLocaleString('tr-TR')} ₺</span>
               </div>
               <Button
                 className="w-full"

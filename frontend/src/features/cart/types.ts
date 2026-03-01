@@ -34,4 +34,5 @@ export interface CheckoutRequest {
   notes?: string;
   idempotencyKey: string;
   couponCode?: string;
+  loyaltyPointsToUse?: number;
 }

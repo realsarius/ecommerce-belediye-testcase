@@ -5,11 +5,14 @@ import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
 import { Separator } from '@/components/common/separator';
+import { Skeleton } from '@/components/common/skeleton';
+import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
 import { User, Mail, Phone, Calendar, Shield, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Account() {
   const { user } = useAppSelector((state) => state.auth);
+  const { data: loyaltySummary, isLoading: isLoyaltyLoading } = useGetLoyaltySummaryQuery();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const getUserFormData = () => ({
@@ -169,6 +172,77 @@ export default function Account() {
               </div>
               <span className="text-sm font-medium text-primary">{user?.role || 'Müşteri'}</span>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sadakat Puanlarım</CardTitle>
+            <CardDescription>
+              100 puan = 1 TL indirim. Puanlarını checkout ekranında kullanabilirsin.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {isLoyaltyLoading ? (
+              <>
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Kullanılabilir Puan</p>
+                    <p className="mt-2 text-2xl font-bold">{loyaltySummary?.availablePoints?.toLocaleString('tr-TR') ?? 0}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">İndirime Dönüşen Tutar</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(loyaltySummary?.availableDiscountAmount ?? 0).toLocaleString('tr-TR')} ₺
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Toplam Kazanılan</p>
+                    <p className="mt-2 text-2xl font-bold">{loyaltySummary?.totalEarnedPoints?.toLocaleString('tr-TR') ?? 0}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Son Hareketler</h3>
+                    <span className="text-xs text-muted-foreground">En yeni 10 işlem</span>
+                  </div>
+
+                  {loyaltySummary?.recentTransactions?.length ? (
+                    <div className="space-y-3">
+                      {loyaltySummary.recentTransactions.map((transaction) => (
+                        <div key={transaction.id} className="flex items-start justify-between gap-4 rounded-xl border p-3">
+                          <div>
+                            <p className="font-medium">{transaction.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {new Date(transaction.createdAt).toLocaleString('tr-TR')}
+                              {transaction.orderNumber ? ` • ${transaction.orderNumber}` : ''}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${transaction.points >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {transaction.points >= 0 ? '+' : ''}{transaction.points.toLocaleString('tr-TR')} puan
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Bakiye: {transaction.balanceAfter.toLocaleString('tr-TR')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      Henüz sadakat puanı hareketin bulunmuyor.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
