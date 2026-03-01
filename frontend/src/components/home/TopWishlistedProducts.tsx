@@ -5,15 +5,41 @@ import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 
-export function TopWishlistedProducts() {
+interface TopWishlistedProductsProps {
+  categoryId?: number;
+  categoryName?: string;
+}
+
+export function TopWishlistedProducts({
+  categoryId,
+  categoryName,
+}: TopWishlistedProductsProps) {
   const { data, isLoading } = useSearchProductsQuery({
     page: 1,
     pageSize: 4,
+    categoryId,
     sortBy: 'wishlistCount',
     sortDescending: true,
   });
 
   const items = (data?.items ?? []).filter((item) => item.wishlistCount > 0).slice(0, 4);
+  const isCategoryContext = Boolean(categoryId && categoryName);
+
+  const badgeText = isCategoryContext
+    ? `${categoryName} kategorisinde öne çıkanlar`
+    : 'Bu hafta öne çıkanlar';
+
+  const title = isCategoryContext
+    ? `${categoryName} kategorisinde en çok favorilenenler`
+    : 'En Çok Favorilenenler';
+
+  const description = isCategoryContext
+    ? `${categoryName} kategorisinde kullanıcıların en çok favorilerine eklediği ürünleri keşfedin.`
+    : 'Kullanıcıların tekrar tekrar favorilerine eklediği ürünleri keşfedin.';
+
+  const socialProofText = isCategoryContext
+    ? `${categoryName} kategorisinde öne çıkan seçimler`
+    : 'Sosyal kanıtla öne çıkan seçimler';
 
   if (!isLoading && items.length === 0) {
     return null;
@@ -30,16 +56,16 @@ export function TopWishlistedProducts() {
               variant="secondary"
               className="mb-3 border border-rose-400/20 bg-rose-500/10 text-rose-100"
             >
-              Bu hafta öne çıkanlar
+              {badgeText}
             </Badge>
-            <h2 className="text-2xl font-bold tracking-tight text-white">En Çok Favorilenenler</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-white">{title}</h2>
             <p className="mt-2 max-w-2xl text-sm text-white/60">
-              Kullanıcıların tekrar tekrar favorilerine eklediği ürünleri keşfedin.
+              {description}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-rose-400/15 bg-white/5 px-3 py-1.5 text-sm text-rose-100/90 backdrop-blur-sm">
             <Sparkles className="h-4 w-4" />
-            <span>Sosyal kanıtla öne çıkan seçimler</span>
+            <span>{socialProofText}</span>
           </div>
         </div>
       </div>

@@ -580,16 +580,6 @@ Uygulama ayağa kalktıktan sonra hızlı doğrulama için doğrudan smoke scrip
 ./scripts/ci/run_api_smoke.sh
 ```
 
-## 10. Lisans ve Kullanım Notu
-
-Bu repo açık kaynak olarak lisanslanmamıştır.
-
-- Kaynak kod ve ilişkili materyaller `All Rights Reserved` kapsamında korunur.
-- Yazılı izin olmadan kodun kopyalanması, yeniden kullanılması, dağıtılması, türev iş üretilmesi veya production ortamında kullanılması yasaktır.
-- Kullanılan üçüncü parti paketler kendi lisans koşullarına tabidir.
-
-Detaylı metin için kök dizindeki [`LICENSE`](LICENSE) dosyasına bakabilirsiniz.
-
 Production smoke icin:
 
 ```bash
@@ -633,15 +623,6 @@ Pratik rollback yaklaşımı:
 4. Rollback sonrası `health/ready`, temel smoke ve queue kontrollerini tekrar çalıştırın.
 5. `_error` kuyruğu, latency ve log akışı normale dönmeden rollback'i tamamlanmış saymayın.
 
-## Ek Dokümanlar
-
-- [Wishlist Feature Status](docs/wishlist-feature-status.md)
-- [Wishlist Kibana Dashboard Setup](docs/wishlist-kibana-dashboard-setup.md)
-- [Wishlist Smoke Checklist](docs/wishlist-smoke-checklist.md)
-- [Backup Restore Plan](docs/backup-restore-plan.md)
-- [Deployment Readiness Checklist](docs/deployment-readiness-checklist.md)
-- [Rollback Runbook](docs/rollback-runbook.md)
-
 ### 9.6 Backup / Restore Planı
 
 PostgreSQL, Redis ve RabbitMQ için yedekleme/geri yükleme adımları ve felaket senaryosu:
@@ -669,3 +650,23 @@ curl -fsS "http://localhost:5000/api/v1/search/suggestions?q=ad&limit=5"
 docker exec ecommerce-rabbitmq rabbitmqctl list_queues -p /ecommerce name messages consumers
 ./scripts/ci/run_api_smoke.sh
 ```
+
+## 10. Lisans ve Kullanım Notu
+
+Bu repo açık kaynak olarak lisanslanmamıştır.
+
+- Kaynak kod ve ilişkili materyaller `All Rights Reserved` kapsamında korunur.
+- Yazılı izin olmadan kodun kopyalanması, yeniden kullanılması, dağıtılması, türev iş üretilmesi veya production ortamında kullanılması yasaktır.
+- Kullanılan üçüncü parti paketler kendi lisans koşullarına tabidir.
+
+Detaylı metin için kök dizindeki [`LICENSE`](LICENSE) dosyasına bakabilirsiniz.
+
+## Ek Dokümanlar
+
+- [Product Roadmap](docs/product-roadmap.md)
+- [Wishlist Feature Status](docs/wishlist-feature-status.md)
+- [Wishlist Kibana Dashboard Setup](docs/wishlist-kibana-dashboard-setup.md)
+- [Wishlist Smoke Checklist](docs/wishlist-smoke-checklist.md)
+- [Backup Restore Plan](docs/backup-restore-plan.md)
+- [Deployment Readiness Checklist](docs/deployment-readiness-checklist.md)
+- [Rollback Runbook](docs/rollback-runbook.md)

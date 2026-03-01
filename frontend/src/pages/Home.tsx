@@ -52,6 +52,10 @@ export default function Home() {
     handleAddToCart,
   } = useHome();
 
+  const selectedCategory = categories?.find(
+    (category) => category.id.toString() === categoryId
+  );
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Hero Section */}
@@ -70,7 +74,10 @@ export default function Home() {
 
         {/* Product Grid */}
         <main className="flex-1 w-full">
-          <TopWishlistedProducts />
+          <TopWishlistedProducts
+            categoryId={selectedCategory?.id}
+            categoryName={selectedCategory?.name}
+          />
           <ProductList
             isLoading={isLoading}
             productsData={productsData}
