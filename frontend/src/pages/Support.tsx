@@ -30,12 +30,17 @@ import {
 } from '@/features/support/supportHub';
 
 import type { SupportConversation, SupportConversationStatus } from '@/features/support/types';
+import { Tabs, TabsList, TabsTrigger } from '@/components/common/tabs';
+
+type SupportConversationFilter = 'All' | SupportConversationStatus;
 
 interface SupportPageProps {
     embedded?: boolean;
     title?: string;
     description?: string;
     showRoleBadge?: boolean;
+    conversationFilter?: SupportConversationFilter;
+    onConversationFilterChange?: (value: SupportConversationFilter) => void;
 }
 
 const statusMap: Record<SupportConversationStatus, { label: string; className: string }> = {
@@ -80,6 +85,8 @@ export default function Support({
     title = 'Canlı Destek',
     description,
     showRoleBadge = true,
+    conversationFilter = 'All',
+    onConversationFilterChange,
 }: SupportPageProps) {
     const { user, token, isAuthenticated } = useAppSelector((state) => state.auth);
 
@@ -145,19 +152,27 @@ export default function Support({
         return [];
     }, [isAdmin, isCustomer, isSupport, myConversations, queueData]);
 
-    const effectiveSelectedConversationId = useMemo<number | null>(() => {
-        if (!conversations.length) return null;
+    const visibleConversations = useMemo(() => {
+        if (conversationFilter === 'All') {
+            return conversations;
+        }
 
-        if (selectedConversationId && conversations.some((x) => x.id === selectedConversationId)) {
+        return conversations.filter((conversation) => conversation.status === conversationFilter);
+    }, [conversationFilter, conversations]);
+
+    const effectiveSelectedConversationId = useMemo<number | null>(() => {
+        if (!visibleConversations.length) return null;
+
+        if (selectedConversationId && visibleConversations.some((x) => x.id === selectedConversationId)) {
             return selectedConversationId;
         }
 
-        return conversations[0].id;
-    }, [conversations, selectedConversationId]);
+        return visibleConversations[0].id;
+    }, [visibleConversations, selectedConversationId]);
 
     const selectedConversation = useMemo(
-        () => conversations.find((x) => x.id === effectiveSelectedConversationId) ?? null,
-        [conversations, effectiveSelectedConversationId]
+        () => visibleConversations.find((x) => x.id === effectiveSelectedConversationId) ?? null,
+        [visibleConversations, effectiveSelectedConversationId]
     );
 
     const {
@@ -370,6 +385,20 @@ export default function Support({
                     {description ? (
                         <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
                     ) : null}
+                    {isSupportOrAdmin && onConversationFilterChange ? (
+                        <Tabs
+                            value={conversationFilter}
+                            onValueChange={(value) => onConversationFilterChange(value as SupportConversationFilter)}
+                            className="w-full"
+                        >
+                            <TabsList className="w-full justify-start overflow-x-auto">
+                                <TabsTrigger value="All">Tümü</TabsTrigger>
+                                <TabsTrigger value="Open">Açık</TabsTrigger>
+                                <TabsTrigger value="Assigned">Atanmış</TabsTrigger>
+                                <TabsTrigger value="Closed">Kapalı</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    ) : null}
                 </div>
             ) : null}
 
@@ -414,11 +443,11 @@ export default function Support({
                                 <Skeleton className="h-14 w-full" />
                                 <Skeleton className="h-14 w-full" />
                             </div>
-                        ) : conversations.length === 0 ? (
+                        ) : visibleConversations.length === 0 ? (
                             <p className="text-sm text-muted-foreground">Henüz görüşme bulunmuyor.</p>
                         ) : (
                             <div className="space-y-2 max-h-[520px] overflow-y-auto">
-                                {conversations.map((conversation) => {
+                                {visibleConversations.map((conversation) => {
                                     const status = getStatusMeta(conversation.status);
                                     const isActive = conversation.id === selectedConversationId;
 

@@ -1,8 +1,10 @@
 import { MessageSquareText, TimerReset, UserCheck, Users } from 'lucide-react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Skeleton } from '@/components/common/skeleton';
 import { KpiCard } from '@/components/admin/KpiCard';
 import Support from '@/pages/Support';
+import type { SupportConversationStatus } from '@/features/support/types';
 import { useGetSupportQueueQuery } from '@/features/support/supportApi';
 
 function formatRelativeDate(value?: string | null) {
@@ -19,6 +21,7 @@ function formatRelativeDate(value?: string | null) {
 }
 
 export default function AdminSupportPage() {
+  const [conversationFilter, setConversationFilter] = useState<'All' | SupportConversationStatus>('All');
   const { data: queueData, isLoading } = useGetSupportQueueQuery({ page: 1, pageSize: 50 });
   const conversations = queueData?.items ?? [];
   const openCount = conversations.filter((conversation) => conversation.status === 'Open').length;
@@ -36,6 +39,9 @@ export default function AdminSupportPage() {
         <p className="max-w-3xl text-muted-foreground">
           Canlı destek kuyruğunu admin panelinden izleyin, görüşmeleri üstlenin ve SignalR üzerinden anlık yanıt verin.
           Mevcut backend bu aşamada temsilci atama için yalnızca doğrudan kullanıcı kimliği ile çalışma sunuyor.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Durum sekmeleri gömülü canlı destek alanını filtreler; böylece açık, atanmış ve kapanmış görüşmeleri ayrı ayrı takip edebilirsiniz.
         </p>
       </div>
 
@@ -90,7 +96,12 @@ export default function AdminSupportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 md:p-6">
-          <Support embedded showRoleBadge={false} />
+          <Support
+            embedded
+            showRoleBadge={false}
+            conversationFilter={conversationFilter}
+            onConversationFilterChange={setConversationFilter}
+          />
         </CardContent>
       </Card>
     </div>
