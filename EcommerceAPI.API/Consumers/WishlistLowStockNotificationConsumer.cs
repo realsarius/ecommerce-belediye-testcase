@@ -18,6 +18,7 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly IHubContext<WishlistHub> _hubContext;
     private readonly INotificationService _notificationService;
+    private readonly INotificationPreferenceService _notificationPreferenceService;
     private readonly ILogger<WishlistLowStockNotificationConsumer> _logger;
 
     public WishlistLowStockNotificationConsumer(
@@ -25,12 +26,14 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
         IEmailNotificationService emailNotificationService,
         IHubContext<WishlistHub> hubContext,
         INotificationService notificationService,
+        INotificationPreferenceService notificationPreferenceService,
         ILogger<WishlistLowStockNotificationConsumer> logger)
     {
         _dbContext = dbContext;
         _emailNotificationService = emailNotificationService;
         _hubContext = hubContext;
         _notificationService = notificationService;
+        _notificationPreferenceService = notificationPreferenceService;
         _logger = logger;
     }
 
@@ -107,30 +110,36 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
             var productName = string.IsNullOrWhiteSpace(product?.Name)
                 ? $"Ürün #{message.ProductId}"
                 : product.Name;
+            var channelSettingsByUserId = await _notificationPreferenceService.GetChannelSettingsAsync(
+                userIds,
+                Entities.Enums.NotificationType.Wishlist);
 
             foreach (var userId in userIds)
             {
-                await _hubContext.Clients.Group(WishlistHub.UserGroup(userId))
-                    .SendAsync(
-                        "LowStockAlertTriggered",
-                        new
-                        {
-                            message.ProductId,
-                            ProductName = productName,
-                            message.StockQuantity,
-                            message.Threshold,
-                            message.OccurredAt
-                        },
-                        context.CancellationToken);
-
-                await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                if (channelSettingsByUserId.TryGetValue(userId, out var channelSettings) && channelSettings.InAppEnabled)
                 {
-                    UserId = userId,
-                    Type = "Wishlist",
-                    Title = $"{productName} stokta azalıyor",
-                    Body = $"Kalan stok: {message.StockQuantity}. Ürünü kaçırmamak için göz atın.",
-                    DeepLink = $"/products/{message.ProductId}"
-                });
+                    await _hubContext.Clients.Group(WishlistHub.UserGroup(userId))
+                        .SendAsync(
+                            "LowStockAlertTriggered",
+                            new
+                            {
+                                message.ProductId,
+                                ProductName = productName,
+                                message.StockQuantity,
+                                message.Threshold,
+                                message.OccurredAt
+                            },
+                            context.CancellationToken);
+
+                    await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                    {
+                        UserId = userId,
+                        Type = "Wishlist",
+                        Title = $"{productName} stokta azalıyor",
+                        Body = $"Kalan stok: {message.StockQuantity}. Ürünü kaçırmamak için göz atın.",
+                        DeepLink = $"/products/{message.ProductId}"
+                    });
+                }
             }
 
             _logger.LogInformation(
@@ -152,6 +161,11 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
             var emailedUsers = 0;
             foreach (var user in users)
             {
+                if (!channelSettingsByUserId.TryGetValue(user.Id, out var channelSettings) || !channelSettings.EmailEnabled)
+                {
+                    continue;
+                }
+
                 var emailSent = await _emailNotificationService.SendAsync(
                     user.Email,
                     $"{productName} için stok azalıyor",

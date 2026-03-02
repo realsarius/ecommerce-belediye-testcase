@@ -18,17 +18,20 @@ public sealed class CampaignStatusChangedConsumer : IConsumer<CampaignStatusChan
     private readonly AppDbContext _dbContext;
     private readonly IHubContext<WishlistHub> _hubContext;
     private readonly INotificationService _notificationService;
+    private readonly INotificationPreferenceService _notificationPreferenceService;
     private readonly ILogger<CampaignStatusChangedConsumer> _logger;
 
     public CampaignStatusChangedConsumer(
         AppDbContext dbContext,
         IHubContext<WishlistHub> hubContext,
         INotificationService notificationService,
+        INotificationPreferenceService notificationPreferenceService,
         ILogger<CampaignStatusChangedConsumer> logger)
     {
         _dbContext = dbContext;
         _hubContext = hubContext;
         _notificationService = notificationService;
+        _notificationPreferenceService = notificationPreferenceService;
         _logger = logger;
     }
 
@@ -55,31 +58,37 @@ public sealed class CampaignStatusChangedConsumer : IConsumer<CampaignStatusChan
                 .Select(x => x.Wishlist.UserId)
                 .Distinct()
                 .ToListAsync(context.CancellationToken);
+            var channelSettingsByUserId = await _notificationPreferenceService.GetChannelSettingsAsync(
+                userIds,
+                NotificationType.Campaign);
 
             foreach (var userId in userIds)
             {
-                await _notificationService.CreateNotificationAsync(new CreateNotificationRequest
+                if (channelSettingsByUserId.TryGetValue(userId, out var channelSettings) && channelSettings.InAppEnabled)
                 {
-                    UserId = userId,
-                    Type = "Campaign",
-                    Title = $"{message.CampaignName} kampanyası sona erdi",
-                    Body = "Takip ettiğiniz kampanya sona erdi. Yeni fırsatları kaçırmamak için kampanya alanını kontrol edin.",
-                    DeepLink = "/"
-                });
+                    await _notificationService.CreateNotificationAsync(new CreateNotificationRequest
+                    {
+                        UserId = userId,
+                        Type = "Campaign",
+                        Title = $"{message.CampaignName} kampanyası sona erdi",
+                        Body = "Takip ettiğiniz kampanya sona erdi. Yeni fırsatları kaçırmamak için kampanya alanını kontrol edin.",
+                        DeepLink = "/"
+                    });
 
-                await _hubContext.Clients.Group(WishlistHub.UserGroup(userId))
-                    .SendAsync(
-                        "CampaignStatusChanged",
-                        new
-                        {
-                            message.CampaignId,
-                            message.CampaignName,
-                            previousStatus = message.PreviousStatus.ToString(),
-                            currentStatus = message.CurrentStatus.ToString(),
-                            message.EndsAt,
-                            message.BadgeText
-                        },
-                        context.CancellationToken);
+                    await _hubContext.Clients.Group(WishlistHub.UserGroup(userId))
+                        .SendAsync(
+                            "CampaignStatusChanged",
+                            new
+                            {
+                                message.CampaignId,
+                                message.CampaignName,
+                                previousStatus = message.PreviousStatus.ToString(),
+                                currentStatus = message.CurrentStatus.ToString(),
+                                message.EndsAt,
+                                message.BadgeText
+                            },
+                            context.CancellationToken);
+                }
             }
         }
 

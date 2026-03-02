@@ -18,6 +18,7 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly IHubContext<WishlistHub> _hubContext;
     private readonly INotificationService _notificationService;
+    private readonly INotificationPreferenceService _notificationPreferenceService;
     private readonly ILogger<WishlistPriceAlertNotificationConsumer> _logger;
 
     public WishlistPriceAlertNotificationConsumer(
@@ -25,12 +26,14 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
         IEmailNotificationService emailNotificationService,
         IHubContext<WishlistHub> hubContext,
         INotificationService notificationService,
+        INotificationPreferenceService notificationPreferenceService,
         ILogger<WishlistPriceAlertNotificationConsumer> logger)
     {
         _dbContext = dbContext;
         _emailNotificationService = emailNotificationService;
         _hubContext = hubContext;
         _notificationService = notificationService;
+        _notificationPreferenceService = notificationPreferenceService;
         _logger = logger;
     }
 
@@ -75,62 +78,41 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
             })
             .FirstOrDefaultAsync(context.CancellationToken);
 
-        await _hubContext.Clients.Group(WishlistHub.UserGroup(message.UserId))
-            .SendAsync(
-                "PriceAlertTriggered",
-                new
-                {
-                    message.ProductId,
-                    message.ProductName,
-                    message.TargetPrice,
-                    message.OldPrice,
-                    message.NewPrice,
-                    message.Currency,
-                    message.OccurredAt
-                },
-                context.CancellationToken);
-
-        await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
-        {
-            UserId = message.UserId,
-            Type = "Wishlist",
-            Title = $"{message.ProductName} fiyatı düştü",
-            Body = $"{message.NewPrice:N2} {message.Currency} fiyatı hedefinize ulaştı.",
-            DeepLink = $"/products/{message.ProductId}"
-        });
-
-        _logger.LogInformation(
-            "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
-            "Wishlist",
-            "WishlistPriceAlertDelivered",
-            "SignalR",
+        var channelSettings = await _notificationPreferenceService.GetChannelSettingsAsync(
             message.UserId,
-            message.ProductId,
-            message.ProductName,
-            productInfo?.Category,
-            message.OldPrice,
-            message.NewPrice,
-            message.TargetPrice,
-            message.Currency,
-            productInfo?.IsActive,
-            messageId,
-            message.OccurredAt);
+            Entities.Enums.NotificationType.Wishlist);
 
-        var emailSent = await _emailNotificationService.SendAsync(
-            user?.Email ?? string.Empty,
-            $"{message.ProductName} için fiyat alarmınız tetiklendi",
-            BuildPriceAlertEmailBody(
-                string.Join(' ', new[] { user?.FirstName, user?.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
-                message),
-            context.CancellationToken);
-
-        if (emailSent)
+        if (channelSettings.InAppEnabled)
         {
+            await _hubContext.Clients.Group(WishlistHub.UserGroup(message.UserId))
+                .SendAsync(
+                    "PriceAlertTriggered",
+                    new
+                    {
+                        message.ProductId,
+                        message.ProductName,
+                        message.TargetPrice,
+                        message.OldPrice,
+                        message.NewPrice,
+                        message.Currency,
+                        message.OccurredAt
+                    },
+                    context.CancellationToken);
+
+            await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+            {
+                UserId = message.UserId,
+                Type = "Wishlist",
+                Title = $"{message.ProductName} fiyatı düştü",
+                Body = $"{message.NewPrice:N2} {message.Currency} fiyatı hedefinize ulaştı.",
+                DeepLink = $"/products/{message.ProductId}"
+            });
+
             _logger.LogInformation(
                 "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
                 "Wishlist",
                 "WishlistPriceAlertDelivered",
-                "Email",
+                "SignalR",
                 message.UserId,
                 message.ProductId,
                 message.ProductName,
@@ -142,6 +124,37 @@ public sealed class WishlistPriceAlertNotificationConsumer : IConsumer<WishlistP
                 productInfo?.IsActive,
                 messageId,
                 message.OccurredAt);
+        }
+
+        if (channelSettings.EmailEnabled)
+        {
+            var emailSent = await _emailNotificationService.SendAsync(
+                user?.Email ?? string.Empty,
+                $"{message.ProductName} için fiyat alarmınız tetiklendi",
+                BuildPriceAlertEmailBody(
+                    string.Join(' ', new[] { user?.FirstName, user?.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                    message),
+                context.CancellationToken);
+
+            if (emailSent)
+            {
+                _logger.LogInformation(
+                    "Wishlist analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, NotificationChannel={NotificationChannel}, UserId={UserId}, ProductId={ProductId}, ProductName={ProductName}, Category={Category}, OldPrice={OldPrice}, NewPrice={NewPrice}, TargetPrice={TargetPrice}, Currency={Currency}, IsActive={IsActive}, MessageId={MessageId}, OccurredAt={OccurredAt}",
+                    "Wishlist",
+                    "WishlistPriceAlertDelivered",
+                    "Email",
+                    message.UserId,
+                    message.ProductId,
+                    message.ProductName,
+                    productInfo?.Category,
+                    message.OldPrice,
+                    message.NewPrice,
+                    message.TargetPrice,
+                    message.Currency,
+                    productInfo?.IsActive,
+                    messageId,
+                    message.OccurredAt);
+            }
         }
 
         _dbContext.InboxMessages.Add(new InboxMessage
