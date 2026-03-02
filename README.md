@@ -62,6 +62,8 @@ docker compose down
 
 **Wishlist Deneyimi**: Favoriler akışı ürünleştirildi. Fiyat ve eklenme tarihi snapshot'ı, guest wishlist senkronizasyonu, koleksiyonlar, paylaşılabilir wishlist, fiyat alarmı, düşük stok bildirimi, cursor bazlı listeleme, wishlist count senkronizasyonu ve favoriden toplu sepete ekleme akışları aktif durumda.
 
+**Gift Card Akışı**: Admin tarafından gift card üretimi, checkout'ta kod ile bakiye kullanımı, tam tutarı kapatan siparişlerde kartsız tamamlama ve iptal/refund durumunda bakiyeyi otomatik geri yükleme akışları mevcut.
+
 ## 2. Teknoloji Yığını (Technology Stack)
 
 | Kategori | Teknoloji / Kütüphane | Kullanım Amacı |
@@ -111,8 +113,10 @@ Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 20. **WishlistCollections**: Çoklu favori listeleri / koleksiyonlar.
 21. **WishlistItems**: Favoriye eklenen ürün kayıtları ve fiyat snapshot bilgisi.
 22. **PriceAlerts**: Hedef fiyat bazlı wishlist alarm kayıtları.
-23. **InboxMessages**: Consumer idempotency ve dedupe kayıtları.
-24. **MassTransit Outbox Tabloları**: Transactional event publish altyapısı.
+23. **GiftCards**: Kullanıcıya bağlanabilen ve bakiyesi takip edilen gift card kayıtları.
+24. **GiftCardTransactions**: Gift card oluşturma, kullanım ve iade hareketleri.
+25. **InboxMessages**: Consumer idempotency ve dedupe kayıtları.
+26. **MassTransit Outbox Tabloları**: Transactional event publish altyapısı.
 
 ### 3.2 Migration ve Şema Yönetimi
 
@@ -515,9 +519,9 @@ frontend/src/
 └── types/         # TypeScript tipleri
 ```
 
-**Sayfalar:** Home, Login, Register, Cart, Checkout, Orders, ProductDetail, Account, Addresses, CreditCards
+**Sayfalar:** Home, Login, Register, Cart, Checkout, Orders, ProductDetail, Account, Addresses, CreditCards, Loyalty, GiftCards
 
-**Admin Panel:** Ürün/Kategori/Sipariş yönetimi
+**Admin Panel:** Ürün/Kategori/Sipariş/Kupon/Gift Card yönetimi
 
 **Seller Panel:** Ürün ekleme/düzenleme, stok güncelleme
 
