@@ -138,25 +138,6 @@ export function Header() {
               <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
                 Ürünler
               </Link>
-              {isAuthenticated && (
-                <>
-                  <Link to="/orders" className="text-sm font-medium hover:text-primary transition-colors">
-                    Siparişlerim
-                  </Link>
-                  <Link to="/returns" className="text-sm font-medium hover:text-primary transition-colors">
-                    İadelerim
-                  </Link>
-                  <Link to="/loyalty" className="text-sm font-medium hover:text-primary transition-colors">
-                    Puanlarım
-                  </Link>
-                  <Link to="/notifications" className="text-sm font-medium hover:text-primary transition-colors">
-                    Bildirimler
-                  </Link>
-                  <Link to="/cart" className="text-sm font-medium hover:text-primary transition-colors">
-                    Sepetim
-                  </Link>
-                </>
-              )}
             </nav>
 
             <div className="relative w-full max-w-sm" ref={searchContainerRef}>
@@ -388,6 +369,12 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/referrals" className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-sky-600" />
+                      Referral Programım
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/gift-cards" className="flex items-center gap-2">
                       <Ticket className="h-4 w-4 text-emerald-600" />
                       Gift Cardlarım
@@ -521,6 +508,9 @@ export function Header() {
                           </Link>
                           <Link to="/loyalty" className="text-lg font-medium">
                             Puanlarım ve Ödüllerim
+                          </Link>
+                          <Link to="/referrals" className="text-lg font-medium">
+                            Referral Programım
                           </Link>
                           <Link to="/gift-cards" className="text-lg font-medium">
                             Gift Cardlarım

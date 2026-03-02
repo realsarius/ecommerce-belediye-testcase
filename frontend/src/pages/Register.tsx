@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import { useRegisterMutation, useSocialLoginMutation } from '@/features/auth/authApi';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { setCredentials } from '@/features/auth/authSlice';
@@ -25,6 +25,7 @@ const registerSchema = z
       .regex(/[A-Z]/, 'Şifre en az bir büyük harf içermelidir')
       .regex(/[0-9]/, 'Şifre en az bir rakam içermelidir'),
     confirmPassword: z.string(),
+    referralCode: z.string().max(32, 'Referral kodu en fazla 32 karakter olabilir').optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Şifreler eşleşmiyor',
@@ -35,17 +36,23 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [register, { isLoading }] = useRegisterMutation();
   const [socialLogin, { isLoading: isSocialLoading }] = useSocialLoginMutation();
+  const referralCodeFromQuery = searchParams.get('ref')?.trim().toUpperCase() ?? '';
 
   const {
     register: registerField,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      referralCode: referralCodeFromQuery,
+    },
   });
 
   if (isAuthenticated) {
@@ -83,7 +90,10 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      const result = await register(data).unwrap();
+      const result = await register({
+        ...data,
+        referralCode: data.referralCode?.trim() ? data.referralCode.trim().toUpperCase() : undefined,
+      }).unwrap();
       if (result.success) {
         toast.success('Kayıt başarılı! Giriş yapabilirsiniz.');
         navigate('/login', { replace: true });
@@ -98,7 +108,11 @@ export default function Register() {
 
   const handleSocialLogin = async (request: SocialLoginRequest) => {
     try {
-      const result = await socialLogin(request).unwrap();
+      const referralCode = getValues('referralCode')?.trim().toUpperCase();
+      const result = await socialLogin({
+        ...request,
+        referralCode: referralCode || undefined,
+      }).unwrap();
       handleAuthSuccess(result);
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
@@ -176,9 +190,23 @@ export default function Register() {
                 placeholder="••••••••"
                 {...registerField('confirmPassword')}
               />
-              {errors.confirmPassword && (
-                <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+                {errors.confirmPassword && (
+                  <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+                )}
+              </div>
+            <div className="space-y-2">
+              <Label htmlFor="referralCode">Referral Kodu</Label>
+              <Input
+                id="referralCode"
+                placeholder="REFXXXXXXX"
+                {...registerField('referralCode')}
+              />
+              {errors.referralCode && (
+                <p className="text-sm text-destructive">{errors.referralCode.message}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                Davet linki ile geldiysen kod otomatik doldurulur.
+              </p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 pt-4">

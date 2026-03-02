@@ -25,6 +25,7 @@ const Notifications = lazy(() => import('@/pages/Notifications'));
 const NotificationPreferences = lazy(() => import('@/pages/NotificationPreferences'));
 const Loyalty = lazy(() => import('@/pages/Loyalty'));
 const GiftCards = lazy(() => import('@/pages/GiftCards'));
+const Referrals = lazy(() => import('@/pages/Referrals'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Account = lazy(() => import('@/pages/Account'));
 const Addresses = lazy(() => import('@/pages/Addresses'));
@@ -120,6 +121,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Loyalty />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/referrals"
+                      element={
+                        <ProtectedRoute>
+                          <Referrals />
                         </ProtectedRoute>
                       }
                     />
