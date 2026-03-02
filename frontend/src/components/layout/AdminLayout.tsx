@@ -321,7 +321,7 @@ export function AdminLayout() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 {breadcrumbs.map((crumb, index) => (
-                  <div key={crumb.href} className="flex items-center gap-2">
+                  <div key={`${crumb.href}-${index}`} className="flex items-center gap-2">
                     {index > 0 ? <ChevronRight className="h-3.5 w-3.5" /> : null}
                     {index === breadcrumbs.length - 1 ? (
                       <span className="font-medium text-foreground">{crumb.label}</span>
