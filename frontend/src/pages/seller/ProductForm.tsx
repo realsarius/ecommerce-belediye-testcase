@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +12,8 @@ import { Label } from '@/components/common/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Checkbox } from '@/components/common/checkbox';
 import { Skeleton } from '@/components/common/skeleton';
+import { Textarea } from '@/components/common/textarea';
+import { Badge } from '@/components/common/badge';
 import {
   Select,
   SelectContent,
@@ -19,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
-import { ArrowLeft, Loader2, Save, Store } from 'lucide-react';
+import { ArrowLeft, Boxes, Hash, Loader2, Save, Sparkles, Store } from 'lucide-react';
 import { toast } from 'sonner';
 
 
@@ -48,6 +50,20 @@ const productSchema = z.object({
 type ProductFormInput = z.input<typeof productSchema>;
 type ProductFormData = z.output<typeof productSchema>;
 
+function buildSkuCandidate(name: string) {
+  const normalized = name
+    .toLocaleUpperCase('tr-TR')
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((segment) => segment.slice(0, 4))
+    .join('-');
+
+  const suffix = Math.floor(100 + Math.random() * 900);
+  return `${normalized || 'URUN'}-${suffix}`;
+}
+
 export default function SellerProductForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -67,6 +83,8 @@ export default function SellerProductForm() {
     handleSubmit,
     control,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormInput, unknown, ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -80,6 +98,41 @@ export default function SellerProductForm() {
       isActive: true,
     },
   });
+
+  const productName = watch('name');
+  const description = watch('description');
+  const sku = watch('sku');
+  const price = Number(watch('price') || 0);
+  const stock = Number(watch('initialStock') || 0);
+  const isActive = watch('isActive');
+  const selectedCategoryId = watch('categoryId');
+  const selectedCategory = categories?.find((category) => category.id.toString() === selectedCategoryId);
+  const stockMeta = useMemo(() => {
+    if (stock <= 0) {
+      return {
+        label: 'Stokta yok',
+        className: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+      };
+    }
+
+    if (stock <= 5) {
+      return {
+        label: 'Düşük stok',
+        className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      };
+    }
+
+    return {
+      label: 'Stok yeterli',
+      className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    };
+  }, [stock]);
+
+  const handleGenerateSku = () => {
+    const nextSku = buildSkuCandidate(productName || '');
+    setValue('sku', nextSku, { shouldDirty: true, shouldValidate: true });
+    toast.success('SKU otomatik oluşturuldu');
+  };
 
   useEffect(() => {
     if (product && isEdit && categories) {
@@ -202,20 +255,33 @@ export default function SellerProductForm() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Açıklama</Label>
-                  <Input
+                  <Textarea
                     id="description"
-                    placeholder="Ürün açıklaması"
+                    rows={5}
+                    placeholder="Ürünün öne çıkan özelliklerini, kullanım alanını ve müşterinin bilmesi gereken detayları yazın"
                     {...register('description')}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sku">SKU *</Label>
-                    <Input
-                      id="sku"
-                      placeholder="PROD-001"
-                      {...register('sku')}
-                    />
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="sku">SKU *</Label>
+                      <Button type="button" variant="ghost" size="sm" onClick={handleGenerateSku}>
+                        <Hash className="mr-2 h-4 w-4" />
+                        {sku ? 'Yeniden Oluştur' : 'SKU Oluştur'}
+                      </Button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="sku"
+                        placeholder="PROD-001"
+                        {...register('sku')}
+                      />
+                      <Sparkles className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      SKU stok ve operasyon takibi için benzersiz olmalı. İsterseniz ürün adına göre otomatik üretebilirsiniz.
+                    </p>
                     {errors.sku && (
                       <p className="text-sm text-destructive">{errors.sku.message}</p>
                     )}
@@ -296,9 +362,22 @@ export default function SellerProductForm() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Durum</CardTitle>
+                <CardTitle>Yayın Durumu</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="font-medium">{isActive ? 'Aktif Yayın' : 'Taslak'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isActive
+                        ? 'Ürün müşterilere görünür ve listelerde yer alır.'
+                        : 'Ürün kaydedilir ancak vitrinde görünmez.'}
+                    </p>
+                  </div>
+                  <Badge className={isActive ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-700 dark:text-slate-300'}>
+                    {isActive ? 'Aktif' : 'Taslak'}
+                  </Badge>
+                </div>
                 <div className="flex items-center space-x-2">
                   <Controller
                     name="isActive"
@@ -311,11 +390,57 @@ export default function SellerProductForm() {
                       />
                     )}
                   />
-                  <Label htmlFor="isActive">Aktif</Label>
+                  <Label htmlFor="isActive">Kaydı aktif yayınla</Label>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Aktif ürünler müşterilere görünür
-                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Hızlı Özet</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10">
+                      <Boxes className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium">{productName || 'Ürün adı bekleniyor'}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {selectedCategory?.name || 'Kategori seçilmedi'}
+                      </p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {description?.trim() || 'Açıklama henüz girilmedi.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">SKU</span>
+                    <span className="font-medium">{sku || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Fiyat</span>
+                    <span className="font-medium">{price.toLocaleString('tr-TR')} TL</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Stok</span>
+                    <Badge className={stockMeta.className}>{stockMeta.label}</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Not</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <p>Bu form şu an mevcut backend kontratındaki alanlarla çalışır.</p>
+                <p>Çoklu görsel, varyant ve zengin içerik alanları ayrı backend desteği geldiğinde genişletilecek.</p>
               </CardContent>
             </Card>
 

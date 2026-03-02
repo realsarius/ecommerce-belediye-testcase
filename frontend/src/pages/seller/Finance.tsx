@@ -14,6 +14,7 @@ import {
 import {
   BarChart3,
   CircleDollarSign,
+  Download,
   Info,
   ShoppingBag,
   Store,
@@ -59,6 +60,22 @@ function formatCompactTick(value?: number) {
   }
 
   return `${Math.round(value / 1000)}k`;
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csvContent = rows
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 const periodOptions = [
@@ -125,6 +142,35 @@ export default function SellerFinancePage() {
     };
   }, [summary?.currency, summary?.grossRevenue, trends]);
 
+  const handleExportCsv = () => {
+    const filename = `seller-finance-${selectedDays}-gun.csv`;
+    const rows: string[][] = [
+      ['Rapor', 'Deger'],
+      ['Secili Donem', `${selectedDays} gun`],
+      ['Brut Satis', formatCurrency(financeData.revenue, financeData.currency)],
+      ['Siparis Sayisi', financeData.orders.toLocaleString('tr-TR')],
+      ['Ortalama Siparis Degeri', formatCurrency(financeData.avgOrderValue, financeData.currency)],
+      ['Toplam Ciro', formatCurrency(financeData.lifetimeGrossRevenue, financeData.currency)],
+      [''],
+      ['Gun', 'Gelir', 'Siparis'],
+      ...financeData.trendSeries.map((point) => [
+        point.label,
+        formatCurrency(point.revenue, financeData.currency),
+        point.orders.toLocaleString('tr-TR'),
+      ]),
+      [''],
+      ['Ay', 'Siparis', 'Brut Satis', 'Ort. Siparis Degeri'],
+      ...financeData.monthlyRows.map((row) => [
+        row.month,
+        row.orders.toLocaleString('tr-TR'),
+        formatCurrency(row.revenue, financeData.currency),
+        formatCurrency(row.orders > 0 ? row.revenue / row.orders : 0, financeData.currency),
+      ]),
+    ];
+
+    downloadCsv(filename, rows);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -174,19 +220,25 @@ export default function SellerFinancePage() {
           </p>
         </div>
 
-        <div className="w-full max-w-xs">
-          <Select value={String(selectedDays)} onValueChange={(value) => setSelectedDays(Number(value))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Dönem seçin" />
-            </SelectTrigger>
-            <SelectContent>
-              {periodOptions.map((option) => (
-                <SelectItem key={option.value} value={String(option.value)}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:max-w-md">
+          <div className="w-full sm:max-w-xs">
+            <Select value={String(selectedDays)} onValueChange={(value) => setSelectedDays(Number(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Dönem seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map((option) => (
+                  <SelectItem key={option.value} value={String(option.value)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" onClick={handleExportCsv} disabled={financeData.trendSeries.length === 0}>
+            <Download className="mr-2 h-4 w-4" />
+            CSV Dışa Aktar
+          </Button>
         </div>
       </div>
 

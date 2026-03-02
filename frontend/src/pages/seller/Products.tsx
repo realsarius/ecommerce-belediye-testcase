@@ -67,9 +67,17 @@ export default function SellerProducts() {
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteSellerProductMutation();
 
   const items = products?.items ?? [];
+  const visibleItems = useMemo(() => {
+    if (!profile?.id) {
+      return items;
+    }
+
+    return items.filter((product) => product.sellerId == null || product.sellerId === profile.id);
+  }, [items, profile?.id]);
+  const filteredOutForeignItemsCount = Math.max(0, items.length - visibleItems.length);
 
   const filteredItems = useMemo(() => {
-    return items.filter((product) => {
+    return visibleItems.filter((product) => {
       if (statusFilter === 'active' && !product.isActive) {
         return false;
       }
@@ -88,16 +96,16 @@ export default function SellerProducts() {
 
       return true;
     });
-  }, [items, statusFilter, stockFilter]);
+  }, [statusFilter, stockFilter, visibleItems]);
 
   const summary = useMemo(() => {
     return {
-      total: items.length,
-      active: items.filter((product) => product.isActive).length,
-      critical: items.filter((product) => product.stockQuantity > 0 && product.stockQuantity <= 5).length,
-      out: items.filter((product) => product.stockQuantity <= 0).length,
+      total: visibleItems.length,
+      active: visibleItems.filter((product) => product.isActive).length,
+      critical: visibleItems.filter((product) => product.stockQuantity > 0 && product.stockQuantity <= 5).length,
+      out: visibleItems.filter((product) => product.stockQuantity <= 0).length,
     };
-  }, [items]);
+  }, [visibleItems]);
 
   const handleDelete = async (id: number, name: string) => {
     try {
@@ -180,6 +188,22 @@ export default function SellerProducts() {
           surfaceClass="bg-rose-500/10"
         />
       </div>
+
+      {filteredOutForeignItemsCount > 0 ? (
+        <Card className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="flex gap-3 p-5">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Liste yalnızca mağazanıza ait ürünlerle sınırlandı</p>
+              <p>
+                Arka uç seller filtresi uygulasa da, güvenlik için farklı seller kimliği taşıyan
+                {` ${filteredOutForeignItemsCount} `}
+                kayıt kullanıcı arayüzünde gizlendi.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-border/70">
         <CardContent className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-4">
