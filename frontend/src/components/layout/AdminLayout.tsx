@@ -7,6 +7,7 @@ import {
   FolderTree,
   ShoppingBag,
   Ticket,
+  BellRing,
   ArrowLeft,
   Menu,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ const sidebarItems = [
   { href: '/admin/categories', label: 'Kategoriler', icon: FolderTree },
   { href: '/admin/orders', label: 'Siparişler', icon: ShoppingBag },
   { href: '/admin/coupons', label: 'Kuponlar', icon: Ticket },
+  { href: '/admin/notifications/templates', label: 'Bildirim Şablonları', icon: BellRing },
 ];
 
 export function AdminLayout() {

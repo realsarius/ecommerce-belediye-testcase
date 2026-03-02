@@ -9,6 +9,10 @@ import type {
   CreateShippingAddressRequest,
   Order,
 } from '@/features/orders/types';
+import type {
+  NotificationTemplate,
+  UpdateNotificationTemplateRequest,
+} from '@/features/notifications/types';
 
 export const adminApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -91,6 +95,23 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: Order }) => response.data,
       invalidatesTags: ['Orders'],
     }),
+    getAdminNotificationTemplates: builder.query<NotificationTemplate[], void>({
+      query: () => '/admin/notifications/templates',
+      transformResponse: (response: { data: NotificationTemplate[] }) => response.data,
+      providesTags: ['Notifications'],
+    }),
+    updateAdminNotificationTemplate: builder.mutation<
+      NotificationTemplate,
+      { type: string; data: UpdateNotificationTemplateRequest }
+    >({
+      query: ({ type, data }) => ({
+        url: `/admin/notifications/templates/${type}`,
+        method: 'PUT',
+        body: data,
+      }),
+      transformResponse: (response: { data: NotificationTemplate }) => response.data,
+      invalidatesTags: ['Notifications'],
+    }),
   }),
 });
 
@@ -106,4 +127,6 @@ export const {
   useUpdateAddressMutation,
   useGetAdminOrdersQuery,
   useUpdateOrderStatusMutation,
+  useGetAdminNotificationTemplatesQuery,
+  useUpdateAdminNotificationTemplateMutation,
 } = adminApi;

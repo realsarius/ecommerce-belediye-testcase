@@ -31,6 +31,7 @@ export interface NotificationPreference {
 export interface NotificationTemplate {
   type: NotificationType;
   displayName: string;
+  description: string;
   titleExample: string;
   bodyExample: string;
   supportsInApp: boolean;
@@ -50,4 +51,11 @@ export interface UpdateNotificationPreferencesRequest {
     emailEnabled: boolean;
     pushEnabled: boolean;
   }>;
+}
+
+export interface UpdateNotificationTemplateRequest {
+  displayName: string;
+  description: string;
+  titleExample: string;
+  bodyExample: string;
 }
