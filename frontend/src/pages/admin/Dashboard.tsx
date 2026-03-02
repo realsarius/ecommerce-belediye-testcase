@@ -5,9 +5,9 @@ import {
   ArrowRight,
   Boxes,
   CircleDollarSign,
-  Package,
   ShoppingBag,
-  TriangleAlert,
+  Store,
+  UserPlus,
 } from 'lucide-react';
 import {
   Area,
@@ -42,7 +42,7 @@ import { DataTable } from '@/components/admin/DataTable';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
-import { useGetAdminCategoriesQuery, useGetAdminOrdersQuery } from '@/features/admin/adminApi';
+import { useGetAdminCategoriesQuery, useGetAdminOrdersQuery, useGetAdminUsersQuery } from '@/features/admin/adminApi';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 import type { Order, OrderStatus } from '@/features/orders/types';
 import { formatShortDate } from '@/lib/dashboardLayout';
@@ -218,6 +218,31 @@ function buildMonthlyRevenueTrend(orders: Order[]) {
   return buckets;
 }
 
+function buildUserRegistrationTrend(createdAtValues: string[]) {
+  const today = new Date();
+  const buckets = Array.from({ length: 30 }).map((_, index) => {
+    const currentDate = new Date(today);
+    currentDate.setDate(today.getDate() - (29 - index));
+
+    return {
+      label: formatShortDate(currentDate.toISOString()),
+      currentKey: currentDate.toISOString().slice(0, 10),
+      count: 0,
+    };
+  });
+
+  for (const bucket of buckets) {
+    for (const createdAt of createdAtValues) {
+      const createdAtKey = new Date(createdAt).toISOString().slice(0, 10);
+      if (createdAtKey === bucket.currentKey) {
+        bucket.count += 1;
+      }
+    }
+  }
+
+  return buckets;
+}
+
 function getOrderStatusTone(status: OrderStatus) {
   if (status === 'Delivered') return 'success' as const;
   if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
@@ -229,9 +254,10 @@ export default function AdminDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState<RevenuePeriod>('daily');
   const { data: orders = [], isLoading: ordersLoading } = useGetAdminOrdersQuery();
   const { data: categories = [], isLoading: categoriesLoading } = useGetAdminCategoriesQuery();
+  const { data: usersResponse, isLoading: usersLoading } = useGetAdminUsersQuery({ page: 1, pageSize: 500 });
   const { data: products, isLoading: productsLoading } = useSearchProductsQuery({ page: 1, pageSize: 500 });
 
-  const isLoading = ordersLoading || categoriesLoading || productsLoading;
+  const isLoading = ordersLoading || categoriesLoading || usersLoading || productsLoading;
 
   const dashboardData = useMemo(() => {
     const now = new Date();
@@ -239,9 +265,12 @@ export default function AdminDashboard() {
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     const yesterdayKey = yesterday.toISOString().slice(0, 10);
+    const users = usersResponse?.items ?? [];
 
     const todayOrders = orders.filter((order) => new Date(order.createdAt).toISOString().slice(0, 10) === todayKey);
     const yesterdayOrders = orders.filter((order) => new Date(order.createdAt).toISOString().slice(0, 10) === yesterdayKey);
+    const todayUsers = users.filter((user) => new Date(user.createdAt).toISOString().slice(0, 10) === todayKey);
+    const yesterdayUsers = users.filter((user) => new Date(user.createdAt).toISOString().slice(0, 10) === yesterdayKey);
 
     const todayRevenue = todayOrders
       .filter((order) => isRevenueOrder(order.status))
@@ -252,6 +281,11 @@ export default function AdminDashboard() {
 
     const productItems = products?.items ?? [];
     const activeProducts = productItems.filter((product) => product.isActive).length;
+    const activeSellerIds = new Set(
+      productItems
+        .filter((product) => product.isActive && product.sellerId != null)
+        .map((product) => product.sellerId)
+    );
     const lowStockProducts = productItems
       .filter((product) => product.stockQuantity <= 5)
       .sort((a, b) => a.stockQuantity - b.stockQuantity)
@@ -280,11 +314,15 @@ export default function AdminDashboard() {
         count: category.productCount,
       }));
 
+    const userRegistrationTrend = buildUserRegistrationTrend(users.map((user) => user.createdAt));
+
     return {
       activeProducts,
+      activeSellerCount: activeSellerIds.size,
       categoryCount: categories.length,
       lowStockProducts,
       lowStockCount: lowStockProducts.length,
+      pendingSellerApplications: 0,
       revenueTrend,
       recentOrders,
       statusDistribution,
@@ -292,10 +330,13 @@ export default function AdminDashboard() {
       todayOrdersDelta: formatDelta(todayOrders.length, yesterdayOrders.length),
       todayRevenue,
       todayRevenueDelta: formatDelta(todayRevenue, yesterdayRevenue),
+      todayUsersCount: todayUsers.length,
+      todayUsersDelta: formatDelta(todayUsers.length, yesterdayUsers.length),
+      userRegistrationTrend,
       categoryProductCounts,
       totalOrders: orders.length,
     };
-  }, [categories, orders, products]);
+  }, [categories, orders, products, usersResponse?.items]);
 
   const selectedRevenueTrend = dashboardData.revenueTrend[selectedPeriod];
   const revenueDescriptions: Record<RevenuePeriod, string> = {
@@ -337,8 +378,8 @@ export default function AdminDashboard() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="max-w-3xl text-muted-foreground">
-            Bu ilk sürüm, mevcut admin sipariş, katalog ve arama endpoint’lerinden türetilen operasyonel metriklerle
-            hazırlanmıştır. Kullanıcı ve seller bazlı gelişmiş metrikler sonraki fazda eklenecek.
+            Mevcut admin sipariş, katalog ve kullanıcı endpoint’lerinden türetilen operasyonel metrikleri tek ekranda
+            toplar. Seller başvuruları için ayrı backend hazır olduğunda aynı yüzey daha derin hale gelecek.
           </p>
         </div>
 
@@ -374,18 +415,21 @@ export default function AdminDashboard() {
           surfaceClass="bg-sky-500/10"
         />
         <KpiCard
-          title="Aktif Ürün"
-          value={dashboardData.activeProducts.toLocaleString('tr-TR')}
-          helperText={`${dashboardData.categoryCount.toLocaleString('tr-TR')} kategori içinde satışta olan ürünler.`}
-          icon={Package}
+          title="Yeni Üye"
+          value={dashboardData.todayUsersCount.toLocaleString('tr-TR')}
+          delta={dashboardData.todayUsersDelta}
+          deltaLabel="düne göre"
+          helperText="Bugün kayıt olan kullanıcı sayısı."
+          icon={UserPlus}
           accentClass="text-violet-600 dark:text-violet-300"
           surfaceClass="bg-violet-500/10"
         />
         <KpiCard
-          title="Düşük Stok Uyarısı"
-          value={dashboardData.lowStockCount.toLocaleString('tr-TR')}
-          helperText="Stok seviyesi 5 ve altındaki ürünler."
-          icon={TriangleAlert}
+          title="Aktif Seller"
+          value={dashboardData.activeSellerCount.toLocaleString('tr-TR')}
+          helperText={`${dashboardData.activeProducts.toLocaleString('tr-TR')} aktif ürün ve ${dashboardData.categoryCount.toLocaleString('tr-TR')} kategori içinde hesaplandı.`}
+          badge={`${dashboardData.pendingSellerApplications} bekleyen`}
+          icon={Store}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"
         />
@@ -505,14 +549,14 @@ export default function AdminDashboard() {
 
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Sipariş Hacmi</CardTitle>
-            <CardDescription>Son 7 günde oluşturulan sipariş adedi.</CardDescription>
+            <CardTitle>Kullanıcı Kayıt Trendi</CardTitle>
+            <CardDescription>Son 30 günde sisteme katılan kullanıcı sayısı.</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={selectedRevenueTrend}>
+              <AreaChart data={dashboardData.userRegistrationTrend}>
                 <defs>
-                  <linearGradient id="ordersAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="userRegistrationGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.45} />
                     <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
                   </linearGradient>
@@ -520,12 +564,12 @@ export default function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'sipariş')} />
+                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'kullanıcı')} />
                 <Area
                   type="monotone"
-                  dataKey="orders"
+                  dataKey="count"
                   stroke="#8b5cf6"
-                  fill="url(#ordersAreaGradient)"
+                  fill="url(#userRegistrationGradient)"
                   strokeWidth={3}
                 />
               </AreaChart>

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
+  CircleDollarSign,
   Package,
   ShoppingBag,
   Star,
@@ -126,7 +127,9 @@ export default function SellerDashboard() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
 
+    const commissionRate = 0.1;
     const monthlyRevenue = trends.reduce((sum, point) => sum + point.revenue, 0);
+    const netRevenue = monthlyRevenue * (1 - commissionRate);
     const previousWindowRevenue = Math.max(summary?.grossRevenue ?? 0, monthlyRevenue) - monthlyRevenue;
     const revenueDelta = previousWindowRevenue === 0
       ? monthlyRevenue === 0 ? 0 : 100
@@ -160,7 +163,9 @@ export default function SellerDashboard() {
 
     return {
       currency,
+      commissionRate,
       monthlyRevenue,
+      netRevenue,
       revenueDelta,
       recentOrders,
       productPerformance,
@@ -262,10 +267,10 @@ export default function SellerDashboard() {
           surfaceClass="bg-violet-500/10"
         />
         <KpiCard
-          title="Aktif Ürün"
-          value={(summary?.activeProducts ?? 0).toLocaleString('tr-TR')}
-          helperText={`${summary?.totalProducts ?? 0} toplam ürün içinden satışta olanlar.`}
-          icon={Package}
+          title="Net Kazanç"
+          value={formatCurrency(dashboardData.netRevenue, dashboardData.currency)}
+          helperText={`Varsayılan %${(dashboardData.commissionRate * 100).toLocaleString('tr-TR')} platform komisyonu düşülerek tahmini hesaplandı.`}
+          icon={CircleDollarSign}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"
         />
