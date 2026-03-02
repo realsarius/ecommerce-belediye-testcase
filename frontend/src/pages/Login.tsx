@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { useLoginMutation } from '@/features/auth/authApi';
+import { useLoginMutation, useSocialLoginMutation } from '@/features/auth/authApi';
 import { setCredentials } from '@/features/auth/authSlice';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { Button } from '@/components/common/button';
@@ -11,6 +11,8 @@ import { Label } from '@/components/common/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/common/card';
 import { toast } from 'sonner';
 import { Loader2, Package } from 'lucide-react';
+import { SocialLoginButtons } from '@/features/auth/SocialLoginButtons';
+import type { SocialLoginRequest } from '@/features/auth/types';
 
 const loginSchema = z.object({
   email: z.string().email('Geçerli bir e-posta adresi girin').trim().min(1, 'E-posta gereklidir'),
@@ -25,6 +27,7 @@ export default function Login() {
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [login, { isLoading }] = useLoginMutation();
+  const [socialLogin, { isLoading: isSocialLoading }] = useSocialLoginMutation();
 
   const from = (location.state as { from?: Location })?.from?.pathname || '/';
 
@@ -41,25 +44,52 @@ export default function Login() {
     return <Navigate to="/" replace />;
   }
 
+  const handleAuthSuccess = (result: {
+    success: boolean;
+    token?: string;
+    refreshToken?: string;
+    user?: {
+      id: number;
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+    };
+    message?: string;
+  }) => {
+    if (result.success && result.token && result.user) {
+      dispatch(
+        setCredentials({
+          user: result.user,
+          token: result.token,
+          refreshToken: result.refreshToken || '',
+        })
+      );
+      toast.success('Giriş başarılı!');
+      navigate(from, { replace: true });
+      return;
+    }
+
+    toast.error(result.message || 'Giriş başarısız');
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       const result = await login(data).unwrap();
-      if (result.success && result.token && result.user) {
-        dispatch(
-          setCredentials({
-            user: result.user,
-            token: result.token,
-            refreshToken: result.refreshToken || '',
-          })
-        );
-        toast.success('Giriş başarılı!');
-        navigate(from, { replace: true });
-      } else {
-        toast.error(result.message || 'Giriş başarısız');
-      }
+      handleAuthSuccess(result);
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       toast.error(err.data?.message || 'Giriş yapılırken bir hata oluştu');
+    }
+  };
+
+  const handleSocialLogin = async (request: SocialLoginRequest) => {
+    try {
+      const result = await socialLogin(request).unwrap();
+      handleAuthSuccess(result);
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      toast.error(err.data?.message || 'Sosyal giriş sırasında bir hata oluştu');
     }
   };
 
@@ -103,10 +133,11 @@ export default function Login() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 pt-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || isSocialLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Giriş Yap
             </Button>
+            <SocialLoginButtons onSocialLogin={handleSocialLogin} />
             <p className="text-sm text-center text-muted-foreground">
               Hesabınız yok mu?{' '}
               <Link to="/register" className="text-primary hover:underline">

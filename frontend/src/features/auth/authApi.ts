@@ -4,6 +4,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   RefreshTokenRequest,
+  SocialLoginRequest,
   User,
 } from './types';
 
@@ -14,6 +15,14 @@ export const authApi = baseApi.injectEndpoints({
         url: '/auth/login',
         method: 'POST',
         body: credentials,
+      }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
+    }),
+    socialLogin: builder.mutation<AuthResponse, SocialLoginRequest>({
+      query: (body) => ({
+        url: '/auth/social',
+        method: 'POST',
+        body,
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
     }),
@@ -49,6 +58,7 @@ export const authApi = baseApi.injectEndpoints({
 
 export const {
   useLoginMutation,
+  useSocialLoginMutation,
   useRegisterMutation,
   useRefreshMutation,
   useRevokeMutation,

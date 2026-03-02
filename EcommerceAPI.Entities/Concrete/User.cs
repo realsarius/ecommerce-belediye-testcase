@@ -7,6 +7,9 @@ public class User : BaseEntity
     public string EmailHash { get; set; } = string.Empty;
     
     public string PasswordHash { get; set; } = string.Empty;
+    public string? GoogleSubject { get; set; }
+    public string? AppleSubject { get; set; }
+    public bool IsEmailVerified { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public int RoleId { get; set; }

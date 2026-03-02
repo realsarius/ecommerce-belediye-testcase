@@ -2,14 +2,17 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
-import { useRegisterMutation } from '@/features/auth/authApi';
-import { useAppSelector } from '@/app/hooks';
+import { useRegisterMutation, useSocialLoginMutation } from '@/features/auth/authApi';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { setCredentials } from '@/features/auth/authSlice';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/common/card';
 import { toast } from 'sonner';
 import { Loader2, Package } from 'lucide-react';
+import { SocialLoginButtons } from '@/features/auth/SocialLoginButtons';
+import type { SocialLoginRequest } from '@/features/auth/types';
 
 const registerSchema = z
   .object({
@@ -32,8 +35,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function Register() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [register, { isLoading }] = useRegisterMutation();
+  const [socialLogin, { isLoading: isSocialLoading }] = useSocialLoginMutation();
 
   const {
     register: registerField,
@@ -47,6 +52,35 @@ export default function Register() {
     return <Navigate to="/" replace />;
   }
 
+  const handleAuthSuccess = (result: {
+    success: boolean;
+    token?: string;
+    refreshToken?: string;
+    user?: {
+      id: number;
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+    };
+    message?: string;
+  }) => {
+    if (result.success && result.token && result.user) {
+      dispatch(
+        setCredentials({
+          user: result.user,
+          token: result.token,
+          refreshToken: result.refreshToken || '',
+        })
+      );
+      toast.success('Giriş başarılı!');
+      navigate('/', { replace: true });
+      return;
+    }
+
+    toast.error(result.message || 'Sosyal giriş başarısız');
+  };
+
   const onSubmit = async (data: RegisterFormData) => {
     try {
       const result = await register(data).unwrap();
@@ -59,6 +93,16 @@ export default function Register() {
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       toast.error(err.data?.message || 'Kayıt olurken bir hata oluştu');
+    }
+  };
+
+  const handleSocialLogin = async (request: SocialLoginRequest) => {
+    try {
+      const result = await socialLogin(request).unwrap();
+      handleAuthSuccess(result);
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      toast.error(err.data?.message || 'Sosyal giriş sırasında bir hata oluştu');
     }
   };
 
@@ -138,10 +182,11 @@ export default function Register() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 pt-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || isSocialLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Kayıt Ol
             </Button>
+            <SocialLoginButtons onSocialLogin={handleSocialLogin} />
             <p className="text-sm text-center text-muted-foreground">
               Zaten hesabınız var mı?{' '}
               <Link to="/login" className="text-primary hover:underline">

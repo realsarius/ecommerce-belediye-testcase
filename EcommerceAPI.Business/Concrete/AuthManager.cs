@@ -1,8 +1,7 @@
-using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Concrete;
-using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using Microsoft.Extensions.Configuration;
@@ -10,6 +9,7 @@ using EcommerceAPI.Core.Aspects.Autofac.Validation;
 using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Business.Abstract;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -23,6 +23,7 @@ public class AuthManager : IAuthService
     private readonly IHashingService _hashingService;
     private readonly IAuditService _auditService;
     private readonly ITokenHelper _tokenHelper;
+    private readonly ISocialAuthValidator _socialAuthValidator;
 
     public AuthManager(
         IUserDal userDal,
@@ -32,7 +33,8 @@ public class AuthManager : IAuthService
         IConfiguration configuration,
         IHashingService hashingService,
         IAuditService auditService,
-        ITokenHelper tokenHelper)
+        ITokenHelper tokenHelper,
+        ISocialAuthValidator socialAuthValidator)
     {
         _userDal = userDal;
         _roleDal = roleDal;
@@ -42,6 +44,7 @@ public class AuthManager : IAuthService
         _hashingService = hashingService;
         _auditService = auditService;
         _tokenHelper = tokenHelper;
+        _socialAuthValidator = socialAuthValidator;
     }
 
     [ValidationAspect(typeof(RegisterRequestValidator))]
@@ -96,54 +99,106 @@ public class AuthManager : IAuthService
         if (user == null)
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
 
+        if (string.IsNullOrWhiteSpace(user.PasswordHash))
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.SocialAccountPasswordLoginNotAllowed });
+
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
              return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.PasswordError });
 
-        var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
+        var response = await IssueAuthResponseAsync(user, "Login", Messages.SuccessfulLogin);
+        return new SuccessDataResult<AuthResponse>(response);
+    }
 
-        var token = _tokenHelper.GenerateAccessToken(user.Id, user.Email, role?.Name ?? "Customer", user.FirstName, user.LastName);
-        var expiry = DateTime.UtcNow.AddMinutes(
-            int.Parse(_configuration["JWT_EXPIRATION_MINUTES"] ?? "60"));
-
-        var refreshToken = _tokenHelper.GenerateRefreshToken();
-        var hashedRefreshToken = _hashingService.Hash(refreshToken);
-        
-        var refreshTokenEntity = new RefreshToken
+    [ValidationAspect(typeof(SocialLoginRequestValidator))]
+    public async Task<IDataResult<AuthResponse>> SocialLoginAsync(SocialLoginRequest request)
+    {
+        var validationResult = await _socialAuthValidator.ValidateAsync(request.Provider, request.IdToken);
+        if (!validationResult.Success)
         {
-            UserId = user.Id,
-            Token = hashedRefreshToken,
-            JwtId = Guid.NewGuid().ToString(),
-            ExpiresAt = DateTime.UtcNow.AddDays(7),
-            IsUsed = false,
-            IsRevoked = false
-        };
-
-        await _refreshTokenDal.AddAsync(refreshTokenEntity);
-        await _unitOfWork.SaveChangesAsync();
-
-        await _auditService.LogActionAsync(
-            user.Id.ToString(),
-            "Login",
-            "User",
-            new { UserId = user.Id, Role = role?.Name ?? "Customer" });
-
-        return new SuccessDataResult<AuthResponse>(new AuthResponse
-        {
-            Success = true,
-            Message = Messages.SuccessfulLogin,
-            Token = token,
-            RefreshToken = refreshToken,
-            RefreshTokenExpiration = refreshTokenEntity.ExpiresAt,
-            ExpiresAt = expiry,
-            User = new UserDto
+            return new ErrorDataResult<AuthResponse>(new AuthResponse
             {
-                Id = user.Id,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Role = role?.Name ?? "Customer"
+                Success = false,
+                Message = validationResult.ErrorMessage ?? Messages.SocialLoginFailed
+            });
+        }
+
+        var normalizedEmail = validationResult.Email.ToLowerInvariant().Trim();
+        var emailHash = _hashingService.Hash(normalizedEmail);
+        var user = (await _userDal.GetListAsync(u => u.EmailHash == emailHash)).FirstOrDefault();
+        var shouldPersist = false;
+
+        if (user == null)
+        {
+            var customerRole = await GetCustomerRoleAsync();
+            if (customerRole == null)
+            {
+                return new ErrorDataResult<AuthResponse>(new AuthResponse
+                {
+                    Success = false,
+                    Message = "Rol bulunamadı"
+                });
             }
-        });
+
+            user = new User
+            {
+                Email = validationResult.Email,
+                EmailHash = emailHash,
+                PasswordHash = string.Empty,
+                FirstName = request.FirstName?.Trim() ?? validationResult.FirstName?.Trim() ?? "Sosyal",
+                LastName = request.LastName?.Trim() ?? validationResult.LastName?.Trim() ?? "Kullanıcı",
+                RoleId = customerRole.Id,
+                IsEmailVerified = validationResult.EmailVerified
+            };
+
+            ApplySocialIdentity(user, validationResult.Provider, validationResult.Subject);
+            await _userDal.AddAsync(user);
+            shouldPersist = true;
+        }
+        else
+        {
+            var socialIdentityUpdate = ApplySocialIdentityIfNeeded(user, validationResult.Provider, validationResult.Subject);
+            if (!socialIdentityUpdate.Success)
+            {
+                return new ErrorDataResult<AuthResponse>(new AuthResponse
+                {
+                    Success = false,
+                    Message = socialIdentityUpdate.ErrorMessage
+                });
+            }
+
+            shouldPersist = socialIdentityUpdate.Updated;
+
+            if (validationResult.EmailVerified && !user.IsEmailVerified)
+            {
+                user.IsEmailVerified = true;
+                shouldPersist = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(user.FirstName) && !string.IsNullOrWhiteSpace(validationResult.FirstName))
+            {
+                user.FirstName = validationResult.FirstName.Trim();
+                shouldPersist = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(user.LastName) && !string.IsNullOrWhiteSpace(validationResult.LastName))
+            {
+                user.LastName = validationResult.LastName.Trim();
+                shouldPersist = true;
+            }
+
+            if (shouldPersist)
+            {
+                _userDal.Update(user);
+            }
+        }
+
+        if (shouldPersist)
+        {
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        var response = await IssueAuthResponseAsync(user, "SocialLogin", Messages.SuccessfulLogin);
+        return new SuccessDataResult<AuthResponse>(response);
     }
 
     [ValidationAspect(typeof(RefreshTokenRequestValidator))]
@@ -254,6 +309,103 @@ public class AuthManager : IAuthService
             new { UserId = existingToken.UserId });
         
         return new SuccessResult(Messages.TokenRevoked);
+    }
+
+    private async Task<AuthResponse> IssueAuthResponseAsync(User user, string auditAction, string message)
+    {
+        var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
+        var roleName = role?.Name ?? "Customer";
+        var token = _tokenHelper.GenerateAccessToken(user.Id, user.Email, roleName, user.FirstName, user.LastName);
+        var expiry = DateTime.UtcNow.AddMinutes(
+            int.Parse(_configuration["JWT_EXPIRATION_MINUTES"] ?? "60"));
+
+        var refreshToken = _tokenHelper.GenerateRefreshToken();
+        var hashedRefreshToken = _hashingService.Hash(refreshToken);
+
+        var refreshTokenEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = hashedRefreshToken,
+            JwtId = Guid.NewGuid().ToString(),
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            IsUsed = false,
+            IsRevoked = false
+        };
+
+        await _refreshTokenDal.AddAsync(refreshTokenEntity);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            user.Id.ToString(),
+            auditAction,
+            "User",
+            new { UserId = user.Id, Role = roleName });
+
+        return new AuthResponse
+        {
+            Success = true,
+            Message = message,
+            Token = token,
+            RefreshToken = refreshToken,
+            RefreshTokenExpiration = refreshTokenEntity.ExpiresAt,
+            ExpiresAt = expiry,
+            User = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Role = roleName
+            }
+        };
+    }
+
+    private async Task<Role?> GetCustomerRoleAsync()
+    {
+        return (await _roleDal.GetListAsync(r => r.Name == "Customer")).FirstOrDefault();
+    }
+
+    private void ApplySocialIdentity(User user, string provider, string subject)
+    {
+        if (provider.Equals("google", StringComparison.OrdinalIgnoreCase))
+        {
+            user.GoogleSubject = subject;
+            return;
+        }
+
+        user.AppleSubject = subject;
+    }
+
+    private (bool Success, bool Updated, string ErrorMessage) ApplySocialIdentityIfNeeded(User user, string provider, string subject)
+    {
+        if (provider.Equals("google", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(user.GoogleSubject) && user.GoogleSubject != subject)
+            {
+                return (false, false, Messages.SocialAccountConflict);
+            }
+
+            if (user.GoogleSubject != subject)
+            {
+                user.GoogleSubject = subject;
+                return (true, true, string.Empty);
+            }
+
+            return (true, false, string.Empty);
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.AppleSubject) && user.AppleSubject != subject)
+        {
+            return (false, false, Messages.SocialAccountConflict);
+        }
+
+        if (user.AppleSubject != subject)
+        {
+            user.AppleSubject = subject;
+            return (true, true, string.Empty);
+        }
+
+        return (true, false, string.Empty);
     }
 
     [LogAspect]
