@@ -76,6 +76,19 @@ public class NotificationPreferenceManager : INotificationPreferenceService
             SupportsPush: true,
             DefaultInApp: true,
             DefaultEmail: true,
+            DefaultPush: false),
+        new(
+            NotificationType.Announcement,
+            "Announcement",
+            "Duyuru Bildirimleri",
+            "Yönetim ekibinden gelen genel bilgilendirme ve sistem duyuruları.",
+            "Platformdan yeni bir duyuru var",
+            "Yönetim ekibinden sizin için yeni bir duyuru paylaşıldı.",
+            SupportsInApp: true,
+            SupportsEmail: true,
+            SupportsPush: false,
+            DefaultInApp: true,
+            DefaultEmail: true,
             DefaultPush: false)
     ];
 
