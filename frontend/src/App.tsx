@@ -61,6 +61,7 @@ const AdminProducts = lazy(() => import('@/pages/admin/ProductsAdmin'));
 const ProductForm = lazy(() => import('@/pages/admin/ProductForm'));
 const AdminCategories = lazy(() => import('@/pages/admin/CategoriesAdmin'));
 const AdminOrders = lazy(() => import('@/pages/admin/OrdersAdmin'));
+const AdminOrderDetailPage = lazy(() => import('@/pages/admin/OrderDetailPage'));
 const AdminCoupons = lazy(() => import('@/pages/admin/CouponsAdmin'));
 const AdminGiftCards = lazy(() => import('@/pages/admin/GiftCardsAdmin'));
 const AdminNotificationTemplates = lazy(() => import('@/pages/admin/NotificationTemplatesAdmin'));
@@ -69,6 +70,8 @@ const AdminNotificationTemplates = lazy(() => import('@/pages/admin/Notification
 const SellerDashboard = lazy(() => import('@/pages/seller/Dashboard'));
 const SellerProducts = lazy(() => import('@/pages/seller/Products'));
 const SellerProductForm = lazy(() => import('@/pages/seller/ProductForm'));
+const SellerOrders = lazy(() => import('@/pages/seller/Orders'));
+const SellerFinancePage = lazy(() => import('@/pages/seller/Finance'));
 const SellerProfile = lazy(() => import('@/pages/seller/Profile'));
 
 function App() {
@@ -231,11 +234,13 @@ function App() {
                     }
                   >
                     <Route index element={<AdminDashboard />} />
+                    <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="products" element={<AdminProducts />} />
                     <Route path="products/new" element={<ProductForm />} />
                     <Route path="products/:id" element={<ProductForm />} />
                     <Route path="categories" element={<AdminCategories />} />
                     <Route path="orders" element={<AdminOrders />} />
+                    <Route path="orders/:id" element={<AdminOrderDetailPage />} />
                     <Route path="coupons" element={<AdminCoupons />} />
                     <Route path="gift-cards" element={<AdminGiftCards />} />
                     <Route path="notifications/templates" element={<AdminNotificationTemplates />} />
@@ -250,9 +255,12 @@ function App() {
                     }
                   >
                     <Route index element={<SellerDashboard />} />
+                    <Route path="dashboard" element={<SellerDashboard />} />
                     <Route path="products" element={<SellerProducts />} />
                     <Route path="products/new" element={<SellerProductForm />} />
                     <Route path="products/:id" element={<SellerProductForm />} />
+                    <Route path="orders" element={<SellerOrders />} />
+                    <Route path="finance" element={<SellerFinancePage />} />
                     <Route path="profile" element={<SellerProfile />} />
                   </Route>
                 </Routes>

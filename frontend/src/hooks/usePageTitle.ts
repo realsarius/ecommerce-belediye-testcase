@@ -32,6 +32,7 @@ const pageTitles: Record<string, string> = {
   '/shipping': 'Kargo Bilgileri',
   '/cookie-policy': 'Çerez Politikası',
   '/admin': 'Yönetim Paneli',
+  '/admin/dashboard': 'Yönetim Paneli',
   '/admin/products': 'Ürün Yönetimi',
   '/admin/products/new': 'Yeni Ürün',
   '/admin/categories': 'Kategori Yönetimi',
@@ -39,11 +40,14 @@ const pageTitles: Record<string, string> = {
   '/admin/coupons': 'Kupon Yönetimi',
   '/admin/notifications/templates': 'Bildirim Şablonları',
   '/seller': 'Satıcı Paneli',
+  '/seller/dashboard': 'Satıcı Paneli',
   '/seller/register': 'Satıcı Başvurusu',
   '/seller/guide': 'Satıcı Rehberi',
   '/seller/pricing': 'Komisyon Oranları',
   '/seller/products': 'Ürünlerim',
   '/seller/products/new': 'Yeni Ürün Ekle',
+  '/seller/orders': 'Siparişlerim',
+  '/seller/finance': 'Kazancım ve Finans',
   '/seller/profile': 'Satıcı Profili',
 };
 
@@ -75,6 +79,8 @@ export function usePageTitle(customTitle?: string) {
           title = `Sipariş Detayı | ${SITE_NAME}`;
         } else if (pathParts[0] === 'admin' && pathParts[1] === 'products' && pathParts.length === 3) {
           title = `Ürün Düzenle | ${SITE_NAME}`;
+        } else if (pathParts[0] === 'admin' && pathParts[1] === 'orders' && pathParts.length === 3) {
+          title = `Admin Sipariş Detayı | ${SITE_NAME}`;
         } else if (pathParts[0] === 'seller' && pathParts[1] === 'products' && pathParts.length === 3) {
           title = `Ürün Düzenle | ${SITE_NAME}`;
         } else {
