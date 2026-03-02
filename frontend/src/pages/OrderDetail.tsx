@@ -353,6 +353,25 @@ export default function OrderDetail() {
                 </div>
               ))}
               <Separator />
+              {order.discountAmount ? (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Kupon İndirimi</span>
+                  <span>-{order.discountAmount.toLocaleString('tr-TR')} ₺</span>
+                </div>
+              ) : null}
+              {order.loyaltyDiscountAmount ? (
+                <div className="flex justify-between text-sm text-amber-600">
+                  <span>Sadakat Puanı</span>
+                  <span>-{order.loyaltyDiscountAmount.toLocaleString('tr-TR')} ₺</span>
+                </div>
+              ) : null}
+              {order.giftCardAmount ? (
+                <div className="flex justify-between text-sm text-emerald-600">
+                  <span>Gift Card {order.giftCardCode ? `(${order.giftCardCode})` : ''}</span>
+                  <span>-{order.giftCardAmount.toLocaleString('tr-TR')} ₺</span>
+                </div>
+              ) : null}
+              {(order.discountAmount || order.loyaltyDiscountAmount || order.giftCardAmount) ? <Separator /> : null}
               <div className="flex justify-between text-lg font-bold">
                 <span>Toplam</span>
                 <span>{order.totalAmount.toLocaleString('tr-TR')} ₺</span>
@@ -412,6 +431,11 @@ export default function OrderDetail() {
               <p className="text-muted-foreground text-sm">
                 Durum: {order.status === 'Paid' ? 'Ödeme alındı' : statusLabels[order.status]}
               </p>
+              {order.payment?.paymentMethod ? (
+                <p className="text-muted-foreground text-sm">
+                  Yöntem: {order.payment.paymentMethod}
+                </p>
+              ) : null}
               {order.payment?.status === 'Failed' && (
                 <p className="text-sm text-destructive">
                   Hata: {order.payment.errorMessage || 'Ödeme başarısız'}

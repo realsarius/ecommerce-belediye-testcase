@@ -32,6 +32,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useValidateCouponMutation } from '@/features/coupons/couponsApi';
 import type { CouponValidationResult } from '@/features/coupons/types';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
+import { useGetGiftCardSummaryQuery, useValidateGiftCardMutation } from '@/features/giftCards/giftCardsApi';
+import type { GiftCardValidationResult } from '@/features/giftCards/types';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -44,6 +46,7 @@ export default function Checkout() {
   const { data: savedCards } = useGetCreditCardsQuery();
   const [addCreditCard] = useAddCreditCardMutation();
   const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
+  const { data: giftCardSummary } = useGetGiftCardSummaryQuery();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressDialog, setShowAddressDialog] = useState(false);
@@ -76,7 +79,10 @@ export default function Checkout() {
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
   const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState('');
+  const [giftCardCode, setGiftCardCode] = useState('');
+  const [appliedGiftCard, setAppliedGiftCard] = useState<GiftCardValidationResult | null>(null);
   const [validateCoupon, { isLoading: isValidatingCoupon }] = useValidateCouponMutation();
+  const [validateGiftCard, { isLoading: isValidatingGiftCard }] = useValidateGiftCardMutation();
   const couponCodeFromState = location.state?.couponCode;
 
   const isLoading = isCartLoading || isAddressLoading;
@@ -171,7 +177,11 @@ export default function Checkout() {
   const maxPointsByTotal = Math.max(0, Math.floor((Math.max(0, amountAfterCoupon + shippingCost - 1) * 100)) / 100) * 100;
   const appliedLoyaltyPoints = Math.min(normalizedRequestedPoints, maxPointsByBalance, maxPointsByTotal);
   const loyaltyDiscountAmount = appliedLoyaltyPoints / 100;
-  const grandTotal = amountAfterCoupon + shippingCost - loyaltyDiscountAmount;
+  const amountAfterLoyalty = Math.max(0, amountAfterCoupon + shippingCost - loyaltyDiscountAmount);
+  const giftCardDiscountAmount = Math.min(appliedGiftCard?.availableBalance ?? 0, amountAfterLoyalty);
+  const giftCardRemainingBalance = Math.max(0, (appliedGiftCard?.availableBalance ?? 0) - giftCardDiscountAmount);
+  const grandTotal = Math.max(0, amountAfterLoyalty - giftCardDiscountAmount);
+  const requiresPayment = grandTotal > 0;
 
   const handleAddressSubmit = async () => {
     try {
@@ -224,26 +234,26 @@ export default function Checkout() {
     }
     const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
 
-    if (!isUsingSavedCard) {
-      if (!paymentForm.cardNumber || !paymentForm.expireMonth || !paymentForm.expireYear || !paymentForm.cvc) {
-        toast.error('Lütfen kart bilgilerini doldurun');
+    if (requiresPayment) {
+      if (!isUsingSavedCard) {
+        if (!paymentForm.cardNumber || !paymentForm.expireMonth || !paymentForm.expireYear || !paymentForm.cvc) {
+          toast.error('Lütfen kart bilgilerini doldurun');
+          return;
+        }
+
+        if (!validateCardNumber(paymentForm.cardNumber)) {
+          toast.error('Kart numarası geçersizdir');
+          return;
+        }
+      } else if (!paymentForm.cvc) {
+        toast.error('Lütfen CVV kodunu giriniz');
         return;
       }
 
-      if (!validateCardNumber(paymentForm.cardNumber)) {
-        toast.error('Kart numarası geçersizdir');
+      if (paymentForm.cvc.length < 3) {
+        toast.error('CVC en az 3 haneli olmalıdır');
         return;
       }
-    } else {
-       if (!paymentForm.cvc) {
-         toast.error('Lütfen CVV kodunu giriniz');
-         return;
-       }
-    }
-
-    if (paymentForm.cvc.length < 3) {
-      toast.error('CVC en az 3 haneli olmalıdır');
-      return;
     }
 
     if (cart && !cartSnapshot) {
@@ -266,12 +276,21 @@ export default function Checkout() {
           idempotencyKey: uuidv4(),
           couponCode: appliedCoupon?.isValid ? appliedCoupon.coupon?.code : undefined,
           loyaltyPointsToUse: appliedLoyaltyPoints > 0 ? appliedLoyaltyPoints : undefined,
+          giftCardCode: appliedGiftCard?.isValid ? appliedGiftCard.code : undefined,
         }).unwrap();
 
         orderIdToUse = order.id;
         setPendingOrderId(order.id);
       }
 
+      if (!requiresPayment) {
+        isNavigatingRef.current = true;
+        setPendingOrderId(null);
+        setCartSnapshot(null);
+        toast.success('Siparişiniz başarıyla oluşturuldu!');
+        navigate(`/orders/${orderIdToUse}`);
+        return;
+      }
 
       
       const paymentResult = await processPayment({
@@ -409,6 +428,17 @@ export default function Checkout() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {!requiresPayment ? (
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm">
+                  <p className="font-medium text-emerald-700 dark:text-emerald-300">
+                    Bu sipariş gift card bakiyesi ile tamamen karşılanıyor.
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    Kart bilgisi girmeden siparişi tamamlayabilirsin.
+                  </p>
+                </div>
+              ) : (
+                <>
 
               {savedCards && savedCards.length > 0 && (
                 <div className="space-y-2">
@@ -580,6 +610,8 @@ export default function Checkout() {
                   </p>
                 </div>
               )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -702,6 +734,80 @@ export default function Checkout() {
               </div>
 
               <Separator />
+
+              <div className="space-y-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Gift Card Kullan</p>
+                    <p className="text-xs text-muted-foreground">
+                      Hesabındaki toplam bakiye: {(giftCardSummary?.totalAvailableBalance ?? 0).toLocaleString('tr-TR')} ₺
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Gift card kodu"
+                    value={giftCardCode}
+                    onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
+                    className="font-mono"
+                    disabled={!!appliedGiftCard?.isValid}
+                  />
+                  {appliedGiftCard?.isValid ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setAppliedGiftCard(null);
+                        setGiftCardCode('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      disabled={!giftCardCode.trim() || isValidatingGiftCard}
+                      onClick={async () => {
+                        try {
+                          const result = await validateGiftCard({
+                            code: giftCardCode,
+                            orderTotal: amountAfterLoyalty,
+                          }).unwrap();
+                          if (result.isValid) {
+                            setAppliedGiftCard(result);
+                            setGiftCardCode(result.code);
+                            toast.success(`Gift card uygulandı: ${Math.min(result.availableBalance, amountAfterLoyalty).toLocaleString('tr-TR')} ₺`);
+                          } else {
+                            toast.error(result.errorMessage || 'Gift card kullanılamıyor');
+                          }
+                        } catch (error: unknown) {
+                          const err = error as { data?: { message?: string } };
+                          toast.error(err.data?.message || 'Gift card doğrulanamadı');
+                        }
+                      }}
+                    >
+                      {isValidatingGiftCard ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Uygula'}
+                    </Button>
+                  )}
+                </div>
+                {appliedGiftCard?.isValid ? (
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2 text-emerald-600">
+                      <Check className="h-4 w-4" />
+                      <span>{appliedGiftCard.maskedCode} uygulanıyor</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Bu siparişte {giftCardDiscountAmount.toLocaleString('tr-TR')} ₺ kullanılacak, kalan bakiye {giftCardRemainingBalance.toLocaleString('tr-TR')} ₺.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Gift card bakiyesi kupon ve sadakat indirimi sonrası kalan tutara uygulanır.
+                  </p>
+                )}
+              </div>
+
+              <Separator />
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ara Toplam</span>
                 <span>{subtotal.toLocaleString('tr-TR')} ₺</span>
@@ -716,6 +822,12 @@ export default function Checkout() {
                 <div className="flex justify-between text-amber-600">
                   <span>Sadakat Puanı</span>
                   <span>-{loyaltyDiscountAmount.toLocaleString('tr-TR')} ₺</span>
+                </div>
+              )}
+              {giftCardDiscountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Gift Card</span>
+                  <span>-{giftCardDiscountAmount.toLocaleString('tr-TR')} ₺</span>
                 </div>
               )}
               <div className="flex justify-between">

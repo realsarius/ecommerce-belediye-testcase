@@ -18,6 +18,7 @@ public class RefundServiceTests
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IIyzicoRefundGateway> _refundGatewayMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
+    private readonly Mock<IGiftCardService> _giftCardServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<IyzicoRefundService>> _loggerMock;
     private readonly IRefundService _refundService;
@@ -28,11 +29,14 @@ public class RefundServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _refundGatewayMock = new Mock<IIyzicoRefundGateway>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
+        _giftCardServiceMock = new Mock<IGiftCardService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<IyzicoRefundService>>();
         _loyaltyServiceMock.Setup(x => x.RestoreRedeemedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
         _loyaltyServiceMock.Setup(x => x.ReverseEarnedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _giftCardServiceMock.Setup(x => x.RestoreForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
 
         _refundService = new IyzicoRefundService(
@@ -40,6 +44,7 @@ public class RefundServiceTests
             _unitOfWorkMock.Object,
             _refundGatewayMock.Object,
             _loyaltyServiceMock.Object,
+            _giftCardServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object);
     }
@@ -62,6 +67,7 @@ public class RefundServiceTests
         refundRequest.ReturnRequest.Status.Should().Be(ReturnRequestStatus.Refunded);
         refundRequest.Order.Status.Should().Be(OrderStatus.Refunded);
         refundRequest.Payment!.Status.Should().Be(PaymentStatus.Refunded);
+        _giftCardServiceMock.Verify(x => x.RestoreForOrderAsync(refundRequest.ReturnRequest.UserId, refundRequest.OrderId, It.IsAny<string>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
     }
 
@@ -104,6 +110,7 @@ public class RefundServiceTests
             OrderNumber = "ORD-REFUND-1",
             Status = OrderStatus.Paid,
             TotalAmount = 249.90m,
+            GiftCardAmount = 50m,
             Currency = "TRY",
             ShippingAddress = "Test Address"
         };

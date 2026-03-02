@@ -26,6 +26,7 @@ public class OrderManagerTests
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICouponService> _couponServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
+    private readonly Mock<IGiftCardService> _giftCardServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<OrderManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
@@ -40,6 +41,7 @@ public class OrderManagerTests
         _uowMock = new Mock<IUnitOfWork>();
         _couponServiceMock = new Mock<ICouponService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
+        _giftCardServiceMock = new Mock<IGiftCardService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<OrderManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
@@ -55,6 +57,19 @@ public class OrderManagerTests
         _loyaltyServiceMock
             .Setup(x => x.RestoreRedeemedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
+        _giftCardServiceMock
+            .Setup(x => x.ValidateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync((int _, string _, decimal total) => new SuccessDataResult<GiftCardValidationResult>(new GiftCardValidationResult
+            {
+                IsValid = true,
+                FinalTotal = total
+            }));
+        _giftCardServiceMock
+            .Setup(x => x.RedeemForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _giftCardServiceMock
+            .Setup(x => x.RestoreForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
 
         _orderManager = new OrderManager(
             _orderDalMock.Object,
@@ -64,6 +79,7 @@ public class OrderManagerTests
             _uowMock.Object,
             _couponServiceMock.Object,
             _loyaltyServiceMock.Object,
+            _giftCardServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object
@@ -178,6 +194,118 @@ public class OrderManagerTests
         capturedOrder.LoyaltyDiscountAmount.Should().Be(15m);
         _loyaltyServiceMock.Verify(x => x.RedeemPointsForOrderAsync(userId, capturedOrder.Id, 1500, 15m, It.IsAny<string>()), Times.Once);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WithGiftCard_ShouldApplyDiscountAndRedeemBalance()
+    {
+        var userId = 100;
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            GiftCardCode = "GC-TEST-1"
+        };
+
+        var cartDto = new CartDto
+        {
+            Id = 1,
+            TotalAmount = 200m,
+            Items = new List<CartItemDto>
+            {
+                new() { ProductId = 1, ProductName = "P1", Quantity = 2, UnitPrice = 100, AvailableStock = 10 }
+            }
+        };
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId))
+            .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true, DiscountAmount = 0 }));
+        _cartServiceMock.Setup(x => x.ClearCartAsync(userId)).ReturnsAsync(new SuccessResult());
+        _giftCardServiceMock
+            .Setup(x => x.ValidateAsync(userId, "GC-TEST-1", 229.90m))
+            .ReturnsAsync(new SuccessDataResult<GiftCardValidationResult>(new GiftCardValidationResult
+            {
+                IsValid = true,
+                GiftCardId = 77,
+                Code = "GC-TEST-1",
+                AppliedAmount = 100m,
+                FinalTotal = 129.90m
+            }));
+
+        Order capturedOrder = null!;
+        _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
+            .Callback<Order>(o => { o.Id = 101; capturedOrder = o; })
+            .ReturnsAsync((Order o) => o);
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()))
+            .ReturnsAsync(() => capturedOrder);
+
+        var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
+
+        result.Success.Should().BeTrue();
+        capturedOrder.GiftCardId.Should().Be(77);
+        capturedOrder.GiftCardCode.Should().Be("GC-TEST-1");
+        capturedOrder.GiftCardAmount.Should().Be(100m);
+        capturedOrder.TotalAmount.Should().Be(129.90m);
+        _giftCardServiceMock.Verify(x => x.RedeemForOrderAsync(userId, capturedOrder.Id, "GC-TEST-1", 100m, It.IsAny<string>()), Times.Once);
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WithFullyCoveredGiftCard_ShouldAutoCompleteOrder()
+    {
+        var userId = 100;
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            GiftCardCode = "GC-FULL-1"
+        };
+
+        var cartDto = new CartDto
+        {
+            Id = 1,
+            TotalAmount = 200m,
+            Items = new List<CartItemDto>
+            {
+                new() { ProductId = 1, ProductName = "P1", Quantity = 2, UnitPrice = 100, AvailableStock = 10 }
+            }
+        };
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId))
+            .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true, DiscountAmount = 0 }));
+        _cartServiceMock.Setup(x => x.ClearCartAsync(userId)).ReturnsAsync(new SuccessResult());
+        _giftCardServiceMock
+            .Setup(x => x.ValidateAsync(userId, "GC-FULL-1", 229.90m))
+            .ReturnsAsync(new SuccessDataResult<GiftCardValidationResult>(new GiftCardValidationResult
+            {
+                IsValid = true,
+                GiftCardId = 88,
+                Code = "GC-FULL-1",
+                AppliedAmount = 229.90m,
+                FinalTotal = 0m
+            }));
+
+        Order capturedOrder = null!;
+        _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
+            .Callback<Order>(o => { o.Id = 102; capturedOrder = o; })
+            .ReturnsAsync((Order o) => o);
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()))
+            .ReturnsAsync(() => capturedOrder);
+
+        var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
+
+        result.Success.Should().BeTrue();
+        capturedOrder.Status.Should().Be(EcommerceAPI.Entities.Enums.OrderStatus.Paid);
+        capturedOrder.Payment!.Status.Should().Be(EcommerceAPI.Entities.Enums.PaymentStatus.Success);
+        capturedOrder.Payment.PaymentMethod.Should().Be("GiftCard");
+        capturedOrder.TotalAmount.Should().Be(0m);
     }
 
     [Fact]
@@ -334,5 +462,35 @@ public class OrderManagerTests
         result.Success.Should().BeTrue();
         result.Data.Id.Should().Be(existingOrder.Id);
         _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task CancelOrderAsync_WithGiftCardUsage_ShouldRestoreGiftCard()
+    {
+        var order = new Order
+        {
+            Id = 401,
+            UserId = 100,
+            OrderNumber = "ORD-CANCEL-1",
+            Status = EcommerceAPI.Entities.Enums.OrderStatus.PendingPayment,
+            TotalAmount = 149.90m,
+            GiftCardAmount = 50m,
+            GiftCardCode = "GC-CANCEL-1",
+            ShippingAddress = "Test Address",
+            OrderItems =
+            [
+                new OrderItem { ProductId = 1, Quantity = 1, PriceSnapshot = 120m }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _inventoryServiceMock.Setup(x => x.ReleaseStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _orderManager.CancelOrderAsync(order.UserId, order.Id);
+
+        result.Success.Should().BeTrue();
+        _giftCardServiceMock.Verify(x => x.RestoreForOrderAsync(order.UserId, order.Id, It.IsAny<string>()), Times.Once);
     }
 }

@@ -27,5 +27,8 @@ public class CheckoutRequestValidator : AbstractValidator<CheckoutRequest>
             .GreaterThanOrEqualTo(0)
             .When(x => x.LoyaltyPointsToUse.HasValue)
             .WithMessage("Sadakat puanı negatif olamaz.");
+
+        RuleFor(x => x.GiftCardCode)
+            .MaximumLength(64);
     }
 }

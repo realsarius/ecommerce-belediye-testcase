@@ -388,6 +388,12 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/gift-cards" className="flex items-center gap-2">
+                      <Ticket className="h-4 w-4 text-emerald-600" />
+                      Gift Cardlarım
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/help" className="flex items-center gap-2">
                       <HelpCircle className="h-4 w-4 text-primary" />
                       Yardım
@@ -515,6 +521,9 @@ export function Header() {
                           </Link>
                           <Link to="/loyalty" className="text-lg font-medium">
                             Puanlarım ve Ödüllerim
+                          </Link>
+                          <Link to="/gift-cards" className="text-lg font-medium">
+                            Gift Cardlarım
                           </Link>
                           <Link to="/help" className="text-lg font-medium">
                             Yardım

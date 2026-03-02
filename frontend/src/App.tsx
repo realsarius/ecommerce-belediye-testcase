@@ -24,6 +24,7 @@ const Compare = lazy(() => import('@/pages/Compare'));
 const Notifications = lazy(() => import('@/pages/Notifications'));
 const NotificationPreferences = lazy(() => import('@/pages/NotificationPreferences'));
 const Loyalty = lazy(() => import('@/pages/Loyalty'));
+const GiftCards = lazy(() => import('@/pages/GiftCards'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Account = lazy(() => import('@/pages/Account'));
 const Addresses = lazy(() => import('@/pages/Addresses'));
@@ -53,6 +54,7 @@ const ProductForm = lazy(() => import('@/pages/admin/ProductForm'));
 const AdminCategories = lazy(() => import('@/pages/admin/CategoriesAdmin'));
 const AdminOrders = lazy(() => import('@/pages/admin/OrdersAdmin'));
 const AdminCoupons = lazy(() => import('@/pages/admin/CouponsAdmin'));
+const AdminGiftCards = lazy(() => import('@/pages/admin/GiftCardsAdmin'));
 const AdminNotificationTemplates = lazy(() => import('@/pages/admin/NotificationTemplatesAdmin'));
 
 // Seller pages
@@ -118,6 +120,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Loyalty />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/gift-cards"
+                      element={
+                        <ProtectedRoute>
+                          <GiftCards />
                         </ProtectedRoute>
                       }
                     />
@@ -211,6 +221,7 @@ function App() {
                     <Route path="categories" element={<AdminCategories />} />
                     <Route path="orders" element={<AdminOrders />} />
                     <Route path="coupons" element={<AdminCoupons />} />
+                    <Route path="gift-cards" element={<AdminGiftCards />} />
                     <Route path="notifications/templates" element={<AdminNotificationTemplates />} />
                   </Route>
 

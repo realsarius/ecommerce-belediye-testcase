@@ -1,4 +1,5 @@
 using EcommerceAPI.Business.Concrete;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
@@ -20,6 +21,8 @@ public class ReturnRequestManagerTests
     private readonly Mock<IRefundRequestDal> _refundRequestDalMock;
     private readonly Mock<IOrderDal> _orderDalMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
+    private readonly Mock<IGiftCardService> _giftCardServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<ReturnRequestManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
@@ -31,18 +34,31 @@ public class ReturnRequestManagerTests
         _refundRequestDalMock = new Mock<IRefundRequestDal>();
         _orderDalMock = new Mock<IOrderDal>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _loyaltyServiceMock = new Mock<ILoyaltyService>();
+        _giftCardServiceMock = new Mock<IGiftCardService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<ReturnRequestManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _loyaltyServiceMock
+            .Setup(x => x.RestoreRedeemedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _loyaltyServiceMock
+            .Setup(x => x.ReverseEarnedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _giftCardServiceMock
+            .Setup(x => x.RestoreForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
 
         _manager = new ReturnRequestManager(
             _returnRequestDalMock.Object,
             _refundRequestDalMock.Object,
             _orderDalMock.Object,
             _unitOfWorkMock.Object,
+            _loyaltyServiceMock.Object,
+            _giftCardServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object);
@@ -133,6 +149,44 @@ public class ReturnRequestManagerTests
         _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Once);
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task ReviewReturnRequestAsync_ApprovedGiftCardOnlyOrder_ShouldRestoreGiftCardWithoutRefundRequest()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+        order.TotalAmount = 0m;
+        order.GiftCardAmount = 249.90m;
+        order.Payment!.Amount = 0m;
+        order.Payment.PaymentMethod = "GiftCard";
+
+        var returnRequest = new ReturnRequest
+        {
+            Id = 3002,
+            OrderId = order.Id,
+            UserId = 42,
+            Type = ReturnRequestType.Return,
+            Status = ReturnRequestStatus.Pending,
+            Reason = "İade",
+            RequestedRefundAmount = 0m,
+            Order = order,
+            User = new User { Id = 42, FirstName = "Test", LastName = "Customer", Email = "customer@test.com", EmailHash = "hash", PasswordHash = "pw", RoleId = 1 }
+        };
+
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(returnRequest.Id))
+            .ReturnsAsync(returnRequest);
+
+        var result = await _manager.ReviewReturnRequestAsync(returnRequest.Id, 7, new ReviewReturnRequestRequest
+        {
+            Status = "Approved",
+            ReviewNote = "Gift card iadesi"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Status.Should().Be(ReturnRequestStatus.Refunded.ToString());
+        _giftCardServiceMock.Verify(x => x.RestoreForOrderAsync(returnRequest.UserId, returnRequest.OrderId, It.IsAny<string>()), Times.Once);
+        _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus)
