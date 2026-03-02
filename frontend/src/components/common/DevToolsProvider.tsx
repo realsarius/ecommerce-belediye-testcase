@@ -1,6 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, lazy, Suspense, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { CouponsCheatDialog } from '@/components/common/CouponsCheatDialog';
+
+const CouponsCheatDialog = lazy(() =>
+  import('@/components/common/CouponsCheatDialog').then((module) => ({ default: module.CouponsCheatDialog }))
+);
 
 interface DevToolsContextType {
   isDevToolsEnabled: boolean;
@@ -126,7 +129,11 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
       openCouponsDialog: () => setShowCouponsDialog(true)
     }}>
       {children}
-      <CouponsCheatDialog open={showCouponsDialog} onOpenChange={setShowCouponsDialog} />
+      {showCouponsDialog && (
+        <Suspense fallback={null}>
+          <CouponsCheatDialog open={showCouponsDialog} onOpenChange={setShowCouponsDialog} />
+        </Suspense>
+      )}
     </DevToolsContext.Provider>
   );
 }

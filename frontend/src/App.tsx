@@ -3,13 +3,20 @@ import { Provider } from 'react-redux';
 import { lazy, Suspense } from 'react';
 import { store } from './app/store';
 import { Toaster } from '@/components/common/sonner';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { AdminLayout } from '@/components/layout/AdminLayout';
-import { SellerLayout } from '@/components/layout/SellerLayout';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { DevToolsProvider } from '@/components/common/DevToolsProvider';
+
+const MainLayout = lazy(() =>
+  import('@/components/layout/MainLayout').then((module) => ({ default: module.MainLayout }))
+);
+const AdminLayout = lazy(() =>
+  import('@/components/layout/AdminLayout').then((module) => ({ default: module.AdminLayout }))
+);
+const SellerLayout = lazy(() =>
+  import('@/components/layout/SellerLayout').then((module) => ({ default: module.SellerLayout }))
+);
 
 // Lazy-loaded pages (Code Splitting)
 const Home = lazy(() => import('@/pages/Home'));
