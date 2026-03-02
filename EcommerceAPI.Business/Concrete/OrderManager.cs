@@ -28,6 +28,7 @@ public class OrderManager : IOrderService
     private readonly ICouponService _couponService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IGiftCardService _giftCardService;
+    private readonly IReferralService _referralService;
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
@@ -45,6 +46,7 @@ public class OrderManager : IOrderService
         ICouponService couponService,
         ILoyaltyService loyaltyService,
         IGiftCardService giftCardService,
+        IReferralService referralService,
         IAuditService auditService,
         ILogger<OrderManager> logger,
         IPublishEndpoint publishEndpoint)
@@ -57,6 +59,7 @@ public class OrderManager : IOrderService
         _couponService = couponService;
         _loyaltyService = loyaltyService;
         _giftCardService = giftCardService;
+        _referralService = referralService;
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
@@ -198,6 +201,17 @@ public class OrderManager : IOrderService
         }
 
         var createdOrder = await _orderDal.GetByIdWithDetailsAsync(order.Id);
+        if (createdOrder?.Status == OrderStatus.Paid && createdOrder.Payment?.Status == PaymentStatus.Success)
+        {
+            var referralAwardResult = await _referralService.AwardFirstPurchaseRewardsAsync(createdOrder.Id);
+            if (!referralAwardResult.Success)
+            {
+                return new ErrorDataResult<OrderDto>(referralAwardResult.Message);
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            createdOrder = await _orderDal.GetByIdWithDetailsAsync(order.Id);
+        }
 
         await _auditService.LogActionAsync(
             userId.ToString(),

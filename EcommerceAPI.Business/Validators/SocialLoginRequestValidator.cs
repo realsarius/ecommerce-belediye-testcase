@@ -16,5 +16,10 @@ public class SocialLoginRequestValidator : AbstractValidator<SocialLoginRequest>
         RuleFor(x => x.IdToken)
             .NotEmpty()
             .WithMessage("Kimlik doğrulama tokenı gereklidir.");
+
+        RuleFor(x => x.ReferralCode)
+            .MaximumLength(32)
+            .When(x => !string.IsNullOrWhiteSpace(x.ReferralCode))
+            .WithMessage("Referral kodu en fazla 32 karakter olabilir.");
     }
 }

@@ -25,6 +25,7 @@ public class IyzicoPaymentService : IPaymentService
     private readonly IyzicoSettings _settings;
     private readonly ICreditCardService _creditCardService;
     private readonly ILoyaltyService _loyaltyService;
+    private readonly IReferralService _referralService;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
 
@@ -34,6 +35,7 @@ public class IyzicoPaymentService : IPaymentService
         IOptions<IyzicoSettings> settings,
         ICreditCardService creditCardService,
         ILoyaltyService loyaltyService,
+        IReferralService referralService,
         IDistributedLockService lockService,
         Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
     {
@@ -42,6 +44,7 @@ public class IyzicoPaymentService : IPaymentService
         _settings = settings.Value;
         _creditCardService = creditCardService;
         _loyaltyService = loyaltyService;
+        _referralService = referralService;
         _lockService = lockService;
         _logger = logger;
     }
@@ -103,6 +106,12 @@ public class IyzicoPaymentService : IPaymentService
                 if (!loyaltyResult.Success)
                 {
                     return new ErrorDataResult<PaymentDto>(loyaltyResult.Message);
+                }
+
+                var referralResult = await _referralService.AwardFirstPurchaseRewardsAsync(order.Id);
+                if (!referralResult.Success)
+                {
+                    return new ErrorDataResult<PaymentDto>(referralResult.Message);
                 }
             }
             else

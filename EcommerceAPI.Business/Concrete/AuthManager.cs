@@ -24,6 +24,7 @@ public class AuthManager : IAuthService
     private readonly IAuditService _auditService;
     private readonly ITokenHelper _tokenHelper;
     private readonly ISocialAuthValidator _socialAuthValidator;
+    private readonly IReferralService _referralService;
 
     public AuthManager(
         IUserDal userDal,
@@ -34,7 +35,8 @@ public class AuthManager : IAuthService
         IHashingService hashingService,
         IAuditService auditService,
         ITokenHelper tokenHelper,
-        ISocialAuthValidator socialAuthValidator)
+        ISocialAuthValidator socialAuthValidator,
+        IReferralService referralService)
     {
         _userDal = userDal;
         _roleDal = roleDal;
@@ -45,11 +47,18 @@ public class AuthManager : IAuthService
         _auditService = auditService;
         _tokenHelper = tokenHelper;
         _socialAuthValidator = socialAuthValidator;
+        _referralService = referralService;
     }
 
     [ValidationAspect(typeof(RegisterRequestValidator))]
     public async Task<IDataResult<AuthResponse>> RegisterAsync(RegisterRequest request)
     {
+        var referralValidation = await _referralService.ValidateReferralCodeAsync(request.ReferralCode);
+        if (!referralValidation.Success)
+        {
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = referralValidation.Message });
+        }
+
         var emailHash = _hashingService.Hash(request.Email.ToLowerInvariant().Trim());
         
         var existingUsers = await _userDal.GetListAsync(u => u.EmailHash == emailHash);
@@ -77,6 +86,14 @@ public class AuthManager : IAuthService
         };
 
         await _userDal.AddAsync(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        var referralSetup = await _referralService.SetupNewUserAsync(user.Id, request.ReferralCode);
+        if (!referralSetup.Success)
+        {
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = referralSetup.Message });
+        }
+
         await _unitOfWork.SaveChangesAsync();
 
         await _auditService.LogActionAsync(
@@ -112,6 +129,16 @@ public class AuthManager : IAuthService
     [ValidationAspect(typeof(SocialLoginRequestValidator))]
     public async Task<IDataResult<AuthResponse>> SocialLoginAsync(SocialLoginRequest request)
     {
+        var referralValidation = await _referralService.ValidateReferralCodeAsync(request.ReferralCode);
+        if (!referralValidation.Success)
+        {
+            return new ErrorDataResult<AuthResponse>(new AuthResponse
+            {
+                Success = false,
+                Message = referralValidation.Message
+            });
+        }
+
         var validationResult = await _socialAuthValidator.ValidateAsync(request.Provider, request.IdToken);
         if (!validationResult.Success)
         {
@@ -126,6 +153,7 @@ public class AuthManager : IAuthService
         var emailHash = _hashingService.Hash(normalizedEmail);
         var user = (await _userDal.GetListAsync(u => u.EmailHash == emailHash)).FirstOrDefault();
         var shouldPersist = false;
+        var createdNewUser = false;
 
         if (user == null)
         {
@@ -153,6 +181,7 @@ public class AuthManager : IAuthService
             ApplySocialIdentity(user, validationResult.Provider, validationResult.Subject);
             await _userDal.AddAsync(user);
             shouldPersist = true;
+            createdNewUser = true;
         }
         else
         {
@@ -194,6 +223,21 @@ public class AuthManager : IAuthService
 
         if (shouldPersist)
         {
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        if (createdNewUser)
+        {
+            var referralSetup = await _referralService.SetupNewUserAsync(user.Id, request.ReferralCode);
+            if (!referralSetup.Success)
+            {
+                return new ErrorDataResult<AuthResponse>(new AuthResponse
+                {
+                    Success = false,
+                    Message = referralSetup.Message
+                });
+            }
+
             await _unitOfWork.SaveChangesAsync();
         }
 

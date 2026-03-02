@@ -25,6 +25,7 @@ public class ReturnRequestManager : IReturnRequestService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IGiftCardService _giftCardService;
+    private readonly IReferralService _referralService;
     private readonly IAuditService _auditService;
     private readonly ILogger<ReturnRequestManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
@@ -36,6 +37,7 @@ public class ReturnRequestManager : IReturnRequestService
         IUnitOfWork unitOfWork,
         ILoyaltyService loyaltyService,
         IGiftCardService giftCardService,
+        IReferralService referralService,
         IAuditService auditService,
         ILogger<ReturnRequestManager> logger,
         IPublishEndpoint publishEndpoint)
@@ -46,6 +48,7 @@ public class ReturnRequestManager : IReturnRequestService
         _unitOfWork = unitOfWork;
         _loyaltyService = loyaltyService;
         _giftCardService = giftCardService;
+        _referralService = referralService;
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
@@ -220,6 +223,15 @@ public class ReturnRequestManager : IReturnRequestService
             if (!giftCardRestoreResult.Success)
             {
                 return new ErrorDataResult<ReturnRequestDto>(giftCardRestoreResult.Message);
+            }
+
+            var referralReverseResult = await _referralService.ReverseRewardsForOrderAsync(
+                returnRequest.OrderId,
+                $"İade/iptal onayı sonrası referral ödülleri geri alındı ({returnRequest.Order.OrderNumber})");
+
+            if (!referralReverseResult.Success)
+            {
+                return new ErrorDataResult<ReturnRequestDto>(referralReverseResult.Message);
             }
 
             returnRequest.Status = ReturnRequestStatus.Refunded;

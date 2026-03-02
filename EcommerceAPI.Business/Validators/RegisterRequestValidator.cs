@@ -20,5 +20,10 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 
         RuleFor(x => x.LastName)
             .NotEmpty().WithMessage("Soyad alanı zorunludur");
+
+        RuleFor(x => x.ReferralCode)
+            .MaximumLength(32)
+            .When(x => !string.IsNullOrWhiteSpace(x.ReferralCode))
+            .WithMessage("Referral kodu en fazla 32 karakter olabilir.");
     }
 }
