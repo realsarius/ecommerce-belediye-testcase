@@ -124,6 +124,7 @@ export const baseApi = createApi({
     'CreditCards',
     'Coupons',
     'Coupon',
+    'Campaigns',
     'SellerProfile',
     'SellerProducts',
     'SellerAnalytics',
