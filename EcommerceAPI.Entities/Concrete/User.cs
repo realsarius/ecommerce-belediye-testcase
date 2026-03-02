@@ -1,3 +1,5 @@
+using EcommerceAPI.Entities.Enums;
+
 namespace EcommerceAPI.Entities.Concrete;
 
 public class User : BaseEntity
@@ -16,6 +18,8 @@ public class User : BaseEntity
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public int RoleId { get; set; }
+    public UserAccountStatus AccountStatus { get; set; } = UserAccountStatus.Active;
+    public DateTime? LastLoginAt { get; set; }
     
     public Role Role { get; set; } = null!;
     public User? ReferredByUser { get; set; }

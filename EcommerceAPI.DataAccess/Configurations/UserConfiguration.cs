@@ -1,4 +1,5 @@
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Converters;
 using Microsoft.EntityFrameworkCore;
@@ -69,6 +70,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(300)
             .HasConversion(new EncryptedStringConverter(_encryptionService));
+
+        builder.Property(u => u.AccountStatus)
+            .HasConversion<int>()
+            .HasDefaultValue(UserAccountStatus.Active);
+
+        builder.Property(u => u.LastLoginAt);
+
+        builder.HasIndex(u => u.AccountStatus);
         
         // Relationships
         builder.HasOne(u => u.Role)

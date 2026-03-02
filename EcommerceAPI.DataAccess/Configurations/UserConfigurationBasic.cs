@@ -1,4 +1,5 @@
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -58,6 +59,14 @@ public class UserConfigurationBasic : IEntityTypeConfiguration<User>
         builder.Property(u => u.LastName)
             .IsRequired()
             .HasMaxLength(300);
+
+        builder.Property(u => u.AccountStatus)
+            .HasConversion<int>()
+            .HasDefaultValue(UserAccountStatus.Active);
+
+        builder.Property(u => u.LastLoginAt);
+
+        builder.HasIndex(u => u.AccountStatus);
         
         // Relationships
         builder.HasOne(u => u.Role)
