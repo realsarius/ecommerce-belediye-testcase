@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell, Gift, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
@@ -19,14 +19,19 @@ import { useGetCartQuery } from '@/features/cart/cartApi';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { CartDrawer } from '@/components/common/CartDrawer';
 import { useDevTools } from '@/components/common/DevToolsProvider';
-import { TestCardsDialog } from '@/components/common/TestCardsDialog';
-import { TestUsersDialog } from '@/components/common/TestUsersDialog';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSearchSuggestionsQuery } from '@/features/products/productsApi';
 import { useGetWishlistQuery } from '@/features/wishlist/wishlistApi';
 import { useGuestWishlist } from '@/features/wishlist';
 import { useGetUnreadNotificationCountQuery } from '@/features/notifications/notificationsApi';
 import { buildCompareUrl, useProductCompare } from '@/features/compare';
+
+const TestCardsDialog = lazy(() =>
+  import('@/components/common/TestCardsDialog').then((module) => ({ default: module.TestCardsDialog }))
+);
+const TestUsersDialog = lazy(() =>
+  import('@/components/common/TestUsersDialog').then((module) => ({ default: module.TestUsersDialog }))
+);
 
 const INITIAL_SUGGESTION_LIMIT = 6;
 const SUGGESTION_STEP = 10;
@@ -565,11 +570,17 @@ export function Header() {
         </div>
       </header>
 
-      {/* Test Cards Dialog */}
-      <TestCardsDialog open={showTestCards} onOpenChange={setShowTestCards} />
+      {showTestCards && (
+        <Suspense fallback={null}>
+          <TestCardsDialog open={showTestCards} onOpenChange={setShowTestCards} />
+        </Suspense>
+      )}
 
-      {/* Test Users Dialog */}
-      <TestUsersDialog open={showTestUsers} onOpenChange={setShowTestUsers} />
+      {showTestUsers && (
+        <Suspense fallback={null}>
+          <TestUsersDialog open={showTestUsers} onOpenChange={setShowTestUsers} />
+        </Suspense>
+      )}
     </>
   );
 }
