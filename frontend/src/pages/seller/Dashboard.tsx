@@ -38,8 +38,8 @@ import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import {
+  useGetSellerFinanceSummaryQuery,
   useGetSellerAnalyticsSummaryQuery,
-  useGetSellerAnalyticsTrendsQuery,
   useGetSellerOrdersQuery,
   useGetSellerProductsQuery,
   useGetSellerProfileQuery,
@@ -108,7 +108,7 @@ export default function SellerDashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetSellerAnalyticsSummaryQuery(undefined, {
     skip: shouldSkipProtectedQueries,
   });
-  const { data: trends = [], isLoading: trendsLoading } = useGetSellerAnalyticsTrendsQuery(30, {
+  const { data: financeSummary, isLoading: financeLoading } = useGetSellerFinanceSummaryQuery(30, {
     skip: shouldSkipProtectedQueries,
   });
   const { data: sellerOrders = [], isLoading: ordersLoading } = useGetSellerOrdersQuery(undefined, {
@@ -119,21 +119,28 @@ export default function SellerDashboard() {
     { skip: shouldSkipProtectedQueries }
   );
 
-  const isLoading = profileLoading || summaryLoading || trendsLoading || ordersLoading || productsLoading;
+  const isLoading = profileLoading || summaryLoading || financeLoading || ordersLoading || productsLoading;
 
   const dashboardData = useMemo(() => {
-    const currency = summary?.currency || 'TRY';
+    const currency = financeSummary?.currency || summary?.currency || 'TRY';
     const recentOrders = [...sellerOrders]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
 
-    const commissionRate = 0.1;
-    const monthlyRevenue = trends.reduce((sum, point) => sum + point.revenue, 0);
-    const netRevenue = monthlyRevenue * (1 - commissionRate);
-    const previousWindowRevenue = Math.max(summary?.grossRevenue ?? 0, monthlyRevenue) - monthlyRevenue;
+    const financeTrend = financeSummary?.dailyTrend ?? [];
+    const monthlyRevenue = financeSummary?.grossSales ?? 0;
+    const netRevenue = financeSummary?.netEarnings ?? 0;
+    const commissionRate = financeSummary?.commissionRate ?? 0;
+    const midpoint = Math.ceil(financeTrend.length / 2);
+    const previousWindowRevenue = financeTrend
+      .slice(0, midpoint)
+      .reduce((sum, point) => sum + point.grossSales, 0);
+    const currentWindowRevenue = financeTrend
+      .slice(midpoint)
+      .reduce((sum, point) => sum + point.grossSales, 0);
     const revenueDelta = previousWindowRevenue === 0
-      ? monthlyRevenue === 0 ? 0 : 100
-      : ((monthlyRevenue - previousWindowRevenue) / previousWindowRevenue) * 100;
+      ? currentWindowRevenue === 0 ? 0 : 100
+      : ((currentWindowRevenue - previousWindowRevenue) / previousWindowRevenue) * 100;
 
     const productPerformance = [...(sellerProducts?.items ?? [])]
       .sort((a, b) => {
@@ -155,9 +162,9 @@ export default function SellerDashboard() {
       fill: chartColors[index % chartColors.length],
     }));
 
-    const trendSeries = trends.map((point) => ({
+    const trendSeries = financeTrend.map((point) => ({
       label: formatShortDate(point.date),
-      revenue: point.revenue,
+      revenue: point.grossSales,
       orders: point.orders,
     }));
 
@@ -173,7 +180,7 @@ export default function SellerDashboard() {
       totalOrders: sellerOrders.length,
       trendSeries,
     };
-  }, [sellerOrders, sellerProducts?.items, summary?.currency, summary?.grossRevenue, trends]);
+  }, [financeSummary, sellerOrders, sellerProducts?.items, summary?.currency]);
 
   if (isLoading) {
     return (
@@ -269,7 +276,7 @@ export default function SellerDashboard() {
         <KpiCard
           title="Net Kazanç"
           value={formatCurrency(dashboardData.netRevenue, dashboardData.currency)}
-          helperText={`Varsayılan %${(dashboardData.commissionRate * 100).toLocaleString('tr-TR')} platform komisyonu düşülerek tahmini hesaplandı.`}
+          helperText={`Son 30 günde %${dashboardData.commissionRate.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} platform komisyonu düşülerek hesaplandı.`}
           icon={CircleDollarSign}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"

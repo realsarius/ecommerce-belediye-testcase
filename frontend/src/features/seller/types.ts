@@ -72,3 +72,39 @@ export interface SellerAnalyticsTrendPoint {
   revenue: number;
   averageRating: number;
 }
+
+export interface SellerFinanceTrendPoint {
+  date: string;
+  orders: number;
+  grossSales: number;
+  netSales: number;
+  commissionAmount: number;
+  netEarnings: number;
+}
+
+export interface SellerFinanceMonthlySummary {
+  monthKey: string;
+  monthLabel: string;
+  orders: number;
+  grossSales: number;
+  netSales: number;
+  commissionAmount: number;
+  netEarnings: number;
+}
+
+export interface SellerFinanceSummary {
+  periodDays: number;
+  totalOrders: number;
+  grossSales: number;
+  refundedAmount: number;
+  netSales: number;
+  commissionRate: number;
+  commissionAmount: number;
+  netEarnings: number;
+  averageOrderValue: number;
+  averageDailyRevenue: number;
+  lifetimeGrossRevenue: number;
+  currency: string;
+  dailyTrend: SellerFinanceTrendPoint[];
+  monthlySummaries: SellerFinanceMonthlySummary[];
+}

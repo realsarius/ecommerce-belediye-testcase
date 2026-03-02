@@ -16,6 +16,7 @@ import type {
   HasProfileResponse,
   SellerAnalyticsSummary,
   SellerAnalyticsTrendPoint,
+  SellerFinanceSummary,
 } from './types';
 
 function unwrapApiData<T>(response: T | { data: T }) {
@@ -67,6 +68,15 @@ export const sellerApi = baseApi.injectEndpoints({
         params: { days },
       }),
       transformResponse: (response: { data: SellerAnalyticsTrendPoint[] }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerFinanceSummary: builder.query<SellerFinanceSummary, number | void>({
+      query: (days = 30) => ({
+        url: '/seller/analytics/finance',
+        params: { days },
+      }),
+      transformResponse: (response: { data: SellerFinanceSummary }) => response.data,
       providesTags: ['SellerAnalytics'],
     }),
 
@@ -137,6 +147,7 @@ export const {
   useUpdateSellerProfileMutation,
   useGetSellerAnalyticsSummaryQuery,
   useGetSellerAnalyticsTrendsQuery,
+  useGetSellerFinanceSummaryQuery,
   useGetSellerOrdersQuery,
   useGetSellerProductsQuery,
   useCreateSellerProductMutation,

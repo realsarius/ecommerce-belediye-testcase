@@ -40,8 +40,7 @@ import {
 } from '@/components/common/table';
 import { KpiCard } from '@/components/admin/KpiCard';
 import {
-  useGetSellerAnalyticsSummaryQuery,
-  useGetSellerAnalyticsTrendsQuery,
+  useGetSellerFinanceSummaryQuery,
   useGetSellerProfileQuery,
 } from '@/features/seller/sellerApi';
 import { formatShortDate } from '@/lib/dashboardLayout';
@@ -88,83 +87,74 @@ export default function SellerFinancePage() {
   const [selectedDays, setSelectedDays] = useState<number>(30);
   const { data: profile, isLoading: profileLoading } = useGetSellerProfileQuery();
   const shouldSkipProtectedQueries = profileLoading || !profile;
-  const { data: summary, isLoading: summaryLoading } = useGetSellerAnalyticsSummaryQuery(undefined, {
-    skip: shouldSkipProtectedQueries,
-  });
-  const { data: trends = [], isLoading: trendsLoading } = useGetSellerAnalyticsTrendsQuery(selectedDays, {
+  const { data: financeSummary, isLoading: financeLoading } = useGetSellerFinanceSummaryQuery(selectedDays, {
     skip: shouldSkipProtectedQueries,
   });
 
-  const isLoading = profileLoading || summaryLoading || trendsLoading;
+  const isLoading = profileLoading || financeLoading;
 
   const financeData = useMemo(() => {
-    const currency = summary?.currency || 'TRY';
-    const revenue = trends.reduce((sum, point) => sum + point.revenue, 0);
-    const orders = trends.reduce((sum, point) => sum + point.orders, 0);
-    const avgOrderValue = orders > 0 ? revenue / orders : 0;
-    const avgDailyRevenue = trends.length > 0 ? revenue / trends.length : 0;
-
-    const trendSeries = trends.map((point) => ({
+    const currency = financeSummary?.currency || 'TRY';
+    const trendSeries = (financeSummary?.dailyTrend ?? []).map((point) => ({
       label: formatShortDate(point.date),
-      revenue: point.revenue,
+      grossSales: point.grossSales,
+      netSales: point.netSales,
+      commissionAmount: point.commissionAmount,
+      netEarnings: point.netEarnings,
       orders: point.orders,
     }));
 
-    const monthlyRows = Object.values(
-      trends.reduce<Record<string, { month: string; revenue: number; orders: number }>>((acc, point) => {
-        const date = new Date(point.date);
-        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-        const monthLabel = date.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
-
-        if (!acc[monthKey]) {
-          acc[monthKey] = {
-            month: monthLabel,
-            revenue: 0,
-            orders: 0,
-          };
-        }
-
-        acc[monthKey].revenue += point.revenue;
-        acc[monthKey].orders += point.orders;
-        return acc;
-      }, {})
-    ).reverse();
-
     return {
       currency,
-      revenue,
-      orders,
-      avgOrderValue,
-      avgDailyRevenue,
+      grossSales: financeSummary?.grossSales ?? 0,
+      refundedAmount: financeSummary?.refundedAmount ?? 0,
+      netSales: financeSummary?.netSales ?? 0,
+      orders: financeSummary?.totalOrders ?? 0,
+      commissionRate: financeSummary?.commissionRate ?? 0,
+      commissionAmount: financeSummary?.commissionAmount ?? 0,
+      netEarnings: financeSummary?.netEarnings ?? 0,
+      avgOrderValue: financeSummary?.averageOrderValue ?? 0,
+      avgDailyRevenue: financeSummary?.averageDailyRevenue ?? 0,
       trendSeries,
-      monthlyRows,
-      lifetimeGrossRevenue: summary?.grossRevenue ?? 0,
+      monthlyRows: financeSummary?.monthlySummaries ?? [],
+      lifetimeGrossRevenue: financeSummary?.lifetimeGrossRevenue ?? 0,
     };
-  }, [summary?.currency, summary?.grossRevenue, trends]);
+  }, [financeSummary]);
 
   const handleExportCsv = () => {
     const filename = `seller-finance-${selectedDays}-gun.csv`;
     const rows: string[][] = [
       ['Rapor', 'Deger'],
-      ['Secili Donem', `${selectedDays} gun`],
-      ['Brut Satis', formatCurrency(financeData.revenue, financeData.currency)],
+      ['Secili Donem', `${selectedDays} gün`],
+      ['Brüt Satış', formatCurrency(financeData.grossSales, financeData.currency)],
+      ['İade Tutarı', formatCurrency(financeData.refundedAmount, financeData.currency)],
+      ['Net Satış', formatCurrency(financeData.netSales, financeData.currency)],
       ['Siparis Sayisi', financeData.orders.toLocaleString('tr-TR')],
+      ['Komisyon Orani', `%${financeData.commissionRate.toLocaleString('tr-TR')}`],
+      ['Komisyon Tutari', formatCurrency(financeData.commissionAmount, financeData.currency)],
+      ['Net Kazanc', formatCurrency(financeData.netEarnings, financeData.currency)],
       ['Ortalama Siparis Degeri', formatCurrency(financeData.avgOrderValue, financeData.currency)],
+      ['Ortalama Gunluk Gelir', formatCurrency(financeData.avgDailyRevenue, financeData.currency)],
       ['Toplam Ciro', formatCurrency(financeData.lifetimeGrossRevenue, financeData.currency)],
       [''],
-      ['Gun', 'Gelir', 'Siparis'],
+      ['Gun', 'Siparis', 'Brut Satis', 'Net Satis', 'Komisyon', 'Net Kazanc'],
       ...financeData.trendSeries.map((point) => [
         point.label,
-        formatCurrency(point.revenue, financeData.currency),
         point.orders.toLocaleString('tr-TR'),
+        formatCurrency(point.grossSales, financeData.currency),
+        formatCurrency(point.netSales, financeData.currency),
+        formatCurrency(point.commissionAmount, financeData.currency),
+        formatCurrency(point.netEarnings, financeData.currency),
       ]),
       [''],
-      ['Ay', 'Siparis', 'Brut Satis', 'Ort. Siparis Degeri'],
+      ['Ay', 'Siparis', 'Brut Satis', 'Net Satis', 'Komisyon', 'Net Kazanc'],
       ...financeData.monthlyRows.map((row) => [
-        row.month,
+        row.monthLabel,
         row.orders.toLocaleString('tr-TR'),
-        formatCurrency(row.revenue, financeData.currency),
-        formatCurrency(row.orders > 0 ? row.revenue / row.orders : 0, financeData.currency),
+        formatCurrency(row.grossSales, financeData.currency),
+        formatCurrency(row.netSales, financeData.currency),
+        formatCurrency(row.commissionAmount, financeData.currency),
+        formatCurrency(row.netEarnings, financeData.currency),
       ]),
     ];
 
@@ -215,8 +205,7 @@ export default function SellerFinancePage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Kazancım ve Finans</h1>
           <p className="max-w-3xl text-muted-foreground">
-            Bu ekran mevcut seller analytics verilerinden üretilen gelir görünümünü gösterir.
-            Gerçek komisyon ve net kazanç endpoint’leri geldiğinde aynı alanı onların üstüne taşıyacağız.
+            Seçili dönem için brüt satış, komisyon ve net kazanç görünümünü mağazanızın gerçek finans endpoint’i üzerinden izleyin.
           </p>
         </div>
 
@@ -245,32 +234,32 @@ export default function SellerFinancePage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Brüt Satış"
-          value={formatCurrency(financeData.revenue, financeData.currency)}
+          value={formatCurrency(financeData.grossSales, financeData.currency)}
           helperText={`Seçili ${selectedDays} günlük dönem için toplam satış.`}
           icon={Wallet}
           accentClass="text-emerald-600 dark:text-emerald-300"
           surfaceClass="bg-emerald-500/10"
         />
         <KpiCard
-          title="Sipariş Sayısı"
-          value={financeData.orders.toLocaleString('tr-TR')}
-          helperText="Trend verisinden türetilen toplam sipariş."
+          title="Platform Komisyonu"
+          value={`%${financeData.commissionRate.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}`}
+          helperText="Varsayılan platform oranı gerçek finans özetinden gösterilir."
           icon={ShoppingBag}
           accentClass="text-sky-600 dark:text-sky-300"
           surfaceClass="bg-sky-500/10"
         />
         <KpiCard
-          title="Ort. Sipariş Değeri"
-          value={formatCurrency(financeData.avgOrderValue, financeData.currency)}
-          helperText="Brüt satış / sipariş sayısı."
+          title="Komisyon Tutarı"
+          value={formatCurrency(financeData.commissionAmount, financeData.currency)}
+          helperText={`İade sonrası net satıştan düşülen toplam komisyon.`}
           icon={BarChart3}
           accentClass="text-violet-600 dark:text-violet-300"
           surfaceClass="bg-violet-500/10"
         />
         <KpiCard
-          title="Toplam Ciro"
-          value={formatCurrency(financeData.lifetimeGrossRevenue, financeData.currency)}
-          helperText="Mevcut summary endpoint’inden gelen toplam ciro."
+          title="Net Kazanç"
+          value={formatCurrency(financeData.netEarnings, financeData.currency)}
+          helperText={`${financeData.orders.toLocaleString('tr-TR')} siparişten sonra satıcıya kalan tutar.`}
           icon={CircleDollarSign}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"
@@ -281,9 +270,9 @@ export default function SellerFinancePage() {
         <CardContent className="flex gap-3 p-5">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
           <div className="space-y-1 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Komisyon ve net kazanç burada henüz tahmin edilmedi.</p>
+            <p className="font-medium text-foreground">Finans özeti şu an varsayılan platform komisyon oranı ile hesaplanıyor.</p>
             <p>
-              Projede ayrı seller finance endpoint’i olmadığı için bu ekran şimdilik yalnızca gerçek gelir ve sipariş trendini gösteriyor.
+              Seller bazlı özel komisyon oranı tanımlandığında bu ekran aynı endpoint üzerinden doğrudan onu gösterecek.
             </p>
           </div>
         </CardContent>
@@ -292,8 +281,8 @@ export default function SellerFinancePage() {
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Gelir Trendi</CardTitle>
-            <CardDescription>Seçili dönemde gün bazlı gelir akışı.</CardDescription>
+            <CardTitle>Net Kazanç Trendi</CardTitle>
+            <CardDescription>Seçili dönemde gün bazlı net kazanç akışı.</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -304,10 +293,10 @@ export default function SellerFinancePage() {
                 <Tooltip
                   formatter={(value) => [
                     formatCurrency(typeof value === 'number' ? value : 0, financeData.currency),
-                    'Gelir',
+                    'Net kazanç',
                   ]}
                 />
-                <Line type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="netEarnings" stroke="#10b981" strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -315,22 +304,23 @@ export default function SellerFinancePage() {
 
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Sipariş Hacmi</CardTitle>
-            <CardDescription>Seçili dönemde gün bazlı sipariş adedi.</CardDescription>
+            <CardTitle>Brüt ve Net Satış</CardTitle>
+            <CardDescription>Seçili dönemde günlük satış kırılımı.</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
-                <YAxis tickLine={false} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
                 <Tooltip
                   formatter={(value) => [
-                    typeof value === 'number' ? value.toLocaleString('tr-TR') : '0',
-                    'Sipariş',
+                    formatCurrency(typeof value === 'number' ? value : 0, financeData.currency),
+                    'Tutar',
                   ]}
                 />
-                <Bar dataKey="orders" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="grossSales" name="Brüt satış" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="netSales" name="Net satış" fill="#f59e0b" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -341,7 +331,8 @@ export default function SellerFinancePage() {
         <CardHeader>
           <CardTitle>Aylık Özet</CardTitle>
           <CardDescription>
-            Seçili dönem içinde oluşan aylık kırılım. Ortalama günlük ciro: {formatCurrency(financeData.avgDailyRevenue, financeData.currency)}
+            Ortalama günlük ciro {formatCurrency(financeData.avgDailyRevenue, financeData.currency)}, toplam ciro ise{' '}
+            {formatCurrency(financeData.lifetimeGrossRevenue, financeData.currency)}.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -351,23 +342,25 @@ export default function SellerFinancePage() {
                 <TableHead>Ay</TableHead>
                 <TableHead>Sipariş</TableHead>
                 <TableHead>Brüt Satış</TableHead>
-                <TableHead>Ort. Sipariş Değeri</TableHead>
+                <TableHead>Net Satış</TableHead>
+                <TableHead>Komisyon</TableHead>
+                <TableHead>Net Kazanç</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {financeData.monthlyRows.map((row) => (
-                <TableRow key={row.month}>
-                  <TableCell className="font-medium">{row.month}</TableCell>
+                <TableRow key={row.monthKey}>
+                  <TableCell className="font-medium">{row.monthLabel}</TableCell>
                   <TableCell>{row.orders.toLocaleString('tr-TR')}</TableCell>
-                  <TableCell>{formatCurrency(row.revenue, financeData.currency)}</TableCell>
-                  <TableCell>
-                    {formatCurrency(row.orders > 0 ? row.revenue / row.orders : 0, financeData.currency)}
-                  </TableCell>
+                  <TableCell>{formatCurrency(row.grossSales, financeData.currency)}</TableCell>
+                  <TableCell>{formatCurrency(row.netSales, financeData.currency)}</TableCell>
+                  <TableCell>{formatCurrency(row.commissionAmount, financeData.currency)}</TableCell>
+                  <TableCell>{formatCurrency(row.netEarnings, financeData.currency)}</TableCell>
                 </TableRow>
               ))}
               {financeData.monthlyRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                     Seçili dönem için finans verisi bulunamadı.
                   </TableCell>
                 </TableRow>
