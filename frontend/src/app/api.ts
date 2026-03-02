@@ -143,6 +143,7 @@ export const baseApi = createApi({
     'Referrals',
     'Reviews',
     'Users',
+    'Announcements',
   ],
   endpoints: () => ({}),
 });

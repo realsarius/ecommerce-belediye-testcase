@@ -44,6 +44,7 @@ const pageTitles: Record<string, string> = {
   '/admin/finance': 'Gelir Raporu',
   '/admin/coupons': 'Kupon Yönetimi',
   '/admin/reviews': 'Yorum Moderasyonu',
+  '/admin/announcements': 'Duyuru Yönetimi',
   '/admin/notifications/templates': 'Bildirim Şablonları',
   '/admin/system': 'Sistem Sağlığı',
   '/seller': 'Satıcı Paneli',

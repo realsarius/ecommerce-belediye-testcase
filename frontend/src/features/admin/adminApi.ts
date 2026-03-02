@@ -9,8 +9,10 @@ import type {
 } from '@/features/products/types';
 import type {
   AdminErrorLog,
+  AdminAnnouncement,
   AdminUserDetail,
   AdminUserListItem,
+  CreateAdminAnnouncementRequest,
   AdminUsersQueryParams,
   AdminSystemHealth,
 } from '@/features/admin/types';
@@ -222,6 +224,23 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: NotificationTemplate }) => response.data,
       invalidatesTags: ['Notifications'],
     }),
+    getAdminAnnouncements: builder.query<AdminAnnouncement[], number | void>({
+      query: (take = 20) => ({
+        url: '/admin/announcements',
+        params: { take },
+      }),
+      transformResponse: (response: { data: AdminAnnouncement[] }) => response.data,
+      providesTags: ['Announcements'],
+    }),
+    createAdminAnnouncement: builder.mutation<AdminAnnouncement, CreateAdminAnnouncementRequest>({
+      query: (data) => ({
+        url: '/admin/announcements',
+        method: 'POST',
+        body: data,
+      }),
+      transformResponse: (response: { data: AdminAnnouncement }) => response.data,
+      invalidatesTags: ['Announcements', 'Notifications'],
+    }),
   }),
 });
 
@@ -252,4 +271,6 @@ export const {
   useBulkApproveAdminReviewsMutation,
   useGetAdminNotificationTemplatesQuery,
   useUpdateAdminNotificationTemplateMutation,
+  useGetAdminAnnouncementsQuery,
+  useCreateAdminAnnouncementMutation,
 } = adminApi;

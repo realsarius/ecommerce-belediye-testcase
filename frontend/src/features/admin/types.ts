@@ -85,3 +85,35 @@ export interface AdminErrorLog {
   exception?: string | null;
   correlationId?: string | null;
 }
+
+export type AdminAnnouncementAudienceType = 'AllUsers' | 'AllSellers' | 'Role' | 'SpecificUsers';
+export type AdminAnnouncementStatus = 'Scheduled' | 'Processing' | 'Sent' | 'PartiallySent' | 'Failed';
+export type AdminAnnouncementChannel = 'InApp' | 'Email';
+
+export interface AdminAnnouncement {
+  id: number;
+  title: string;
+  message: string;
+  audienceType: AdminAnnouncementAudienceType;
+  targetRole?: string | null;
+  targetUserIds: number[];
+  channels: AdminAnnouncementChannel[];
+  status: AdminAnnouncementStatus;
+  recipientCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  scheduledAt?: string | null;
+  sentAt?: string | null;
+  createdAt: string;
+  createdByName: string;
+}
+
+export interface CreateAdminAnnouncementRequest {
+  title: string;
+  message: string;
+  audienceType: AdminAnnouncementAudienceType;
+  targetRole?: string;
+  targetUserIds: number[];
+  channels: AdminAnnouncementChannel[];
+  scheduledAt?: string | null;
+}

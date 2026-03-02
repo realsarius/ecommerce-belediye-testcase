@@ -45,6 +45,8 @@ function getNotificationBadge(type: NotificationItem['type']) {
       return 'Kampanya';
     case 'Order':
       return 'Sipariş';
+    case 'Announcement':
+      return 'Duyuru';
     default:
       return 'Bildirim';
   }

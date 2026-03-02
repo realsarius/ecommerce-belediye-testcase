@@ -109,7 +109,7 @@ const adminNavigationGroups: DashboardNavGroup[] = [
   {
     label: 'İletişim',
     items: [
-      { label: 'Duyuru Gönder', icon: Megaphone, disabled: true, badge: 'Yakında' },
+      { label: 'Duyuru Gönder', href: '/admin/announcements', icon: Megaphone },
       { label: 'Bildirim Şablonları', href: '/admin/notifications/templates', icon: BellRing },
     ],
   },
