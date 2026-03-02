@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -26,10 +26,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Skeleton } from '@/components/common/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/common/tabs';
 import {
   Table,
   TableBody,
@@ -38,13 +38,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/common/table';
+import { DataTable } from '@/components/admin/DataTable';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useGetAdminCategoriesQuery, useGetAdminOrdersQuery } from '@/features/admin/adminApi';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 import type { Order, OrderStatus } from '@/features/orders/types';
 import { formatShortDate } from '@/lib/dashboardLayout';
 
 const chartColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+type RevenuePeriod = 'daily' | 'weekly' | 'monthly';
 
 const orderStatusLabels: Record<OrderStatus, string> = {
   PendingPayment: 'Beklemede',
@@ -54,16 +58,6 @@ const orderStatusLabels: Record<OrderStatus, string> = {
   Delivered: 'Teslim Edildi',
   Cancelled: 'İptal',
   Refunded: 'İade',
-};
-
-const orderStatusClasses: Record<OrderStatus, string> = {
-  PendingPayment: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  Paid: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  Processing: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
-  Shipped: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-  Delivered: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  Cancelled: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  Refunded: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
 };
 
 function formatCurrency(value: number, currency = 'TRY') {
@@ -143,7 +137,96 @@ function buildRevenueTrend(orders: Order[]) {
   return buckets;
 }
 
+function getWeekKey(value: Date) {
+  const start = new Date(value.getFullYear(), 0, 1);
+  const diff = (value.getTime() - start.getTime()) / 86400000;
+  return `${value.getFullYear()}-${Math.ceil((diff + start.getDay() + 1) / 7)}`;
+}
+
+function buildWeeklyRevenueTrend(orders: Order[]) {
+  const now = new Date();
+  const buckets = Array.from({ length: 8 }).map((_, index) => {
+    const currentDate = new Date(now);
+    currentDate.setDate(now.getDate() - (7 - index) * 7);
+
+    const previousDate = new Date(currentDate);
+    previousDate.setDate(currentDate.getDate() - 56);
+
+    return {
+      label: currentDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
+      currentKey: getWeekKey(currentDate),
+      previousKey: getWeekKey(previousDate),
+      revenue: 0,
+      previousRevenue: 0,
+      orders: 0,
+    };
+  });
+
+  for (const bucket of buckets) {
+    for (const order of orders) {
+      const orderDate = new Date(order.createdAt);
+      const orderKey = getWeekKey(orderDate);
+      if (orderKey === bucket.currentKey) {
+        bucket.orders += 1;
+        if (isRevenueOrder(order.status)) {
+          bucket.revenue += order.totalAmount;
+        }
+      }
+
+      if (orderKey === bucket.previousKey && isRevenueOrder(order.status)) {
+        bucket.previousRevenue += order.totalAmount;
+      }
+    }
+  }
+
+  return buckets;
+}
+
+function buildMonthlyRevenueTrend(orders: Order[]) {
+  const now = new Date();
+  const buckets = Array.from({ length: 6 }).map((_, index) => {
+    const currentDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+    const previousDate = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
+
+    return {
+      label: currentDate.toLocaleDateString('tr-TR', { month: 'short' }),
+      currentKey: `${currentDate.getFullYear()}-${currentDate.getMonth()}`,
+      previousKey: `${previousDate.getFullYear()}-${previousDate.getMonth()}`,
+      revenue: 0,
+      previousRevenue: 0,
+      orders: 0,
+    };
+  });
+
+  for (const bucket of buckets) {
+    for (const order of orders) {
+      const orderDate = new Date(order.createdAt);
+      const orderKey = `${orderDate.getFullYear()}-${orderDate.getMonth()}`;
+      if (orderKey === bucket.currentKey) {
+        bucket.orders += 1;
+        if (isRevenueOrder(order.status)) {
+          bucket.revenue += order.totalAmount;
+        }
+      }
+
+      if (orderKey === bucket.previousKey && isRevenueOrder(order.status)) {
+        bucket.previousRevenue += order.totalAmount;
+      }
+    }
+  }
+
+  return buckets;
+}
+
+function getOrderStatusTone(status: OrderStatus) {
+  if (status === 'Delivered') return 'success' as const;
+  if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
+  if (status === 'PendingPayment') return 'warning' as const;
+  return 'info' as const;
+}
+
 export default function AdminDashboard() {
+  const [selectedPeriod, setSelectedPeriod] = useState<RevenuePeriod>('daily');
   const { data: orders = [], isLoading: ordersLoading } = useGetAdminOrdersQuery();
   const { data: categories = [], isLoading: categoriesLoading } = useGetAdminCategoriesQuery();
   const { data: products, isLoading: productsLoading } = useSearchProductsQuery({ page: 1, pageSize: 500 });
@@ -178,7 +261,11 @@ export default function AdminDashboard() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
 
-    const revenueTrend = buildRevenueTrend(orders);
+    const revenueTrend = {
+      daily: buildRevenueTrend(orders),
+      weekly: buildWeeklyRevenueTrend(orders),
+      monthly: buildMonthlyRevenueTrend(orders),
+    };
     const statusDistribution = Object.entries(orderStatusLabels).map(([status, label], index) => ({
       name: label,
       value: orders.filter((order) => order.status === status).length,
@@ -198,7 +285,7 @@ export default function AdminDashboard() {
       categoryCount: categories.length,
       lowStockProducts,
       lowStockCount: lowStockProducts.length,
-      orderTrend: revenueTrend,
+      revenueTrend,
       recentOrders,
       statusDistribution,
       todayOrdersCount: todayOrders.length,
@@ -209,6 +296,13 @@ export default function AdminDashboard() {
       totalOrders: orders.length,
     };
   }, [categories, orders, products]);
+
+  const selectedRevenueTrend = dashboardData.revenueTrend[selectedPeriod];
+  const revenueDescriptions: Record<RevenuePeriod, string> = {
+    daily: 'Son 7 gün ile bir önceki 7 günlük dönemin günlük gelir karşılaştırması.',
+    weekly: 'Son 8 hafta ile önceki 8 haftanın haftalık gelir karşılaştırması.',
+    monthly: 'Son 6 ay ile önceki 6 ayın aylık gelir karşılaştırması.',
+  };
 
   if (isLoading) {
     return (
@@ -300,15 +394,26 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Gelir Trendi
-            </CardTitle>
-            <CardDescription>Son 7 gün ile bir önceki 7 günlük dönemin gelir karşılaştırması.</CardDescription>
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Gelir Trendi
+                </CardTitle>
+                <CardDescription>{revenueDescriptions[selectedPeriod]}</CardDescription>
+              </div>
+              <Tabs value={selectedPeriod} onValueChange={(value) => setSelectedPeriod(value as RevenuePeriod)}>
+                <TabsList>
+                  <TabsTrigger value="daily">Günlük</TabsTrigger>
+                  <TabsTrigger value="weekly">Haftalık</TabsTrigger>
+                  <TabsTrigger value="monthly">Aylık</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </CardHeader>
           <CardContent className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dashboardData.orderTrend}>
+              <LineChart data={selectedRevenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
                 <YAxis
@@ -405,7 +510,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboardData.orderTrend}>
+              <AreaChart data={selectedRevenueTrend}>
                 <defs>
                   <linearGradient id="ordersAreaGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.45} />
@@ -430,111 +535,126 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Card className="border-border/70">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle>Son Siparişler</CardTitle>
-              <CardDescription>En son gelen 5 sipariş hızlı inceleme için listeleniyor.</CardDescription>
-            </div>
+        <DataTable
+          title="Son Siparişler"
+          description="En son gelen 5 sipariş hızlı inceleme için listeleniyor."
+          actions={(
             <Button variant="ghost" size="sm" asChild>
               <Link to="/admin/orders">
                 Tümünü Gör
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Sipariş</TableHead>
-                  <TableHead>Müşteri</TableHead>
-                  <TableHead>Tutar</TableHead>
-                  <TableHead>Durum</TableHead>
+          )}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sipariş</TableHead>
+                <TableHead>Müşteri</TableHead>
+                <TableHead>Tutar</TableHead>
+                <TableHead>Durum</TableHead>
+                <TableHead className="text-right">Detay</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dashboardData.recentOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
+                  <TableCell>{order.customerName || `Kullanıcı #${order.userId}`}</TableCell>
+                  <TableCell>{formatCurrency(order.totalAmount, order.currency || 'TRY')}</TableCell>
+                  <TableCell>
+                    <StatusBadge
+                      label={orderStatusLabels[order.status]}
+                      tone={getOrderStatusTone(order.status)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={`/admin/orders/${order.id}`}>Git</Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboardData.recentOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
-                    <TableCell>{order.customerName || `Kullanıcı #${order.userId}`}</TableCell>
-                    <TableCell>{formatCurrency(order.totalAmount, order.currency || 'TRY')}</TableCell>
-                    <TableCell>
-                      <Badge className={orderStatusClasses[order.status]} variant="secondary">
-                        {orderStatusLabels[order.status]}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {dashboardData.recentOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                      Henüz sipariş kaydı bulunmuyor.
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              ))}
+              {dashboardData.recentOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={ShoppingBag}
+                      title="Henüz sipariş kaydı yok"
+                      description="Yeni siparişler geldikçe bu alan en güncel hareketleri gösterecek."
+                      className="border-0 shadow-none"
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </DataTable>
 
-        <Card className="border-border/70">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle>Düşük Stok Uyarıları</CardTitle>
-              <CardDescription>En kritik stok seviyesine sahip ürünler listeleniyor.</CardDescription>
-            </div>
+        <DataTable
+          title="Düşük Stok Uyarıları"
+          description="En kritik stok seviyesine sahip ürünler listeleniyor."
+          actions={(
             <Button variant="ghost" size="sm" asChild>
               <Link to="/admin/products">
                 Ürünlere Git
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ürün</TableHead>
-                  <TableHead>Stok</TableHead>
-                  <TableHead>Kategori</TableHead>
-                  <TableHead>Durum</TableHead>
+          )}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ürün</TableHead>
+                <TableHead>Stok</TableHead>
+                <TableHead>Kategori</TableHead>
+                <TableHead>Durum</TableHead>
+                <TableHead className="text-right">Aksiyon</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dashboardData.lowStockProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Boxes className="h-4 w-4 text-muted-foreground" />
+                      <span className="max-w-[16rem] truncate font-medium">{product.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className={product.stockQuantity <= 0 ? 'font-semibold text-rose-600' : 'font-semibold text-amber-600'}>
+                    {product.stockQuantity}
+                  </TableCell>
+                  <TableCell>{product.categoryName}</TableCell>
+                  <TableCell>
+                    <StatusBadge
+                      label={product.stockQuantity <= 0 ? 'Tükendi' : 'Kritik'}
+                      tone={product.stockQuantity <= 0 ? 'danger' : 'warning'}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={`/admin/products/${product.id}`}>Ürüne Git</Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboardData.lowStockProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Boxes className="h-4 w-4 text-muted-foreground" />
-                        <span className="max-w-[16rem] truncate font-medium">{product.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className={product.stockQuantity <= 0 ? 'font-semibold text-rose-600' : 'font-semibold text-amber-600'}>
-                      {product.stockQuantity}
-                    </TableCell>
-                    <TableCell>{product.categoryName}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={product.stockQuantity <= 0 ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'}
-                      >
-                        {product.stockQuantity <= 0 ? 'Tükendi' : 'Kritik'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {dashboardData.lowStockProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                      Kritik stok uyarısı bulunmuyor.
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              ))}
+              {dashboardData.lowStockProducts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={Boxes}
+                      title="Kritik stok uyarısı yok"
+                      description="Şu an aksiyon gerektiren düşük stoklu ürün bulunmuyor."
+                      className="border-0 shadow-none"
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </DataTable>
       </div>
     </div>
   );

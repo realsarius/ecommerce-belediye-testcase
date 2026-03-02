@@ -21,7 +21,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Skeleton } from '@/components/common/skeleton';
@@ -33,7 +32,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/common/table';
+import { DataTable } from '@/components/admin/DataTable';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import {
   useGetSellerAnalyticsSummaryQuery,
   useGetSellerAnalyticsTrendsQuery,
@@ -54,16 +56,6 @@ const orderStatusLabels: Record<OrderStatus, string> = {
   Delivered: 'Teslim Edildi',
   Cancelled: 'İptal',
   Refunded: 'İade',
-};
-
-const orderStatusClasses: Record<OrderStatus, string> = {
-  PendingPayment: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  Paid: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  Processing: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
-  Shipped: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-  Delivered: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  Cancelled: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  Refunded: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
 };
 
 function formatCurrency(value: number, currency = 'TRY') {
@@ -100,6 +92,13 @@ function maskCustomerName(value?: string) {
     .filter(Boolean)
     .map((segment) => `${segment.charAt(0)}**`)
     .join(' ');
+}
+
+function getOrderStatusTone(status: OrderStatus) {
+  if (status === 'Delivered') return 'success' as const;
+  if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
+  if (status === 'PendingPayment') return 'warning' as const;
+  return 'info' as const;
 }
 
 export default function SellerDashboard() {
@@ -338,21 +337,19 @@ export default function SellerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Card className="border-border/70">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle>Ürün Performans Görünümü</CardTitle>
-              <CardDescription>Wishlist, değerlendirme ve stok sinyallerine göre öne çıkan ürünler.</CardDescription>
-            </div>
+        <DataTable
+          title="Ürün Performans Görünümü"
+          description="Wishlist, değerlendirme ve stok sinyallerine göre öne çıkan ürünler."
+          actions={(
             <Button variant="ghost" size="sm" asChild>
               <Link to="/seller/products">
                 Ürünleri Gör
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-          </CardHeader>
-          <CardContent>
-            <Table>
+          )}
+        >
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Ürün</TableHead>
@@ -360,6 +357,7 @@ export default function SellerDashboard() {
                   <TableHead>Favori</TableHead>
                   <TableHead>Puan</TableHead>
                   <TableHead>Stok</TableHead>
+                  <TableHead className="text-right">Aksiyon</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -377,51 +375,53 @@ export default function SellerDashboard() {
                       {product.reviewCount > 0 ? `${product.averageRating.toFixed(1)} / 5` : 'Henüz yok'}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
+                      <StatusBadge
+                        label={String(product.stockQuantity)}
+                        tone={
                           product.stockQuantity <= 0
-                            ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                            ? 'danger'
                             : product.stockQuantity <= 5
-                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                              : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              ? 'warning'
+                              : 'success'
                         }
-                      >
-                        {product.stockQuantity}
-                      </Badge>
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to={`/seller/products/${product.id}`}>Düzenle</Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {dashboardData.productPerformance.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                      Performans tablosu için henüz yeterli ürün verisi oluşmadı.
+                    <TableCell colSpan={6} className="p-0">
+                      <EmptyState
+                        icon={Package}
+                        title="Ürün performansı için veri bekleniyor"
+                        description="Favori, değerlendirme ve stok verisi oluştukça en güçlü ürünler burada görünecek."
+                        className="border-0 shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+          </Table>
+        </DataTable>
 
-        <Card className="border-border/70">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle>Son Siparişler</CardTitle>
-              <CardDescription>Mağazanıza gelen son siparişlerin hızlı özeti.</CardDescription>
-            </div>
-            <Badge variant="outline" className="rounded-full border-amber-500/30 text-amber-700 dark:text-amber-300">
-              Seller filtreli
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <Table>
+        <DataTable
+          title="Son Siparişler"
+          description="Mağazanıza gelen son siparişlerin hızlı özeti."
+          actions={<StatusBadge label="Seller filtreli" tone="warning" />}
+        >
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Sipariş</TableHead>
                   <TableHead>Müşteri</TableHead>
                   <TableHead>Tutar</TableHead>
                   <TableHead>Durum</TableHead>
+                  <TableHead className="text-right">Aksiyon</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -431,23 +431,33 @@ export default function SellerDashboard() {
                     <TableCell>{maskCustomerName(order.customerName)}</TableCell>
                     <TableCell>{formatCurrency(order.totalAmount, order.currency || dashboardData.currency)}</TableCell>
                     <TableCell>
-                      <Badge className={orderStatusClasses[order.status]} variant="secondary">
-                        {orderStatusLabels[order.status]}
-                      </Badge>
+                      <StatusBadge
+                        label={orderStatusLabels[order.status]}
+                        tone={getOrderStatusTone(order.status)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to="/seller/orders">Git</Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {dashboardData.recentOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                      Henüz sipariş kaydı bulunmuyor.
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={ShoppingBag}
+                        title="Henüz sipariş kaydı yok"
+                        description="Mağazanıza ait yeni siparişler geldikçe hızlı özet burada görünecek."
+                        className="border-0 shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+          </Table>
+        </DataTable>
       </div>
     </div>
   );
