@@ -6,6 +6,8 @@ export interface User {
   firstName: string;
   lastName: string;
   role: string;
+  status?: string;
+  lastLoginAt?: string | null;
 }
 
 export interface AuthResponse {

@@ -1,4 +1,5 @@
 import { baseApi } from '@/app/api';
+import type { PaginatedResponse } from '@/types/api';
 import type {
   Category,
   CreateCategoryRequest,
@@ -6,6 +7,11 @@ import type {
   ReviewModerationRequest,
   UpdateCategoryRequest,
 } from '@/features/products/types';
+import type {
+  AdminUserDetail,
+  AdminUserListItem,
+  AdminUsersQueryParams,
+} from '@/features/admin/types';
 import type {
   ShippingAddress,
   CreateShippingAddressRequest,
@@ -122,6 +128,37 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: SellerProfile }) => response.data,
       providesTags: ['SellerProfile'],
     }),
+    getAdminUsers: builder.query<PaginatedResponse<AdminUserListItem>, AdminUsersQueryParams | void>({
+      query: (params) => ({
+        url: '/admin/users',
+        params: params ?? undefined,
+      }),
+      transformResponse: (response: { data: PaginatedResponse<AdminUserListItem> }) => response.data,
+      providesTags: ['Users'],
+    }),
+    getAdminUserDetail: builder.query<AdminUserDetail, number>({
+      query: (id) => `/admin/users/${id}`,
+      transformResponse: (response: { data: AdminUserDetail }) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'Users', id }],
+    }),
+    updateAdminUserRole: builder.mutation<AdminUserDetail, { id: number; role: string }>({
+      query: ({ id, role }) => ({
+        url: `/admin/users/${id}/role`,
+        method: 'PUT',
+        body: { role },
+      }),
+      transformResponse: (response: { data: AdminUserDetail }) => response.data,
+      invalidatesTags: ['Users'],
+    }),
+    updateAdminUserStatus: builder.mutation<AdminUserDetail, { id: number; status: string }>({
+      query: ({ id, status }) => ({
+        url: `/admin/users/${id}/status`,
+        method: 'PUT',
+        body: { status },
+      }),
+      transformResponse: (response: { data: AdminUserDetail }) => response.data,
+      invalidatesTags: ['Users'],
+    }),
     getAdminReviews: builder.query<ProductReviewDto[], { status?: string } | void>({
       query: (params) => ({
         url: '/admin/reviews',
@@ -190,6 +227,10 @@ export const {
   useGetAdminReturnsQuery,
   useReviewAdminReturnMutation,
   useGetAdminSellerProfileQuery,
+  useGetAdminUsersQuery,
+  useGetAdminUserDetailQuery,
+  useUpdateAdminUserRoleMutation,
+  useUpdateAdminUserStatusMutation,
   useGetAdminReviewsQuery,
   useApproveAdminReviewMutation,
   useRejectAdminReviewMutation,

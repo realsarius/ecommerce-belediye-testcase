@@ -57,6 +57,8 @@ const SellerRegister = lazy(() => import('@/pages/SellerRegister'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
+const AdminUsersPage = lazy(() => import('@/pages/admin/UsersPage'));
+const AdminUserDetailPage = lazy(() => import('@/pages/admin/UserDetailPage'));
 const AdminProducts = lazy(() => import('@/pages/admin/ProductsAdmin'));
 const ProductForm = lazy(() => import('@/pages/admin/ProductForm'));
 const AdminCategories = lazy(() => import('@/pages/admin/CategoriesAdmin'));
@@ -242,6 +244,8 @@ function App() {
                   >
                     <Route index element={<AdminDashboard />} />
                     <Route path="dashboard" element={<AdminDashboard />} />
+                    <Route path="users" element={<AdminUsersPage />} />
+                    <Route path="users/:id" element={<AdminUserDetailPage />} />
                     <Route path="products" element={<AdminProducts />} />
                     <Route path="products/new" element={<ProductForm />} />
                     <Route path="products/:id" element={<ProductForm />} />

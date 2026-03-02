@@ -66,7 +66,7 @@ const adminNavigationGroups: DashboardNavGroup[] = [
   {
     label: 'Kullanıcılar',
     items: [
-      { label: 'Tüm Kullanıcılar', icon: Users, disabled: true, badge: 'Yakında' },
+      { label: 'Tüm Kullanıcılar', href: '/admin/users', icon: Users },
       { label: 'Roller & İzinler', icon: ShieldCheck, disabled: true, badge: 'Yakında' },
     ],
   },

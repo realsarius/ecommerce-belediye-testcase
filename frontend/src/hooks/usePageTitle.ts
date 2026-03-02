@@ -33,6 +33,7 @@ const pageTitles: Record<string, string> = {
   '/cookie-policy': 'Çerez Politikası',
   '/admin': 'Yönetim Paneli',
   '/admin/dashboard': 'Yönetim Paneli',
+  '/admin/users': 'Kullanıcı Yönetimi',
   '/admin/products': 'Ürün Yönetimi',
   '/admin/products/new': 'Yeni Ürün',
   '/admin/categories': 'Kategori Yönetimi',
@@ -83,6 +84,8 @@ export function usePageTitle(customTitle?: string) {
           title = `Ürün Detayı | ${SITE_NAME}`;
         } else if (pathParts[0] === 'orders' && pathParts.length === 2) {
           title = `Sipariş Detayı | ${SITE_NAME}`;
+        } else if (pathParts[0] === 'admin' && pathParts[1] === 'users' && pathParts.length === 3) {
+          title = `Kullanıcı Detayı | ${SITE_NAME}`;
         } else if (pathParts[0] === 'admin' && pathParts[1] === 'products' && pathParts.length === 3) {
           title = `Ürün Düzenle | ${SITE_NAME}`;
         } else if (pathParts[0] === 'admin' && pathParts[1] === 'orders' && pathParts.length === 3) {
