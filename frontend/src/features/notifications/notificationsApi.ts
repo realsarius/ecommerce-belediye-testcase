@@ -1,5 +1,11 @@
 import { baseApi } from '@/app/api';
-import type { NotificationCount, NotificationItem } from './types';
+import type {
+  NotificationCount,
+  NotificationItem,
+  NotificationPreference,
+  NotificationPreferencesResponse,
+  UpdateNotificationPreferencesRequest,
+} from './types';
 
 export const notificationsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -31,6 +37,20 @@ export const notificationsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Notifications'],
     }),
+    getNotificationPreferences: builder.query<NotificationPreferencesResponse, void>({
+      query: () => '/notifications/preferences',
+      transformResponse: (response: { data: NotificationPreferencesResponse }) => response.data,
+      providesTags: ['Notifications'],
+    }),
+    updateNotificationPreferences: builder.mutation<NotificationPreference[], UpdateNotificationPreferencesRequest>({
+      query: (body) => ({
+        url: '/notifications/preferences',
+        method: 'PUT',
+        body,
+      }),
+      transformResponse: (response: { data: NotificationPreference[] }) => response.data,
+      invalidatesTags: ['Notifications'],
+    }),
   }),
 });
 
@@ -39,4 +59,6 @@ export const {
   useGetUnreadNotificationCountQuery,
   useMarkNotificationAsReadMutation,
   useMarkAllNotificationsAsReadMutation,
+  useGetNotificationPreferencesQuery,
+  useUpdateNotificationPreferencesMutation,
 } = notificationsApi;

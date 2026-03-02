@@ -109,10 +109,15 @@ export default function Notifications() {
           </p>
         </div>
 
-        <Button onClick={handleMarkAll} disabled={isMarkingAll || unreadCount === 0}>
-          <CheckCheck className="mr-2 h-4 w-4" />
-          Tümünü okundu işaretle
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button asChild variant="outline">
+            <Link to="/notifications/preferences">Tercihler</Link>
+          </Button>
+          <Button onClick={handleMarkAll} disabled={isMarkingAll || unreadCount === 0}>
+            <CheckCheck className="mr-2 h-4 w-4" />
+            Tümünü okundu işaretle
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-3">

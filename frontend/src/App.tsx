@@ -22,6 +22,7 @@ const OrderDetail = lazy(() => import('@/pages/OrderDetail'));
 const Returns = lazy(() => import('@/pages/Returns'));
 const Compare = lazy(() => import('@/pages/Compare'));
 const Notifications = lazy(() => import('@/pages/Notifications'));
+const NotificationPreferences = lazy(() => import('@/pages/NotificationPreferences'));
 const Loyalty = lazy(() => import('@/pages/Loyalty'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Account = lazy(() => import('@/pages/Account'));
@@ -124,6 +125,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Notifications />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/notifications/preferences"
+                      element={
+                        <ProtectedRoute>
+                          <NotificationPreferences />
                         </ProtectedRoute>
                       }
                     />

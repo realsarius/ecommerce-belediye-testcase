@@ -15,6 +15,7 @@ const pageTitles: Record<string, string> = {
   '/compare': 'Ürün Karşılaştırma',
   '/loyalty': 'Puanlarım ve Ödüllerim',
   '/notifications': 'Bildirimler',
+  '/notifications/preferences': 'Bildirim Tercihleri',
   '/account': 'Hesabım',
   '/account/addresses': 'Adreslerim',
   '/account/credit-cards': 'Kartlarım',
