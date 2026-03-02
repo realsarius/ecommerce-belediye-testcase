@@ -1,5 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { getSiteUrl, truncateDescription } from '@/lib/seo';
 import { useGetProductQuery } from '@/features/products/productsApi';
 import { useAddToCartMutation } from '@/features/cart/cartApi';
 import { useAppSelector } from '@/app/hooks';
@@ -47,6 +49,70 @@ export default function ProductDetail() {
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
   const { addProduct: addCompareProduct, compareIds, containsProduct, removeProduct: removeCompareProduct } = useProductCompare();
+  const siteUrl = getSiteUrl();
+  const canonicalPath = product ? `/products/${product.id}` : `/products/${productId}`;
+  const productDescription = truncateDescription(
+    product?.description || 'Urun detaylarini, fiyat bilgisini ve stok durumunu inceleyin.'
+  );
+  const productJsonLd = product ? [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Ana Sayfa',
+          item: siteUrl,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: product.categoryName,
+          item: `${siteUrl}/?categoryId=${product.categoryId}`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: product.name,
+          item: `${siteUrl}${canonicalPath}`,
+        },
+      ],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      description: productDescription,
+      sku: product.sku,
+      category: product.categoryName,
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: product.currency,
+        price: product.price,
+        availability: product.stockQuantity > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+        url: `${siteUrl}${canonicalPath}`,
+      },
+      aggregateRating: product.reviewCount > 0
+        ? {
+            '@type': 'AggregateRating',
+            ratingValue: Number(product.averageRating.toFixed(1)),
+            reviewCount: product.reviewCount,
+          }
+        : undefined,
+    },
+  ] : undefined;
+
+  useSeoMeta({
+    title: product?.name ?? 'Urun Detayi',
+    description: productDescription,
+    canonicalPath,
+    type: 'product',
+    robots: error || !product ? 'noindex,follow' : 'index,follow',
+    jsonLd: productJsonLd,
+  });
 
   const isProductInServerWishlist = wishlistData?.items?.some((item: { productId: number }) => item.productId === productId) ?? false;
   const isProductInWishlist = isProductInServerWishlist || isPending(productId);

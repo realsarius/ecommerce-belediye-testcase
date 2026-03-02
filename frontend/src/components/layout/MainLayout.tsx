@@ -8,10 +8,14 @@ import { useGetMeQuery } from '@/features/auth/authApi';
 import { setUser } from '@/features/auth/authSlice';
 import { GuestWishlistSync, WishlistPriceAlertListener } from '@/features/wishlist';
 import { useEffect } from 'react';
-import { usePageTitle } from '@/hooks/usePageTitle';
+import { useLocation } from 'react-router-dom';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 export function MainLayout() {
-  usePageTitle();
+  const location = useLocation();
+  useSeoMeta({
+    canonicalPath: location.pathname,
+  });
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   

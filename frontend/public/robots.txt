@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /seller/products
+Disallow: /seller/profile
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /orders
+Disallow: /returns
+Disallow: /support
+Disallow: /notifications
+Disallow: /loyalty
+Disallow: /gift-cards
+Disallow: /referrals
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://ecommerce.berkansozer.com/sitemap.xml

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useHome } from '@/hooks/useHome';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { getSiteUrl, truncateDescription } from '@/lib/seo';
 import { HomeFilters } from '@/components/home/HomeFilters';
 import { ProductList } from '@/components/home/ProductList';
 import { PersonalizedRecommendations } from '@/components/home/PersonalizedRecommendations';
@@ -57,6 +59,55 @@ export default function Home() {
   const selectedCategory = categories?.find(
     (category) => category.id.toString() === categoryId
   );
+  const siteUrl = getSiteUrl();
+  const canonicalPath = selectedCategory ? `/?categoryId=${selectedCategory.id}` : '/';
+  const pageTitle = selectedCategory ? `${selectedCategory.name} Urunleri` : 'Ana Sayfa';
+  const pageDescription = selectedCategory
+    ? `${selectedCategory.name} kategorisindeki urunleri, kampanyalari ve en cok ilgi goren secenekleri kesfedin.`
+    : 'Populer urunleri, kampanyalari ve kategorileri tek ekranda kesfedin.';
+  const shouldNoIndex = Boolean(search || page > 1 || (sortBy && sortBy !== 'createdAt') || !sortDesc);
+  const visibleProducts = productsData?.items ?? [];
+
+  const homeJsonLd: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'E-Ticaret',
+      url: siteUrl,
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: `${siteUrl}/?q={search_term_string}`,
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ];
+
+  if (selectedCategory) {
+    homeJsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: `${selectedCategory.name} kategorisi`,
+      description: truncateDescription(pageDescription),
+      url: `${siteUrl}${canonicalPath}`,
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: visibleProducts.map((product, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${siteUrl}/products/${product.id}`,
+          name: product.name,
+        })),
+      },
+    });
+  }
+
+  useSeoMeta({
+    title: pageTitle,
+    description: pageDescription,
+    canonicalPath,
+    robots: shouldNoIndex ? 'noindex,follow' : 'index,follow',
+    jsonLd: homeJsonLd,
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
