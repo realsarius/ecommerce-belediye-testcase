@@ -114,7 +114,12 @@ builder.Services.AddDataProtection()
     .SetApplicationName("EcommerceAPI");
 
 
-var redisMultiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
+var redisConfiguration = ConfigurationOptions.Parse(redisConnectionString);
+redisConfiguration.AbortOnConnectFail = false;
+redisConfiguration.ConnectRetry = 3;
+redisConfiguration.ReconnectRetryPolicy = new ExponentialRetry(5_000);
+
+var redisMultiplexer = ConnectionMultiplexer.Connect(redisConfiguration);
 builder.Services.AddSingleton<IConnectionMultiplexer>(redisMultiplexer);
 
 var allowedOrigins = ResolveAllowedOrigins(
