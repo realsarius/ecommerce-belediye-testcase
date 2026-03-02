@@ -10,7 +10,7 @@ namespace EcommerceAPI.Business.Concrete;
 
 public class NotificationPreferenceManager : INotificationPreferenceService
 {
-    private static readonly NotificationTemplateDefinition[] TemplateDefinitions =
+    private static readonly NotificationTemplateDefinition[] DefaultTemplates =
     [
         new(
             NotificationType.Wishlist,
@@ -80,13 +80,16 @@ public class NotificationPreferenceManager : INotificationPreferenceService
     ];
 
     private readonly INotificationPreferenceDal _notificationPreferenceDal;
+    private readonly INotificationTemplateSettingDal _notificationTemplateSettingDal;
     private readonly IUnitOfWork _unitOfWork;
 
     public NotificationPreferenceManager(
         INotificationPreferenceDal notificationPreferenceDal,
+        INotificationTemplateSettingDal notificationTemplateSettingDal,
         IUnitOfWork unitOfWork)
     {
         _notificationPreferenceDal = notificationPreferenceDal;
+        _notificationTemplateSettingDal = notificationTemplateSettingDal;
         _unitOfWork = unitOfWork;
     }
 
@@ -97,11 +100,12 @@ public class NotificationPreferenceManager : INotificationPreferenceService
             return new ErrorDataResult<NotificationPreferencesResponseDto>("Geçersiz kullanıcı.");
         }
 
+        var templates = await BuildResolvedTemplatesAsync();
         var existingPreferences = await _notificationPreferenceDal.GetByUserIdAsync(userId);
         var response = new NotificationPreferencesResponseDto
         {
-            Preferences = BuildPreferenceDtos(existingPreferences),
-            Templates = BuildTemplateDtos()
+            Preferences = BuildPreferenceDtos(templates, existingPreferences),
+            Templates = BuildTemplateDtos(templates)
         };
 
         return new SuccessDataResult<NotificationPreferencesResponseDto>(response);
@@ -119,12 +123,13 @@ public class NotificationPreferenceManager : INotificationPreferenceService
             return new ErrorDataResult<List<NotificationPreferenceDto>>("En az bir tercih gönderilmelidir.");
         }
 
+        var templates = await BuildResolvedTemplatesAsync();
         var existingByType = (await _notificationPreferenceDal.GetByUserIdAsync(userId))
             .ToDictionary(x => x.Type);
 
         foreach (var item in request.Preferences)
         {
-            var template = FindTemplate(item.Type);
+            var template = FindTemplate(templates, item.Type);
             if (template == null)
             {
                 return new ErrorDataResult<List<NotificationPreferenceDto>>($"Geçersiz bildirim tipi: {item.Type}");
@@ -158,7 +163,48 @@ public class NotificationPreferenceManager : INotificationPreferenceService
         await _unitOfWork.SaveChangesAsync();
 
         var updated = await _notificationPreferenceDal.GetByUserIdAsync(userId);
-        return new SuccessDataResult<List<NotificationPreferenceDto>>(BuildPreferenceDtos(updated));
+        return new SuccessDataResult<List<NotificationPreferenceDto>>(BuildPreferenceDtos(templates, updated));
+    }
+
+    public async Task<IDataResult<List<NotificationTemplateDto>>> GetTemplatesAsync()
+    {
+        var templates = await BuildResolvedTemplatesAsync();
+        return new SuccessDataResult<List<NotificationTemplateDto>>(BuildTemplateDtos(templates));
+    }
+
+    public async Task<IDataResult<NotificationTemplateDto>> UpdateTemplateAsync(string type, UpdateNotificationTemplateRequest request)
+    {
+        var template = FindDefaultTemplate(type);
+        if (template == null)
+        {
+            return new ErrorDataResult<NotificationTemplateDto>($"Geçersiz bildirim tipi: {type}");
+        }
+
+        var existing = await _notificationTemplateSettingDal.GetByTypeAsync(template.Type);
+        if (existing == null)
+        {
+            existing = new NotificationTemplateSetting
+            {
+                Type = template.Type,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _notificationTemplateSettingDal.AddAsync(existing);
+        }
+        else
+        {
+            _notificationTemplateSettingDal.Update(existing);
+        }
+
+        existing.DisplayName = request.DisplayName.Trim();
+        existing.Description = request.Description.Trim();
+        existing.TitleExample = request.TitleExample.Trim();
+        existing.BodyExample = request.BodyExample.Trim();
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await _unitOfWork.SaveChangesAsync();
+
+        var updatedTemplate = MergeTemplate(template, existing);
+        return new SuccessDataResult<NotificationTemplateDto>(MapToTemplateDto(updatedTemplate));
     }
 
     public async Task<NotificationChannelSettingsDto> GetChannelSettingsAsync(int userId, NotificationType type)
@@ -177,7 +223,7 @@ public class NotificationPreferenceManager : INotificationPreferenceService
             return [];
         }
 
-        var template = FindTemplate(type) ?? throw new InvalidOperationException($"Template tanımı bulunamadı: {type}");
+        var template = FindDefaultTemplate(type) ?? throw new InvalidOperationException($"Template tanımı bulunamadı: {type}");
         var existing = await _notificationPreferenceDal.GetByUserIdsAndTypeAsync(ids, type);
         var existingByUserId = existing.ToDictionary(x => x.UserId);
 
@@ -188,11 +234,44 @@ public class NotificationPreferenceManager : INotificationPreferenceService
                 : MapToDefaultChannelSettings(template));
     }
 
-    private static List<NotificationPreferenceDto> BuildPreferenceDtos(IEnumerable<NotificationPreference> existingPreferences)
+    private async Task<List<NotificationTemplateDefinition>> BuildResolvedTemplatesAsync()
+    {
+        var overrides = await _notificationTemplateSettingDal.GetAllAsync();
+        var overridesByType = overrides.ToDictionary(x => x.Type);
+
+        return DefaultTemplates
+            .Select(template => overridesByType.TryGetValue(template.Type, out var setting)
+                ? MergeTemplate(template, setting)
+                : template)
+            .ToList();
+    }
+
+    private static NotificationTemplateDefinition MergeTemplate(
+        NotificationTemplateDefinition template,
+        NotificationTemplateSetting setting)
+    {
+        return new NotificationTemplateDefinition(
+            template.Type,
+            template.TypeName,
+            setting.DisplayName,
+            setting.Description,
+            setting.TitleExample,
+            setting.BodyExample,
+            template.SupportsInApp,
+            template.SupportsEmail,
+            template.SupportsPush,
+            template.DefaultInApp,
+            template.DefaultEmail,
+            template.DefaultPush);
+    }
+
+    private static List<NotificationPreferenceDto> BuildPreferenceDtos(
+        IEnumerable<NotificationTemplateDefinition> templates,
+        IEnumerable<NotificationPreference> existingPreferences)
     {
         var existingByType = existingPreferences.ToDictionary(x => x.Type);
 
-        return TemplateDefinitions
+        return templates
             .Select(template =>
             {
                 var dto = MapToPreferenceDto(template);
@@ -208,20 +287,26 @@ public class NotificationPreferenceManager : INotificationPreferenceService
             .ToList();
     }
 
-    private static List<NotificationTemplateDto> BuildTemplateDtos()
+    private static List<NotificationTemplateDto> BuildTemplateDtos(IEnumerable<NotificationTemplateDefinition> templates)
     {
-        return TemplateDefinitions
-            .Select(template => new NotificationTemplateDto
-            {
-                Type = template.TypeName,
-                DisplayName = template.DisplayName,
-                TitleExample = template.TitleExample,
-                BodyExample = template.BodyExample,
-                SupportsInApp = template.SupportsInApp,
-                SupportsEmail = template.SupportsEmail,
-                SupportsPush = template.SupportsPush
-            })
+        return templates
+            .Select(MapToTemplateDto)
             .ToList();
+    }
+
+    private static NotificationTemplateDto MapToTemplateDto(NotificationTemplateDefinition template)
+    {
+        return new NotificationTemplateDto
+        {
+            Type = template.TypeName,
+            DisplayName = template.DisplayName,
+            Description = template.Description,
+            TitleExample = template.TitleExample,
+            BodyExample = template.BodyExample,
+            SupportsInApp = template.SupportsInApp,
+            SupportsEmail = template.SupportsEmail,
+            SupportsPush = template.SupportsPush
+        };
     }
 
     private static NotificationPreferenceDto MapToPreferenceDto(NotificationTemplateDefinition template)
@@ -240,20 +325,26 @@ public class NotificationPreferenceManager : INotificationPreferenceService
         };
     }
 
-    private static NotificationTemplateDefinition? FindTemplate(string typeName)
+    private static NotificationTemplateDefinition? FindTemplate(
+        IEnumerable<NotificationTemplateDefinition> templates,
+        string typeName)
     {
-        return TemplateDefinitions.FirstOrDefault(
-            x => x.TypeName.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+        return templates.FirstOrDefault(x => x.TypeName.Equals(typeName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static NotificationTemplateDefinition? FindTemplate(NotificationType type)
+    private static NotificationTemplateDefinition? FindDefaultTemplate(string typeName)
     {
-        return TemplateDefinitions.FirstOrDefault(x => x.Type == type);
+        return DefaultTemplates.FirstOrDefault(x => x.TypeName.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static NotificationTemplateDefinition? FindDefaultTemplate(NotificationType type)
+    {
+        return DefaultTemplates.FirstOrDefault(x => x.Type == type);
     }
 
     private static NotificationChannelSettingsDto BuildDefaultChannelSettings(NotificationType type)
     {
-        var template = FindTemplate(type) ?? throw new InvalidOperationException($"Template tanımı bulunamadı: {type}");
+        var template = FindDefaultTemplate(type) ?? throw new InvalidOperationException($"Template tanımı bulunamadı: {type}");
         return MapToDefaultChannelSettings(template);
     }
 
