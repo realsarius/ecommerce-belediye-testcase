@@ -146,3 +146,29 @@ public class AdminReviewsController : BaseApiController
         return int.TryParse(userIdStr, out var userId) ? userId : 0;
     }
 }
+
+[ApiController]
+[Route("api/v1/seller/reviews")]
+[Authorize(Roles = "Seller")]
+public class SellerReviewsController : BaseApiController
+{
+    private readonly IProductReviewService _reviewService;
+
+    public SellerReviewsController(IProductReviewService reviewService)
+    {
+        _reviewService = reviewService;
+    }
+
+    [HttpPost("{reviewId}/reply")]
+    public async Task<IActionResult> ReplyToReview(int reviewId, [FromBody] SellerReviewReplyRequest request)
+    {
+        var result = await _reviewService.SellerReplyAsync(reviewId: reviewId, sellerUserId: GetUserId(), request: request);
+        return HandleResult(result);
+    }
+
+    private int GetUserId()
+    {
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdStr, out var userId) ? userId : 0;
+    }
+}

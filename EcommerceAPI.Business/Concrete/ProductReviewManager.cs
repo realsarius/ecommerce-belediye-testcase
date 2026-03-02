@@ -14,17 +14,20 @@ public class ProductReviewManager : IProductReviewService
     private readonly IProductReviewDal _reviewDal;
     private readonly IOrderDal _orderDal;
     private readonly IProductDal _productDal;
+    private readonly ISellerProfileDal _sellerProfileDal;
     private readonly IUnitOfWork _unitOfWork;
 
     public ProductReviewManager(
         IProductReviewDal reviewDal,
         IOrderDal orderDal,
         IProductDal productDal,
+        ISellerProfileDal sellerProfileDal,
         IUnitOfWork unitOfWork)
     {
         _reviewDal = reviewDal;
         _orderDal = orderDal;
         _productDal = productDal;
+        _sellerProfileDal = sellerProfileDal;
         _unitOfWork = unitOfWork;
     }
 
@@ -95,6 +98,40 @@ public class ProductReviewManager : IProductReviewService
         await UpdateProductRatingStats(review.ProductId);
 
         return new SuccessDataResult<ProductReviewDto>(MapToDto(review));
+    }
+
+    public async Task<IDataResult<ProductReviewDto>> SellerReplyAsync(
+        int sellerUserId,
+        int reviewId,
+        SellerReviewReplyRequest request)
+    {
+        var sellerProfile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(sellerUserId);
+        if (sellerProfile == null)
+            return new ErrorDataResult<ProductReviewDto>("Seller profili bulunamadı.");
+
+        var review = await _reviewDal.GetByIdWithDetailsAsync(reviewId);
+        if (review == null)
+            return new ErrorDataResult<ProductReviewDto>(Messages.ReviewNotFound);
+
+        if (review.Product?.SellerId != sellerProfile.Id)
+            return new ErrorDataResult<ProductReviewDto>("Bu yoruma yanit verme yetkiniz yok.");
+
+        if (review.ModerationStatus != ProductReviewModerationStatus.Approved)
+            return new ErrorDataResult<ProductReviewDto>("Sadece onaylanan yorumlara yanit verilebilir.");
+
+        var replyText = request.ReplyText?.Trim();
+        if (string.IsNullOrWhiteSpace(replyText))
+            return new ErrorDataResult<ProductReviewDto>("Yanit metni zorunludur.");
+
+        review.SellerReply = replyText;
+        review.SellerRepliedByUserId = sellerUserId;
+        review.SellerRepliedAt = DateTime.UtcNow;
+        review.UpdatedAt = DateTime.UtcNow;
+
+        _reviewDal.Update(review);
+        await _unitOfWork.SaveChangesAsync();
+
+        return new SuccessDataResult<ProductReviewDto>(MapToDto(review), "Yorum yaniti kaydedildi.");
     }
 
     public async Task<IResult> DeleteAsync(int userId, int reviewId)
@@ -259,6 +296,9 @@ public class ProductReviewManager : IProductReviewService
             : "Anonim",
         Rating = review.Rating,
         Comment = review.Comment,
+        SellerReply = review.SellerReply,
+        SellerRepliedAt = review.SellerRepliedAt,
+        SellerRepliedByUserId = review.SellerRepliedByUserId,
         ModerationStatus = review.ModerationStatus.ToString(),
         ModerationNote = review.ModerationNote,
         ModeratedAt = review.ModeratedAt,
