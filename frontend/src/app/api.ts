@@ -141,6 +141,7 @@ export const baseApi = createApi({
     'GiftCards',
     'GiftCard',
     'Referrals',
+    'Reviews',
   ],
   endpoints: () => ({}),
 });

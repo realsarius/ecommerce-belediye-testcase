@@ -2,6 +2,8 @@ import { baseApi } from '@/app/api';
 import type {
   Category,
   CreateCategoryRequest,
+  ProductReviewDto,
+  ReviewModerationRequest,
   UpdateCategoryRequest,
 } from '@/features/products/types';
 import type {
@@ -120,6 +122,39 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: SellerProfile }) => response.data,
       providesTags: ['SellerProfile'],
     }),
+    getAdminReviews: builder.query<ProductReviewDto[], { status?: string } | void>({
+      query: (params) => ({
+        url: '/admin/reviews',
+        params: params?.status ? { status: params.status } : undefined,
+      }),
+      transformResponse: (response: { data: ProductReviewDto[] }) => response.data,
+      providesTags: ['Reviews'],
+    }),
+    approveAdminReview: builder.mutation<ProductReviewDto, number>({
+      query: (id) => ({
+        url: `/admin/reviews/${id}/approve`,
+        method: 'PUT',
+      }),
+      transformResponse: (response: { data: ProductReviewDto }) => response.data,
+      invalidatesTags: ['Reviews', 'Product'],
+    }),
+    rejectAdminReview: builder.mutation<ProductReviewDto, { id: number; data: ReviewModerationRequest }>({
+      query: ({ id, data }) => ({
+        url: `/admin/reviews/${id}/reject`,
+        method: 'PUT',
+        body: data,
+      }),
+      transformResponse: (response: { data: ProductReviewDto }) => response.data,
+      invalidatesTags: ['Reviews', 'Product'],
+    }),
+    bulkApproveAdminReviews: builder.mutation<void, number[]>({
+      query: (ids) => ({
+        url: '/admin/reviews/bulk-approve',
+        method: 'PUT',
+        body: { ids },
+      }),
+      invalidatesTags: ['Reviews', 'Product'],
+    }),
     getAdminNotificationTemplates: builder.query<NotificationTemplate[], void>({
       query: () => '/admin/notifications/templates',
       transformResponse: (response: { data: NotificationTemplate[] }) => response.data,
@@ -155,6 +190,10 @@ export const {
   useGetAdminReturnsQuery,
   useReviewAdminReturnMutation,
   useGetAdminSellerProfileQuery,
+  useGetAdminReviewsQuery,
+  useApproveAdminReviewMutation,
+  useRejectAdminReviewMutation,
+  useBulkApproveAdminReviewsMutation,
   useGetAdminNotificationTemplatesQuery,
   useUpdateAdminNotificationTemplateMutation,
 } = adminApi;

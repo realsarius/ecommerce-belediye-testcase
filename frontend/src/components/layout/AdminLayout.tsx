@@ -14,6 +14,7 @@ import {
   Megaphone,
   Menu,
   MessageSquare,
+  MessageSquareQuote,
   Package,
   ShieldCheck,
   ShoppingBag,
@@ -102,7 +103,7 @@ const adminNavigationGroups: DashboardNavGroup[] = [
     label: 'Destek',
     items: [
       { label: 'Destek Talepleri', href: '/admin/support', icon: MessageSquare },
-      { label: 'Yorum Moderasyonu', icon: BellRing, disabled: true, badge: 'Yakında' },
+      { label: 'Yorum Moderasyonu', href: '/admin/reviews', icon: MessageSquareQuote },
     ],
   },
   {

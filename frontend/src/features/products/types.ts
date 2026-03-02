@@ -1,5 +1,7 @@
 // Product Types
 
+export type ReviewModerationStatus = 'Pending' | 'Approved' | 'Rejected';
+
 export interface Product {
   id: number;
   name: string;
@@ -29,10 +31,15 @@ export interface Product {
 export interface ProductReviewDto {
   id: number;
   productId: number;
+  productName: string;
   userId: number;
   userFullName: string;
   rating: number;
   comment: string;
+  moderationStatus: ReviewModerationStatus;
+  moderationNote?: string | null;
+  moderatedByUserId?: number | null;
+  moderatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +53,10 @@ export interface ReviewSummaryDto {
 export interface CreateReviewRequest {
   rating: number;
   comment: string;
+}
+
+export interface ReviewModerationRequest {
+  moderationNote?: string;
 }
 
 export interface ProductListRequest {
