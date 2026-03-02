@@ -5,10 +5,10 @@ import {
   Eye,
   Package as PackageIcon,
   ShoppingBag,
+  Store,
   Truck,
   Wallet,
 } from 'lucide-react';
-import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
@@ -29,18 +29,10 @@ import {
   TableRow,
 } from '@/components/common/table';
 import { KpiCard } from '@/components/admin/KpiCard';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useGetAdminOrdersQuery, useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
 import type { OrderStatus } from '@/features/orders/types';
-
-const statusColors: Record<OrderStatus, string> = {
-  PendingPayment: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  Paid: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  Processing: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
-  Shipped: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-  Delivered: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  Cancelled: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  Refunded: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
-};
+import { useSearchProductsQuery } from '@/features/products/productsApi';
 
 const statusLabels: Record<OrderStatus, string> = {
   PendingPayment: 'Ödeme Bekleniyor',
@@ -60,8 +52,16 @@ function formatCurrency(value: number, currency = 'TRY') {
   }).format(value);
 }
 
+function getOrderStatusTone(status: OrderStatus) {
+  if (status === 'Delivered') return 'success' as const;
+  if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
+  if (status === 'PendingPayment') return 'warning' as const;
+  return 'info' as const;
+}
+
 export default function OrdersAdmin() {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
+  const [sellerFilter, setSellerFilter] = useState<'all' | string>('all');
   const [search, setSearch] = useState('');
   const [minAmount, setMinAmount] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -69,11 +69,40 @@ export default function OrdersAdmin() {
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
 
   const { data: orders = [], isLoading } = useGetAdminOrdersQuery();
+  const { data: productsData } = useSearchProductsQuery({ page: 1, pageSize: 500 });
   const [updateStatus] = useUpdateOrderStatusMutation();
+
+  const productSellerMap = useMemo(() => {
+    const productMap = new Map<number, string>();
+    for (const product of productsData?.items ?? []) {
+      productMap.set(
+        product.id,
+        product.sellerBrandName?.trim() || (product.sellerId ? `Seller #${product.sellerId}` : 'Atanmamış')
+      );
+    }
+
+    return productMap;
+  }, [productsData?.items]);
+
+  const sellerOptions = useMemo(() => {
+    return Array.from(new Set(Array.from(productSellerMap.values())))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [productSellerMap]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      const sellerNames = Array.from(new Set(
+        order.items
+          .map((item) => productSellerMap.get(item.productId))
+          .filter((value): value is string => Boolean(value))
+      ));
+
       if (statusFilter !== 'all' && order.status !== statusFilter) {
+        return false;
+      }
+
+      if (sellerFilter !== 'all' && !sellerNames.includes(sellerFilter)) {
         return false;
       }
 
@@ -83,6 +112,7 @@ export default function OrdersAdmin() {
           order.orderNumber,
           String(order.id),
           order.customerName,
+          sellerNames.join(' '),
           order.userId ? `kullanıcı #${order.userId}` : undefined,
         ]
           .filter(Boolean)
@@ -109,7 +139,7 @@ export default function OrdersAdmin() {
 
       return true;
     });
-  }, [fromDate, minAmount, orders, search, statusFilter, toDate]);
+  }, [fromDate, minAmount, orders, productSellerMap, search, sellerFilter, statusFilter, toDate]);
 
   const summary = useMemo(() => {
     return {
@@ -195,9 +225,9 @@ export default function OrdersAdmin() {
       <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Filtreler</CardTitle>
-          <CardDescription>Durum, tarih, müşteri ve minimum tutar bazlı hızlı operasyon filtresi.</CardDescription>
+          <CardDescription>Durum, seller, tarih, müşteri ve minimum tutar bazlı hızlı operasyon filtresi.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <Input
             placeholder="Sipariş no veya müşteri ara..."
             value={search}
@@ -218,6 +248,20 @@ export default function OrdersAdmin() {
             </SelectContent>
           </Select>
 
+          <Select value={sellerFilter} onValueChange={setSellerFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seller seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Seller&apos;lar</SelectItem>
+              {sellerOptions.map((seller) => (
+                <SelectItem key={seller} value={seller}>
+                  {seller}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Input type="number" min="0" placeholder="Minimum tutar" value={minAmount} onChange={(event) => setMinAmount(event.target.value)} />
           <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
           <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
@@ -227,12 +271,13 @@ export default function OrdersAdmin() {
       <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Sipariş</TableHead>
-              <TableHead>Müşteri</TableHead>
-              <TableHead>Ürün</TableHead>
-              <TableHead>Tutar</TableHead>
-              <TableHead>Durum</TableHead>
+              <TableRow>
+                <TableHead>Sipariş</TableHead>
+                <TableHead>Müşteri</TableHead>
+                <TableHead>Seller</TableHead>
+                <TableHead>Ürün</TableHead>
+                <TableHead>Tutar</TableHead>
+                <TableHead>Durum</TableHead>
               <TableHead>Tarih</TableHead>
               <TableHead className="text-right">Detay</TableHead>
             </TableRow>
@@ -240,52 +285,76 @@ export default function OrdersAdmin() {
           <TableBody>
             {filteredOrders.map((order) => (
               <TableRow key={order.id}>
-                <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
-                <TableCell>{order.customerName || `Kullanıcı #${order.userId}`}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <PackageIcon className="h-4 w-4" />
-                    <span>{order.items.length} ürün</span>
-                  </div>
-                </TableCell>
-                <TableCell>{formatCurrency(order.totalAmount, order.currency || 'TRY')}</TableCell>
-                <TableCell>
-                  <Select
-                    value={order.status}
-                    onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
-                    disabled={updatingOrderId === order.id}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(statusLabels).map(([status, label]) => (
-                        <SelectItem key={status} value={status}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Badge className={`mt-2 ${statusColors[order.status]}`} variant="secondary">
-                    {statusLabels[order.status]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {new Date(order.createdAt).toLocaleDateString('tr-TR')}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link to={`/admin/orders/${order.id}`}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      İncele
-                    </Link>
-                  </Button>
-                </TableCell>
+                {(() => {
+                  const sellerNames = Array.from(new Set(
+                    order.items
+                      .map((item) => productSellerMap.get(item.productId))
+                      .filter((value): value is string => Boolean(value))
+                  ));
+
+                  return (
+                    <>
+                      <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
+                      <TableCell>{order.customerName || `Kullanıcı #${order.userId}`}</TableCell>
+                      <TableCell>
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <Store className="mt-0.5 h-4 w-4" />
+                          <div className="space-y-1">
+                            {sellerNames.length > 0 ? sellerNames.map((sellerName) => (
+                              <p key={`${order.id}-${sellerName}`}>{sellerName}</p>
+                            )) : <p>Atanmamış</p>}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <PackageIcon className="h-4 w-4" />
+                          <span>{order.items.length} ürün</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatCurrency(order.totalAmount, order.currency || 'TRY')}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={order.status}
+                          onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
+                          disabled={updatingOrderId === order.id}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(statusLabels).map(([status, label]) => (
+                              <SelectItem key={status} value={status}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <StatusBadge
+                          label={statusLabels[order.status]}
+                          tone={getOrderStatusTone(order.status)}
+                          className="mt-2"
+                        />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/admin/orders/${order.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            İncele
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </>
+                  );
+                })()}
               </TableRow>
             ))}
             {filteredOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
                   Filtrelere uygun sipariş bulunamadı.
                 </TableCell>
               </TableRow>

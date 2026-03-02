@@ -5,14 +5,15 @@ import {
   Boxes,
   Package as PackageIcon,
   Pencil,
+  Power,
   Plus,
   Search,
   ShieldAlert,
+  Store,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
-import { Badge } from '@/components/common/badge';
 import { Checkbox } from '@/components/common/checkbox';
 import { Skeleton } from '@/components/common/skeleton';
 import { Label } from '@/components/common/label';
@@ -42,6 +43,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { KpiCard } from '@/components/admin/KpiCard';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useGetAdminCategoriesQuery } from '@/features/admin/adminApi';
 import {
@@ -67,11 +69,15 @@ export default function AdminProducts() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [bulkAction, setBulkAction] = useState<BulkAction>('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{ id: number; name: string; nextState: boolean } | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [stockDialog, setStockDialog] = useState<{ open: boolean; productId: number; productName: string }>({
     open: false,
@@ -89,15 +95,37 @@ export default function AdminProducts() {
     pageSize: 20,
     search: debouncedSearch || undefined,
     categoryId: categoryFilter === 'all' ? undefined : Number(categoryFilter),
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
   });
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
-  const [updateProduct, { isLoading: isBulkUpdating }] = useUpdateProductMutation();
+  const [updateProduct, { isLoading: isUpdatingProduct }] = useUpdateProductMutation();
   const [updateStock, { isLoading: isUpdatingStock }] = useUpdateStockMutation();
 
   const items = products?.items ?? [];
 
+  const sellerOptions = useMemo(() => {
+    const sellerMap = new Map<number, string>();
+
+    for (const product of items) {
+      if (!product.sellerId || sellerMap.has(product.sellerId)) {
+        continue;
+      }
+
+      sellerMap.set(product.sellerId, product.sellerBrandName?.trim() || `Seller #${product.sellerId}`);
+    }
+
+    return Array.from(sellerMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  }, [items]);
+
   const filteredItems = useMemo(() => {
     return items.filter((product) => {
+      if (sellerFilter !== 'all' && String(product.sellerId ?? '') !== sellerFilter) {
+        return false;
+      }
+
       if (statusFilter === 'active' && !product.isActive) {
         return false;
       }
@@ -116,7 +144,7 @@ export default function AdminProducts() {
 
       return true;
     });
-  }, [items, statusFilter, stockFilter]);
+  }, [items, sellerFilter, statusFilter, stockFilter]);
 
   useEffect(() => {
     setSelectedIds((current) => current.filter((id) => filteredItems.some((product) => product.id === id)));
@@ -124,12 +152,12 @@ export default function AdminProducts() {
 
   const summary = useMemo(() => {
     return {
-      total: items.length,
-      active: items.filter((product) => product.isActive).length,
-      inactive: items.filter((product) => !product.isActive).length,
-      critical: items.filter((product) => product.stockQuantity <= 5).length,
+      total: filteredItems.length,
+      active: filteredItems.filter((product) => product.isActive).length,
+      inactive: filteredItems.filter((product) => !product.isActive).length,
+      critical: filteredItems.filter((product) => product.stockQuantity <= 5).length,
     };
-  }, [items]);
+  }, [filteredItems]);
 
   const allVisibleSelected = filteredItems.length > 0 && filteredItems.every((product) => selectedIds.includes(product.id));
 
@@ -196,6 +224,27 @@ export default function AdminProducts() {
     }
   };
 
+  const handleStatusToggle = async () => {
+    if (!statusTarget) {
+      return;
+    }
+
+    try {
+      await updateProduct({
+        id: statusTarget.id,
+        data: { isActive: statusTarget.nextState },
+      }).unwrap();
+      toast.success(
+        statusTarget.nextState
+          ? `"${statusTarget.name}" ürünü aktifleştirildi`
+          : `"${statusTarget.name}" ürünü pasife alındı`
+      );
+      setStatusTarget(null);
+    } catch {
+      toast.error('Ürün durumu güncellenemedi');
+    }
+  };
+
   const handleStockUpdate = async () => {
     const quantity = parseInt(stockChange, 10);
     if (Number.isNaN(quantity) || quantity === 0) {
@@ -243,7 +292,7 @@ export default function AdminProducts() {
         <KpiCard
           title="Listelenen Ürün"
           value={summary.total.toLocaleString('tr-TR')}
-          helperText="Mevcut arama ve kategori sonucundaki ürünler."
+          helperText="Mevcut arama, fiyat ve seller filtrelerine uyan ürünler."
           icon={PackageIcon}
           accentClass="text-sky-600 dark:text-sky-300"
           surfaceClass="bg-sky-500/10"
@@ -277,9 +326,9 @@ export default function AdminProducts() {
       <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Katalog Filtreleri</CardTitle>
-          <CardDescription>Arama, kategori, durum ve stok seviyesine göre görünümü daraltın.</CardDescription>
+          <CardDescription>Arama, kategori, seller, fiyat, durum ve stok seviyesine göre görünümü daraltın.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <div className="relative xl:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -307,7 +356,43 @@ export default function AdminProducts() {
             </SelectContent>
           </Select>
 
-          <div className="grid grid-cols-2 gap-3">
+          <Select value={sellerFilter} onValueChange={(value) => { setSellerFilter(value); setPage(1); }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seller seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Seller&apos;lar</SelectItem>
+              {sellerOptions.map((seller) => (
+                <SelectItem key={seller.id} value={String(seller.id)}>
+                  {seller.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Input
+            type="number"
+            min="0"
+            placeholder="Min fiyat"
+            value={minPrice}
+            onChange={(event) => {
+              setMinPrice(event.target.value);
+              setPage(1);
+            }}
+          />
+
+          <Input
+            type="number"
+            min="0"
+            placeholder="Max fiyat"
+            value={maxPrice}
+            onChange={(event) => {
+              setMaxPrice(event.target.value);
+              setPage(1);
+            }}
+          />
+
+          <div className="grid grid-cols-2 gap-3 md:col-span-2 xl:col-span-2">
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
               <SelectTrigger>
                 <SelectValue placeholder="Durum" />
@@ -357,7 +442,7 @@ export default function AdminProducts() {
                 <SelectItem value="delete">Sil</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => void handleBulkAction()} disabled={isBulkUpdating || isDeleting}>
+            <Button onClick={() => void handleBulkAction()} disabled={isUpdatingProduct || isDeleting}>
               Uygula
             </Button>
           </div>
@@ -381,6 +466,7 @@ export default function AdminProducts() {
                   </TableHead>
                   <TableHead>Ürün</TableHead>
                   <TableHead>Kategori</TableHead>
+                  <TableHead>Seller</TableHead>
                   <TableHead>Fiyat</TableHead>
                   <TableHead>Stok</TableHead>
                   <TableHead>Durum</TableHead>
@@ -417,6 +503,12 @@ export default function AdminProducts() {
                       </div>
                     </TableCell>
                     <TableCell>{product.categoryName}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Store className="h-4 w-4" />
+                        <span>{product.sellerBrandName || (product.sellerId ? `Seller #${product.sellerId}` : 'Atanmamış')}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{formatCurrency(product.price, product.currency)}</TableCell>
                     <TableCell>
                       <Button
@@ -435,9 +527,26 @@ export default function AdminProducts() {
                       </Button>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={product.isActive ? 'default' : 'secondary'}>
-                        {product.isActive ? 'Aktif' : 'Pasif'}
-                      </Badge>
+                      <div className="space-y-2">
+                        <StatusBadge
+                          label={product.isActive ? 'Aktif' : 'Pasif'}
+                          tone={product.isActive ? 'success' : 'neutral'}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-0 text-xs"
+                          disabled={isUpdatingProduct}
+                          onClick={() => setStatusTarget({
+                            id: product.id,
+                            name: product.name,
+                            nextState: !product.isActive,
+                          })}
+                        >
+                          <Power className="mr-1 h-3.5 w-3.5" />
+                          {product.isActive ? 'Pasife Al' : 'Aktifleştir'}
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -460,7 +569,7 @@ export default function AdminProducts() {
                 ))}
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
                       Filtrelere uygun ürün bulunamadı.
                     </TableCell>
                   </TableRow>
@@ -554,6 +663,25 @@ export default function AdminProducts() {
         confirmLabel="Toplu Sil"
         isLoading={isDeleting}
         onConfirm={handleBulkDelete}
+      />
+
+      <ConfirmModal
+        open={!!statusTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStatusTarget(null);
+          }
+        }}
+        title={statusTarget?.nextState ? 'Ürünü aktifleştir' : 'Ürünü pasife al'}
+        description={
+          statusTarget
+            ? `"${statusTarget.name}" ürünü için görünürlük durumu güncellenecek.`
+            : ''
+        }
+        confirmLabel={statusTarget?.nextState ? 'Aktifleştir' : 'Pasife Al'}
+        confirmVariant="default"
+        isLoading={isUpdatingProduct}
+        onConfirm={handleStatusToggle}
       />
     </div>
   );
