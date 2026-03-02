@@ -62,4 +62,26 @@ public class NotificationsController : BaseApiController
         var result = await _notificationService.MarkAllAsReadAsync(userId);
         return HandleResult(result);
     }
+
+    [HttpGet("notifications/preferences")]
+    public async Task<IActionResult> GetPreferences([FromServices] INotificationPreferenceService notificationPreferenceService)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await notificationPreferenceService.GetUserPreferencesAsync(userId);
+        return HandleResult(result);
+    }
+
+    [HttpPut("notifications/preferences")]
+    public async Task<IActionResult> UpdatePreferences(
+        [FromBody] EcommerceAPI.Entities.DTOs.UpdateNotificationPreferencesRequest request,
+        [FromServices] INotificationPreferenceService notificationPreferenceService)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await notificationPreferenceService.UpdateUserPreferencesAsync(userId, request);
+        return HandleResult(result);
+    }
 }

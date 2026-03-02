@@ -9,6 +9,7 @@ using EcommerceAPI.Infrastructure.Services;
 using EcommerceAPI.Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
 
 namespace EcommerceAPI.Infrastructure;
@@ -40,12 +41,16 @@ public static class DependencyInjection
             redisConnection = "localhost:6379";
         }
 
-        var redis = ConnectionMultiplexer.Connect(redisConnection);
-        services.AddSingleton<IConnectionMultiplexer>(redis);
+        var redisConfiguration = ConfigurationOptions.Parse(redisConnection);
+        redisConfiguration.AbortOnConnectFail = false;
+        redisConfiguration.ConnectRetry = 3;
+        redisConfiguration.ReconnectRetryPolicy = new ExponentialRetry(5_000);
+
+        services.TryAddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConfiguration));
 
         services.AddStackExchangeRedisCache(options =>
         {
-            options.Configuration = redisConnection;
+            options.ConfigurationOptions = redisConfiguration;
             options.InstanceName = "EcommerceAPI:";
         });
 

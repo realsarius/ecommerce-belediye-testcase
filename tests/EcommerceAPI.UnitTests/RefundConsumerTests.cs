@@ -4,6 +4,7 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
 using FluentAssertions;
 using MassTransit;
@@ -48,12 +49,25 @@ public class RefundConsumerTests
         notificationService
             .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
+        var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        notificationPreferenceService
+            .Setup(x => x.GetChannelSettingsAsync(42, NotificationType.Refund))
+            .ReturnsAsync(new NotificationChannelSettingsDto
+            {
+                InAppEnabled = true,
+                EmailEnabled = true,
+                PushEnabled = false,
+                SupportsInApp = true,
+                SupportsEmail = true,
+                SupportsPush = true
+            });
 
         var consumer = new RefundRequestedConsumer(
             dbContext,
             refundService.Object,
             emailService.Object,
             notificationService.Object,
+            notificationPreferenceService.Object,
             Mock.Of<ILogger<RefundRequestedConsumer>>());
 
         var message = new RefundRequestedEvent

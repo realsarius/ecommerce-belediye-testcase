@@ -16,6 +16,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
     private readonly IRefundService _refundService;
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly INotificationService _notificationService;
+    private readonly INotificationPreferenceService _notificationPreferenceService;
     private readonly ILogger<RefundRequestedConsumer> _logger;
 
     public RefundRequestedConsumer(
@@ -23,12 +24,14 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         IRefundService refundService,
         IEmailNotificationService emailNotificationService,
         INotificationService notificationService,
+        INotificationPreferenceService notificationPreferenceService,
         ILogger<RefundRequestedConsumer> logger)
     {
         _dbContext = dbContext;
         _refundService = refundService;
         _emailNotificationService = emailNotificationService;
         _notificationService = notificationService;
+        _notificationPreferenceService = notificationPreferenceService;
         _logger = logger;
     }
 
@@ -52,23 +55,32 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         }
 
         var result = await _refundService.ProcessRefundAsync(message.RefundRequestId, context.CancellationToken);
+        var channelSettings = await _notificationPreferenceService.GetChannelSettingsAsync(
+            message.UserId,
+            Entities.Enums.NotificationType.Refund);
 
         if (result.Success)
         {
-            await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+            if (channelSettings.InAppEnabled)
             {
-                UserId = result.Data.UserId,
-                Type = "Refund",
-                Title = "İade işleminiz tamamlandı",
-                Body = $"{result.Data.OrderNumber} siparişi için {result.Data.Amount:N2} {result.Data.Currency} iade edildi.",
-                DeepLink = "/returns"
-            });
+                await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                {
+                    UserId = result.Data.UserId,
+                    Type = "Refund",
+                    Title = "İade işleminiz tamamlandı",
+                    Body = $"{result.Data.OrderNumber} siparişi için {result.Data.Amount:N2} {result.Data.Currency} iade edildi.",
+                    DeepLink = "/returns"
+                });
+            }
 
-            await _emailNotificationService.SendAsync(
-                result.Data.CustomerEmail,
-                $"{result.Data.OrderNumber} siparişiniz için iade tamamlandı",
-                BuildRefundSucceededEmailBody(result.Data),
-                context.CancellationToken);
+            if (channelSettings.EmailEnabled)
+            {
+                await _emailNotificationService.SendAsync(
+                    result.Data.CustomerEmail,
+                    $"{result.Data.OrderNumber} siparişiniz için iade tamamlandı",
+                    BuildRefundSucceededEmailBody(result.Data),
+                    context.CancellationToken);
+            }
 
             _logger.LogInformation(
                 "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, MessageId={MessageId}, ProcessedAt={ProcessedAt}",
@@ -88,17 +100,22 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         {
             if (result.Data != null)
             {
-                await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                if (channelSettings.InAppEnabled)
                 {
-                    UserId = result.Data.UserId,
-                    Type = "Refund",
-                    Title = "İade işlemi tamamlanamadı",
-                    Body = result.Data.FailureReason ?? $"{result.Data.OrderNumber} siparişi için iade işlemi başarısız oldu.",
-                    DeepLink = "/returns"
-                });
+                    await _notificationService.CreateNotificationAsync(new Entities.DTOs.CreateNotificationRequest
+                    {
+                        UserId = result.Data.UserId,
+                        Type = "Refund",
+                        Title = "İade işlemi tamamlanamadı",
+                        Body = result.Data.FailureReason ?? $"{result.Data.OrderNumber} siparişi için iade işlemi başarısız oldu.",
+                        DeepLink = "/returns"
+                    });
+                }
             }
 
-            if (result.Data != null && !string.IsNullOrWhiteSpace(result.Data.CustomerEmail))
+            if (channelSettings.EmailEnabled &&
+                result.Data != null &&
+                !string.IsNullOrWhiteSpace(result.Data.CustomerEmail))
             {
                 await _emailNotificationService.SendAsync(
                     result.Data.CustomerEmail,
