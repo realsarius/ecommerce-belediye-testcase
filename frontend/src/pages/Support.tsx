@@ -31,6 +31,13 @@ import {
 
 import type { SupportConversation, SupportConversationStatus } from '@/features/support/types';
 
+interface SupportPageProps {
+    embedded?: boolean;
+    title?: string;
+    description?: string;
+    showRoleBadge?: boolean;
+}
+
 const statusMap: Record<SupportConversationStatus, { label: string; className: string }> = {
     Open: { label: 'Açık', className: 'bg-emerald-100 text-emerald-800' },
     Assigned: { label: 'Atandı', className: 'bg-blue-100 text-blue-800' },
@@ -68,7 +75,12 @@ function isHubRateLimitError(error: unknown): boolean {
     return message.includes('RATE_LIMIT_EXCEEDED');
 }
 
-export default function Support() {
+export default function Support({
+    embedded = false,
+    title = 'Canlı Destek',
+    description,
+    showRoleBadge = true,
+}: SupportPageProps) {
     const { user, token, isAuthenticated } = useAppSelector((state) => state.auth);
 
     const normalizedRole = (user?.role ?? '').trim().toLowerCase();
@@ -346,11 +358,20 @@ export default function Support() {
     const myUserId = user?.id ?? 0;
 
     return (
-        <div className="container mx-auto px-4 py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Canlı Destek</h1>
-                <Badge variant="secondary">{user?.role ?? 'Guest'}</Badge>
-            </div>
+        <div className={embedded ? 'space-y-6' : 'container mx-auto space-y-6 px-4 py-8'}>
+            {!embedded ? (
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <h1 className="text-2xl font-bold">{title}</h1>
+                        {showRoleBadge ? (
+                            <Badge variant="secondary">{user?.role ?? 'Guest'}</Badge>
+                        ) : null}
+                    </div>
+                    {description ? (
+                        <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+                    ) : null}
+                </div>
+            ) : null}
 
             {isCustomer && (
                 <Card>

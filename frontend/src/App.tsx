@@ -65,6 +65,7 @@ const AdminOrderDetailPage = lazy(() => import('@/pages/admin/OrderDetailPage'))
 const AdminReturnsPage = lazy(() => import('@/pages/admin/ReturnsPage'));
 const AdminSellersPage = lazy(() => import('@/pages/admin/SellersPage'));
 const AdminSellerDetailPage = lazy(() => import('@/pages/admin/SellerDetailPage'));
+const AdminSupportPage = lazy(() => import('@/pages/admin/SupportPage'));
 const AdminCoupons = lazy(() => import('@/pages/admin/CouponsAdmin'));
 const AdminGiftCards = lazy(() => import('@/pages/admin/GiftCardsAdmin'));
 const AdminNotificationTemplates = lazy(() => import('@/pages/admin/NotificationTemplatesAdmin'));
@@ -75,6 +76,7 @@ const SellerProducts = lazy(() => import('@/pages/seller/Products'));
 const SellerProductForm = lazy(() => import('@/pages/seller/ProductForm'));
 const SellerOrders = lazy(() => import('@/pages/seller/Orders'));
 const SellerFinancePage = lazy(() => import('@/pages/seller/Finance'));
+const SellerReviewsPage = lazy(() => import('@/pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('@/pages/seller/Profile'));
 
 function App() {
@@ -247,6 +249,7 @@ function App() {
                     <Route path="returns" element={<AdminReturnsPage />} />
                     <Route path="sellers" element={<AdminSellersPage />} />
                     <Route path="sellers/:id" element={<AdminSellerDetailPage />} />
+                    <Route path="support" element={<AdminSupportPage />} />
                     <Route path="coupons" element={<AdminCoupons />} />
                     <Route path="gift-cards" element={<AdminGiftCards />} />
                     <Route path="notifications/templates" element={<AdminNotificationTemplates />} />
@@ -267,6 +270,7 @@ function App() {
                     <Route path="products/:id" element={<SellerProductForm />} />
                     <Route path="orders" element={<SellerOrders />} />
                     <Route path="finance" element={<SellerFinancePage />} />
+                    <Route path="reviews" element={<SellerReviewsPage />} />
                     <Route path="profile" element={<SellerProfile />} />
                   </Route>
                 </Routes>

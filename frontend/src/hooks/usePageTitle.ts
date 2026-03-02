@@ -39,6 +39,7 @@ const pageTitles: Record<string, string> = {
   '/admin/orders': 'Sipariş Yönetimi',
   '/admin/returns': 'İade Talepleri',
   '/admin/sellers': 'Seller Yönetimi',
+  '/admin/support': 'Destek Talepleri',
   '/admin/coupons': 'Kupon Yönetimi',
   '/admin/notifications/templates': 'Bildirim Şablonları',
   '/seller': 'Satıcı Paneli',
@@ -50,6 +51,7 @@ const pageTitles: Record<string, string> = {
   '/seller/products/new': 'Yeni Ürün Ekle',
   '/seller/orders': 'Siparişlerim',
   '/seller/finance': 'Kazancım ve Finans',
+  '/seller/reviews': 'Müşteri Yorumları',
   '/seller/profile': 'Satıcı Profili',
 };
 

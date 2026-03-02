@@ -82,7 +82,7 @@ const sellerNavigationGroups: DashboardNavGroup[] = [
   {
     label: 'Değerlendirmeler',
     items: [
-      { label: 'Müşteri Yorumları', icon: Star, disabled: true, badge: 'Yakında' },
+      { label: 'Müşteri Yorumları', href: '/seller/reviews', icon: Star },
     ],
   },
   {
