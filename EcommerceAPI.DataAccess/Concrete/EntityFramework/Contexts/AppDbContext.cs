@@ -71,6 +71,8 @@ public class AppDbContext : DbContext
     public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
     public DbSet<GiftCard> GiftCards => Set<GiftCard>();
     public DbSet<GiftCardTransaction> GiftCardTransactions => Set<GiftCardTransaction>();
+    public DbSet<ReferralCode> ReferralCodes => Set<ReferralCode>();
+    public DbSet<ReferralTransaction> ReferralTransactions => Set<ReferralTransaction>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -107,6 +109,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new LoyaltyTransactionConfiguration());
         modelBuilder.ApplyConfiguration(new GiftCardConfiguration());
         modelBuilder.ApplyConfiguration(new GiftCardTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new ReferralCodeConfiguration());
+        modelBuilder.ApplyConfiguration(new ReferralTransactionConfiguration());
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
