@@ -12,6 +12,8 @@ export interface Product {
   categoryId: number;
   categoryName: string;
   stockQuantity: number;
+  sellerId?: number | null;
+  sellerBrandName?: string | null;
   createdAt: string;
   averageRating: number;
   reviewCount: number;

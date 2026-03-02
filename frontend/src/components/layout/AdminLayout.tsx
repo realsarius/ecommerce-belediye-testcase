@@ -80,13 +80,13 @@ const adminNavigationGroups: DashboardNavGroup[] = [
     label: 'Satış',
     items: [
       { label: 'Siparişler', href: '/admin/orders', icon: ShoppingBag },
-      { label: 'İade Talepleri', icon: ArrowLeft, disabled: true, badge: 'Yakında' },
+      { label: 'İade Talepleri', href: '/admin/returns', icon: ArrowLeft },
     ],
   },
   {
     label: 'Satıcılar',
     items: [
-      { label: 'Seller Listesi', icon: Store, disabled: true, badge: 'Yakında' },
+      { label: 'Seller Listesi', href: '/admin/sellers', icon: Store },
       { label: 'Başvurular', icon: Users, disabled: true, badge: 'Yakında' },
     ],
   },

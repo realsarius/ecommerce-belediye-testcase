@@ -37,6 +37,8 @@ const pageTitles: Record<string, string> = {
   '/admin/products/new': 'Yeni Ürün',
   '/admin/categories': 'Kategori Yönetimi',
   '/admin/orders': 'Sipariş Yönetimi',
+  '/admin/returns': 'İade Talepleri',
+  '/admin/sellers': 'Seller Yönetimi',
   '/admin/coupons': 'Kupon Yönetimi',
   '/admin/notifications/templates': 'Bildirim Şablonları',
   '/seller': 'Satıcı Paneli',
@@ -81,6 +83,8 @@ export function usePageTitle(customTitle?: string) {
           title = `Ürün Düzenle | ${SITE_NAME}`;
         } else if (pathParts[0] === 'admin' && pathParts[1] === 'orders' && pathParts.length === 3) {
           title = `Admin Sipariş Detayı | ${SITE_NAME}`;
+        } else if (pathParts[0] === 'admin' && pathParts[1] === 'sellers' && pathParts.length === 3) {
+          title = `Seller Detayı | ${SITE_NAME}`;
         } else if (pathParts[0] === 'seller' && pathParts[1] === 'products' && pathParts.length === 3) {
           title = `Ürün Düzenle | ${SITE_NAME}`;
         } else {

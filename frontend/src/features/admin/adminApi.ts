@@ -9,10 +9,12 @@ import type {
   CreateShippingAddressRequest,
   Order,
 } from '@/features/orders/types';
+import type { ReturnRequest } from '@/features/returns/types';
 import type {
   NotificationTemplate,
   UpdateNotificationTemplateRequest,
 } from '@/features/notifications/types';
+import type { SellerProfile } from '@/features/seller/types';
 
 function unwrapApiData<T>(response: T | { data: T }) {
   return (response as { data?: T }).data ?? (response as T);
@@ -96,6 +98,28 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
       invalidatesTags: ['Orders'],
     }),
+    getAdminReturns: builder.query<ReturnRequest[], void>({
+      query: () => '/admin/returns',
+      transformResponse: (response: { data: ReturnRequest[] }) => response.data,
+      providesTags: ['Returns'],
+    }),
+    reviewAdminReturn: builder.mutation<
+      ReturnRequest,
+      { id: number; status: 'Approved' | 'Rejected'; reviewNote?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/admin/returns/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      invalidatesTags: ['Returns', 'Orders', 'Loyalty', 'GiftCards', 'Referrals'],
+    }),
+    getAdminSellerProfile: builder.query<SellerProfile, number>({
+      query: (id) => `/admin/sellers/${id}`,
+      transformResponse: (response: { data: SellerProfile }) => response.data,
+      providesTags: ['SellerProfile'],
+    }),
     getAdminNotificationTemplates: builder.query<NotificationTemplate[], void>({
       query: () => '/admin/notifications/templates',
       transformResponse: (response: { data: NotificationTemplate[] }) => response.data,
@@ -128,6 +152,9 @@ export const {
   useUpdateAddressMutation,
   useGetAdminOrdersQuery,
   useUpdateOrderStatusMutation,
+  useGetAdminReturnsQuery,
+  useReviewAdminReturnMutation,
+  useGetAdminSellerProfileQuery,
   useGetAdminNotificationTemplatesQuery,
   useUpdateAdminNotificationTemplateMutation,
 } = adminApi;
