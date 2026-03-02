@@ -6,5 +6,6 @@ public enum NotificationType
     Order = 2,
     Campaign = 3,
     Support = 4,
-    Refund = 5
+    Refund = 5,
+    Announcement = 6
 }

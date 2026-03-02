@@ -35,4 +35,11 @@ public class EfUserDal : EfEntityRepositoryBase<User, AppDbContext>, IUserDal
             .Include(u => u.Orders)
             .ToListAsync();
     }
+
+    public async Task<List<User>> GetUsersWithRolesAsync()
+    {
+        return await _dbSet
+            .Include(u => u.Role)
+            .ToListAsync();
+    }
 }

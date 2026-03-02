@@ -65,6 +65,7 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<NotificationTemplateSetting> NotificationTemplateSettings => Set<NotificationTemplateSetting>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
     public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
     public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
@@ -103,6 +104,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new NotificationConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationPreferenceConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationTemplateSettingConfiguration());
+        modelBuilder.ApplyConfiguration(new AnnouncementConfiguration());
         modelBuilder.ApplyConfiguration(new ContactMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ReturnRequestConfiguration());
         modelBuilder.ApplyConfiguration(new RefundRequestConfiguration());
