@@ -3,6 +3,8 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
 using FluentAssertions;
 using MassTransit;
@@ -236,15 +238,34 @@ public class WishlistConsumersTests
             .ReturnsAsync(true);
         var notificationService = new Mock<INotificationService>();
         notificationService
-            .Setup(x => x.CreateNotificationAsync(It.IsAny<EcommerceAPI.Entities.DTOs.CreateNotificationRequest>()))
-            .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<EcommerceAPI.Entities.DTOs.NotificationDto>(
-                new EcommerceAPI.Entities.DTOs.NotificationDto()));
+            .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
+            .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(
+                new NotificationDto()));
+        var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        notificationPreferenceService
+            .Setup(x => x.GetChannelSettingsAsync(
+                It.IsAny<IEnumerable<int>>(),
+                NotificationType.Wishlist))
+            .ReturnsAsync((IEnumerable<int> userIds, NotificationType _) => userIds
+                .Distinct()
+                .ToDictionary(
+                    id => id,
+                    _ => new NotificationChannelSettingsDto
+                    {
+                        InAppEnabled = true,
+                        EmailEnabled = true,
+                        PushEnabled = false,
+                        SupportsInApp = true,
+                        SupportsEmail = true,
+                        SupportsPush = true
+                    }));
 
         var consumer = new WishlistLowStockNotificationConsumer(
             dbContext,
             emailService.Object,
             hubContext.Object,
             notificationService.Object,
+            notificationPreferenceService.Object,
             Mock.Of<ILogger<WishlistLowStockNotificationConsumer>>());
 
         var message = new WishlistProductLowStockEvent

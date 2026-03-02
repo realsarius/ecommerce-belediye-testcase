@@ -1,10 +1,10 @@
 using EcommerceAPI.API.Consumers;
 using EcommerceAPI.API.Hubs;
 using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
-using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
 using FluentAssertions;
 using MassTransit;
@@ -104,11 +104,30 @@ public class CampaignConsumerTests
         notificationService
             .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
+        var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        notificationPreferenceService
+            .Setup(x => x.GetChannelSettingsAsync(
+                It.IsAny<IEnumerable<int>>(),
+                NotificationType.Campaign))
+            .ReturnsAsync((IEnumerable<int> userIds, NotificationType _) => userIds
+                .Distinct()
+                .ToDictionary(
+                    id => id,
+                    _ => new NotificationChannelSettingsDto
+                    {
+                        InAppEnabled = true,
+                        EmailEnabled = false,
+                        PushEnabled = false,
+                        SupportsInApp = true,
+                        SupportsEmail = false,
+                        SupportsPush = true
+                    }));
 
         var consumer = new CampaignStatusChangedConsumer(
             dbContext,
             hubContext.Object,
             notificationService.Object,
+            notificationPreferenceService.Object,
             Mock.Of<ILogger<CampaignStatusChangedConsumer>>());
 
         var message = new CampaignStatusChangedEvent

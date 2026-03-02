@@ -54,6 +54,84 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         notification.ReadAt.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task GetPreferences_ShouldReturnTemplatesAndEffectiveDefaults()
+    {
+        var userId = Random.Shared.Next(912_001, 913_000);
+        await EnsureUserAsync(userId);
+        var client = _factory.CreateClient().AsCustomer(userId);
+
+        var response = await client.GetAsync("/api/v1/notifications/preferences");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<NotificationPreferencesResponseDto>>();
+        result.Should().NotBeNull();
+        result!.Data.Preferences.Should().Contain(x =>
+            x.Type == "Wishlist" &&
+            x.InAppEnabled &&
+            x.EmailEnabled);
+        result.Data.Templates.Should().Contain(x =>
+            x.Type == "Campaign" &&
+            !x.SupportsEmail);
+    }
+
+    [Fact]
+    public async Task UpdatePreferences_ShouldPersistChanges()
+    {
+        var userId = Random.Shared.Next(913_001, 914_000);
+        await EnsureUserAsync(userId);
+        var client = _factory.CreateClient().AsCustomer(userId);
+
+        var response = await client.PutAsJsonAsync("/api/v1/notifications/preferences", new UpdateNotificationPreferencesRequest
+        {
+            Preferences =
+            [
+                new NotificationPreferenceUpdateItemDto
+                {
+                    Type = "Campaign",
+                    InAppEnabled = true,
+                    EmailEnabled = true,
+                    PushEnabled = true
+                },
+                new NotificationPreferenceUpdateItemDto
+                {
+                    Type = "Refund",
+                    InAppEnabled = false,
+                    EmailEnabled = true,
+                    PushEnabled = false
+                }
+            ]
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<List<NotificationPreferenceDto>>>();
+        result.Should().NotBeNull();
+        result!.Data.Should().Contain(x =>
+            x.Type == "Campaign" &&
+            x.InAppEnabled &&
+            !x.EmailEnabled &&
+            x.PushEnabled);
+        result.Data.Should().Contain(x =>
+            x.Type == "Refund" &&
+            !x.InAppEnabled &&
+            x.EmailEnabled &&
+            !x.PushEnabled);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var preferences = db.NotificationPreferences.Where(x => x.UserId == userId).ToList();
+        preferences.Should().Contain(x =>
+            x.Type == NotificationType.Campaign &&
+            x.InAppEnabled &&
+            !x.EmailEnabled &&
+            x.PushEnabled);
+        preferences.Should().Contain(x =>
+            x.Type == NotificationType.Refund &&
+            !x.InAppEnabled &&
+            x.EmailEnabled &&
+            !x.PushEnabled);
+    }
+
     private async Task<int> SeedNotificationsAsync(int userId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -95,5 +173,12 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         await db.SaveChangesAsync();
 
         return first.Id;
+    }
+
+    private async Task EnsureUserAsync(int userId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await TestDataSeeder.EnsureUserAsync(db, userId);
     }
 }
