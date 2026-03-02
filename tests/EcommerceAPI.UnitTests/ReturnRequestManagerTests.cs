@@ -23,6 +23,7 @@ public class ReturnRequestManagerTests
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IGiftCardService> _giftCardServiceMock;
+    private readonly Mock<IReferralService> _referralServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<ReturnRequestManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
@@ -36,6 +37,7 @@ public class ReturnRequestManagerTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _giftCardServiceMock = new Mock<IGiftCardService>();
+        _referralServiceMock = new Mock<IReferralService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<ReturnRequestManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
@@ -51,6 +53,9 @@ public class ReturnRequestManagerTests
         _giftCardServiceMock
             .Setup(x => x.RestoreForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
+        _referralServiceMock
+            .Setup(x => x.ReverseRewardsForOrderAsync(It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
 
         _manager = new ReturnRequestManager(
             _returnRequestDalMock.Object,
@@ -59,6 +64,7 @@ public class ReturnRequestManagerTests
             _unitOfWorkMock.Object,
             _loyaltyServiceMock.Object,
             _giftCardServiceMock.Object,
+            _referralServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object);
@@ -185,6 +191,7 @@ public class ReturnRequestManagerTests
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(ReturnRequestStatus.Refunded.ToString());
         _giftCardServiceMock.Verify(x => x.RestoreForOrderAsync(returnRequest.UserId, returnRequest.OrderId, It.IsAny<string>()), Times.Once);
+        _referralServiceMock.Verify(x => x.ReverseRewardsForOrderAsync(returnRequest.OrderId, It.IsAny<string>()), Times.Once);
         _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Never);
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
