@@ -7,6 +7,7 @@ import {
   FolderTree,
   ShoppingBag,
   Ticket,
+  Gift,
   BellRing,
   ArrowLeft,
   Menu,
@@ -27,6 +28,7 @@ const sidebarItems = [
   { href: '/admin/categories', label: 'Kategoriler', icon: FolderTree },
   { href: '/admin/orders', label: 'Siparişler', icon: ShoppingBag },
   { href: '/admin/coupons', label: 'Kuponlar', icon: Ticket },
+  { href: '/admin/gift-cards', label: 'Gift Cardlar', icon: Gift },
   { href: '/admin/notifications/templates', label: 'Bildirim Şablonları', icon: BellRing },
 ];
 

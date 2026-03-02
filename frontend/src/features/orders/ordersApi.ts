@@ -11,7 +11,7 @@ export const ordersApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: Order }) => response.data,
-      invalidatesTags: ['Cart', 'Orders'],
+      invalidatesTags: ['Cart', 'Orders', 'GiftCards', 'Loyalty'],
     }),
     getOrders: builder.query<Order[], void>({
       query: () => '/orders',
@@ -30,7 +30,7 @@ export const ordersApi = baseApi.injectEndpoints({
         body: { status: 'Cancelled' },
       }),
       transformResponse: (response: { data: Order }) => response.data,
-      invalidatesTags: ['Orders'],
+      invalidatesTags: ['Orders', 'GiftCards', 'Loyalty'],
     }),
     processPayment: builder.mutation<Payment, ProcessPaymentRequest>({
       query: (data) => ({

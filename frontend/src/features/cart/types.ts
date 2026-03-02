@@ -35,4 +35,5 @@ export interface CheckoutRequest {
   idempotencyKey: string;
   couponCode?: string;
   loyaltyPointsToUse?: number;
+  giftCardCode?: string;
 }

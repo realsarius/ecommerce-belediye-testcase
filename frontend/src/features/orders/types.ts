@@ -26,6 +26,8 @@ export interface Order {
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
   loyaltyDiscountAmount?: number;
+  giftCardCode?: string;
+  giftCardAmount?: number;
   payment?: Payment;
 }
 
@@ -44,6 +46,7 @@ export interface Payment {
   amount: number;
   status: string;
   transactionId: string;
+  paymentMethod?: string;
   errorMessage?: string;
   createdAt: string;
 }

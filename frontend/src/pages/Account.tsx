@@ -8,12 +8,14 @@ import { Label } from '@/components/common/label';
 import { Separator } from '@/components/common/separator';
 import { Skeleton } from '@/components/common/skeleton';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
+import { useGetGiftCardSummaryQuery } from '@/features/giftCards/giftCardsApi';
 import { User, Mail, Phone, Calendar, Shield, Save, Loader2, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Account() {
   const { user } = useAppSelector((state) => state.auth);
   const { data: loyaltySummary, isLoading: isLoyaltyLoading } = useGetLoyaltySummaryQuery();
+  const { data: giftCardSummary, isLoading: isGiftCardLoading } = useGetGiftCardSummaryQuery();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const getUserFormData = () => ({
@@ -262,6 +264,105 @@ export default function Account() {
                     </div>
                     <Button asChild variant="outline">
                       <Link to="/loyalty">Puanlarım</Link>
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Gift Cardlarım</CardTitle>
+            <CardDescription>
+              Hesabına bağlanan gift card bakiyelerini ve son kullanım hareketlerini buradan takip et.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {isGiftCardLoading ? (
+              <>
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Kullanılabilir Bakiye</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(giftCardSummary?.totalAvailableBalance ?? 0).toLocaleString('tr-TR')} ₺
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Aktif Kart</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(giftCardSummary?.activeCardCount ?? 0).toLocaleString('tr-TR')}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Toplam Kart</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(giftCardSummary?.cards?.length ?? 0).toLocaleString('tr-TR')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Son Hareketler</h3>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to="/gift-cards">
+                        Tümünü Gör
+                      </Link>
+                    </Button>
+                  </div>
+
+                  {giftCardSummary?.recentTransactions?.length ? (
+                    <div className="space-y-3">
+                      {giftCardSummary.recentTransactions.map((transaction) => (
+                        <div key={transaction.id} className="flex items-start justify-between gap-4 rounded-xl border p-3">
+                          <div>
+                            <p className="font-medium">{transaction.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {transaction.maskedGiftCardCode}
+                              {transaction.orderNumber ? ` • ${transaction.orderNumber}` : ''}
+                              {` • ${new Date(transaction.createdAt).toLocaleString('tr-TR')}`}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${transaction.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {transaction.amount >= 0 ? '+' : ''}{transaction.amount.toLocaleString('tr-TR')} ₺
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Bakiye: {transaction.balanceAfter.toLocaleString('tr-TR')} ₺
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      Henüz gift card hareketin bulunmuyor.
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-dashed border-border/70 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-xl bg-emerald-500/10 p-2">
+                        <Gift className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Gift card sayfasını aç</p>
+                        <p className="text-sm text-muted-foreground">
+                          Kart bazlı kalan bakiyeleri ve tüm hareketleri ayrı ekranda görüntüle.
+                        </p>
+                      </div>
+                    </div>
+                    <Button asChild variant="outline">
+                      <Link to="/gift-cards">Gift Cardlarım</Link>
                     </Button>
                   </div>
                 </div>
