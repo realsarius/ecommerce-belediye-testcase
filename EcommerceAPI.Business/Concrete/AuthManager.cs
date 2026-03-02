@@ -10,6 +10,7 @@ using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -116,6 +117,10 @@ public class AuthManager : IAuthService
         if (user == null)
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
 
+        var accountStatusValidation = ValidateAccountStatus(user);
+        if (!accountStatusValidation.Success)
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = accountStatusValidation.Message });
+
         if (string.IsNullOrWhiteSpace(user.PasswordHash))
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.SocialAccountPasswordLoginNotAllowed });
 
@@ -185,6 +190,16 @@ public class AuthManager : IAuthService
         }
         else
         {
+            var accountStatusValidation = ValidateAccountStatus(user);
+            if (!accountStatusValidation.Success)
+            {
+                return new ErrorDataResult<AuthResponse>(new AuthResponse
+                {
+                    Success = false,
+                    Message = accountStatusValidation.Message
+                });
+            }
+
             var socialIdentityUpdate = ApplySocialIdentityIfNeeded(user, validationResult.Provider, validationResult.Subject);
             if (!socialIdentityUpdate.Success)
             {
@@ -302,8 +317,14 @@ public class AuthManager : IAuthService
         
         if (user == null)
              return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
+
+        var accountStatusValidation = ValidateAccountStatus(user);
+        if (!accountStatusValidation.Success)
+             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = accountStatusValidation.Message });
         
         var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
+        user.LastLoginAt = DateTime.UtcNow;
+        _userDal.Update(user);
 
          var newAccessToken = _tokenHelper.GenerateAccessToken(user.Id, user.Email, role?.Name ?? "Customer", user.FirstName, user.LastName);
          var expiry = DateTime.UtcNow.AddMinutes(
@@ -325,7 +346,9 @@ public class AuthManager : IAuthService
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Role = role?.Name ?? "Customer"
+                Role = role?.Name ?? "Customer",
+                Status = user.AccountStatus.ToString(),
+                LastLoginAt = user.LastLoginAt
             }
         });
     }
@@ -359,6 +382,8 @@ public class AuthManager : IAuthService
     {
         var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
         var roleName = role?.Name ?? "Customer";
+        user.LastLoginAt = DateTime.UtcNow;
+        _userDal.Update(user);
         var token = _tokenHelper.GenerateAccessToken(user.Id, user.Email, roleName, user.FirstName, user.LastName);
         var expiry = DateTime.UtcNow.AddMinutes(
             int.Parse(_configuration["JWT_EXPIRATION_MINUTES"] ?? "60"));
@@ -399,7 +424,9 @@ public class AuthManager : IAuthService
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Role = roleName
+                Role = roleName,
+                Status = user.AccountStatus.ToString(),
+                LastLoginAt = user.LastLoginAt
             }
         };
     }
@@ -468,7 +495,20 @@ public class AuthManager : IAuthService
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            Role = role?.Name ?? "Customer"
+            Role = role?.Name ?? "Customer",
+            Status = user.AccountStatus.ToString(),
+            LastLoginAt = user.LastLoginAt
         });
+    }
+
+    private static IResult ValidateAccountStatus(User user)
+    {
+        return user.AccountStatus switch
+        {
+            UserAccountStatus.Active => new SuccessResult(),
+            UserAccountStatus.Suspended => new ErrorResult("Hesabınız geçici olarak askıya alınmıştır."),
+            UserAccountStatus.Banned => new ErrorResult("Hesabınız kullanım dışı bırakılmıştır."),
+            _ => new ErrorResult("Hesap durumunuz doğrulanamadı.")
+        };
     }
 }
