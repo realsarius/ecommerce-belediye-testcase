@@ -27,6 +27,21 @@ public class UserConfigurationBasic : IEntityTypeConfiguration<User>
         builder.Property(u => u.PasswordHash)
             .IsRequired()
             .HasMaxLength(500);
+
+        builder.Property(u => u.GoogleSubject)
+            .HasMaxLength(255);
+
+        builder.HasIndex(u => u.GoogleSubject)
+            .IsUnique();
+
+        builder.Property(u => u.AppleSubject)
+            .HasMaxLength(255);
+
+        builder.HasIndex(u => u.AppleSubject)
+            .IsUnique();
+
+        builder.Property(u => u.IsEmailVerified)
+            .HasDefaultValue(false);
         
         builder.Property(u => u.FirstName)
             .IsRequired()
