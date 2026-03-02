@@ -40,6 +40,17 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("social")]
+    public async Task<IActionResult> Social([FromBody] SocialLoginRequest request)
+    {
+        var result = await _authService.SocialLoginAsync(request);
+
+        if (!result.Success)
+            return Unauthorized(result);
+
+        return Ok(result);
+    }
+
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
     {
@@ -76,4 +87,3 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 }
-

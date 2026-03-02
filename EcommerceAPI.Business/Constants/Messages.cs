@@ -42,6 +42,9 @@ public static class Messages
     public static string TokenInvalid = "Geçersiz token";
     public static string TokenExpired = "Token süresi dolmuş";
     public static string TokenRefreshed = "Token yenilendi";
+    public static string SocialLoginFailed = "Sosyal giriş doğrulanamadı";
+    public static string SocialAccountConflict = "Bu e-posta farklı bir sosyal hesapla ilişkilendirilmiş.";
+    public static string SocialAccountPasswordLoginNotAllowed = "Bu hesap için sosyal giriş kullanmanız gerekiyor.";
 
     // Order
     public static string OrderNotFound = "Sipariş bulunamadı";

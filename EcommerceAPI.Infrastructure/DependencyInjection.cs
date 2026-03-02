@@ -111,6 +111,7 @@ public static class DependencyInjection
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
         services.AddScoped<IContactRateLimitService, RedisContactRateLimitService>();
         services.AddScoped<IAuditService, ElasticAuditService>();
+        services.AddSingleton<ISocialAuthValidator, SocialAuthValidator>();
 
         services.AddScoped<ICacheService, RedisCacheManager>();
         services.AddScoped<IEncryptionService, EncryptionService>();
