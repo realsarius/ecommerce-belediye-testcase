@@ -1,6 +1,7 @@
 import { baseApi } from '@/app/api';
 import type { Product, ProductListRequest, CreateProductRequest, UpdateProductRequest } from '@/features/products/types';
 import type { PaginatedResponse } from '@/types/api';
+import type { Order } from '@/features/orders/types';
 import type {
   SellerProfile,
   CreateSellerProfileRequest,
@@ -9,6 +10,10 @@ import type {
   SellerAnalyticsSummary,
   SellerAnalyticsTrendPoint,
 } from './types';
+
+function unwrapApiData<T>(response: T | { data: T }) {
+  return (response as { data?: T }).data ?? (response as T);
+}
 
 export const sellerApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -58,6 +63,12 @@ export const sellerApi = baseApi.injectEndpoints({
       providesTags: ['SellerAnalytics'],
     }),
 
+    getSellerOrders: builder.query<Order[], void>({
+      query: () => '/admin/orders',
+      transformResponse: (response: Order[] | { data: Order[] }) => unwrapApiData(response),
+      providesTags: ['Orders'],
+    }),
+
     // Seller Products endpoints (uses admin/products but filtered for seller)
     getSellerProducts: builder.query<PaginatedResponse<Product>, ProductListRequest>({
       query: (params) => ({
@@ -105,6 +116,7 @@ export const {
   useUpdateSellerProfileMutation,
   useGetSellerAnalyticsSummaryQuery,
   useGetSellerAnalyticsTrendsQuery,
+  useGetSellerOrdersQuery,
   useGetSellerProductsQuery,
   useCreateSellerProductMutation,
   useUpdateSellerProductMutation,
