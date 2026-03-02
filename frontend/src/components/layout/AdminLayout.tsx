@@ -116,7 +116,7 @@ const adminNavigationGroups: DashboardNavGroup[] = [
   {
     label: 'Sistem',
     items: [
-      { label: 'Sistem Sağlığı', icon: ShieldCheck, disabled: true, badge: 'Yakında' },
+      { label: 'Sistem Sağlığı', href: '/admin/system', icon: ShieldCheck },
     ],
   },
 ];

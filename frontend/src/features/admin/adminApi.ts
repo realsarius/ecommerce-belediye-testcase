@@ -8,9 +8,11 @@ import type {
   UpdateCategoryRequest,
 } from '@/features/products/types';
 import type {
+  AdminErrorLog,
   AdminUserDetail,
   AdminUserListItem,
   AdminUsersQueryParams,
+  AdminSystemHealth,
 } from '@/features/admin/types';
 import type {
   ShippingAddress,
@@ -141,6 +143,17 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: AdminUserDetail }) => response.data,
       providesTags: (_result, _error, id) => [{ type: 'Users', id }],
     }),
+    getAdminSystemHealth: builder.query<AdminSystemHealth, void>({
+      query: () => '/admin/health',
+      transformResponse: (response: { data: AdminSystemHealth }) => response.data,
+    }),
+    getAdminErrorLogs: builder.query<AdminErrorLog[], number | void>({
+      query: (limit = 20) => ({
+        url: '/admin/logs/errors',
+        params: { limit },
+      }),
+      transformResponse: (response: { data: AdminErrorLog[] }) => response.data,
+    }),
     updateAdminUserRole: builder.mutation<AdminUserDetail, { id: number; role: string }>({
       query: ({ id, role }) => ({
         url: `/admin/users/${id}/role`,
@@ -229,6 +242,8 @@ export const {
   useGetAdminSellerProfileQuery,
   useGetAdminUsersQuery,
   useGetAdminUserDetailQuery,
+  useGetAdminSystemHealthQuery,
+  useGetAdminErrorLogsQuery,
   useUpdateAdminUserRoleMutation,
   useUpdateAdminUserStatusMutation,
   useGetAdminReviewsQuery,

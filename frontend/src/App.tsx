@@ -73,6 +73,7 @@ const AdminCoupons = lazy(() => import('@/pages/admin/CouponsAdmin'));
 const AdminReviewsPage = lazy(() => import('@/pages/admin/ReviewsPage'));
 const AdminGiftCards = lazy(() => import('@/pages/admin/GiftCardsAdmin'));
 const AdminNotificationTemplates = lazy(() => import('@/pages/admin/NotificationTemplatesAdmin'));
+const AdminSystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
 
 // Seller pages
 const SellerDashboard = lazy(() => import('@/pages/seller/Dashboard'));
@@ -261,6 +262,7 @@ function App() {
                     <Route path="reviews" element={<AdminReviewsPage />} />
                     <Route path="gift-cards" element={<AdminGiftCards />} />
                     <Route path="notifications/templates" element={<AdminNotificationTemplates />} />
+                    <Route path="system" element={<AdminSystemHealthPage />} />
                   </Route>
 
                   <Route

@@ -42,3 +42,46 @@ export interface AdminUsersQueryParams {
   page?: number;
   pageSize?: number;
 }
+
+export type AdminServiceStatus = 'Healthy' | 'Degraded' | 'Unhealthy';
+
+export interface AdminServiceHealth {
+  name: string;
+  status: AdminServiceStatus;
+  description: string;
+  checkedAt: string;
+  responseTimeMs?: number | null;
+}
+
+export interface AdminHangfireFailedJob {
+  id: string;
+  reason?: string | null;
+  exceptionType?: string | null;
+  exceptionMessage?: string | null;
+  failedAt?: string | null;
+}
+
+export interface AdminHangfireSummary {
+  enabled: boolean;
+  processingCount: number;
+  failedCount: number;
+  scheduledCount: number;
+  enqueuedCount: number;
+  succeededCount: number;
+  failedJobs: AdminHangfireFailedJob[];
+}
+
+export interface AdminSystemHealth {
+  overallStatus: AdminServiceStatus;
+  generatedAt: string;
+  services: AdminServiceHealth[];
+  hangfire: AdminHangfireSummary;
+}
+
+export interface AdminErrorLog {
+  timestamp?: string | null;
+  level: string;
+  message: string;
+  exception?: string | null;
+  correlationId?: string | null;
+}
