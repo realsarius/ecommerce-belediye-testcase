@@ -21,6 +21,13 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface SocialLoginRequest {
+  provider: 'google' | 'apple';
+  idToken: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 export interface RegisterRequest {
   email: string;
   password: string;
