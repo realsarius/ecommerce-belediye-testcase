@@ -20,9 +20,13 @@ public class Order : BaseEntity
     public int LoyaltyPointsUsed { get; set; }
     public int LoyaltyPointsEarned { get; set; }
     public decimal LoyaltyDiscountAmount { get; set; }
+    public int? GiftCardId { get; set; }
+    public string? GiftCardCode { get; set; }
+    public decimal GiftCardAmount { get; set; }
     
     public User User { get; set; } = null!;
     public Coupon? Coupon { get; set; }
+    public GiftCard? GiftCard { get; set; }
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<LoyaltyTransaction> LoyaltyTransactions { get; set; } = new List<LoyaltyTransaction>();
     public Payment? Payment { get; set; }

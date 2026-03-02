@@ -30,10 +30,17 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
         builder.Property(o => o.LoyaltyDiscountAmount)
             .IsRequired()
             .HasPrecision(18, 2);
+
+        builder.Property(o => o.GiftCardAmount)
+            .IsRequired()
+            .HasPrecision(18, 2);
         
         builder.Property(o => o.Currency)
             .IsRequired()
             .HasMaxLength(3);
+
+        builder.Property(o => o.GiftCardCode)
+            .HasMaxLength(64);
         
         builder.Property(o => o.ShippingAddress)
             .HasMaxLength(2000);
@@ -56,6 +63,11 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
         builder.HasMany(o => o.LoyaltyTransactions)
             .WithOne(t => t.Order)
             .HasForeignKey(t => t.OrderId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(o => o.GiftCard)
+            .WithMany()
+            .HasForeignKey(o => o.GiftCardId)
             .OnDelete(DeleteBehavior.SetNull);
     }
 }

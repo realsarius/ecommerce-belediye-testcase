@@ -23,4 +23,5 @@ public class User : BaseEntity
     public ICollection<CreditCard> CreditCards { get; set; } = new List<CreditCard>();
     public Wishlist? Wishlist { get; set; }
     public ICollection<LoyaltyTransaction> LoyaltyTransactions { get; set; } = new List<LoyaltyTransaction>();
+    public ICollection<GiftCard> GiftCards { get; set; } = new List<GiftCard>();
 }

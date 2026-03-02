@@ -20,6 +20,8 @@ public class OrderDto : IDto
     public int LoyaltyPointsUsed { get; set; }
     public int LoyaltyPointsEarned { get; set; }
     public decimal LoyaltyDiscountAmount { get; set; }
+    public string? GiftCardCode { get; set; }
+    public decimal GiftCardAmount { get; set; }
     
     public List<OrderItemDto> Items { get; set; } = new();
     public PaymentDto? Payment { get; set; }

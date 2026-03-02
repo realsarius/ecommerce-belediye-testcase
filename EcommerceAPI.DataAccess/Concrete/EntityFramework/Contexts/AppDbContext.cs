@@ -69,6 +69,8 @@ public class AppDbContext : DbContext
     public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
     public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
     public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
+    public DbSet<GiftCard> GiftCards => Set<GiftCard>();
+    public DbSet<GiftCardTransaction> GiftCardTransactions => Set<GiftCardTransaction>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -103,6 +105,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ReturnRequestConfiguration());
         modelBuilder.ApplyConfiguration(new RefundRequestConfiguration());
         modelBuilder.ApplyConfiguration(new LoyaltyTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new GiftCardConfiguration());
+        modelBuilder.ApplyConfiguration(new GiftCardTransactionConfiguration());
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();

@@ -10,4 +10,5 @@ public class CheckoutRequest : IDto
     public string? CouponCode { get; set; }
     public string? IdempotencyKey { get; set; }
     public int? LoyaltyPointsToUse { get; set; }
+    public string? GiftCardCode { get; set; }
 }
