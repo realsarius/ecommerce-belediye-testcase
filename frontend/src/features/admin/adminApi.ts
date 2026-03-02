@@ -14,6 +14,10 @@ import type {
   UpdateNotificationTemplateRequest,
 } from '@/features/notifications/types';
 
+function unwrapApiData<T>(response: T | { data: T }) {
+  return (response as { data?: T }).data ?? (response as T);
+}
+
 export const adminApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCategories: builder.query<Category[], void>({
@@ -80,19 +84,16 @@ export const adminApi = baseApi.injectEndpoints({
     }),
     getAdminOrders: builder.query<Order[], void>({
       query: () => '/admin/orders',
-      transformResponse: (response: { data: Order[] }) => response.data,
+      transformResponse: (response: Order[] | { data: Order[] }) => unwrapApiData(response),
       providesTags: ['Orders'],
     }),
     updateOrderStatus: builder.mutation<Order, { id: number; status: string }>({
       query: ({ id, status }) => ({
         url: `/admin/orders/${id}/status`,
         method: 'PATCH',
-        body: JSON.stringify(status),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        body: { status },
       }),
-      transformResponse: (response: { data: Order }) => response.data,
+      transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
       invalidatesTags: ['Orders'],
     }),
     getAdminNotificationTemplates: builder.query<NotificationTemplate[], void>({
