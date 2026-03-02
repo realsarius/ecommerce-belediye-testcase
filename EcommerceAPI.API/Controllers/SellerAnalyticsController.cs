@@ -57,6 +57,24 @@ public class SellerAnalyticsController : ControllerBase
         return BadRequest(result);
     }
 
+    [HttpGet("finance")]
+    public async Task<IActionResult> GetFinance([FromQuery] int days = 30)
+    {
+        var sellerId = await ResolveSellerIdAsync();
+        if (sellerId == null)
+        {
+            return BadRequest(new { message = "Satıcı profili bulunamadı." });
+        }
+
+        var result = await _sellerAnalyticsService.GetFinanceSummaryAsync(sellerId.Value, days);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+
+        return BadRequest(result);
+    }
+
     private async Task<int?> ResolveSellerIdAsync()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
