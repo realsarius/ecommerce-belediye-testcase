@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IPriceAlertDal, EfPriceAlertDal>();
         services.AddScoped<INotificationDal, EfNotificationDal>();
         services.AddScoped<INotificationPreferenceDal, EfNotificationPreferenceDal>();
+        services.AddScoped<INotificationTemplateSettingDal, EfNotificationTemplateSettingDal>();
         services.AddScoped<IContactMessageDal, EfContactMessageDal>();
         services.AddScoped<IReturnRequestDal, EfReturnRequestDal>();
         services.AddScoped<IRefundRequestDal, EfRefundRequestDal>();
