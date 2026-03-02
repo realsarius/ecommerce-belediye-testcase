@@ -5,6 +5,13 @@ export interface SellerProfile {
   brandName: string;
   brandDescription?: string;
   logoUrl?: string;
+  bannerImageUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  xUrl?: string;
   isVerified: boolean;
   createdAt: string;
   sellerFirstName: string;
@@ -15,12 +22,26 @@ export interface CreateSellerProfileRequest {
   brandName: string;
   brandDescription?: string;
   logoUrl?: string;
+  bannerImageUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  xUrl?: string;
 }
 
 export interface UpdateSellerProfileRequest {
   brandName?: string;
   brandDescription?: string;
   logoUrl?: string;
+  bannerImageUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  xUrl?: string;
 }
 
 export interface HasProfileResponse {

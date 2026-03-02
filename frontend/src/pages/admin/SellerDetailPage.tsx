@@ -4,11 +4,14 @@ import {
   ArrowLeft,
   BadgeCheck,
   Boxes,
+  Globe,
+  Mail,
   Package,
+  Phone,
   Store,
   User,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/common/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/common/avatar';
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
@@ -121,6 +124,7 @@ export default function SellerDetailPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16">
+            {seller.logoUrl ? <AvatarImage src={seller.logoUrl} alt={seller.brandName} /> : null}
             <AvatarFallback>{getInitials(seller.brandName)}</AvatarFallback>
           </Avatar>
           <div className="space-y-2">
@@ -185,6 +189,12 @@ export default function SellerDetailPage() {
             <CardDescription>Admin seller profile endpoint’inden gelen detaylar.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
+            {seller.bannerImageUrl ? (
+              <div
+                className="h-36 rounded-2xl border bg-cover bg-center"
+                style={{ backgroundImage: `url(${seller.bannerImageUrl})` }}
+              />
+            ) : null}
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Sahibi</span>
               <span className="font-medium">{seller.sellerFirstName} {seller.sellerLastName}</span>
@@ -202,6 +212,35 @@ export default function SellerDetailPage() {
               <p className="rounded-xl border bg-muted/30 p-4 leading-6">
                 {seller.brandDescription || 'Açıklama girilmemiş.'}
               </p>
+            </div>
+            <div className="space-y-3 rounded-2xl border bg-muted/20 p-4">
+              <p className="font-medium">İletişim</p>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="h-4 w-4 text-amber-600" />
+                <span>{seller.contactEmail || 'İletişim e-postası girilmemiş.'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Phone className="h-4 w-4 text-amber-600" />
+                <span>{seller.contactPhone || 'Telefon bilgisi girilmemiş.'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Globe className="h-4 w-4 text-amber-600" />
+                <span>{seller.websiteUrl || 'Web sitesi girilmemiş.'}</span>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border bg-muted/20 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Instagram</p>
+                <p className="mt-2 break-all font-medium">{seller.instagramUrl || 'Yok'}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Facebook</p>
+                <p className="mt-2 break-all font-medium">{seller.facebookUrl || 'Yok'}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">X</p>
+                <p className="mt-2 break-all font-medium">{seller.xUrl || 'Yok'}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
