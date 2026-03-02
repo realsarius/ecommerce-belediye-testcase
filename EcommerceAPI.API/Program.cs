@@ -70,6 +70,7 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AdminSystemMonitoringService>();
 
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
                             ?? builder.Configuration["Redis:ConnectionString"]
