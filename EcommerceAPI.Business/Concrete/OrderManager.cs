@@ -27,6 +27,7 @@ public class OrderManager : IOrderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICouponService _couponService;
     private readonly ILoyaltyService _loyaltyService;
+    private readonly IGiftCardService _giftCardService;
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
@@ -43,6 +44,7 @@ public class OrderManager : IOrderService
         IUnitOfWork unitOfWork,
         ICouponService couponService,
         ILoyaltyService loyaltyService,
+        IGiftCardService giftCardService,
         IAuditService auditService,
         ILogger<OrderManager> logger,
         IPublishEndpoint publishEndpoint)
@@ -54,6 +56,7 @@ public class OrderManager : IOrderService
         _unitOfWork = unitOfWork;
         _couponService = couponService;
         _loyaltyService = loyaltyService;
+        _giftCardService = giftCardService;
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
@@ -86,10 +89,13 @@ public class OrderManager : IOrderService
         var amountAfterCoupon = Math.Max(0m, subtotal - couponData.Amount + shippingCost);
         var loyaltyRedemption = await ResolveLoyaltyRedemptionAsync(userId, request.LoyaltyPointsToUse, amountAfterCoupon);
         if (!loyaltyRedemption.Success) return new ErrorDataResult<OrderDto>(loyaltyRedemption.Message);
+        var amountAfterLoyalty = Math.Max(0m, amountAfterCoupon - loyaltyRedemption.Data.DiscountAmount);
+        var giftCardRedemption = await ResolveGiftCardRedemptionAsync(userId, request.GiftCardCode, amountAfterLoyalty);
+        if (!giftCardRedemption.Success) return new ErrorDataResult<OrderDto>(giftCardRedemption.Message);
 
 
         var productQuantities = cartDto.Items.ToDictionary(i => i.ProductId, i => i.Quantity);
-        var order = CreateOrderEntity(userId, request, cartDto, subtotal, shippingCost, couponData, loyaltyRedemption.Data);
+        var order = CreateOrderEntity(userId, request, cartDto, subtotal, shippingCost, couponData, loyaltyRedemption.Data, giftCardRedemption.Data);
 
         OrderCreatedEvent? orderCreatedEvent = null;
 
@@ -107,7 +113,7 @@ public class OrderManager : IOrderService
 
 
             await _orderDal.AddAsync(order);
-            var requiresEarlyPersistence = order.LoyaltyPointsUsed > 0;
+            var requiresEarlyPersistence = order.LoyaltyPointsUsed > 0 || order.GiftCardAmount > 0;
 
             if (requiresEarlyPersistence)
             {
@@ -123,6 +129,21 @@ public class OrderManager : IOrderService
                 if (!loyaltyRedeemResult.Success)
                 {
                     throw new InvalidOperationException(loyaltyRedeemResult.Message);
+                }
+            }
+
+            if (order.GiftCardAmount > 0 && !string.IsNullOrWhiteSpace(order.GiftCardCode))
+            {
+                var giftCardRedeemResult = await _giftCardService.RedeemForOrderAsync(
+                    userId,
+                    order.Id,
+                    order.GiftCardCode,
+                    order.GiftCardAmount,
+                    $"Sipariş için gift card kullanımı ({order.OrderNumber})");
+
+                if (!giftCardRedeemResult.Success)
+                {
+                    throw new InvalidOperationException(giftCardRedeemResult.Message);
                 }
             }
 
@@ -268,6 +289,18 @@ public class OrderManager : IOrderService
                     throw new InvalidOperationException(restoreResult.Message);
                 }
             }
+            if (order.GiftCardAmount > 0)
+            {
+                var giftCardRestoreResult = await _giftCardService.RestoreForOrderAsync(
+                    userId,
+                    order.Id,
+                    $"Sipariş iptali sonrası gift card iadesi ({order.OrderNumber})");
+
+                if (!giftCardRestoreResult.Success)
+                {
+                    throw new InvalidOperationException(giftCardRestoreResult.Message);
+                }
+            }
             _orderDal.Update(order);
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
@@ -317,6 +350,18 @@ public class OrderManager : IOrderService
                     if (!restoreResult.Success)
                     {
                         throw new InvalidOperationException(restoreResult.Message);
+                    }
+                }
+                if (order.GiftCardAmount > 0)
+                {
+                    var giftCardRestoreResult = await _giftCardService.RestoreForOrderAsync(
+                        order.UserId,
+                        order.Id,
+                        $"Ödeme zaman aşımı sonrası gift card iadesi ({order.OrderNumber})");
+
+                    if (!giftCardRestoreResult.Success)
+                    {
+                        throw new InvalidOperationException(giftCardRestoreResult.Message);
                     }
                 }
                 _orderDal.Update(order);
@@ -467,6 +512,8 @@ public class OrderManager : IOrderService
             return new ErrorResult(Messages.OnlyPendingOrderCanBeUpdated);
         if (order.LoyaltyPointsUsed > 0)
             return new ErrorResult("Sadakat puanı kullanılan siparişler düzenlenemez.");
+        if (order.GiftCardAmount > 0)
+            return new ErrorResult("Gift card kullanılan siparişler düzenlenemez.");
         return new SuccessResult();
     }
 
@@ -554,7 +601,7 @@ public class OrderManager : IOrderService
     {
         decimal subtotal = order.OrderItems.Sum(oi => oi.PriceSnapshot * oi.Quantity);
         decimal shippingCost = subtotal >= FreeShippingThreshold ? 0 : ShippingCost;
-        order.TotalAmount = subtotal - order.DiscountAmount + shippingCost;
+        order.TotalAmount = subtotal - order.DiscountAmount + shippingCost - order.LoyaltyDiscountAmount - order.GiftCardAmount;
         if (order.Payment != null)
         {
             order.Payment.Amount = order.TotalAmount;
@@ -612,22 +659,26 @@ public class OrderManager : IOrderService
         decimal subtotal,
         decimal shippingCost,
         (int? Id, string? Code, decimal Amount) couponData,
-        LoyaltyRedemptionPreviewDto loyaltyRedemption)
+        LoyaltyRedemptionPreviewDto loyaltyRedemption,
+        GiftCardValidationResult giftCardRedemption)
     {
         var order = new Order
         {
             UserId = userId,
             OrderNumber = GenerateOrderNumber(),
-            Status = OrderStatus.PendingPayment,
+            Status = giftCardRedemption.FinalTotal <= 0 ? OrderStatus.Paid : OrderStatus.PendingPayment,
             ShippingAddress = request.ShippingAddress,
             Notes = request.Notes ?? string.Empty,
             SubtotalAmount = subtotal,
-            TotalAmount = subtotal - couponData.Amount + shippingCost - loyaltyRedemption.DiscountAmount,
+            TotalAmount = subtotal - couponData.Amount + shippingCost - loyaltyRedemption.DiscountAmount - giftCardRedemption.AppliedAmount,
             CouponId = couponData.Id,
             CouponCode = couponData.Code,
             DiscountAmount = couponData.Amount,
             LoyaltyPointsUsed = loyaltyRedemption.AppliedPoints,
-            LoyaltyDiscountAmount = loyaltyRedemption.DiscountAmount
+            LoyaltyDiscountAmount = loyaltyRedemption.DiscountAmount,
+            GiftCardId = giftCardRedemption.GiftCardId > 0 ? giftCardRedemption.GiftCardId : null,
+            GiftCardCode = string.IsNullOrWhiteSpace(giftCardRedemption.Code) ? null : giftCardRedemption.Code,
+            GiftCardAmount = giftCardRedemption.AppliedAmount
         };
 
         foreach (var cartItem in cartDto.Items)
@@ -643,8 +694,8 @@ public class OrderManager : IOrderService
         order.Payment = new Payment
         {
             Amount = order.TotalAmount,
-            Status = PaymentStatus.Pending,
-            PaymentMethod = request.PaymentMethod,
+            Status = order.TotalAmount <= 0 ? PaymentStatus.Success : PaymentStatus.Pending,
+            PaymentMethod = order.TotalAmount <= 0 ? "GiftCard" : request.PaymentMethod,
             IdempotencyKey = !string.IsNullOrEmpty(request.IdempotencyKey) ? request.IdempotencyKey : Guid.NewGuid().ToString()
         };
 
@@ -669,5 +720,19 @@ public class OrderManager : IOrderService
         }
 
         return await _loyaltyService.CalculateRedemptionAsync(userId, requestedPoints.Value, amountAfterCoupon);
+    }
+
+    private async Task<IDataResult<GiftCardValidationResult>> ResolveGiftCardRedemptionAsync(int userId, string? giftCardCode, decimal amountAfterDiscounts)
+    {
+        if (string.IsNullOrWhiteSpace(giftCardCode))
+        {
+            return new SuccessDataResult<GiftCardValidationResult>(new GiftCardValidationResult
+            {
+                IsValid = true,
+                FinalTotal = amountAfterDiscounts
+            });
+        }
+
+        return await _giftCardService.ValidateAsync(userId, giftCardCode, amountAfterDiscounts);
     }
 }

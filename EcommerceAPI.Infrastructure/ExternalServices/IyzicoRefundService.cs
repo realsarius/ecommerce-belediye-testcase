@@ -15,6 +15,7 @@ public class IyzicoRefundService : IRefundService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IIyzicoRefundGateway _refundGateway;
     private readonly ILoyaltyService _loyaltyService;
+    private readonly IGiftCardService _giftCardService;
     private readonly IAuditService _auditService;
     private readonly ILogger<IyzicoRefundService> _logger;
 
@@ -23,6 +24,7 @@ public class IyzicoRefundService : IRefundService
         IUnitOfWork unitOfWork,
         IIyzicoRefundGateway refundGateway,
         ILoyaltyService loyaltyService,
+        IGiftCardService giftCardService,
         IAuditService auditService,
         ILogger<IyzicoRefundService> logger)
     {
@@ -30,6 +32,7 @@ public class IyzicoRefundService : IRefundService
         _unitOfWork = unitOfWork;
         _refundGateway = refundGateway;
         _loyaltyService = loyaltyService;
+        _giftCardService = giftCardService;
         _auditService = auditService;
         _logger = logger;
     }
@@ -125,6 +128,19 @@ public class IyzicoRefundService : IRefundService
                 if (!reverseResult.Success)
                 {
                     return new ErrorDataResult<RefundRequestDto>(reverseResult.Message);
+                }
+            }
+
+            if (refundRequest.Order.GiftCardAmount > 0)
+            {
+                var giftCardRestoreResult = await _giftCardService.RestoreForOrderAsync(
+                    refundRequest.ReturnRequest.UserId,
+                    refundRequest.OrderId,
+                    $"Refund sonrası kullanılan gift card iadesi ({refundRequest.Order.OrderNumber})");
+
+                if (!giftCardRestoreResult.Success)
+                {
+                    return new ErrorDataResult<RefundRequestDto>(giftCardRestoreResult.Message);
                 }
             }
 

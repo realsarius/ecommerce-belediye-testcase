@@ -23,6 +23,8 @@ public class ReturnRequestManager : IReturnRequestService
     private readonly IRefundRequestDal _refundRequestDal;
     private readonly IOrderDal _orderDal;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILoyaltyService _loyaltyService;
+    private readonly IGiftCardService _giftCardService;
     private readonly IAuditService _auditService;
     private readonly ILogger<ReturnRequestManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
@@ -32,6 +34,8 @@ public class ReturnRequestManager : IReturnRequestService
         IRefundRequestDal refundRequestDal,
         IOrderDal orderDal,
         IUnitOfWork unitOfWork,
+        ILoyaltyService loyaltyService,
+        IGiftCardService giftCardService,
         IAuditService auditService,
         ILogger<ReturnRequestManager> logger,
         IPublishEndpoint publishEndpoint)
@@ -40,6 +44,8 @@ public class ReturnRequestManager : IReturnRequestService
         _refundRequestDal = refundRequestDal;
         _orderDal = orderDal;
         _unitOfWork = unitOfWork;
+        _loyaltyService = loyaltyService;
+        _giftCardService = giftCardService;
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
@@ -177,6 +183,49 @@ public class ReturnRequestManager : IReturnRequestService
 
                 await _refundRequestDal.AddAsync(createdRefundRequest);
             }
+        }
+        else if (returnRequest.Order.Payment?.Status == PaymentStatus.Success && returnRequest.Order.GiftCardAmount > 0)
+        {
+            if (returnRequest.Order.LoyaltyPointsUsed > 0)
+            {
+                var loyaltyRestoreResult = await _loyaltyService.RestoreRedeemedPointsAsync(
+                    returnRequest.UserId,
+                    returnRequest.OrderId,
+                    $"İade/iptal onayı sonrası puan iadesi ({returnRequest.Order.OrderNumber})");
+
+                if (!loyaltyRestoreResult.Success)
+                {
+                    return new ErrorDataResult<ReturnRequestDto>(loyaltyRestoreResult.Message);
+                }
+            }
+
+            if (returnRequest.Order.LoyaltyPointsEarned > 0)
+            {
+                var loyaltyReverseResult = await _loyaltyService.ReverseEarnedPointsAsync(
+                    returnRequest.UserId,
+                    returnRequest.OrderId,
+                    $"İade/iptal onayı sonrası kazanılan puanlar geri alındı ({returnRequest.Order.OrderNumber})");
+
+                if (!loyaltyReverseResult.Success)
+                {
+                    return new ErrorDataResult<ReturnRequestDto>(loyaltyReverseResult.Message);
+                }
+            }
+
+            var giftCardRestoreResult = await _giftCardService.RestoreForOrderAsync(
+                returnRequest.UserId,
+                returnRequest.OrderId,
+                $"İade/iptal onayı sonrası gift card iadesi ({returnRequest.Order.OrderNumber})");
+
+            if (!giftCardRestoreResult.Success)
+            {
+                return new ErrorDataResult<ReturnRequestDto>(giftCardRestoreResult.Message);
+            }
+
+            returnRequest.Status = ReturnRequestStatus.Refunded;
+            returnRequest.Order.Status = OrderStatus.Refunded;
+            returnRequest.Order.Payment.Status = PaymentStatus.Refunded;
+            returnRequest.Order.Payment.ErrorMessage = null;
         }
         else
         {

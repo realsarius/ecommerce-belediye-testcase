@@ -24,6 +24,8 @@ public static class MappingExtensions
             LoyaltyPointsUsed = order.LoyaltyPointsUsed,
             LoyaltyPointsEarned = order.LoyaltyPointsEarned,
             LoyaltyDiscountAmount = order.LoyaltyDiscountAmount,
+            GiftCardCode = order.GiftCardCode,
+            GiftCardAmount = order.GiftCardAmount,
             Items = order.OrderItems.Select(oi => new OrderItemDto
             {
                 Id = oi.Id,
