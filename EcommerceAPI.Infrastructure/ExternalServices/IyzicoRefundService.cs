@@ -16,6 +16,7 @@ public class IyzicoRefundService : IRefundService
     private readonly IIyzicoRefundGateway _refundGateway;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IGiftCardService _giftCardService;
+    private readonly IReferralService _referralService;
     private readonly IAuditService _auditService;
     private readonly ILogger<IyzicoRefundService> _logger;
 
@@ -25,6 +26,7 @@ public class IyzicoRefundService : IRefundService
         IIyzicoRefundGateway refundGateway,
         ILoyaltyService loyaltyService,
         IGiftCardService giftCardService,
+        IReferralService referralService,
         IAuditService auditService,
         ILogger<IyzicoRefundService> logger)
     {
@@ -33,6 +35,7 @@ public class IyzicoRefundService : IRefundService
         _refundGateway = refundGateway;
         _loyaltyService = loyaltyService;
         _giftCardService = giftCardService;
+        _referralService = referralService;
         _auditService = auditService;
         _logger = logger;
     }
@@ -142,6 +145,15 @@ public class IyzicoRefundService : IRefundService
                 {
                     return new ErrorDataResult<RefundRequestDto>(giftCardRestoreResult.Message);
                 }
+            }
+
+            var referralReverseResult = await _referralService.ReverseRewardsForOrderAsync(
+                refundRequest.OrderId,
+                $"Refund sonrası referral ödülleri geri alındı ({refundRequest.Order.OrderNumber})");
+
+            if (!referralReverseResult.Success)
+            {
+                return new ErrorDataResult<RefundRequestDto>(referralReverseResult.Message);
             }
 
             _refundRequestDal.Update(refundRequest);

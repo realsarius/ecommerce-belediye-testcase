@@ -3,6 +3,7 @@ using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
@@ -22,6 +23,7 @@ public class AuthManagerTests
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ITokenHelper> _tokenHelperMock;
     private readonly Mock<ISocialAuthValidator> _socialAuthValidatorMock;
+    private readonly Mock<IReferralService> _referralServiceMock;
     private readonly AuthManager _manager;
 
     public AuthManagerTests()
@@ -34,6 +36,11 @@ public class AuthManagerTests
         _auditServiceMock = new Mock<IAuditService>();
         _tokenHelperMock = new Mock<ITokenHelper>();
         _socialAuthValidatorMock = new Mock<ISocialAuthValidator>();
+        _referralServiceMock = new Mock<IReferralService>();
+        _referralServiceMock.Setup(x => x.ValidateReferralCodeAsync(It.IsAny<string?>()))
+            .ReturnsAsync(new SuccessResult());
+        _referralServiceMock.Setup(x => x.SetupNewUserAsync(It.IsAny<int>(), It.IsAny<string?>()))
+            .ReturnsAsync(new SuccessResult());
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -51,7 +58,8 @@ public class AuthManagerTests
             _hashingServiceMock.Object,
             _auditServiceMock.Object,
             _tokenHelperMock.Object,
-            _socialAuthValidatorMock.Object);
+            _socialAuthValidatorMock.Object,
+            _referralServiceMock.Object);
     }
 
     [Fact]
@@ -146,7 +154,7 @@ public class AuthManagerTests
         createdUser.IsEmailVerified.Should().BeTrue();
         createdUser.PasswordHash.Should().BeEmpty();
         _refreshTokenDalMock.Verify(x => x.AddAsync(It.IsAny<RefreshToken>()), Times.Once);
-        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(3));
     }
 
     [Fact]

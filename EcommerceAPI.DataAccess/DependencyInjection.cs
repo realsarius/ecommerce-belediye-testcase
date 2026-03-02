@@ -45,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<ILoyaltyTransactionDal, EfLoyaltyTransactionDal>();
         services.AddScoped<IGiftCardDal, EfGiftCardDal>();
         services.AddScoped<IGiftCardTransactionDal, EfGiftCardTransactionDal>();
+        services.AddScoped<IReferralCodeDal, EfReferralCodeDal>();
+        services.AddScoped<IReferralTransactionDal, EfReferralTransactionDal>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

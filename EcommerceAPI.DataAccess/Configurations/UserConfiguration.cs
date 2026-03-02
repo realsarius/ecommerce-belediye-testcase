@@ -51,6 +51,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.IsEmailVerified)
             .HasDefaultValue(false);
+
+        builder.Property(u => u.ReferredByUserId);
+        builder.Property(u => u.AppliedReferralCodeId);
+        builder.Property(u => u.ReferralRewardedOrderId);
+
+        builder.HasIndex(u => u.ReferredByUserId);
+        builder.HasIndex(u => u.AppliedReferralCodeId);
+        builder.HasIndex(u => u.ReferralRewardedOrderId);
         
         builder.Property(u => u.FirstName)
             .IsRequired()
@@ -77,5 +85,20 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .WithOne(o => o.User)
             .HasForeignKey(o => o.UserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(u => u.ReferredByUser)
+            .WithMany(u => u.ReferredUsers)
+            .HasForeignKey(u => u.ReferredByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<ReferralCode>()
+            .WithMany()
+            .HasForeignKey(u => u.AppliedReferralCodeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<Order>()
+            .WithMany()
+            .HasForeignKey(u => u.ReferralRewardedOrderId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

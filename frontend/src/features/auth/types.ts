@@ -26,6 +26,7 @@ export interface SocialLoginRequest {
   idToken: string;
   firstName?: string;
   lastName?: string;
+  referralCode?: string;
 }
 
 export interface RegisterRequest {
@@ -34,6 +35,7 @@ export interface RegisterRequest {
   confirmPassword: string;
   firstName: string;
   lastName: string;
+  referralCode?: string;
 }
 
 export interface RefreshTokenRequest {

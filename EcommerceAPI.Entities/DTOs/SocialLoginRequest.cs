@@ -8,4 +8,5 @@ public class SocialLoginRequest : IDto
     public string IdToken { get; set; } = string.Empty;
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
+    public string? ReferralCode { get; set; }
 }

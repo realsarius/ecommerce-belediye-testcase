@@ -24,6 +24,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
+    private readonly Mock<IReferralService> _referralServiceMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
     private readonly IyzicoPaymentService _paymentService;
@@ -35,6 +36,7 @@ public class IyzicoPaymentServiceTests
         _optionsMock = new Mock<IOptions<IyzicoSettings>>();
         _creditCardServiceMock = new Mock<ICreditCardService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
+        _referralServiceMock = new Mock<IReferralService>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
         
@@ -52,6 +54,9 @@ public class IyzicoPaymentServiceTests
         _loyaltyServiceMock
             .Setup(x => x.AwardPointsForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>()))
             .ReturnsAsync(new SuccessResult());
+        _referralServiceMock
+            .Setup(x => x.AwardFirstPurchaseRewardsAsync(It.IsAny<int>()))
+            .ReturnsAsync(new SuccessResult());
 
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
@@ -59,6 +64,7 @@ public class IyzicoPaymentServiceTests
             _optionsMock.Object,
             _creditCardServiceMock.Object,
             _loyaltyServiceMock.Object,
+            _referralServiceMock.Object,
             _lockServiceMock.Object,
             _loggerMock.Object
         );

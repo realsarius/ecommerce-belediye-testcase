@@ -29,5 +29,6 @@ public class Order : BaseEntity
     public GiftCard? GiftCard { get; set; }
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<LoyaltyTransaction> LoyaltyTransactions { get; set; } = new List<LoyaltyTransaction>();
+    public ICollection<ReferralTransaction> ReferralTransactions { get; set; } = new List<ReferralTransaction>();
     public Payment? Payment { get; set; }
 }

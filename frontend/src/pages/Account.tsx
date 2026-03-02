@@ -9,13 +9,15 @@ import { Separator } from '@/components/common/separator';
 import { Skeleton } from '@/components/common/skeleton';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
 import { useGetGiftCardSummaryQuery } from '@/features/giftCards/giftCardsApi';
-import { User, Mail, Phone, Calendar, Shield, Save, Loader2, Gift } from 'lucide-react';
+import { useGetReferralSummaryQuery } from '@/features/referrals/referralsApi';
+import { User, Mail, Phone, Calendar, Shield, Save, Loader2, Gift, Copy, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Account() {
   const { user } = useAppSelector((state) => state.auth);
   const { data: loyaltySummary, isLoading: isLoyaltyLoading } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary, isLoading: isGiftCardLoading } = useGetGiftCardSummaryQuery();
+  const { data: referralSummary, isLoading: isReferralLoading } = useGetReferralSummaryQuery();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const getUserFormData = () => ({
@@ -44,6 +46,19 @@ export default function Account() {
     setIsSaving(false);
     setIsEditing(false);
     toast.success('Bilgileriniz güncellendi');
+  };
+
+  const handleCopyReferralLink = async () => {
+    if (!referralSummary?.referralCode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/register?ref=${referralSummary.referralCode}`);
+      toast.success('Referral linki kopyalandı');
+    } catch {
+      toast.error('Referral linki kopyalanamadı');
+    }
   };
 
   return (
@@ -175,6 +190,126 @@ export default function Account() {
               </div>
               <span className="text-sm font-medium text-primary">{user?.role || 'Müşteri'}</span>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Referral Programım</CardTitle>
+            <CardDescription>
+              Arkadaşlarını davet et, ilk siparişlerinde bonus puan kazan.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {isReferralLoading ? (
+              <>
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Referral Kodun</p>
+                      <p className="mt-2 text-2xl font-bold tracking-[0.2em]">{referralSummary?.referralCode ?? '-'}</p>
+                    </div>
+                    <Button variant="outline" onClick={handleCopyReferralLink}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Linki Kopyala
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-violet-400/20 bg-violet-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Toplam Davet</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(referralSummary?.totalReferrals ?? 0).toLocaleString('tr-TR')}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Başarılı Referral</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(referralSummary?.successfulReferrals ?? 0).toLocaleString('tr-TR')}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <p className="text-sm text-muted-foreground">Toplam Bonus</p>
+                    <p className="mt-2 text-2xl font-bold">
+                      {(referralSummary?.totalRewardPoints ?? 0).toLocaleString('tr-TR')} puan
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Son Hareketler</h3>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to="/referrals">
+                        Tümünü Gör
+                      </Link>
+                    </Button>
+                  </div>
+
+                  {referralSummary?.recentTransactions?.length ? (
+                    <div className="space-y-3">
+                      {referralSummary.recentTransactions.map((transaction) => (
+                        <div key={transaction.id} className="flex items-start justify-between gap-4 rounded-xl border p-3">
+                          <div>
+                            <p className="font-medium">{transaction.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {transaction.relatedUserName ? `${transaction.relatedUserName} • ` : ''}
+                              {new Date(transaction.createdAt).toLocaleString('tr-TR')}
+                              {transaction.orderNumber ? ` • ${transaction.orderNumber}` : ''}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${transaction.points >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {transaction.points >= 0 ? '+' : ''}{transaction.points.toLocaleString('tr-TR')} puan
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      Henüz referral hareketin bulunmuyor.
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-dashed border-border/70 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-xl bg-sky-500/10 p-2">
+                        <Users className="h-5 w-5 text-sky-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Referral sayfasını aç</p>
+                        <p className="text-sm text-muted-foreground">
+                          Kodunu paylaş, kazanç kurallarını gör ve tüm referral geçmişini tek ekranda izle.
+                        </p>
+                      </div>
+                    </div>
+                    <Button asChild variant="outline">
+                      <Link to="/referrals">Referral Programım</Link>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    Güncel reward kuralı
+                  </div>
+                  <p className="mt-2">
+                    Arkadaşın ilk başarılı siparişini verdiğinde sen {referralSummary?.referrerRewardPoints ?? 500} puan,
+                    yeni kullanıcı ise {referralSummary?.referredRewardPoints ?? 250} puan kazanır.
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

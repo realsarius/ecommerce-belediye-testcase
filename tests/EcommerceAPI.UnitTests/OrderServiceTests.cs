@@ -27,6 +27,7 @@ public class OrderManagerTests
     private readonly Mock<ICouponService> _couponServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IGiftCardService> _giftCardServiceMock;
+    private readonly Mock<IReferralService> _referralServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<OrderManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
@@ -42,6 +43,7 @@ public class OrderManagerTests
         _couponServiceMock = new Mock<ICouponService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _giftCardServiceMock = new Mock<IGiftCardService>();
+        _referralServiceMock = new Mock<IReferralService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<OrderManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
@@ -70,6 +72,9 @@ public class OrderManagerTests
         _giftCardServiceMock
             .Setup(x => x.RestoreForOrderAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
+        _referralServiceMock
+            .Setup(x => x.AwardFirstPurchaseRewardsAsync(It.IsAny<int>()))
+            .ReturnsAsync(new SuccessResult());
 
         _orderManager = new OrderManager(
             _orderDalMock.Object,
@@ -80,6 +85,7 @@ public class OrderManagerTests
             _couponServiceMock.Object,
             _loyaltyServiceMock.Object,
             _giftCardServiceMock.Object,
+            _referralServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object
@@ -306,6 +312,7 @@ public class OrderManagerTests
         capturedOrder.Payment!.Status.Should().Be(EcommerceAPI.Entities.Enums.PaymentStatus.Success);
         capturedOrder.Payment.PaymentMethod.Should().Be("GiftCard");
         capturedOrder.TotalAmount.Should().Be(0m);
+        _referralServiceMock.Verify(x => x.AwardFirstPurchaseRewardsAsync(capturedOrder.Id), Times.Once);
     }
 
     [Fact]
