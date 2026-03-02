@@ -12,6 +12,7 @@ public class ProductReviewConfiguration : IEntityTypeConfiguration<ProductReview
         builder.HasIndex(r => new { r.UserId, r.ProductId }).IsUnique(); // 1 kullanıcı 1 ürüne 1 yorum
         builder.Property(r => r.Rating).IsRequired();
         builder.Property(r => r.Comment).HasMaxLength(1000);
+        builder.Property(r => r.SellerReply).HasMaxLength(1500);
         builder.Property(r => r.ModerationStatus)
             .HasConversion<int>()
             .HasDefaultValue(ProductReviewModerationStatus.Approved);
