@@ -40,6 +40,7 @@ const pageTitles: Record<string, string> = {
   '/admin/returns': 'İade Talepleri',
   '/admin/sellers': 'Seller Yönetimi',
   '/admin/support': 'Destek Talepleri',
+  '/admin/finance': 'Gelir Raporu',
   '/admin/coupons': 'Kupon Yönetimi',
   '/admin/notifications/templates': 'Bildirim Şablonları',
   '/seller': 'Satıcı Paneli',

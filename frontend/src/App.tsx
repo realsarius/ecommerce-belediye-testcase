@@ -66,6 +66,7 @@ const AdminReturnsPage = lazy(() => import('@/pages/admin/ReturnsPage'));
 const AdminSellersPage = lazy(() => import('@/pages/admin/SellersPage'));
 const AdminSellerDetailPage = lazy(() => import('@/pages/admin/SellerDetailPage'));
 const AdminSupportPage = lazy(() => import('@/pages/admin/SupportPage'));
+const AdminFinancePage = lazy(() => import('@/pages/admin/FinancePage'));
 const AdminCoupons = lazy(() => import('@/pages/admin/CouponsAdmin'));
 const AdminGiftCards = lazy(() => import('@/pages/admin/GiftCardsAdmin'));
 const AdminNotificationTemplates = lazy(() => import('@/pages/admin/NotificationTemplatesAdmin'));
@@ -250,6 +251,7 @@ function App() {
                     <Route path="sellers" element={<AdminSellersPage />} />
                     <Route path="sellers/:id" element={<AdminSellerDetailPage />} />
                     <Route path="support" element={<AdminSupportPage />} />
+                    <Route path="finance" element={<AdminFinancePage />} />
                     <Route path="coupons" element={<AdminCoupons />} />
                     <Route path="gift-cards" element={<AdminGiftCards />} />
                     <Route path="notifications/templates" element={<AdminNotificationTemplates />} />

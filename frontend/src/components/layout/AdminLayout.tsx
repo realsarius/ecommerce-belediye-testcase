@@ -93,7 +93,7 @@ const adminNavigationGroups: DashboardNavGroup[] = [
   {
     label: 'Finans',
     items: [
-      { label: 'Gelir Raporu', icon: HeartPulse, disabled: true, badge: 'Yakında' },
+      { label: 'Gelir Raporu', href: '/admin/finance', icon: HeartPulse },
       { label: 'Kupon & Kampanyalar', href: '/admin/coupons', icon: Ticket },
       { label: 'Gift Cardlar', href: '/admin/gift-cards', icon: Gift },
     ],
