@@ -1,5 +1,12 @@
 import { baseApi } from '@/app/api';
-import type { Product, ProductListRequest, CreateProductRequest, UpdateProductRequest } from '@/features/products/types';
+import type {
+  Product,
+  ProductListRequest,
+  CreateProductRequest,
+  UpdateProductRequest,
+  ProductReviewDto,
+  SellerReviewReplyRequest,
+} from '@/features/products/types';
 import type { PaginatedResponse } from '@/types/api';
 import type { Order } from '@/features/orders/types';
 import type {
@@ -106,6 +113,20 @@ export const sellerApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['SellerProducts', 'Products'],
     }),
+
+    replySellerReview: builder.mutation<ProductReviewDto, { reviewId: number; data: SellerReviewReplyRequest; productId: number }>({
+      query: ({ reviewId, data }) => ({
+        url: `/seller/reviews/${reviewId}/reply`,
+        method: 'POST',
+        body: data,
+      }),
+      transformResponse: (response: { data: ProductReviewDto }) => response.data,
+      invalidatesTags: (_result, _error, { productId }) => [
+        'Reviews',
+        { type: 'Product', id: `reviews-${productId}` },
+        { type: 'Product', id: `summary-${productId}` },
+      ],
+    }),
   }),
 });
 
@@ -121,4 +142,5 @@ export const {
   useCreateSellerProductMutation,
   useUpdateSellerProductMutation,
   useDeleteSellerProductMutation,
+  useReplySellerReviewMutation,
 } = sellerApi;

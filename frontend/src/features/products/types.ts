@@ -36,6 +36,9 @@ export interface ProductReviewDto {
   userFullName: string;
   rating: number;
   comment: string;
+  sellerReply?: string | null;
+  sellerRepliedByUserId?: number | null;
+  sellerRepliedAt?: string | null;
   moderationStatus: ReviewModerationStatus;
   moderationNote?: string | null;
   moderatedByUserId?: number | null;
@@ -57,6 +60,10 @@ export interface CreateReviewRequest {
 
 export interface ReviewModerationRequest {
   moderationNote?: string;
+}
+
+export interface SellerReviewReplyRequest {
+  replyText: string;
 }
 
 export interface ProductListRequest {

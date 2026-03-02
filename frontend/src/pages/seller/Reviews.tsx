@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Loader2,
   MessageSquareQuote,
   Search,
+  Send,
   Star,
   Store,
 } from 'lucide-react';
@@ -11,6 +13,7 @@ import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
 import { Skeleton } from '@/components/common/skeleton';
+import { Textarea } from '@/components/common/textarea';
 import {
   Table,
   TableBody,
@@ -28,7 +31,9 @@ import {
   useGetSellerAnalyticsSummaryQuery,
   useGetSellerProductsQuery,
   useGetSellerProfileQuery,
+  useReplySellerReviewMutation,
 } from '@/features/seller/sellerApi';
+import { toast } from 'sonner';
 
 function maskCustomerName(value: string) {
   return value
@@ -53,6 +58,7 @@ function renderStars(rating: number) {
 export default function SellerReviewsPage() {
   const [search, setSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 
   const { data: profile, isLoading: profileLoading } = useGetSellerProfileQuery();
   const shouldSkipProtectedQueries = profileLoading || !profile;
@@ -108,8 +114,33 @@ export default function SellerReviewsPage() {
   const { data: productReviews = [], isLoading: productReviewsLoading } = useGetProductReviewsQuery(selectedProductId ?? 0, {
     skip: !selectedProductId,
   });
+  const [replyToReview, { isLoading: isReplySaving }] = useReplySellerReviewMutation();
 
   const isLoading = profileLoading || summaryLoading || productsLoading;
+
+  const handleReplySubmit = async (reviewId: number) => {
+    if (!selectedProductId) {
+      return;
+    }
+
+    const replyText = (replyDrafts[reviewId] ?? '').trim();
+    if (!replyText) {
+      toast.error('Lütfen bir yanıt metni girin.');
+      return;
+    }
+
+    try {
+      await replyToReview({
+        reviewId,
+        productId: selectedProductId,
+        data: { replyText },
+      }).unwrap();
+      toast.success('Satıcı yanıtı kaydedildi.');
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      toast.error(err.data?.message || 'Yanıt kaydedilemedi.');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -153,8 +184,8 @@ export default function SellerReviewsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Müşteri Yorumları</h1>
         <p className="max-w-3xl text-muted-foreground">
-          Mevcut ürün yorum endpoint’leri ile mağazanızın ürün bazlı değerlendirme görünümünü izleyin.
-          Seller cevaplama akışı için ayrı endpoint henüz bulunmadığından bu sürüm inceleme ve takip odaklıdır.
+          Ürün bazlı değerlendirmeleri takip edin, müşteri geri bildirimlerini okuyun ve uygun yorumlara
+          doğrudan mağaza yanıtı ekleyin.
         </p>
       </div>
 
@@ -349,6 +380,54 @@ export default function SellerReviewsPage() {
                             </Badge>
                           </div>
                           <p className="mt-3 text-sm leading-6 text-muted-foreground">{review.comment}</p>
+                          {review.sellerReply ? (
+                            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium">Mağaza Yanıtı</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {review.sellerRepliedAt ? formatDate(review.sellerRepliedAt) : ''}
+                                </p>
+                              </div>
+                              <p className="mt-2 text-sm leading-6 text-muted-foreground">{review.sellerReply}</p>
+                            </div>
+                          ) : null}
+                          <div className="mt-4 space-y-2 rounded-xl border border-dashed p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium">
+                                {review.sellerReply ? 'Yanıtı Güncelle' : 'Yanıt Yaz'}
+                              </p>
+                              {review.sellerReply ? (
+                                <Badge variant="secondary">Yanıtlandı</Badge>
+                              ) : (
+                                <Badge variant="outline">Yanıt bekliyor</Badge>
+                              )}
+                            </div>
+                            <Textarea
+                              rows={3}
+                              placeholder="Müşteriye görünmesini istediğiniz kısa ve net yanıtı yazın..."
+                              value={replyDrafts[review.id] ?? review.sellerReply ?? ''}
+                              onChange={(event) =>
+                                setReplyDrafts((current) => ({
+                                  ...current,
+                                  [review.id]: event.target.value,
+                                }))
+                              }
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                onClick={() => void handleReplySubmit(review.id)}
+                                disabled={isReplySaving}
+                              >
+                                {isReplySaving ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Send className="mr-2 h-4 w-4" />
+                                )}
+                                Yanıtı Kaydet
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
