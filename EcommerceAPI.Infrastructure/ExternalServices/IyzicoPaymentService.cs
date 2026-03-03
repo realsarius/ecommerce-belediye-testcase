@@ -25,8 +25,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 
     private sealed class IyzicoPaymentExecutionResult
     {
-        public Iyzipay.Model.Payment? Payment { get; init; }
-        public ThreedsInitialize? ThreeDSInitialize { get; init; }
+        public IyzicoChargeGatewayResult? Payment { get; init; }
+        public IyzicoThreeDSInitializeGatewayResult? ThreeDSInitialize { get; init; }
         public string? Last4Digits { get; init; }
         public bool RequiresThreeDS => ThreeDSInitialize != null;
     }
@@ -38,6 +38,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     private readonly ICreditCardService _creditCardService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IReferralService _referralService;
+    private readonly IIyzicoPaymentGateway _paymentGateway;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
 
@@ -49,6 +50,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         ICreditCardService creditCardService,
         ILoyaltyService loyaltyService,
         IReferralService referralService,
+        IIyzicoPaymentGateway paymentGateway,
         IDistributedLockService lockService,
         Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
     {
@@ -59,6 +61,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         _creditCardService = creditCardService;
         _loyaltyService = loyaltyService;
         _referralService = referralService;
+        _paymentGateway = paymentGateway;
         _lockService = lockService;
         _logger = logger;
     }
@@ -150,7 +153,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             {
                 var threeDSInitialize = iyzicoPaymentResult.ThreeDSInitialize!;
 
-                if (threeDSInitialize.Status == "success" && !string.IsNullOrWhiteSpace(threeDSInitialize.HtmlContent))
+                if (threeDSInitialize.Success && !string.IsNullOrWhiteSpace(threeDSInitialize.HtmlContent))
                 {
                     order.Payment.Status = PaymentStatus.Pending;
                     order.Payment.Provider = PaymentProviderType.Iyzico;
@@ -193,7 +196,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 
             var iyzicoPayment = iyzicoPaymentResult.Payment!;
 
-            if (iyzicoPayment.Status == "success")
+            if (iyzicoPayment.Success)
             {
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.Provider = PaymentProviderType.Iyzico;
@@ -248,13 +251,6 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 
     private async Task<IyzicoPaymentExecutionResult> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request, bool requiresThreeDS)
     {
-        var options = new Iyzipay.Options
-        {
-            ApiKey = _settings.ApiKey,
-            SecretKey = _settings.SecretKey,
-            BaseUrl = _settings.BaseUrl
-        };
-
         var paymentRequest = new CreatePaymentRequest
         {
             Locale = Locale.TR.ToString(),
@@ -300,7 +296,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                     RegisterCard = 0
                 };
 
-                return await ExecuteIyzicoChargeAsync(options, paymentRequest, order, requiresThreeDS, savedCard.Last4Digits);
+                return await ExecuteIyzicoChargeAsync(paymentRequest, order, requiresThreeDS, savedCard.Last4Digits);
             }
 
             if (!IsValidCvv(request.CVV))
@@ -340,11 +336,10 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             Cvc = request.CVV ?? "",
             RegisterCard = request.SaveCard && !request.SavedCardId.HasValue ? 1 : 0
         };
-        return await ExecuteIyzicoChargeAsync(options, paymentRequest, order, requiresThreeDS, ResolveLast4Digits(cardNumber));
+        return await ExecuteIyzicoChargeAsync(paymentRequest, order, requiresThreeDS, ResolveLast4Digits(cardNumber));
     }
 
     private async Task<IyzicoPaymentExecutionResult> ExecuteIyzicoChargeAsync(
-        Iyzipay.Options options,
         CreatePaymentRequest paymentRequest,
         Order order,
         bool requiresThreeDS,
@@ -429,14 +424,14 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         {
             return new IyzicoPaymentExecutionResult
             {
-                ThreeDSInitialize = await ThreedsInitialize.Create(paymentRequest, options),
+                ThreeDSInitialize = await _paymentGateway.InitializeThreeDSAsync(paymentRequest),
                 Last4Digits = last4Digits
             };
         }
 
         return new IyzicoPaymentExecutionResult
         {
-            Payment = await Iyzipay.Model.Payment.Create(paymentRequest, options),
+            Payment = await _paymentGateway.ChargeAsync(paymentRequest),
             Last4Digits = last4Digits
         };
     }
@@ -474,7 +469,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         return null;
     }
 
-    private async Task TryPersistTokenizedCardAsync(int userId, ProcessPaymentRequest request, Iyzipay.Model.Payment iyzicoPayment)
+    private async Task TryPersistTokenizedCardAsync(int userId, ProcessPaymentRequest request, IyzicoChargeGatewayResult iyzicoPayment)
     {
         if (string.IsNullOrWhiteSpace(iyzicoPayment.CardToken) ||
             string.IsNullOrWhiteSpace(iyzicoPayment.CardUserKey) ||

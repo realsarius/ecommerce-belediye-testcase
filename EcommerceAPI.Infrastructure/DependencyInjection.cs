@@ -156,6 +156,7 @@ public static class DependencyInjection
         services.AddScoped<IRefundProviderFactory, RefundProviderFactory>();
         services.AddScoped<IRefundService, RefundService>();
         services.AddScoped<IIyzicoRefundGateway, IyzicoRefundGateway>();
+        services.AddScoped<IIyzicoPaymentGateway, IyzicoPaymentGateway>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
         services.AddScoped<IRecommendationCacheService, RedisRecommendationCacheService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
