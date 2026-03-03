@@ -333,9 +333,14 @@ public class ProductManager : IProductService
         }
 
         var products = await _productDal.GetListAsync(product => productIds.Contains(product.Id));
+        var foundIds = products.Select(product => product.Id).ToHashSet();
+        var missingIds = productIds.Where(id => !foundIds.Contains(id)).ToList();
+
         if (products.Count == 0)
         {
-            return new ErrorResult(Messages.ProductNotFound);
+            return new ErrorResult(
+                "Seçili ürünlerin hiçbiri artık mevcut değil. Sayfayı yenileyip tekrar deneyin.",
+                details: new { MissingProductIds = missingIds });
         }
 
         var now = DateTime.UtcNow;
@@ -361,6 +366,14 @@ public class ProductManager : IProductService
                 Count = products.Count
             });
 
+        if (missingIds.Count > 0)
+        {
+            _logger.LogWarning(
+                "Bulk product update skipped missing product ids. Action={Action}, MissingIds={MissingIds}",
+                normalizedAction,
+                missingIds);
+        }
+
         var syncOperation = shouldActivate
             ? ProductIndexOperations.Upsert
             : ProductIndexOperations.Delete;
@@ -372,7 +385,10 @@ public class ProductManager : IProductService
 
         await _unitOfWork.SaveChangesAsync();
 
-        return new SuccessResult($"{products.Count} ürün için toplu işlem tamamlandı.");
+        return new SuccessResult(
+            missingIds.Count > 0
+                ? $"{products.Count} ürün için toplu işlem tamamlandı. {missingIds.Count} ürün artık mevcut olmadığı için atlandı."
+                : $"{products.Count} ürün için toplu işlem tamamlandı.");
     }
 
     [LogAspect]
