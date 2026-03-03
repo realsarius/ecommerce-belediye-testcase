@@ -391,10 +391,54 @@ public class OrderManager : IOrderService
     }
 
     [LogAspect]
-    public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync()
+    public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync(string? status = null, decimal? minAmount = null, DateTime? from = null, DateTime? to = null)
     {
         var orders = await _orderDal.GetAllOrdersWithDetailsAsync();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<OrderStatus>(status, true, out var parsedStatus))
+            {
+                return new ErrorDataResult<List<OrderDto>>($"{Messages.InvalidOrderStatus}: {status}");
+            }
+
+            orders = orders.Where(order => order.Status == parsedStatus).ToList();
+        }
+
+        if (minAmount.HasValue)
+        {
+            orders = orders.Where(order => order.TotalAmount >= minAmount.Value).ToList();
+        }
+
+        if (from.HasValue)
+        {
+            var fromBoundary = from.Value.TimeOfDay == TimeSpan.Zero
+                ? from.Value.Date
+                : from.Value;
+            orders = orders.Where(order => order.CreatedAt >= fromBoundary).ToList();
+        }
+
+        if (to.HasValue)
+        {
+            var toBoundary = to.Value.TimeOfDay == TimeSpan.Zero
+                ? to.Value.Date.AddDays(1).AddTicks(-1)
+                : to.Value;
+            orders = orders.Where(order => order.CreatedAt <= toBoundary).ToList();
+        }
+
         return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
+    }
+
+    [LogAspect]
+    public async Task<IDataResult<OrderDto>> GetAdminOrderAsync(int orderId)
+    {
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        if (order == null)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
+        }
+
+        return new SuccessDataResult<OrderDto>(order.ToDto());
     }
 
     [LogAspect]
