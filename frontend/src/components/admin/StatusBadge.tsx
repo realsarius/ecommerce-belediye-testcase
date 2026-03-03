@@ -1,7 +1,7 @@
 import { Badge } from '@/components/common/badge';
 import { cn } from '@/lib/utils';
 
-type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+export type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
 const toneClasses: Record<StatusBadgeTone, string> = {
   neutral: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',

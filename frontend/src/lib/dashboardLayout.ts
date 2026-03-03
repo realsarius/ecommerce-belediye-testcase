@@ -14,6 +14,29 @@ export type DashboardNavGroup = {
   items: DashboardNavItem[];
 };
 
+const segmentLabelMap: Record<string, string> = {
+  new: 'Yeni',
+  edit: 'Düzenle',
+  create: 'Oluştur',
+  details: 'Detay',
+  detail: 'Detay',
+};
+
+function formatDashboardSegmentLabel(part: string) {
+  if (/^\d+$/.test(part)) {
+    return 'Detay';
+  }
+
+  if (segmentLabelMap[part]) {
+    return segmentLabelMap[part];
+  }
+
+  return part
+    .split('-')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 export function normalizeDashboardPath(pathname: string, rootPath: '/admin' | '/seller') {
   return pathname === rootPath ? `${rootPath}/dashboard` : pathname;
 }
@@ -62,10 +85,7 @@ export function buildDashboardBreadcrumbs(
     for (const part of remainingParts) {
       currentPath += `/${part}`;
       breadcrumbs.push({
-        label: part
-          .split('-')
-          .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-          .join(' '),
+        label: formatDashboardSegmentLabel(part),
         href: currentPath,
       });
     }
@@ -82,10 +102,7 @@ export function buildDashboardBreadcrumbs(
   for (const part of parts) {
     currentPath += `/${part}`;
     breadcrumbs.push({
-      label: part
-        .split('-')
-        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-        .join(' '),
+      label: formatDashboardSegmentLabel(part),
       href: currentPath,
     });
   }

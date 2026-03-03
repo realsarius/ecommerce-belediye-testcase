@@ -99,4 +99,22 @@ describe('Dashboard Layout render testleri', () => {
     expect(screen.getByText('Seller İçerik')).toBeInTheDocument();
     expect(screen.getAllByText('Dashboard')[0]).toBeInTheDocument();
   });
+
+  it('Detay rotalarında breadcrumb etiketi insan okunur olmalı', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="orders/:id" element={<div>Sipariş Detay İçerik</div>} />
+        </Route>
+      </Routes>,
+      {
+        route: '/admin/orders/42',
+        store: createAuthStore(adminUser),
+      },
+    );
+
+    expect(screen.getAllByText('Siparişler')[0]).toBeInTheDocument();
+    expect(screen.getByText('Detay')).toBeInTheDocument();
+    expect(screen.getByText('Sipariş Detay İçerik')).toBeInTheDocument();
+  });
 });
