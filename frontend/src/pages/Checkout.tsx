@@ -317,7 +317,6 @@ export default function Checkout() {
             cardNumber: paymentForm.cardNumber.replace(/\s/g, ''),
             expireMonth: paymentForm.expireMonth,
             expireYear: paymentForm.expireYear,
-            cvv: paymentForm.cvc,
           }).unwrap();
           toast.success('Kart bilgileriniz kaydedildi');
         } catch {
@@ -587,7 +586,7 @@ export default function Checkout() {
                   </div>
                   
                   <p className="text-xs text-muted-foreground">
-                    Test kartı: 4111 1111 1111 1111, herhangi bir tarih ve CVC
+                    Test karti: 4111 1111 1111 1111, herhangi bir tarih ve CVC. CVV kaydedilmez.
                   </p>
                 </>
               )}

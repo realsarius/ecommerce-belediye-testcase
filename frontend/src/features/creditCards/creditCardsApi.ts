@@ -16,7 +16,6 @@ export interface AddCreditCardRequest {
   cardNumber: string;
   expireMonth: string;
   expireYear: string;
-  cvv: string;
   isDefault?: boolean;
 }
 

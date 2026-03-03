@@ -46,7 +46,6 @@ const emptyForm = {
   cardNumber: '',
   expireMonth: '',
   expireYear: '',
-  cvv: '',
   isDefault: false,
 };
 
@@ -217,7 +216,9 @@ export default function CreditCards() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Yeni Kart Ekle</DialogTitle>
-            <DialogDescription>Kredi kartı bilgilerinizi güvenle saklayın.</DialogDescription>
+            <DialogDescription>
+              Kartinizin guvenlik kodu (CVV) kaydedilmez. Odemede tekrar girmeniz gerekir.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -244,7 +245,7 @@ export default function CreditCards() {
                 onChange={(e) => setCardForm({ ...cardForm, cardNumber: formatCardNumber(e.target.value) })}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Ay</Label>
                 <Select
@@ -283,15 +284,6 @@ export default function CreditCards() {
                     })}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>CVV</Label>
-                <Input
-                  placeholder="123"
-                  maxLength={4}
-                  value={cardForm.cvv}
-                  onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
-                />
               </div>
             </div>
             <div className="flex items-center space-x-2">
