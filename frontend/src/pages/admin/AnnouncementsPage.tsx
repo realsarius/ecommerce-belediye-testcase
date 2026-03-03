@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
@@ -18,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
-import { Skeleton } from '@/components/common/skeleton';
 import {
   Table,
   TableBody,
@@ -429,11 +429,7 @@ export default function AnnouncementsPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <Skeleton key={index} className="h-16 rounded-xl" />
-                ))}
-              </div>
+              <TableLoadingState rowCount={5} />
             ) : announcements.length === 0 ? (
               <EmptyState
                 icon={Megaphone}

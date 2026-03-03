@@ -159,7 +159,7 @@ export default function SellerProductForm() {
   const handleGenerateSku = () => {
     const nextSku = buildSkuCandidate(productName || '');
     setValue('sku', nextSku, { shouldDirty: true, shouldValidate: true });
-    toast.success('SKU otomatik oluşturuldu');
+    toast.success('SKU otomatik oluşturuldu.');
   };
 
   const handleAddImage = () => {
@@ -231,7 +231,7 @@ export default function SellerProductForm() {
           })),
         };
         await updateProduct({ id: productId, data: updatePayload }).unwrap();
-        toast.success('Ürün güncellendi');
+        toast.success('Ürün güncellendi.');
       } else {
         const createPayload = {
           name: data.name,
@@ -254,12 +254,12 @@ export default function SellerProductForm() {
           })),
         };
         await createProduct(createPayload).unwrap();
-        toast.success('Ürün oluşturuldu');
+        toast.success('Ürün oluşturuldu.');
       }
       navigate('/seller/products');
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'İşlem başarısız');
+      toast.error(err.data?.message || 'İşlem başarısız oldu.');
     }
   };
 

@@ -33,6 +33,7 @@ import { Textarea } from '@/components/common/textarea';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import {
   useApproveAdminReturnMutation,
   useGetAdminReturnsQuery,
@@ -115,7 +116,7 @@ export default function ReturnsPage() {
     }
 
     if (status === 'Rejected' && !reviewNote.trim()) {
-      toast.error('Red işlemi için inceleme notu girin');
+      toast.error('Red işlemi için inceleme notu girin.');
       return;
     }
 
@@ -132,12 +133,12 @@ export default function ReturnsPage() {
         }).unwrap();
       }
 
-      toast.success(status === 'Approved' ? 'Talep onaylandı' : 'Talep reddedildi');
+      toast.success(status === 'Approved' ? 'Talep onaylandı.' : 'Talep reddedildi.');
       setSelectedRequest(null);
       setReviewNote('');
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'Talep değerlendirilemedi');
+      toast.error(err.data?.message || 'Talep değerlendirilemedi.');
     }
   };
 
@@ -149,7 +150,7 @@ export default function ReturnsPage() {
             <Skeleton key={index} className="h-36 rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-[460px] rounded-xl" />
+        <TableLoadingState rowCount={7} />
       </div>
     );
   }

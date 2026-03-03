@@ -331,7 +331,7 @@ export default function AdminCategories() {
 
   const handleSubmit = async () => {
     if (!formState.name.trim()) {
-      toast.error('Kategori adı gereklidir');
+      toast.error('Kategori adı gereklidir.');
       return;
     }
 
@@ -345,15 +345,15 @@ export default function AdminCategories() {
     try {
       if (mode === 'create') {
         const created = await createCategory(payload as CreateCategoryRequest).unwrap();
-        toast.success('Kategori oluşturuldu');
+        toast.success('Kategori oluşturuldu.');
         setMode('edit');
         setSelectedCategoryId(created.id);
       } else if (selectedCategoryId) {
         await updateCategory({ id: selectedCategoryId, data: payload as UpdateCategoryRequest }).unwrap();
-        toast.success('Kategori güncellendi');
+        toast.success('Kategori güncellendi.');
       }
     } catch {
-      toast.error(mode === 'create' ? 'Kategori oluşturulamadı' : 'Kategori güncellenemedi');
+      toast.error(mode === 'create' ? 'Kategori oluşturulamadı.' : 'Kategori güncellenemedi.');
     }
   };
 
@@ -364,13 +364,13 @@ export default function AdminCategories() {
 
     try {
       await deleteCategory(deleteTarget.id).unwrap();
-      toast.success('Kategori pasife alındı');
+      toast.success('Kategori pasife alındı.');
       if (selectedCategoryId === deleteTarget.id) {
         openRootCreate();
       }
       setDeleteTarget(null);
     } catch {
-      toast.error('Kategori silinemedi');
+      toast.error('Kategori silinemedi.');
     }
   };
 
@@ -410,9 +410,9 @@ export default function AdminCategories() {
 
     try {
       await reorderCategories({ items: reordered }).unwrap();
-      toast.success('Kategori sıralaması güncellendi');
+      toast.success('Kategori sıralaması güncellendi.');
     } catch {
-      toast.error('Kategori sıralaması güncellenemedi');
+      toast.error('Kategori sıralaması güncellenemedi.');
     }
   };
 

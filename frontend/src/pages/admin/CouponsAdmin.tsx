@@ -44,6 +44,7 @@ import { useDevTools } from '@/components/common/DevToolsProvider';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Checkbox } from '@/components/common/checkbox';
@@ -63,7 +64,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
-import { Skeleton } from '@/components/common/skeleton';
 import {
   Table,
   TableBody,
@@ -339,18 +339,18 @@ export default function CouponsAdmin() {
 
   const handleCouponSubmit = async () => {
     if (!couponFormData.code.trim()) {
-      toast.error('Kupon kodu gereklidir');
+      toast.error('Kupon kodu gereklidir.');
       return;
     }
 
     if (couponFormData.value <= 0) {
-      toast.error('İndirim değeri 0’dan büyük olmalıdır');
+      toast.error('İndirim değeri 0’dan büyük olmalıdır.');
       return;
     }
 
     const calculatedValidDays = getValidDaysFromDate(couponFormData.expiresAt);
     if (calculatedValidDays <= 0) {
-      toast.error('Kuponun son kullanma tarihi bugünden sonra olmalıdır');
+      toast.error('Kuponun son kullanma tarihi bugünden sonra olmalıdır.');
       return;
     }
 
@@ -367,7 +367,7 @@ export default function CouponsAdmin() {
         };
 
         await createCoupon(createPayload).unwrap();
-        toast.success('Kupon oluşturuldu');
+        toast.success('Kupon oluşturuldu.');
       } else if (couponDialog.coupon) {
         const updateData: UpdateCouponRequest = {
           code: couponFormData.code,
@@ -380,27 +380,27 @@ export default function CouponsAdmin() {
           description: couponFormData.description,
         };
         await updateCoupon({ id: couponDialog.coupon.id, data: updateData }).unwrap();
-        toast.success('Kupon güncellendi');
+        toast.success('Kupon güncellendi.');
       }
       setCouponDialog({ open: false, mode: 'create' });
     } catch {
-      toast.error(couponDialog.mode === 'create' ? 'Kupon oluşturulamadı' : 'Kupon güncellenemedi');
+      toast.error(couponDialog.mode === 'create' ? 'Kupon oluşturulamadı.' : 'Kupon güncellenemedi.');
     }
   };
 
   const handleCampaignSubmit = async () => {
     if (!campaignFormData.name.trim()) {
-      toast.error('Kampanya adı gereklidir');
+      toast.error('Kampanya adı gereklidir.');
       return;
     }
 
     if (!campaignFormData.startsAt || !campaignFormData.endsAt) {
-      toast.error('Başlangıç ve bitiş tarihleri gereklidir');
+      toast.error('Başlangıç ve bitiş tarihleri gereklidir.');
       return;
     }
 
     if (campaignFormData.products.length === 0) {
-      toast.error('En az bir ürün seçmelisiniz');
+      toast.error('En az bir ürün seçmelisiniz.');
       return;
     }
 
@@ -411,7 +411,7 @@ export default function CouponsAdmin() {
     }));
 
     if (productsPayload.some((product) => Number.isNaN(product.campaignPrice) || product.campaignPrice <= 0)) {
-      toast.error('Tüm kampanya fiyatları 0’dan büyük olmalıdır');
+      toast.error('Tüm kampanya fiyatları 0’dan büyük olmalıdır.');
       return;
     }
 
@@ -429,18 +429,18 @@ export default function CouponsAdmin() {
     try {
       if (campaignDialog.mode === 'create') {
         await createCampaign(payload).unwrap();
-        toast.success('Kampanya oluşturuldu');
+        toast.success('Kampanya oluşturuldu.');
       } else if (campaignDialog.campaign) {
         const updateData: UpdateCampaignRequest = payload;
         await updateCampaign({ id: campaignDialog.campaign.id, data: updateData }).unwrap();
-        toast.success('Kampanya güncellendi');
+        toast.success('Kampanya güncellendi.');
       }
 
       setCampaignDialog({ open: false, mode: 'create' });
       setCampaignFormData(createEmptyCampaignForm());
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'Kampanya kaydedilemedi');
+      toast.error(err.data?.message || 'Kampanya kaydedilemedi.');
     }
   };
 
@@ -448,9 +448,9 @@ export default function CouponsAdmin() {
     try {
       await deleteCoupon(id).unwrap();
       setPendingDelete(null);
-      toast.success('Kupon silindi');
+      toast.success('Kupon silindi.');
     } catch {
-      toast.error('Kupon silinemedi');
+      toast.error('Kupon silinemedi.');
     }
   };
 
@@ -458,10 +458,10 @@ export default function CouponsAdmin() {
     try {
       await deleteCampaign(campaignId).unwrap();
       setPendingDelete(null);
-      toast.success('Kampanya silindi');
+      toast.success('Kampanya silindi.');
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'Kampanya silinemedi');
+      toast.error(err.data?.message || 'Kampanya silinemedi.');
     }
   };
 
@@ -535,7 +535,7 @@ export default function CouponsAdmin() {
       description: 'Yılbaşı Kampanyası',
       isActive: true,
     });
-    toast.success('Örnek kupon verileri dolduruldu');
+    toast.success('Örnek kupon verileri dolduruldu.');
   };
 
   const generateCouponCode = () => {
@@ -543,7 +543,7 @@ export default function CouponsAdmin() {
       ...current,
       code: buildCouponCodeCandidate(),
     }));
-    toast.success('Kupon kodu oluşturuldu');
+    toast.success('Kupon kodu oluşturuldu.');
   };
 
   const fillSampleCampaignData = () => {
@@ -564,7 +564,7 @@ export default function CouponsAdmin() {
       })),
     });
 
-    toast.success('Örnek kampanya verileri dolduruldu');
+    toast.success('Örnek kampanya verileri dolduruldu.');
   };
 
   const campaignSummary = useMemo(() => {
@@ -603,11 +603,7 @@ export default function CouponsAdmin() {
 
         <TabsContent value="coupons" className="space-y-4">
           {isCouponsLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-16" />
-              ))}
-            </div>
+            <TableLoadingState rowCount={5} rowClassName="h-16" />
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
@@ -767,11 +763,7 @@ export default function CouponsAdmin() {
           </div>
 
           {isCampaignsLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={index} className="h-16" />
-              ))}
-            </div>
+            <TableLoadingState rowCount={4} rowClassName="h-16" />
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
@@ -1127,11 +1119,7 @@ export default function CouponsAdmin() {
               </div>
 
               {isProductsLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <Skeleton key={index} className="h-14 rounded-lg" />
-                  ))}
-                </div>
+                <TableLoadingState rowCount={4} rowClassName="h-14 rounded-lg" />
               ) : (
                 <div className="space-y-3 rounded-xl border p-3">
                   {products.map((product) => {

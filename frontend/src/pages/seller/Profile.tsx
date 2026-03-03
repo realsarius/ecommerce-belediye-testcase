@@ -129,7 +129,7 @@ export default function SellerProfile() {
           facebookUrl: emptyToString(data.facebookUrl),
           xUrl: emptyToString(data.xUrl),
         }).unwrap();
-        toast.success('Profil güncellendi');
+        toast.success('Profil güncellendi.');
       } else {
         await createProfile({
           brandName: data.brandName.trim(),
@@ -143,13 +143,13 @@ export default function SellerProfile() {
           facebookUrl: emptyToUndefined(data.facebookUrl),
           xUrl: emptyToUndefined(data.xUrl),
         }).unwrap();
-        toast.success('Profil oluşturuldu');
+        toast.success('Profil oluşturuldu.');
       }
 
       refetch();
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'İşlem başarısız');
+      toast.error(err.data?.message || 'İşlem başarısız oldu.');
     }
   };
 

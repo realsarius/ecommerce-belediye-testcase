@@ -27,6 +27,7 @@ import { Textarea } from '@/components/common/textarea';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { EmptyState } from '@/components/admin/EmptyState';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import {
   useApproveAdminSellerApplicationMutation,
   useGetAdminSellersQuery,
@@ -138,9 +139,9 @@ export default function SellersPage() {
   const handleStatusToggle = async (seller: AdminSellerListItem, nextStatus: 'Active' | 'Suspended') => {
     try {
       await updateStatus({ id: seller.id, status: nextStatus }).unwrap();
-      toast.success(nextStatus === 'Active' ? 'Seller yeniden aktifleştirildi' : 'Seller askıya alındı');
+      toast.success(nextStatus === 'Active' ? 'Seller yeniden aktifleştirildi.' : 'Seller askıya alındı.');
     } catch (err: any) {
-      toast.error(err?.data?.message || 'Seller durumu güncellenemedi');
+      toast.error(err?.data?.message || 'Seller durumu güncellenemedi.');
     }
   };
 
@@ -154,11 +155,11 @@ export default function SellersPage() {
         id: applicationDialogSeller.id,
         reviewNote: applicationNote.trim() || undefined,
       }).unwrap();
-      toast.success('Seller başvurusu onaylandı');
+      toast.success('Seller başvurusu onaylandı.');
       setApplicationDialogSeller(null);
       setApplicationNote('');
     } catch (err: any) {
-      toast.error(err?.data?.message || 'Başvuru onaylanamadı');
+      toast.error(err?.data?.message || 'Başvuru onaylanamadı.');
     }
   };
 
@@ -172,11 +173,11 @@ export default function SellersPage() {
         id: applicationDialogSeller.id,
         reviewNote: applicationNote.trim() || undefined,
       }).unwrap();
-      toast.success('Seller başvurusu reddedildi');
+      toast.success('Seller başvurusu reddedildi.');
       setApplicationDialogSeller(null);
       setApplicationNote('');
     } catch (err: any) {
-      toast.error(err?.data?.message || 'Başvuru reddedilemedi');
+      toast.error(err?.data?.message || 'Başvuru reddedilemedi.');
     }
   };
 
@@ -189,17 +190,17 @@ export default function SellersPage() {
     const parsed = trimmed === '' ? null : Number(trimmed.replace(',', '.'));
 
     if (trimmed && (Number.isNaN(parsed) || parsed === null || parsed < 0 || parsed > 100)) {
-      toast.error('Komisyon oranı 0 ile 100 arasında olmalıdır');
+      toast.error('Komisyon oranı 0 ile 100 arasında olmalıdır.');
       return;
     }
 
     try {
       await updateCommission({ id: commissionDialogSeller.id, rate: parsed }).unwrap();
-      toast.success(parsed === null ? 'Komisyon override kaldırıldı' : 'Komisyon oranı güncellendi');
+      toast.success(parsed === null ? 'Komisyon override kaldırıldı.' : 'Komisyon oranı güncellendi.');
       setCommissionDialogSeller(null);
       setCommissionRateInput('');
     } catch (err: any) {
-      toast.error(err?.data?.message || 'Komisyon oranı güncellenemedi');
+      toast.error(err?.data?.message || 'Komisyon oranı güncellenemedi.');
     }
   };
 
@@ -211,7 +212,7 @@ export default function SellersPage() {
             <Skeleton key={index} className="h-36 rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-[520px] rounded-xl" />
+        <TableLoadingState rowCount={8} />
       </div>
     );
   }

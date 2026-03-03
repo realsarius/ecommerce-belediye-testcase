@@ -31,6 +31,7 @@ import {
 } from '@/components/common/table';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { useGetAdminOrdersQuery, useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
 import type { AdminOrdersQueryParams } from '@/features/admin/types';
 import type { OrderStatus } from '@/features/orders/types';
@@ -156,9 +157,9 @@ export default function OrdersAdmin() {
     try {
       setUpdatingOrderId(orderId);
       await updateStatus({ id: orderId, status: newStatus }).unwrap();
-      toast.success('Sipariş durumu güncellendi');
+      toast.success('Sipariş durumu güncellendi.');
     } catch {
-      toast.error('Sipariş durumu güncellenemedi');
+      toast.error('Sipariş durumu güncellenemedi.');
     } finally {
       setUpdatingOrderId(null);
     }
@@ -172,7 +173,7 @@ export default function OrdersAdmin() {
             <Skeleton key={index} className="h-36 rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-[420px] rounded-xl" />
+        <TableLoadingState rowCount={7} />
       </div>
     );
   }

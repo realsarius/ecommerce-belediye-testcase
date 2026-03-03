@@ -4,10 +4,10 @@ import { Search, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
-import { Skeleton } from '@/components/common/skeleton';
 import {
   Table,
   TableBody,
@@ -209,11 +209,7 @@ export default function UsersPage() {
           </div>
 
           {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <Skeleton key={index} className="h-14 rounded-xl" />
-              ))}
-            </div>
+            <TableLoadingState rowCount={8} rowClassName="h-14 rounded-xl" className="pt-1" />
           ) : (
             <>
               <Table>

@@ -92,9 +92,9 @@ export default function AdminOrderDetailPage() {
 
     try {
       await updateStatus({ id: order.id, status: selectedStatus }).unwrap();
-      toast.success('Sipariş durumu güncellendi');
+      toast.success('Sipariş durumu güncellendi.');
     } catch {
-      toast.error('Sipariş durumu güncellenemedi');
+      toast.error('Sipariş durumu güncellenemedi.');
     }
   };
 

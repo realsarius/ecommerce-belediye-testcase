@@ -11,10 +11,10 @@ import {
   Trash2,
 } from 'lucide-react';
 import { EmptyState } from '@/components/admin/EmptyState';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Badge } from '@/components/common/badge';
-import { Skeleton } from '@/components/common/skeleton';
 import {
   Table,
   TableBody,
@@ -102,10 +102,10 @@ export default function SellerProducts() {
   const handleDelete = async (id: number, name: string) => {
     try {
       await deleteProduct(id).unwrap();
-      toast.success(`"${name}" ürünü silindi`);
+      toast.success(`"${name}" ürünü silindi.`);
       setDeleteTarget(null);
     } catch {
-      toast.error('Ürün silinemedi');
+      toast.error('Ürün silinemedi.');
     }
   };
 
@@ -221,11 +221,7 @@ export default function SellerProducts() {
       </Card>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 rounded-xl" />
-          ))}
-        </div>
+        <TableLoadingState rowCount={6} />
       ) : filteredItems.length === 0 ? (
         <EmptyState
           icon={PackageIcon}

@@ -24,9 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/common/table';
-import { Skeleton } from '@/components/common/skeleton';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { Gift, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -76,7 +76,7 @@ export default function GiftCardsAdmin() {
   const handleSubmit = async () => {
     if (dialog.mode === 'create') {
       if ((formData.initialBalance ?? 0) <= 0) {
-        toast.error("Gift card bakiyesi 0'dan büyük olmalıdır");
+        toast.error("Gift card bakiyesi 0'dan büyük olmalıdır.");
         return;
       }
 
@@ -87,10 +87,10 @@ export default function GiftCardsAdmin() {
           validDays: formData.validDays,
           description: formData.description,
         }).unwrap();
-        toast.success('Gift card oluşturuldu');
+        toast.success('Gift card oluşturuldu.');
         setDialog({ open: false, mode: 'create' });
       } catch {
-        toast.error('Gift card oluşturulamadı');
+        toast.error('Gift card oluşturulamadı.');
       }
 
       return;
@@ -107,10 +107,10 @@ export default function GiftCardsAdmin() {
         description: formData.description,
       };
       await updateGiftCard({ id: dialog.giftCard.id, data: payload }).unwrap();
-      toast.success('Gift card güncellendi');
+      toast.success('Gift card güncellendi.');
       setDialog({ open: false, mode: 'create' });
     } catch {
-      toast.error('Gift card güncellenemedi');
+      toast.error('Gift card güncellenemedi.');
     }
   };
 
@@ -125,11 +125,7 @@ export default function GiftCardsAdmin() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16" />
-          ))}
-        </div>
+        <TableLoadingState rowCount={5} rowClassName="h-16" />
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <Table>

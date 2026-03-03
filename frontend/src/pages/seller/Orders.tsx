@@ -138,7 +138,7 @@ export default function SellerOrders() {
     }
 
     if (!trackingCode.trim() || !cargoCompany.trim()) {
-      toast.error('Kargo firması ve takip kodu zorunludur');
+      toast.error('Kargo firması ve takip kodu zorunludur.');
       return;
     }
 
@@ -150,11 +150,11 @@ export default function SellerOrders() {
       }).unwrap();
       setSelectedOrder((current) => (current?.id === updatedOrder.id ? updatedOrder : current));
       setShippingDialogOrder(null);
-      toast.success('Sipariş kargoya verildi ve müşteri bilgilendirildi');
+      toast.success('Sipariş kargoya verildi ve müşteri bilgilendirildi.');
       setTrackingCode('');
       setCargoCompany('');
     } catch {
-      toast.error('Sipariş kargoya verilemedi');
+      toast.error('Sipariş kargoya verilemedi.');
     }
   };
 

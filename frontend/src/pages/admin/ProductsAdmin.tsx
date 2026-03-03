@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Checkbox } from '@/components/common/checkbox';
-import { Skeleton } from '@/components/common/skeleton';
 import { Label } from '@/components/common/label';
 import {
   Dialog,
@@ -45,6 +44,7 @@ import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useGetAdminCategoriesQuery } from '@/features/admin/adminApi';
 import {
@@ -182,33 +182,33 @@ export default function AdminProducts() {
   const handleDelete = async (id: number, name: string) => {
     try {
       await deleteProduct(id).unwrap();
-      toast.success(`"${name}" ürünü silindi`);
+      toast.success(`"${name}" ürünü silindi.`);
       setDeleteTarget(null);
       setSelectedIds((current) => current.filter((selectedId) => selectedId !== id));
     } catch {
-      toast.error('Ürün silinemedi');
+      toast.error('Ürün silinemedi.');
     }
   };
 
   const handleBulkDelete = async () => {
     try {
       await bulkUpdateProducts({ ids: selectedIds, action: 'delete' }).unwrap();
-      toast.success(`${selectedIds.length} ürün silindi`);
+      toast.success(`${selectedIds.length} ürün silindi.`);
       setBulkDeleteOpen(false);
       resetBulkSelection();
     } catch {
-      toast.error('Toplu silme sırasında bir hata oluştu');
+      toast.error('Toplu silme işlemi başarısız oldu.');
     }
   };
 
   const handleBulkAction = async () => {
     if (!bulkAction) {
-      toast.error('Önce bir toplu işlem seçin');
+      toast.error('Önce bir toplu işlem seçin.');
       return;
     }
 
     if (selectedIds.length === 0) {
-      toast.error('Önce en az bir ürün seçin');
+      toast.error('Önce en az bir ürün seçin.');
       return;
     }
 
@@ -219,10 +219,10 @@ export default function AdminProducts() {
 
     try {
       await bulkUpdateProducts({ ids: selectedIds, action: bulkAction }).unwrap();
-      toast.success(bulkAction === 'activate' ? 'Seçili ürünler aktifleştirildi' : 'Seçili ürünler pasife alındı');
+      toast.success(bulkAction === 'activate' ? 'Seçili ürünler aktifleştirildi.' : 'Seçili ürünler pasife alındı.');
       resetBulkSelection();
     } catch {
-      toast.error('Toplu işlem sırasında hata oluştu');
+      toast.error('Toplu işlem başarısız oldu.');
     }
   };
 
@@ -238,24 +238,24 @@ export default function AdminProducts() {
       }).unwrap();
       toast.success(
         statusTarget.nextState
-          ? `"${statusTarget.name}" ürünü aktifleştirildi`
-          : `"${statusTarget.name}" ürünü pasife alındı`
+          ? `"${statusTarget.name}" ürünü aktifleştirildi.`
+          : `"${statusTarget.name}" ürünü pasife alındı.`
       );
       setStatusTarget(null);
     } catch {
-      toast.error('Ürün durumu güncellenemedi');
+      toast.error('Ürün durumu güncellenemedi.');
     }
   };
 
   const handleStockUpdate = async () => {
     const quantity = parseInt(stockChange, 10);
     if (Number.isNaN(quantity) || quantity === 0) {
-      toast.error('Geçerli bir miktar girin');
+      toast.error('Geçerli bir miktar girin.');
       return;
     }
 
     if (!stockReason.trim()) {
-      toast.error('Açıklama girin');
+      toast.error('Lütfen bir açıklama girin.');
       return;
     }
 
@@ -264,12 +264,12 @@ export default function AdminProducts() {
         id: stockDialog.productId,
         data: { quantityChange: quantity, reason: stockReason },
       }).unwrap();
-      toast.success('Stok güncellendi');
+      toast.success('Stok güncellendi.');
       setStockDialog({ open: false, productId: 0, productName: '' });
       setStockChange('');
       setStockReason('');
     } catch {
-      toast.error('Stok güncellenemedi');
+      toast.error('Stok güncellenemedi.');
     }
   };
 
@@ -452,11 +452,7 @@ export default function AdminProducts() {
       </Card>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 rounded-xl" />
-          ))}
-        </div>
+        <TableLoadingState rowCount={6} className="pt-1" />
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border border-border/70 bg-card">

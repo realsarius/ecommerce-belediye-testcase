@@ -160,14 +160,14 @@ export default function ReviewsPage() {
   const handleApprove = async (reviewId: number) => {
     try {
       await approveReview(reviewId).unwrap();
-      toast.success('Yorum onaylandı');
+      toast.success('Yorum onaylandı.');
       setSelectedIds((current) => current.filter((id) => id !== reviewId));
       if (detailReview?.id === reviewId) {
         resetDialogState();
       }
     } catch (error) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'Yorum onaylanamadı');
+      toast.error(err.data?.message || 'Yorum onaylanamadı.');
     }
   };
 
@@ -181,12 +181,12 @@ export default function ReviewsPage() {
         id: detailReview.id,
         data: { moderationNote: rejectReason.trim() || undefined },
       }).unwrap();
-      toast.success('Yorum reddedildi');
+      toast.success('Yorum reddedildi.');
       setSelectedIds((current) => current.filter((id) => id !== detailReview.id));
       resetDialogState();
     } catch (error) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'Yorum reddedilemedi');
+      toast.error(err.data?.message || 'Yorum reddedilemedi.');
     }
   };
 
@@ -197,11 +197,11 @@ export default function ReviewsPage() {
 
     try {
       await bulkApproveReviews(selectedIds).unwrap();
-      toast.success('Seçilen yorumlar onaylandı');
+      toast.success('Seçilen yorumlar onaylandı.');
       setSelectedIds([]);
     } catch (error) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'Toplu onay işlemi başarısız');
+      toast.error(err.data?.message || 'Toplu onay işlemi başarısız oldu.');
     }
   };
 

@@ -115,7 +115,7 @@ export default function ProductForm() {
           isActive: data.isActive,
         };
         await updateProduct({ id: productId, data: updatePayload }).unwrap();
-        toast.success('Ürün güncellendi');
+        toast.success('Ürün güncellendi.');
       } else {
         const createPayload = {
           name: data.name,
@@ -128,12 +128,12 @@ export default function ProductForm() {
           isActive: data.isActive,
         };
         await createProduct(createPayload).unwrap();
-        toast.success('Ürün oluşturuldu');
+        toast.success('Ürün oluşturuldu.');
       }
       navigate('/admin/products');
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || 'İşlem başarısız');
+      toast.error(err.data?.message || 'İşlem başarısız oldu.');
     }
   };
 
