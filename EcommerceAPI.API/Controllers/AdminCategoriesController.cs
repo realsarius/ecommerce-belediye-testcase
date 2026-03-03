@@ -54,6 +54,19 @@ public class AdminCategoriesController : ControllerBase
         return BadRequest(result);
     }
 
+    [HttpPut("reorder")]
+    public async Task<IActionResult> ReorderCategories([FromBody] ReorderCategoriesRequest request)
+    {
+        var result = await _categoryService.ReorderCategoriesAsync(request);
+
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+
+        return BadRequest(result);
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCategory(int id)
     {
@@ -66,4 +79,3 @@ public class AdminCategoriesController : ControllerBase
         return BadRequest(result);    
     }
 }
-
