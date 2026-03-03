@@ -27,6 +27,23 @@ export interface UpdateCartItemRequest {
   quantity: number;
 }
 
+export interface ReorderCartRequest {
+  orderId: number;
+}
+
+export interface ReorderCartSkippedProduct {
+  productId: number;
+  name: string;
+  reason: string;
+}
+
+export interface ReorderCartResult {
+  requestedCount: number;
+  addedCount: number;
+  skippedCount: number;
+  skippedProducts: ReorderCartSkippedProduct[];
+}
+
 export type CheckoutInvoiceType = 'Individual' | 'Corporate';
 
 export interface CheckoutInvoiceInfo {

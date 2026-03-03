@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, useUpdateOrderItemsMutation } from '@/features/orders/ordersApi';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { useGetMyReturnRequestsQuery } from '@/features/returns/returnsApi';
+import { useReorderCartMutation } from '@/features/cart/cartApi';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { PaymentProviderLogo, getPaymentProviderLabel } from '@/components/order/PaymentProviderLogo';
 import { ReturnTimeline } from '@/components/order/ReturnTimeline';
 import { ShipmentTimeline } from '@/components/order/ShipmentTimeline';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Separator } from '@/components/common/separator';
@@ -28,12 +31,33 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
-import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Order, OrderItem } from '@/features/orders/types';
 import type { ReturnRequest } from '@/features/returns/types';
 import type { Product } from '@/features/products/types';
 import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
+
+const paymentProviderBadgeClasses = {
+  Iyzico: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  Stripe: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
+  PayTR: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+} as const;
+
+const getPaymentStatusBadge = (status?: string) => {
+  switch (status) {
+    case 'Success':
+      return { label: 'Ödeme Alındı', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' };
+    case 'Pending':
+      return { label: 'Ödeme Bekleniyor', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' };
+    case 'Failed':
+      return { label: 'Ödeme Başarısız', className: 'bg-rose-500/10 text-rose-700 dark:text-rose-300' };
+    case 'Refunded':
+      return { label: 'İade Edildi', className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300' };
+    default:
+      return null;
+  }
+};
 
 interface EditableOrderItem {
   productId: number;
@@ -89,6 +113,7 @@ const hasActiveReturnRequest = (request: ReturnRequest | undefined) =>
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const orderId = parseInt(id || '0');
 
   const { data: order, isLoading, error } = useGetOrderQuery(orderId);
@@ -96,6 +121,7 @@ export default function OrderDetail() {
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const [updateOrderItems, { isLoading: isUpdatingOrder }] = useUpdateOrderItemsMutation();
+  const [reorderCart, { isLoading: isReorderingCart }] = useReorderCartMutation();
 
 
   const [showRetryDialog, setShowRetryDialog] = useState(false);
@@ -272,6 +298,34 @@ export default function OrderDetail() {
     return { subtotal, shipping, total: subtotal + shipping };
   };
 
+  const handleReorder = async () => {
+    try {
+      const result = await reorderCart({ orderId }).unwrap();
+      const message = result.skippedCount === 0
+        ? `${result.addedCount} ürün sepete eklendi.`
+        : `${result.requestedCount} üründen ${result.addedCount} ürün sepete eklendi, ${result.skippedCount} ürün atlandı.`;
+
+      if (result.addedCount > 0) {
+        toast.success(message);
+        if (result.skippedProducts.length > 0) {
+          toast.info(
+            result.skippedProducts
+              .slice(0, 3)
+              .map((item) => `${item.name}: ${item.reason}`)
+              .join('\n')
+          );
+        }
+        navigate('/cart');
+        return;
+      }
+
+      toast.info(message);
+    } catch (err: unknown) {
+      const error = err as { data?: { message?: string } };
+      toast.error(error.data?.message || 'Ürünler yeniden sepete eklenemedi');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -404,6 +458,14 @@ export default function OrderDetail() {
                 </Link>
               </Button>
             )}
+            <Button
+              variant="secondary"
+              onClick={handleReorder}
+              disabled={isReorderingCart}
+            >
+              {isReorderingCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingBag className="mr-2 h-4 w-4" />}
+              Tekrar Satın Al
+            </Button>
             {canCancel && (
               <Button
                 variant="destructive"
@@ -471,10 +533,31 @@ export default function OrderDetail() {
                   Yöntem: {order.payment.paymentMethod}
                 </p>
               ) : null}
+              {getPaymentStatusBadge(order.payment?.status) ? (
+                <Badge
+                  variant="outline"
+                  className={getPaymentStatusBadge(order.payment?.status)?.className}
+                >
+                  {getPaymentStatusBadge(order.payment?.status)?.label}
+                </Badge>
+              ) : null}
               {order.payment?.provider ? (
-                <p className="text-muted-foreground text-sm">
-                  Sağlayıcı: {order.payment.provider}
-                </p>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Sağlayıcı
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <PaymentProviderLogo provider={order.payment.provider} className="h-8" />
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${paymentProviderBadgeClasses[order.payment.provider]}`}>
+                      {getPaymentProviderLabel(order.payment.provider)}
+                    </span>
+                    {order.payment.last4Digits ? (
+                      <span className="text-sm font-medium text-foreground">
+                        •••• {order.payment.last4Digits}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
               {order.payment?.status === 'Failed' && (
                 <p className="text-sm text-destructive">
