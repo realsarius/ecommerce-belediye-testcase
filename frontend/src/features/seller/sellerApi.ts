@@ -28,6 +28,26 @@ function unwrapApiData<T>(response: T | { data: T }) {
   return (response as { data?: T }).data ?? (response as T);
 }
 
+type SellerGranularTag = 'Orders' | 'SellerProducts' | 'Reviews';
+
+function createListTags<T extends { id: number | string }, TTag extends SellerGranularTag>(type: TTag, items?: T[]) {
+  if (!items?.length) {
+    return [{ type, id: 'LIST' }] as const;
+  }
+
+  return [
+    { type, id: 'LIST' },
+    ...items.map((item) => ({ type, id: item.id })),
+  ] as const;
+}
+
+function createPaginatedListTags<T extends { id: number | string }, TTag extends SellerGranularTag>(
+  type: TTag,
+  result?: PaginatedResponse<T>
+) {
+  return createListTags(type, result?.items);
+}
+
 export interface SellerFinanceSummaryQuery {
   days?: number;
   from?: string;
@@ -40,7 +60,7 @@ export const sellerApi = baseApi.injectEndpoints({
     getSellerProfile: builder.query<SellerProfile, void>({
       query: () => '/seller/profile',
       transformResponse: (response: { data: SellerProfile }) => response.data,
-      providesTags: ['SellerProfile'],
+      providesTags: (result) => result ? [{ type: 'SellerProfile', id: result.id }] : [{ type: 'SellerProfile', id: 'LIST' }],
     }),
     
     checkSellerProfile: builder.query<HasProfileResponse, void>({
@@ -54,7 +74,7 @@ export const sellerApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: SellerProfile }) => response.data,
-      invalidatesTags: ['SellerProfile'],
+      invalidatesTags: [{ type: 'SellerProfile', id: 'LIST' }],
     }),
 
     updateSellerProfile: builder.mutation<SellerProfile, UpdateSellerProfileRequest>({
@@ -64,13 +84,13 @@ export const sellerApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: SellerProfile }) => response.data,
-      invalidatesTags: ['SellerProfile'],
+      invalidatesTags: (result) => result ? [{ type: 'SellerProfile', id: result.id }, { type: 'SellerProfile', id: 'LIST' }] : [{ type: 'SellerProfile', id: 'LIST' }],
     }),
 
     getSellerAnalyticsSummary: builder.query<SellerAnalyticsSummary, void>({
       query: () => '/seller/analytics/summary',
       transformResponse: (response: { data: SellerAnalyticsSummary }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'SUMMARY' }],
     }),
 
     getSellerDashboardKpi: builder.query<SellerDashboardKpi, number | void>({
@@ -79,7 +99,7 @@ export const sellerApi = baseApi.injectEndpoints({
         params: { days },
       }),
       transformResponse: (response: { data: SellerDashboardKpi }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'DASHBOARD_KPI' }],
     }),
 
     getSellerDashboardRevenueTrend: builder.query<SellerDashboardRevenueTrendPoint[], { period?: 'daily' | 'weekly' | 'monthly' } | void>({
@@ -88,13 +108,13 @@ export const sellerApi = baseApi.injectEndpoints({
         params: params ?? undefined,
       }),
       transformResponse: (response: { data: SellerDashboardRevenueTrendPoint[] }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'DASHBOARD_REVENUE' }],
     }),
 
     getSellerDashboardOrderStatusDistribution: builder.query<SellerDashboardOrderStatusDistributionItem[], void>({
       query: () => '/seller/dashboard/order-status-distribution',
       transformResponse: (response: { data: SellerDashboardOrderStatusDistributionItem[] }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'DASHBOARD_STATUS' }],
     }),
 
     getSellerDashboardProductPerformance: builder.query<SellerDashboardProductPerformanceItem[], number | void>({
@@ -103,7 +123,7 @@ export const sellerApi = baseApi.injectEndpoints({
         params: { take },
       }),
       transformResponse: (response: { data: SellerDashboardProductPerformanceItem[] }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'DASHBOARD_PRODUCTS' }],
     }),
 
     getSellerDashboardRecentOrders: builder.query<SellerDashboardRecentOrder[], number | void>({
@@ -112,7 +132,7 @@ export const sellerApi = baseApi.injectEndpoints({
         params: { take },
       }),
       transformResponse: (response: { data: SellerDashboardRecentOrder[] }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'DASHBOARD_ORDERS' }],
     }),
 
     getSellerAnalyticsTrends: builder.query<SellerAnalyticsTrendPoint[], number | void>({
@@ -121,7 +141,7 @@ export const sellerApi = baseApi.injectEndpoints({
         params: { days },
       }),
       transformResponse: (response: { data: SellerAnalyticsTrendPoint[] }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'TRENDS' }],
     }),
 
     getSellerFinanceSummary: builder.query<SellerFinanceSummary, SellerFinanceSummaryQuery | void>({
@@ -130,13 +150,13 @@ export const sellerApi = baseApi.injectEndpoints({
         params: params ?? { days: 30 },
       }),
       transformResponse: (response: { data: SellerFinanceSummary }) => response.data,
-      providesTags: ['SellerAnalytics'],
+      providesTags: [{ type: 'SellerAnalytics', id: 'FINANCE' }],
     }),
 
     getSellerOrders: builder.query<Order[], void>({
       query: () => '/seller/orders',
       transformResponse: (response: Order[] | { data: Order[] }) => unwrapApiData(response),
-      providesTags: ['Orders'],
+      providesTags: (result) => createListTags('Orders', result),
     }),
 
     shipSellerOrder: builder.mutation<Order, { id: number; trackingCode: string; cargoCompany: string }>({
@@ -146,7 +166,13 @@ export const sellerApi = baseApi.injectEndpoints({
         body: { trackingCode, cargoCompany },
       }),
       transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
-      invalidatesTags: ['Orders'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Orders', id },
+        { type: 'Orders', id: 'LIST' },
+        { type: 'SellerAnalytics', id: 'DASHBOARD_KPI' },
+        { type: 'SellerAnalytics', id: 'DASHBOARD_STATUS' },
+        { type: 'SellerAnalytics', id: 'DASHBOARD_ORDERS' },
+      ],
     }),
 
     // Seller Products endpoints (uses admin/products but filtered for seller)
@@ -156,7 +182,7 @@ export const sellerApi = baseApi.injectEndpoints({
         params,
       }),
       transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
-      providesTags: ['SellerProducts'],
+      providesTags: (result) => createPaginatedListTags('SellerProducts', result),
     }),
 
     getSellerProduct: builder.query<Product, number>({
@@ -172,7 +198,7 @@ export const sellerApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: Product }) => response.data,
-      invalidatesTags: ['SellerProducts', 'Products'],
+      invalidatesTags: [{ type: 'SellerProducts', id: 'LIST' }, 'Products'],
     }),
 
     updateSellerProduct: builder.mutation<Product, { id: number; data: UpdateProductRequest }>({
@@ -182,7 +208,7 @@ export const sellerApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: Product }) => response.data,
-      invalidatesTags: ['SellerProducts', 'Products'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'SellerProducts', id }, { type: 'SellerProducts', id: 'LIST' }, 'Products'],
     }),
 
     deleteSellerProduct: builder.mutation<void, number>({
@@ -190,7 +216,7 @@ export const sellerApi = baseApi.injectEndpoints({
         url: `/seller/products/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['SellerProducts', 'Products'],
+      invalidatesTags: (_result, _error, id) => [{ type: 'SellerProducts', id }, { type: 'SellerProducts', id: 'LIST' }, 'Products'],
     }),
 
     getSellerReviews: builder.query<ProductReviewDto[], { productId?: number; rating?: number; replied?: boolean } | void>({
@@ -199,7 +225,7 @@ export const sellerApi = baseApi.injectEndpoints({
         params: params ?? undefined,
       }),
       transformResponse: (response: { data: ProductReviewDto[] }) => response.data,
-      providesTags: ['Reviews'],
+      providesTags: (result) => createListTags('Reviews', result),
     }),
 
     replySellerReview: builder.mutation<ProductReviewDto, { reviewId: number; data: SellerReviewReplyRequest; productId: number }>({

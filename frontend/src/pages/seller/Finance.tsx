@@ -21,6 +21,7 @@ import {
   Store,
   Wallet,
 } from 'lucide-react';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Skeleton } from '@/components/common/skeleton';
@@ -444,8 +445,13 @@ export default function SellerFinancePage() {
               ))}
               {financeData.monthlyRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                    Seçili dönem için finans verisi bulunamadı.
+                  <TableCell colSpan={6} className="p-4">
+                    <EmptyState
+                      icon={Wallet}
+                      title="Finans özeti bulunamadı"
+                      description="Seçili dönemde aylık finans özeti oluşturacak sipariş verisi bulunamadı."
+                      className="border-none bg-transparent shadow-none"
+                    />
                   </TableCell>
                 </TableRow>
               ) : null}
