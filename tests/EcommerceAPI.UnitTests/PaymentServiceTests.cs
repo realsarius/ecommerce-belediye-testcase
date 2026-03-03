@@ -14,6 +14,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Text;
+using Iyzipay.Request;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -26,6 +27,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IReferralService> _referralServiceMock;
+    private readonly Mock<IIyzicoPaymentGateway> _paymentGatewayMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
     private readonly IyzicoPaymentService _paymentService;
@@ -39,6 +41,7 @@ public class IyzicoPaymentServiceTests
         _creditCardServiceMock = new Mock<ICreditCardService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _referralServiceMock = new Mock<IReferralService>();
+        _paymentGatewayMock = new Mock<IIyzicoPaymentGateway>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
         
@@ -67,6 +70,12 @@ public class IyzicoPaymentServiceTests
         _referralServiceMock
             .Setup(x => x.AwardFirstPurchaseRewardsAsync(It.IsAny<int>()))
             .ReturnsAsync(new SuccessResult());
+        _paymentGatewayMock
+            .Setup(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IyzicoChargeGatewayResult(true, "PAY-1", null, null, null, "0009"));
+        _paymentGatewayMock
+            .Setup(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IyzicoThreeDSInitializeGatewayResult(true, "PAY-3DS", "base64-html", null));
 
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
@@ -76,6 +85,7 @@ public class IyzicoPaymentServiceTests
             _creditCardServiceMock.Object,
             _loyaltyServiceMock.Object,
             _referralServiceMock.Object,
+            _paymentGatewayMock.Object,
             _lockServiceMock.Object,
             _loggerMock.Object
         );
@@ -210,6 +220,108 @@ public class IyzicoPaymentServiceTests
     }
 
     [Fact]
+    public async Task ProcessPaymentAsync_WhenSaveCardRequested_ShouldPersistProviderTokenMetadata()
+    {
+        var order = CreatePendingOrder();
+        var request = new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            CardHolderName = "Test User",
+            CardNumber = "5406670000000009",
+            ExpiryDate = "12/30",
+            CVV = "123",
+            SaveCard = true,
+            SaveCardAlias = "Maas Kartim",
+            IdempotencyKey = "save-card-token-test"
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _creditCardServiceMock
+            .Setup(x => x.SaveTokenizedCardAsync(order.UserId, It.IsAny<SaveTokenizedCreditCardRequest>()))
+            .ReturnsAsync(new SuccessDataResult<CreditCardDto>(new CreditCardDto
+            {
+                Id = 9,
+                CardAlias = "Maas Kartim",
+                CardHolderName = "Test User",
+                Brand = CardBrand.Mastercard,
+                Last4Digits = "0009",
+                ExpireMonth = "12",
+                ExpireYear = "2030",
+                IsTokenized = true,
+                TokenProvider = PaymentProviderType.Iyzico
+            }));
+        _paymentGatewayMock
+            .Setup(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IyzicoChargeGatewayResult(true, "PAY-SAVED", null, "card-token-1", "user-key-1", "0009"));
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, request);
+
+        result.Success.Should().BeTrue();
+        order.Payment!.Status.Should().Be(PaymentStatus.Success);
+        order.Payment.Last4Digits.Should().Be("0009");
+        _creditCardServiceMock.Verify(x => x.SaveTokenizedCardAsync(
+            order.UserId,
+            It.Is<SaveTokenizedCreditCardRequest>(payload =>
+                payload.CardAlias == "Maas Kartim"
+                && payload.CardHolderName == "Test User"
+                && payload.Brand == CardBrand.Mastercard
+                && payload.Last4Digits == "0009"
+                && payload.TokenProvider == PaymentProviderType.Iyzico
+                && payload.IyzicoCardToken == "card-token-1"
+                && payload.IyzicoUserKey == "user-key-1")),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessPaymentAsync_WhenTokenizedSavedCardIsSelected_ShouldChargeWithProviderToken()
+    {
+        var order = CreatePendingOrder(id: 16, orderNumber: "ORD-16");
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _creditCardServiceMock
+            .Setup(x => x.GetStoredCardForPaymentAsync(order.UserId, 99))
+            .ReturnsAsync(new SuccessDataResult<StoredCardPaymentDto>(new StoredCardPaymentDto
+            {
+                Id = 99,
+                CardHolderName = "Saved User",
+                Brand = CardBrand.Visa,
+                Last4Digits = "4242",
+                ExpireMonth = "12",
+                ExpireYear = "2030",
+                IsTokenized = true,
+                TokenProvider = PaymentProviderType.Iyzico,
+                IyzicoCardToken = "saved-card-token",
+                IyzicoUserKey = "saved-user-key"
+            }));
+        _paymentGatewayMock
+            .Setup(x => x.ChargeAsync(
+                It.Is<CreatePaymentRequest>(gatewayRequest =>
+                    gatewayRequest.PaymentCard != null
+                    && gatewayRequest.PaymentCard.CardToken == "saved-card-token"
+                    && gatewayRequest.PaymentCard.CardUserKey == "saved-user-key"
+                    && gatewayRequest.PaymentCard.RegisterCard == 0
+                    && gatewayRequest.PaymentCard.Cvc == null),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IyzicoChargeGatewayResult(true, "PAY-TOKEN", null, null, null, "4242"));
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            SavedCardId = 99,
+            PaymentProvider = PaymentProviderType.Iyzico,
+            IdempotencyKey = "tokenized-saved-card-test"
+        });
+
+        result.Success.Should().BeTrue();
+        order.Payment!.Status.Should().Be(PaymentStatus.Success);
+        order.Payment.Last4Digits.Should().Be("4242");
+        _paymentGatewayMock.Verify(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+        _creditCardServiceMock.Verify(x => x.SaveTokenizedCardAsync(It.IsAny<int>(), It.IsAny<SaveTokenizedCreditCardRequest>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ProcessWebhookAsync_WhenOrderAlreadyPaid_ShouldReturnSuccessWithoutMutation()
     {
         var request = new IyzicoWebhookRequest
@@ -253,5 +365,41 @@ public class IyzicoPaymentServiceTests
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static Order CreatePendingOrder(int id = 15, string orderNumber = "ORD-15")
+    {
+        return new Order
+        {
+            Id = id,
+            UserId = 1,
+            OrderNumber = orderNumber,
+            Status = OrderStatus.PendingPayment,
+            TotalAmount = 100,
+            Currency = "TRY",
+            ShippingAddress = "Test Address",
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 1,
+                    Quantity = 1,
+                    PriceSnapshot = 100,
+                    Product = new Product
+                    {
+                        Id = 1,
+                        Name = "Test Product",
+                        Category = new Category { Id = 1, Name = "General" }
+                    }
+                }
+            ],
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Pending,
+                Amount = 100,
+                Currency = "TRY",
+                PaymentMethod = "CreditCard"
+            }
+        };
     }
 }
