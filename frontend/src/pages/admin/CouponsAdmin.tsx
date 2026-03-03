@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import {
   CalendarRange,
   DollarSign,
+  Info,
   Pencil,
   Percent,
   Plus,
@@ -11,6 +12,7 @@ import {
   Ticket,
   Trash2,
   Wand2,
+  CopyPlus,
 } from 'lucide-react';
 import {
   useCreateCouponMutation,
@@ -102,6 +104,11 @@ type CampaignFormData = {
   products: CampaignProductForm[];
 };
 
+type CouponFormData = CreateCouponRequest & {
+  isActive?: boolean;
+  expiresAt: string;
+};
+
 const campaignTypeLabels: Record<CampaignType, string> = {
   [CampaignType.FlashSale]: 'Flash Sale',
   [CampaignType.Seasonal]: 'Sezonluk',
@@ -124,6 +131,52 @@ const campaignStatusBadgeClasses: Record<CampaignStatus, string> = {
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('tr-TR');
+}
+
+function formatDateTime(dateStr: string) {
+  return new Date(dateStr).toLocaleString('tr-TR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatCurrency(value?: number | null) {
+  if (typeof value !== 'number') {
+    return 'Yok';
+  }
+
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDateInput(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildCouponCodeCandidate() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const parts = Array.from({ length: 3 }, () =>
+    Array.from({ length: 4 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('')
+  );
+
+  return parts.join('-');
+}
+
+function getValidDaysFromDate(dateValue: string) {
+  const selected = new Date(`${dateValue}T23:59:59`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = selected.getTime() - today.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
 function formatDateTimeLocal(dateStr: string) {
@@ -190,13 +243,14 @@ export default function CouponsAdmin() {
   const [activeTab, setActiveTab] = useState<CouponsTab>('coupons');
   const [couponDialog, setCouponDialog] = useState<CouponDialogState>({ open: false, mode: 'create' });
   const [campaignDialog, setCampaignDialog] = useState<CampaignDialogState>({ open: false, mode: 'create' });
-  const [couponFormData, setCouponFormData] = useState<CreateCouponRequest & { isActive?: boolean }>({
+  const [couponFormData, setCouponFormData] = useState<CouponFormData>({
     code: '',
     type: CouponType.Percentage,
     value: 10,
     minOrderAmount: undefined,
     usageLimit: 0,
     validDays: 7,
+    expiresAt: formatDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
     description: '',
   });
   const [campaignFormData, setCampaignFormData] = useState<CampaignFormData>(createEmptyCampaignForm);
@@ -226,6 +280,7 @@ export default function CouponsAdmin() {
       minOrderAmount: undefined,
       usageLimit: 0,
       validDays: 7,
+      expiresAt: formatDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
       description: '',
     });
     setCouponDialog({ open: true, mode: 'create' });
@@ -239,6 +294,7 @@ export default function CouponsAdmin() {
       minOrderAmount: coupon.minOrderAmount,
       usageLimit: coupon.usageLimit,
       validDays: 7,
+      expiresAt: formatDateInput(new Date(coupon.expiresAt)),
       description: coupon.description || '',
       isActive: coupon.isActive,
     });
@@ -279,9 +335,25 @@ export default function CouponsAdmin() {
       return;
     }
 
+    const calculatedValidDays = getValidDaysFromDate(couponFormData.expiresAt);
+    if (calculatedValidDays <= 0) {
+      toast.error('Kuponun son kullanma tarihi bugünden sonra olmalıdır');
+      return;
+    }
+
     try {
       if (couponDialog.mode === 'create') {
-        await createCoupon(couponFormData).unwrap();
+        const createPayload: CreateCouponRequest = {
+          code: couponFormData.code,
+          type: couponFormData.type,
+          value: couponFormData.value,
+          minOrderAmount: couponFormData.minOrderAmount,
+          usageLimit: couponFormData.usageLimit,
+          validDays: calculatedValidDays,
+          description: couponFormData.description,
+        };
+
+        await createCoupon(createPayload).unwrap();
         toast.success('Kupon oluşturuldu');
       } else if (couponDialog.coupon) {
         const updateData: UpdateCouponRequest = {
@@ -290,6 +362,7 @@ export default function CouponsAdmin() {
           value: couponFormData.value,
           minOrderAmount: couponFormData.minOrderAmount,
           usageLimit: couponFormData.usageLimit,
+          expiresAt: new Date(`${couponFormData.expiresAt}T23:59:59`).toISOString(),
           isActive: couponFormData.isActive,
           description: couponFormData.description,
         };
@@ -438,10 +511,19 @@ export default function CouponsAdmin() {
       minOrderAmount: 500,
       usageLimit: 1,
       validDays: 7,
+      expiresAt: formatDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
       description: 'Yılbaşı Kampanyası',
       isActive: true,
     });
     toast.success('Örnek kupon verileri dolduruldu');
+  };
+
+  const generateCouponCode = () => {
+    setCouponFormData((current) => ({
+      ...current,
+      code: buildCouponCodeCandidate(),
+    }));
+    toast.success('Kupon kodu oluşturuldu');
   };
 
   const fillSampleCampaignData = () => {
@@ -514,7 +596,9 @@ export default function CouponsAdmin() {
                     <TableHead>Kupon Kodu</TableHead>
                     <TableHead>Tür</TableHead>
                     <TableHead>Değer</TableHead>
+                    <TableHead>Min. Tutar</TableHead>
                     <TableHead>Kullanım</TableHead>
+                    <TableHead>Oluşturulma</TableHead>
                     <TableHead>Son Tarih</TableHead>
                     <TableHead>Durum</TableHead>
                     <TableHead className="text-right">İşlemler</TableHead>
@@ -550,17 +634,29 @@ export default function CouponsAdmin() {
                         <span className="font-semibold text-primary">
                           {coupon.type === CouponType.Percentage ? `%${coupon.value}` : `${coupon.value} TL`}
                         </span>
-                        {coupon.minOrderAmount ? (
-                          <p className="text-xs text-muted-foreground">Min: {coupon.minOrderAmount} TL</p>
-                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatCurrency(coupon.minOrderAmount)}
                       </TableCell>
                       <TableCell>
-                        {coupon.usedCount}
-                        {coupon.usageLimit > 0 ? ` / ${coupon.usageLimit}` : ''}
+                        <div className="space-y-1 text-sm">
+                          <p className="font-medium">
+                            {coupon.usedCount}
+                            {coupon.usageLimit > 0 ? ` / ${coupon.usageLimit}` : ' / limitsiz'}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {coupon.usageLimit > 0
+                              ? `${Math.max(0, coupon.usageLimit - coupon.usedCount)} kullanım kaldı`
+                              : 'Sınırsız kullanım'}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDateTime(coupon.createdAt)}
                       </TableCell>
                       <TableCell>
                         <span className={isExpired(coupon.expiresAt) ? 'text-destructive' : ''}>
-                          {formatDate(coupon.expiresAt)}
+                          {formatDateTime(coupon.expiresAt)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -594,7 +690,7 @@ export default function CouponsAdmin() {
                   ))}
                   {coupons?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                         Henüz kupon eklenmemiş.
                       </TableCell>
                     </TableRow>
@@ -753,13 +849,22 @@ export default function CouponsAdmin() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Kupon Kodu</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label>Kupon Kodu</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={generateCouponCode}>
+                  <CopyPlus className="mr-2 h-4 w-4" />
+                  Kod Üret
+                </Button>
+              </div>
               <Input
                 placeholder="YILBASI20"
                 value={couponFormData.code}
                 onChange={(event) => setCouponFormData({ ...couponFormData, code: event.target.value.toUpperCase() })}
                 className="font-mono"
               />
+              <p className="text-xs text-muted-foreground">
+                Kod büyük harfe çevrilir. İsterseniz sistemden benzersiz bir kampanya kodu üretebilirsiniz.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -816,24 +921,43 @@ export default function CouponsAdmin() {
               </div>
             </div>
 
-            {couponDialog.mode === 'create' ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Geçerlilik Süresi (Gün)</Label>
+                <Label>Son Kullanma Tarihi</Label>
                 <Input
-                  type="number"
-                  min="1"
-                  value={couponFormData.validDays}
-                  onChange={(event) => setCouponFormData({ ...couponFormData, validDays: Number(event.target.value) })}
+                  type="date"
+                  min={formatDateInput(new Date())}
+                  value={couponFormData.expiresAt}
+                  onChange={(event) => setCouponFormData({ ...couponFormData, expiresAt: event.target.value })}
                 />
               </div>
-            ) : null}
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <Info className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="space-y-1 text-muted-foreground">
+                    <p className="font-medium text-foreground">Geçerlilik Özeti</p>
+                    <p>
+                      Kupon {couponFormData.expiresAt
+                        ? `${couponFormData.expiresAt} tarihine kadar aktif olur.`
+                        : 'bir bitiş tarihi seçilene kadar kaydedilemez.'}
+                    </p>
+                    <p>
+                      {getValidDaysFromDate(couponFormData.expiresAt) > 0
+                        ? `Bugünden itibaren ${getValidDaysFromDate(couponFormData.expiresAt)} gün geçerli.`
+                        : 'Bitiş tarihi bugünden sonra olmalı.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label>Açıklama</Label>
-              <Input
+              <Textarea
                 placeholder="Yılbaşı kampanyası"
                 value={couponFormData.description}
                 onChange={(event) => setCouponFormData({ ...couponFormData, description: event.target.value })}
+                rows={3}
               />
             </div>
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Package, Truck } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import {
@@ -328,8 +329,13 @@ export default function SellerOrders() {
               })}
               {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
-                    Seçili filtre için sipariş bulunamadı.
+                  <TableCell colSpan={8} className="p-4">
+                    <EmptyState
+                      icon={Truck}
+                      title="Sipariş bulunamadı"
+                      description="Seçili tarih aralığı ve durum filtresine uyan sipariş kaydı bulunamadı."
+                      className="border-none bg-transparent shadow-none"
+                    />
                   </TableCell>
                 </TableRow>
               ) : null}

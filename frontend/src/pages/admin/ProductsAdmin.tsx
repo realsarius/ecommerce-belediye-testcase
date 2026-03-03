@@ -42,6 +42,7 @@ import {
 } from '@/components/common/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -570,8 +571,13 @@ export default function AdminProducts() {
                 ))}
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
-                      Filtrelere uygun ürün bulunamadı.
+                    <TableCell colSpan={8} className="p-4">
+                      <EmptyState
+                        icon={Boxes}
+                        title="Ürün bulunamadı"
+                        description="Seçili filtrelere uyan ürün kaydı bulunamadı. Arama, seller veya fiyat aralığını değiştirerek tekrar deneyin."
+                        className="border-none bg-transparent shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}

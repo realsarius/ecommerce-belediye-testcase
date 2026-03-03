@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BellRing, Mail, Megaphone, Send, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Badge } from '@/components/common/badge';
@@ -434,9 +435,12 @@ export default function AnnouncementsPage() {
                 ))}
               </div>
             ) : announcements.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/70 px-4 py-12 text-center text-sm text-muted-foreground">
-                Henüz duyuru geçmişi oluşmadı.
-              </div>
+              <EmptyState
+                icon={Megaphone}
+                title="Henüz duyuru geçmişi yok"
+                description="İlk gönderimi yaptığınızda duyuru geçmişi, durum ve erişim istatistikleri burada görünecek."
+                className="border-dashed"
+              />
             ) : (
               <Table>
                 <TableHeader>

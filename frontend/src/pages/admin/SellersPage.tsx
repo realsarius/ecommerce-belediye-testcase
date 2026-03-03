@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/ta
 import { Textarea } from '@/components/common/textarea';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { EmptyState } from '@/components/admin/EmptyState';
 import {
   useApproveAdminSellerApplicationMutation,
   useGetAdminSellersQuery,
@@ -385,8 +386,13 @@ export default function SellersPage() {
                 ))}
                 {filteredSellers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
-                      Filtreye uygun seller bulunamadı.
+                    <TableCell colSpan={8} className="p-4">
+                      <EmptyState
+                        icon={Store}
+                        title="Seller bulunamadı"
+                        description="Arama kriterlerine uyan aktif seller kaydı bulunamadı. Mağaza adı veya owner bilgisini değiştirerek tekrar deneyin."
+                        className="border-none bg-transparent shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}
@@ -453,8 +459,13 @@ export default function SellersPage() {
                 ))}
                 {filteredSellers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                      Bekleyen başvuru bulunmuyor.
+                    <TableCell colSpan={6} className="p-4">
+                      <EmptyState
+                        icon={Store}
+                        title="Bekleyen başvuru yok"
+                        description="İncelenmesi gereken seller başvurusu şu an görünmüyor. Yeni başvurular geldiğinde bu tablo otomatik dolacak."
+                        className="border-none bg-transparent shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}

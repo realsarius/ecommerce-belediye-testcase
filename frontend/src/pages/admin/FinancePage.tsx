@@ -16,6 +16,7 @@ import {
   Store,
   Wallet,
 } from 'lucide-react';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
@@ -265,8 +266,13 @@ export default function AdminFinancePage() {
                 ))}
                 {financeData.sellers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                      Seçili tarih aralığı için finans verisi bulunamadı.
+                    <TableCell colSpan={5} className="p-4">
+                      <EmptyState
+                        icon={Wallet}
+                        title="Finans verisi bulunamadı"
+                        description="Seçili tarih aralığında seller bazlı komisyon veya net kazanç verisi oluşmadı."
+                        className="border-none bg-transparent shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}

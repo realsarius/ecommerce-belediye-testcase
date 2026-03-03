@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
@@ -276,8 +277,13 @@ export default function UsersPage() {
                   ))}
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-14 text-center text-muted-foreground">
-                        Filtrelerle eşleşen kullanıcı bulunamadı.
+                      <TableCell colSpan={7} className="p-4">
+                        <EmptyState
+                          icon={Users}
+                          title="Kullanıcı bulunamadı"
+                          description="Seçili filtrelere uyan kullanıcı kaydı bulunamadı. Arama ifadesini veya tarih aralığını güncelleyerek tekrar deneyin."
+                          className="border-none bg-transparent shadow-none"
+                        />
                       </TableCell>
                     </TableRow>
                   ) : null}

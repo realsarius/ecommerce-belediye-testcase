@@ -10,6 +10,7 @@ import {
   Store,
   Trash2,
 } from 'lucide-react';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Badge } from '@/components/common/badge';
@@ -226,21 +227,20 @@ export default function SellerProducts() {
           ))}
         </div>
       ) : filteredItems.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-12 text-center">
-            <PackageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h2 className="mb-2 text-xl font-semibold">Uygun ürün bulunamadı</h2>
-            <p className="mb-4 text-muted-foreground">
-              Filtreleri değiştirin veya yeni bir ürün ekleyin.
-            </p>
+        <EmptyState
+          icon={PackageIcon}
+          title="Uygun ürün bulunamadı"
+          description="Filtreleri değiştirin veya yeni bir ürün ekleyerek mağaza kataloğunuzu oluşturmaya başlayın."
+          className="border-dashed"
+          action={(
             <Button asChild className="bg-amber-600 hover:bg-amber-700">
               <Link to="/seller/products/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Yeni Ürün Ekle
               </Link>
             </Button>
-          </CardContent>
-        </Card>
+          )}
+        />
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
