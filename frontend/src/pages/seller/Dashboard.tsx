@@ -232,12 +232,12 @@ export default function SellerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Gelir Trendi</CardTitle>
             <CardDescription>Son 30 gün boyunca günlük ciro değişimi.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[320px]">
+          <CardContent className="min-w-0 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dashboardData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
@@ -262,12 +262,12 @@ export default function SellerDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Sipariş Durumları</CardTitle>
             <CardDescription>Mağazanıza ait siparişlerin dağılımı.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[320px]">
+          <CardContent className="min-w-0 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

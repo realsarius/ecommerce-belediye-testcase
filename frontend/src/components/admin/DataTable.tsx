@@ -15,7 +15,7 @@ export function DataTable({
   children,
 }: DataTableProps) {
   return (
-    <Card className="border-border/70">
+    <Card className="min-w-0 border-border/70">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div>
           <CardTitle>{title}</CardTitle>
@@ -23,7 +23,7 @@ export function DataTable({
         </div>
         {actions ?? null}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="min-w-0">{children}</CardContent>
     </Card>
   );
 }

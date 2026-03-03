@@ -213,7 +213,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
@@ -232,7 +232,7 @@ export default function AdminDashboard() {
               </Tabs>
             </div>
           </CardHeader>
-          <CardContent className="h-[320px]">
+          <CardContent className="min-w-0 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={revenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
@@ -267,12 +267,12 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Sipariş Durum Dağılımı</CardTitle>
             <CardDescription>Toplam {formatNumber(dashboardData.totalOrders)} siparişin güncel dağılımı.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[320px]">
+          <CardContent className="min-w-0 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -302,12 +302,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Kategori Bazlı Satış</CardTitle>
             <CardDescription>Kategori bazlı satış hacmi başarılı sipariş kalemlerinden hesaplanır.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="min-w-0 h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={categorySales}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
@@ -320,12 +320,12 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Kullanıcı Kayıt Trendi</CardTitle>
             <CardDescription>Son 30 günde sisteme katılan kullanıcı sayısı.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="min-w-0 h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={userRegistrations}>
                 <defs>

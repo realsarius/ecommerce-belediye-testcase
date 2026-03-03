@@ -348,12 +348,12 @@ export default function SellerFinancePage() {
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Net Kazanç Trendi</CardTitle>
             <CardDescription>Seçili dönemde gün bazlı net kazanç akışı.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[320px]">
+          <CardContent className="min-w-0 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
@@ -371,12 +371,12 @@ export default function SellerFinancePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Brüt ve Net Satış</CardTitle>
             <CardDescription>Seçili dönemde günlük satış kırılımı.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[320px]">
+          <CardContent className="min-w-0 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />

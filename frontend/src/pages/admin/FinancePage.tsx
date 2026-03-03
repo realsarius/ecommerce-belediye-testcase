@@ -97,9 +97,9 @@ export default function AdminFinancePage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success('Finans raporu indirildi');
+      toast.success('Finans raporu indirildi.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'CSV dışa aktarma başarısız');
+      toast.error(error instanceof Error ? error.message : 'CSV dışa aktarma başarısız oldu.');
     } finally {
       setIsExporting(false);
     }
@@ -178,12 +178,12 @@ export default function AdminFinancePage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Seller Bazlı Net Kazanç</CardTitle>
             <CardDescription>En yüksek net satış üreten seller hesaplarının özeti.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[340px]">
+          <CardContent className="min-w-0 h-[340px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} layout="vertical" margin={{ left: 12, right: 16 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.25} />
@@ -202,7 +202,7 @@ export default function AdminFinancePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="min-w-0 border-border/70">
           <CardHeader>
             <CardTitle>Seller Bazlı Komisyon Tablosu</CardTitle>
             <CardDescription>
