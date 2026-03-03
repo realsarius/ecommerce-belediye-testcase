@@ -188,6 +188,9 @@ public class SellerProfileManager : ISellerProfileService
             FacebookUrl = profile.FacebookUrl,
             XUrl = profile.XUrl,
             IsVerified = profile.IsVerified,
+            CommissionRateOverride = profile.CommissionRateOverride,
+            ApplicationReviewNote = profile.ApplicationReviewNote,
+            ApplicationReviewedAt = profile.ApplicationReviewedAt,
             CreatedAt = profile.CreatedAt,
             SellerFirstName = profile.User?.FirstName ?? string.Empty,
             SellerLastName = profile.User?.LastName ?? string.Empty

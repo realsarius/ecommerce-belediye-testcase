@@ -40,7 +40,7 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
             .ToListAsync();
     }
 
-    public async Task<IList<ReturnRequest>> GetPendingRequestsAsync(int? sellerId = null)
+    public async Task<IList<ReturnRequest>> GetListWithDetailsAsync(ReturnRequestStatus? status = null, int? sellerId = null)
     {
         var query = _context.ReturnRequests
             .Include(rr => rr.Order)
@@ -49,8 +49,14 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
                 .ThenInclude(order => order.OrderItems)
                     .ThenInclude(item => item.Product)
             .Include(rr => rr.User)
+            .Include(rr => rr.ReviewedByUser)
             .Include(rr => rr.RefundRequest)
-            .Where(rr => rr.Status == ReturnRequestStatus.Pending);
+            .AsQueryable();
+
+        if (status.HasValue)
+        {
+            query = query.Where(rr => rr.Status == status.Value);
+        }
 
         if (sellerId.HasValue)
         {

@@ -7,6 +7,6 @@ public interface IReturnRequestService
 {
     Task<IDataResult<ReturnRequestDto>> CreateReturnRequestAsync(int userId, int orderId, CreateReturnRequestRequest request);
     Task<IDataResult<List<ReturnRequestDto>>> GetUserReturnRequestsAsync(int userId);
-    Task<IDataResult<List<ReturnRequestDto>>> GetPendingReturnRequestsAsync(int? sellerId = null);
+    Task<IDataResult<List<ReturnRequestDto>>> GetReturnRequestsAsync(string? status = null, int? sellerId = null);
     Task<IDataResult<ReturnRequestDto>> ReviewReturnRequestAsync(int requestId, int reviewerUserId, ReviewReturnRequestRequest request, int? sellerId = null);
 }

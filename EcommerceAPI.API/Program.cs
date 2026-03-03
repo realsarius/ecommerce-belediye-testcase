@@ -276,6 +276,8 @@ builder.Services.AddMassTransit(configurator =>
     configurator.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
     configurator.AddConsumer<OrderStatusChangedConsumer, OrderStatusChangedConsumerDefinition>();
     configurator.AddConsumer<OrderShippedConsumer, OrderShippedConsumerDefinition>();
+    configurator.AddConsumer<SellerApplicationReviewedConsumer, SellerApplicationReviewedConsumerDefinition>();
+    configurator.AddConsumer<ReturnRequestReviewedConsumer, ReturnRequestReviewedConsumerDefinition>();
     configurator.AddConsumer<ProductIndexSyncConsumer, ProductIndexSyncConsumerDefinition>();
     configurator.AddConsumer<WishlistAnalyticsConsumer, WishlistAnalyticsConsumerDefinition>();
     configurator.AddConsumer<WishlistProductIndexSyncConsumer, WishlistProductIndexSyncConsumerDefinition>();

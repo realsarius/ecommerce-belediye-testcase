@@ -72,28 +72,3 @@ public class SellerProfileController : SellerApiControllerBase
         return Ok(new { hasProfile });
     }
 }
-
-// Admin endpoint to view any seller profile
-[ApiController]
-[Route("api/v1/admin/sellers")]
-[Authorize(Roles = "Admin")]
-public class AdminSellerProfileController : ControllerBase
-{
-    private readonly ISellerProfileService _sellerProfileService;
-
-    public AdminSellerProfileController(ISellerProfileService sellerProfileService)
-    {
-        _sellerProfileService = sellerProfileService;
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetSellerProfile(int id)
-    {
-        var result = await _sellerProfileService.GetByIdAsync(id);
-        
-        if (result.Success)
-            return Ok(result);
-        
-        return NotFound(result);
-    }
-}

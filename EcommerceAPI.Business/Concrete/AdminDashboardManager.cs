@@ -14,17 +14,20 @@ public class AdminDashboardManager : IAdminDashboardService
     private readonly IUserDal _userDal;
     private readonly IProductDal _productDal;
     private readonly ICategoryDal _categoryDal;
+    private readonly ISellerProfileDal _sellerProfileDal;
 
     public AdminDashboardManager(
         IOrderDal orderDal,
         IUserDal userDal,
         IProductDal productDal,
-        ICategoryDal categoryDal)
+        ICategoryDal categoryDal,
+        ISellerProfileDal sellerProfileDal)
     {
         _orderDal = orderDal;
         _userDal = userDal;
         _productDal = productDal;
         _categoryDal = categoryDal;
+        _sellerProfileDal = sellerProfileDal;
     }
 
     public async Task<IDataResult<AdminDashboardKpiDto>> GetKpiAsync()
@@ -33,6 +36,7 @@ public class AdminDashboardManager : IAdminDashboardService
         var users = await _userDal.GetAdminUsersWithDetailsAsync();
         var products = await _productDal.GetAllActiveWithDetailsAsync();
         var categories = await _categoryDal.GetAllWithProductsAsync();
+        var sellerProfiles = await _sellerProfileDal.GetAdminListWithDetailsAsync();
 
         var today = DateTime.UtcNow.Date;
         var yesterday = today.AddDays(-1);
@@ -57,7 +61,7 @@ public class AdminDashboardManager : IAdminDashboardService
                 .Count(),
             ActiveProducts = products.Count(product => product.IsActive),
             CategoryCount = categories.Count,
-            PendingSellerApplications = 0,
+            PendingSellerApplications = sellerProfiles.Count(profile => !profile.IsVerified && profile.User.AccountStatus == UserAccountStatus.Active),
             Currency = products.FirstOrDefault()?.Currency ?? "TRY"
         };
 
