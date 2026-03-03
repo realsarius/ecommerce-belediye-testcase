@@ -16,12 +16,12 @@ export function DataTable({
 }: DataTableProps) {
   return (
     <Card className="min-w-0 border-border/70">
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <div>
+      <CardHeader className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="min-w-0">
           <CardTitle>{title}</CardTitle>
           {description ? <CardDescription>{description}</CardDescription> : null}
         </div>
-        {actions ?? null}
+        <div className="w-full sm:w-auto">{actions ?? null}</div>
       </CardHeader>
       <CardContent className="min-w-0">{children}</CardContent>
     </Card>

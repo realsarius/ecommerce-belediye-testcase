@@ -319,7 +319,7 @@ export default function OrdersAdmin() {
                           onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
                           disabled={updatingOrderId === order.id}
                         >
-                          <SelectTrigger className="w-[200px]">
+                          <SelectTrigger className="w-full min-w-[11rem] max-w-full sm:w-[200px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

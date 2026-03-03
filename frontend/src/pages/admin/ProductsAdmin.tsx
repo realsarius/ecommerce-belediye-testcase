@@ -435,7 +435,7 @@ export default function AdminProducts() {
                 : 'İşlem için ürün seçin'}
             </p>
             <Select value={bulkAction} onValueChange={(value) => setBulkAction(value as BulkAction)}>
-              <SelectTrigger className="w-[210px]">
+              <SelectTrigger className="w-full sm:w-[210px]">
                 <SelectValue placeholder="Toplu işlem seçin" />
               </SelectTrigger>
               <SelectContent>

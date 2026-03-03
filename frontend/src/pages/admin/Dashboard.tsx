@@ -127,7 +127,7 @@ export default function AdminDashboard() {
       <div className="space-y-8">
         <div className="space-y-3">
           <Skeleton className="h-10 w-72" />
-          <Skeleton className="h-5 w-[32rem]" />
+          <Skeleton className="h-5 w-full max-w-[32rem]" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
