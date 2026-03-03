@@ -18,6 +18,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
     {
         var query = _dbSet.Include(p => p.Category)
                           .Include(p => p.Inventory)
+                          .Include(p => p.Images)
+                          .Include(p => p.Variants)
                           .Include(p => p.CampaignProducts)
                           .ThenInclude(cp => cp.Campaign)
                           .AsNoTracking()
@@ -76,6 +78,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
     public async Task<List<Product>> GetByIdsWithInventoryAsync(List<int> ids)
     {
         return await _dbSet.Include(p => p.Inventory)
+                           .Include(p => p.Images)
+                           .Include(p => p.Variants)
                            .Include(p => p.CampaignProducts)
                            .ThenInclude(cp => cp.Campaign)
                            .Include(p => p.Category)
@@ -89,9 +93,20 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         return await _dbSet
             .Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.Images)
+            .Include(p => p.Variants)
             .Include(p => p.CampaignProducts)
             .ThenInclude(cp => cp.Campaign)
             .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<Product?> GetByIdForUpdateAsync(int id)
+    {
+        return await _dbSet
+            .Include(p => p.Inventory)
+            .Include(p => p.Images)
+            .Include(p => p.Variants)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
@@ -102,6 +117,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         var query = _dbSet.Include(p => p.Category)
                           .Include(p => p.Inventory)
                           .Include(p => p.Seller)
+                          .Include(p => p.Images)
+                          .Include(p => p.Variants)
                           .Include(p => p.CampaignProducts)
                           .ThenInclude(cp => cp.Campaign)
                           .Where(p => p.SellerId == sellerId)
@@ -147,6 +164,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .Include(p => p.Category)
             .Include(p => p.Inventory)
             .Include(p => p.Seller)
+            .Include(p => p.Images)
+            .Include(p => p.Variants)
             .Include(p => p.CampaignProducts)
             .ThenInclude(cp => cp.Campaign)
             .Where(p => p.IsActive)

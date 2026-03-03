@@ -14,6 +14,7 @@ public interface IProductDal : IEntityRepository<Product>
     Task<Product?> GetWithInventoryAsync(int id);
     Task<List<Product>> GetByIdsWithInventoryAsync(List<int> ids);
     Task<Product?> GetByIdWithDetailsAsync(int id);
+    Task<Product?> GetByIdForUpdateAsync(int id);
     Task<(IEnumerable<Product> Items, int TotalCount)> GetPagedForSellerAsync(
         int page, int pageSize, int sellerId, int? categoryId = null, decimal? minPrice = null,
         decimal? maxPrice = null, string? search = null, string? sortBy = null, bool sortDescending = false);
