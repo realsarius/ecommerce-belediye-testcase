@@ -104,6 +104,14 @@ public class AdminProductsController : ControllerBase
         return BadRequest(result);
     }
 
+    [HttpPut("bulk")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> BulkUpdateProducts([FromBody] BulkUpdateProductsRequest request)
+    {
+        var result = await _productService.BulkUpdateProductsAsync(request);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProduct(int id)
     {

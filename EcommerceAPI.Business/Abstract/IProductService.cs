@@ -13,6 +13,7 @@ public interface IProductService
 
     Task<IDataResult<ProductDto>> CreateProductAsync(CreateProductRequest request, int? sellerId = null);
     Task<IDataResult<ProductDto>> UpdateProductAsync(int id, UpdateProductRequest request, int? sellerId = null);
+    Task<IResult> BulkUpdateProductsAsync(BulkUpdateProductsRequest request);
     Task<IResult> DeleteProductAsync(int id, int? sellerId = null);
     Task<IResult> UpdateStockAsync(int productId, UpdateStockRequest request, int userId);
     Task<bool> IsProductOwnedBySellerAsync(int productId, int sellerId);

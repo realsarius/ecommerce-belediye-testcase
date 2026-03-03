@@ -236,6 +236,70 @@ public class ProductManager : IProductService
     [LogAspect]
     [CacheRemoveAspect("products:")]
     [TransactionScopeAspect]
+    public async Task<IResult> BulkUpdateProductsAsync(BulkUpdateProductsRequest request)
+    {
+        var productIds = request.Ids
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        if (productIds.Count == 0)
+        {
+            return new ErrorResult("Toplu işlem için en az bir ürün seçilmelidir.");
+        }
+
+        var normalizedAction = request.Action.Trim().ToLowerInvariant();
+        if (normalizedAction is not ("activate" or "deactivate" or "delete"))
+        {
+            return new ErrorResult("Geçersiz toplu ürün işlemi.");
+        }
+
+        var products = await _productDal.GetListAsync(product => productIds.Contains(product.Id));
+        if (products.Count == 0)
+        {
+            return new ErrorResult(Messages.ProductNotFound);
+        }
+
+        var now = DateTime.UtcNow;
+        var shouldActivate = normalizedAction == "activate";
+
+        foreach (var product in products)
+        {
+            product.IsActive = shouldActivate;
+            product.UpdatedAt = now;
+            _productDal.Update(product);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            "Admin",
+            "BulkUpdateProducts",
+            "Product",
+            new
+            {
+                Action = normalizedAction,
+                ProductIds = products.Select(product => product.Id).ToList(),
+                Count = products.Count
+            });
+
+        var syncOperation = shouldActivate
+            ? ProductIndexOperations.Upsert
+            : ProductIndexOperations.Delete;
+
+        foreach (var product in products)
+        {
+            await QueueProductIndexSyncEventAsync(product.Id, syncOperation, "BulkUpdateProducts");
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return new SuccessResult($"{products.Count} ürün için toplu işlem tamamlandı.");
+    }
+
+    [LogAspect]
+    [CacheRemoveAspect("products:")]
+    [TransactionScopeAspect]
     public async Task<IResult> DeleteProductAsync(int id, int? sellerId = null)
     {
         var product = await _productDal.GetAsync(p => p.Id == id);
