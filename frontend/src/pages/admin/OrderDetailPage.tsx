@@ -178,7 +178,7 @@ export default function AdminOrderDetailPage() {
         <Card className="w-full max-w-md border-border/70">
           <CardHeader>
             <CardTitle>Durum Güncelle</CardTitle>
-            <CardDescription>Bu işlem mevcut admin status endpoint’i üzerinden çalışır.</CardDescription>
+            <CardDescription>Durum güncellemesi sonrası müşteri bildirim akışı otomatik tetiklenir.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row">
             <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus)}>

@@ -441,9 +441,41 @@ public class OrderManager : IOrderService
         }
 
         var previousStatus = order.Status;
+        if (previousStatus == orderStatus)
+        {
+            return new SuccessDataResult<OrderDto>(order.ToDto(), Messages.OrderStatusUpdated);
+        }
+
         order.Status = orderStatus;
-        _orderDal.Update(order);
-        await _unitOfWork.SaveChangesAsync(); 
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _unitOfWork.BeginTransactionAsync();
+
+        try
+        {
+            _orderDal.Update(order);
+
+            await _publishEndpoint.Publish(new OrderStatusChangedEvent
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                UserId = order.UserId,
+                CustomerEmail = order.User?.Email ?? string.Empty,
+                CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}".Trim() : string.Empty,
+                PreviousStatus = previousStatus.ToString(),
+                NewStatus = orderStatus.ToString(),
+                ChangedAt = DateTime.UtcNow
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            _logger.LogError(ex, "Sipariş durumu güncellenemedi. OrderId={OrderId}", orderId);
+            return new ErrorDataResult<OrderDto>($"Sipariş durumu güncellenemedi: {ex.Message}");
+        }
 
         await _auditService.LogActionAsync(
             sellerId?.ToString() ?? "Admin",
