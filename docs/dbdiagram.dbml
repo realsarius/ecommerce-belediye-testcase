@@ -1,0 +1,595 @@
+// ════════════════════════════════════════
+// IDENTITY & AUTH
+// ════════════════════════════════════════
+
+Table Role {
+  Id int [pk, increment]
+  Name varchar
+  Description varchar
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table User {
+  Id int [pk, increment]
+  Email varchar
+  EmailHash varchar
+  PasswordHash varchar
+  GoogleSubject varchar [null]
+  AppleSubject varchar [null]
+  IsEmailVerified bool
+  RoleId int [ref: > Role.Id]
+  ReferredByUserId int [null, ref: > User.Id]
+  AppliedReferralCodeId int [null, ref: > ReferralCode.Id]
+  ReferralRewardedOrderId int [null, ref: > Order.Id]
+  FirstName varchar
+  LastName varchar
+  AccountStatus varchar [note: 'Active, Banned, etc.']
+  LastLoginAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table RefreshToken {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  Token varchar
+  JwtId varchar
+  ExpiresAt datetime
+  IsRevoked bool
+  IsUsed bool
+  ReplacedByToken varchar [null]
+  RevokedReason varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// CATALOG
+// ════════════════════════════════════════
+
+Table Category {
+  Id int [pk, increment]
+  Name varchar
+  Description varchar
+  IsActive bool
+  ParentCategoryId int [null, ref: > Category.Id]
+  SortOrder int
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table Product {
+  Id int [pk, increment]
+  Name varchar
+  Description varchar
+  Price decimal
+  Currency varchar [default: 'TRY']
+  SKU varchar
+  IsActive bool
+  CategoryId int [ref: > Category.Id]
+  SellerId int [null, ref: > SellerProfile.Id]
+  WishlistCount int [default: 0]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table ProductImage {
+  Id int [pk, increment]
+  ProductId int [ref: > Product.Id]
+  ImageUrl varchar
+  SortOrder int
+  IsPrimary bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table ProductVariant {
+  Id int [pk, increment]
+  ProductId int [ref: > Product.Id]
+  Name varchar
+  Value varchar
+  SortOrder int
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// SELLER
+// ════════════════════════════════════════
+
+Table SellerProfile {
+  Id int [pk, increment]
+  UserId int [ref: - User.Id]
+  BrandName varchar
+  BrandDescription varchar [null]
+  LogoUrl varchar [null]
+  BannerImageUrl varchar [null]
+  ContactEmail varchar [null]
+  ContactPhone varchar [null]
+  WebsiteUrl varchar [null]
+  InstagramUrl varchar [null]
+  FacebookUrl varchar [null]
+  XUrl varchar [null]
+  IsVerified bool
+  CommissionRateOverride decimal [null]
+  ApplicationReviewNote varchar [null]
+  ApplicationReviewedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// INVENTORY
+// ════════════════════════════════════════
+
+Table Inventory {
+  ProductId int [pk, ref: - Product.Id]
+  QuantityAvailable int
+  QuantityReserved int
+  RowVersion int
+  UpdatedAt datetime
+}
+
+Table InventoryMovement {
+  Id int [pk, increment]
+  ProductId int [ref: > Product.Id]
+  UserId int [ref: > User.Id]
+  Delta int
+  Reason varchar
+  Notes varchar
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// SHOPPING: Cart
+// ════════════════════════════════════════
+
+Table Cart {
+  Id int [pk, increment]
+  UserId int [ref: - User.Id]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table CartItem {
+  Id int [pk, increment]
+  CartId int [ref: > Cart.Id]
+  ProductId int [ref: > Product.Id]
+  Quantity int
+  PriceSnapshot decimal
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// ORDERS & PAYMENTS
+// ════════════════════════════════════════
+
+Table Order {
+  Id int [pk, increment]
+  OrderNumber varchar
+  UserId int [ref: > User.Id]
+  Status varchar [note: 'PendingPayment, Processing, Shipped, Delivered, Cancelled']
+  TotalAmount decimal
+  SubtotalAmount decimal
+  Currency varchar [default: 'TRY']
+  ShippingAddress varchar
+  Notes varchar
+  CargoCompany varchar [null]
+  TrackingCode varchar [null]
+  ShippedAt datetime [null]
+  CancelledAt datetime [null]
+  CouponId int [null, ref: > Coupon.Id]
+  CouponCode varchar [null]
+  DiscountAmount decimal
+  LoyaltyPointsUsed int
+  LoyaltyPointsEarned int
+  LoyaltyDiscountAmount decimal
+  GiftCardId int [null, ref: > GiftCard.Id]
+  GiftCardCode varchar [null]
+  GiftCardAmount decimal
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table OrderItem {
+  Id int [pk, increment]
+  OrderId int [ref: > Order.Id]
+  ProductId int [ref: > Product.Id]
+  Quantity int
+  PriceSnapshot decimal
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table Payment {
+  Id int [pk, increment]
+  OrderId int [ref: - Order.Id]
+  Amount decimal
+  Currency varchar [default: 'TRY']
+  Status varchar [note: 'Pending, Completed, Failed, Refunded']
+  PaymentMethod varchar
+  PaymentProviderId varchar [null]
+  IdempotencyKey varchar
+  ErrorMessage varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// USER DATA: Addresses & Cards
+// ════════════════════════════════════════
+
+Table ShippingAddress {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  Title varchar
+  FullName varchar
+  Phone varchar
+  City varchar
+  District varchar
+  AddressLine varchar
+  PostalCode varchar [null]
+  IsDefault bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table CreditCard {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  CardAlias varchar
+  CardHolderName varchar
+  CardNumberEncrypted varchar
+  Last4Digits varchar
+  ExpireYearEncrypted varchar
+  ExpireMonthEncrypted varchar
+  CvvEncrypted varchar
+  IsDefault bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// PROMOTIONS: Coupon, Campaign, GiftCard
+// ════════════════════════════════════════
+
+Table Coupon {
+  Id int [pk, increment]
+  Code varchar
+  Type varchar [note: 'Percentage, FixedAmount']
+  Value decimal
+  MinOrderAmount decimal [null]
+  UsageLimit int
+  UsedCount int
+  ExpiresAt datetime
+  IsActive bool
+  Description varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table Campaign {
+  Id int [pk, increment]
+  Name varchar
+  Description varchar [null]
+  BadgeText varchar [null]
+  Type varchar [note: 'FlashSale, etc.']
+  Status varchar [note: 'Draft, Active, Ended']
+  IsEnabled bool
+  StartsAt datetime
+  EndsAt datetime
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table CampaignProduct {
+  Id int [pk, increment]
+  CampaignId int [ref: > Campaign.Id]
+  ProductId int [ref: > Product.Id]
+  CampaignPrice decimal
+  OriginalPriceSnapshot decimal
+  IsFeatured bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table GiftCard {
+  Id int [pk, increment]
+  Code varchar
+  InitialBalance decimal
+  CurrentBalance decimal
+  Currency varchar [default: 'TRY']
+  IsActive bool
+  ExpiresAt datetime [null]
+  AssignedUserId int [null, ref: > User.Id]
+  AssignedAt datetime [null]
+  LastUsedAt datetime [null]
+  Description varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table GiftCardTransaction {
+  Id int [pk, increment]
+  GiftCardId int [ref: > GiftCard.Id]
+  UserId int [null, ref: > User.Id]
+  OrderId int [null, ref: > Order.Id]
+  Type varchar
+  Amount decimal
+  BalanceAfter decimal
+  Description varchar
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// REVIEWS
+// ════════════════════════════════════════
+
+Table ProductReview {
+  Id int [pk, increment]
+  ProductId int [ref: > Product.Id]
+  UserId int [ref: > User.Id]
+  Rating int
+  Comment varchar
+  SellerReply varchar [null]
+  SellerRepliedByUserId int [null, ref: > User.Id]
+  SellerRepliedAt datetime [null]
+  ModerationStatus varchar [note: 'Approved, Pending, Rejected']
+  ModerationNote varchar [null]
+  ModeratedByUserId int [null, ref: > User.Id]
+  ModeratedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// WISHLIST & PRICE ALERTS
+// ════════════════════════════════════════
+
+Table Wishlist {
+  Id int [pk, increment]
+  UserId int [ref: - User.Id]
+  IsPublic bool
+  ShareToken varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table WishlistCollection {
+  Id int [pk, increment]
+  WishlistId int [ref: > Wishlist.Id]
+  Name varchar
+  IsDefault bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table WishlistItem {
+  Id int [pk, increment]
+  WishlistId int [ref: > Wishlist.Id]
+  ProductId int [ref: > Product.Id]
+  CollectionId int [ref: > WishlistCollection.Id]
+  AddedAtPrice decimal
+  AddedAt datetime
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table PriceAlert {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  ProductId int [ref: > Product.Id]
+  TargetPrice decimal
+  IsActive bool
+  LastKnownPrice decimal
+  LastTriggeredPrice decimal [null]
+  LastNotifiedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// NOTIFICATIONS
+// ════════════════════════════════════════
+
+Table Notification {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  Type varchar
+  Title varchar
+  Body varchar
+  DeepLink varchar [null]
+  IsRead bool
+  ReadAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table NotificationPreference {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  Type varchar
+  InAppEnabled bool
+  EmailEnabled bool
+  PushEnabled bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table NotificationTemplateSetting {
+  Id int [pk, increment]
+  Type varchar
+  DisplayName varchar
+  Description varchar
+  TitleExample varchar
+  BodyExample varchar
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table Announcement {
+  Id int [pk, increment]
+  CreatedByUserId int [ref: > User.Id]
+  Title varchar
+  Message varchar
+  AudienceType varchar
+  TargetRole varchar [null]
+  TargetUserIds varchar [null]
+  Channels varchar
+  Status varchar [note: 'Scheduled, Sent, Failed']
+  ScheduledAt datetime [null]
+  SentAt datetime [null]
+  RecipientCount int
+  DeliveredCount int
+  FailedCount int
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// SUPPORT
+// ════════════════════════════════════════
+
+Table SupportConversation {
+  Id int [pk, increment]
+  Subject varchar
+  CustomerUserId int [ref: > User.Id]
+  SupportUserId int [null, ref: > User.Id]
+  Status varchar [note: 'Open, InProgress, Closed']
+  LastMessageAt datetime [null]
+  ClosedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table SupportMessage {
+  Id int [pk, increment]
+  ConversationId int [ref: > SupportConversation.Id]
+  SenderUserId int [ref: > User.Id]
+  SenderRole varchar
+  Message varchar
+  IsSystemMessage bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// CONTACT
+// ════════════════════════════════════════
+
+Table ContactMessage {
+  Id int [pk, increment]
+  Name varchar
+  Email varchar
+  Subject varchar
+  Message varchar
+  IpAddress varchar [null]
+  UserAgent varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// RETURNS & REFUNDS
+// ════════════════════════════════════════
+
+Table ReturnRequest {
+  Id int [pk, increment]
+  OrderId int [ref: > Order.Id]
+  UserId int [ref: > User.Id]
+  Type varchar [note: 'Return, Exchange']
+  Status varchar [note: 'Pending, Approved, Rejected, Completed']
+  Reason varchar
+  RequestNote varchar [null]
+  RequestedRefundAmount decimal
+  ReviewedByUserId int [null, ref: > User.Id]
+  ReviewNote varchar [null]
+  ReviewedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table RefundRequest {
+  Id int [pk, increment]
+  ReturnRequestId int [ref: - ReturnRequest.Id]
+  OrderId int [ref: > Order.Id]
+  PaymentId int [null, ref: > Payment.Id]
+  Amount decimal
+  Status varchar [note: 'Pending, Completed, Failed']
+  IdempotencyKey varchar
+  ProviderRefundId varchar [null]
+  FailureReason varchar [null]
+  ProcessedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// LOYALTY & REFERRAL
+// ════════════════════════════════════════
+
+Table LoyaltyTransaction {
+  Id int [pk, increment]
+  UserId int [ref: > User.Id]
+  OrderId int [null, ref: > Order.Id]
+  Type varchar [note: 'Earned, Spent, Expired, Adjusted']
+  Points int
+  BalanceAfter int
+  Description varchar
+  ExpiresAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table ReferralCode {
+  Id int [pk, increment]
+  UserId int [ref: - User.Id]
+  Code varchar
+  IsActive bool
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table ReferralTransaction {
+  Id int [pk, increment]
+  ReferralCodeId int [ref: > ReferralCode.Id]
+  ReferrerUserId int [ref: > User.Id]
+  ReferredUserId int [ref: > User.Id]
+  BeneficiaryUserId int [null, ref: > User.Id]
+  OrderId int [null, ref: > Order.Id]
+  Type varchar [note: 'Signup, Purchase']
+  Points int
+  Description varchar
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+// ════════════════════════════════════════
+// MESSAGING (Outbox/Inbox Pattern)
+// ════════════════════════════════════════
+
+Table OutboxMessage {
+  Id int [pk, increment]
+  EventId varchar
+  EventType varchar
+  Payload text
+  ProcessedOnUtc datetime [null]
+  RetryCount int
+  LastError varchar [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table InboxMessage {
+  Id int [pk, increment]
+  MessageId varchar
+  ConsumerName varchar
+  MessageType varchar
+  ProcessedOnUtc datetime
+  CreatedAt datetime
+  UpdatedAt datetime
+}
