@@ -217,4 +217,34 @@ describe('OrderDetail sayfası', () => {
     expect(screen.getAllByText('Ödeme Bekleniyor')).toHaveLength(2);
     expect(screen.queryByText('İade Süreci')).not.toBeInTheDocument();
   });
+
+  it('teslim edilmiş ve aktif talebi olmayan siparişte iade talebi CTA göstermeli', () => {
+    mockOrdersApi.useGetOrderQuery.mockReturnValue({
+      data: createOrder(),
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<OrderDetail />);
+
+    expect(screen.getByRole('link', { name: 'İade Talebi Oluştur' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'İptal Talebi Oluştur' })).not.toBeInTheDocument();
+  });
+
+  it('hazırlanan siparişte iptal talebi CTA göstermeli', () => {
+    mockOrdersApi.useGetOrderQuery.mockReturnValue({
+      data: createOrder({
+        status: 'Processing',
+        deliveredAt: undefined,
+        shipmentStatus: 'Preparing',
+      }),
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<OrderDetail />);
+
+    expect(screen.getByRole('link', { name: 'İptal Talebi Oluştur' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'İade Talebi Oluştur' })).not.toBeInTheDocument();
+  });
 });

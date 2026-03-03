@@ -1,5 +1,6 @@
 import { CheckCircle2, MapPin, Navigation, Package, Truck } from 'lucide-react';
 import type { Order, ShipmentStatus } from '@/features/orders/types';
+import { buildTrackingUrl } from '@/lib/shipmentTracking';
 
 const shipmentSteps: { status: ShipmentStatus; label: string; icon: typeof Package }[] = [
   { status: 'Preparing', label: 'Hazırlanıyor', icon: Package },
@@ -38,40 +39,6 @@ function deriveShipmentStatus(order: Order): ShipmentStatus {
   return 'Pending';
 }
 
-function buildTrackingUrl(cargoCompany?: string, trackingCode?: string) {
-  if (!cargoCompany || !trackingCode) {
-    return null;
-  }
-
-  const normalizedCompany = cargoCompany.toLocaleLowerCase('tr-TR');
-
-  if (normalizedCompany.includes('yurti')) {
-    return `https://www.yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=${encodeURIComponent(trackingCode)}`;
-  }
-
-  if (normalizedCompany.includes('aras')) {
-    return `https://www.araskargo.com.tr/kargo-takip/${encodeURIComponent(trackingCode)}`;
-  }
-
-  if (normalizedCompany.includes('mng')) {
-    return `https://www.mngkargo.com.tr/gonderitakip/${encodeURIComponent(trackingCode)}`;
-  }
-
-  if (normalizedCompany.includes('ptt')) {
-    return `https://gonderitakip.ptt.gov.tr/Track/Verify?q=${encodeURIComponent(trackingCode)}`;
-  }
-
-  if (normalizedCompany.includes('sürat') || normalizedCompany.includes('surat')) {
-    return `https://www.suratkargo.com.tr/KargoTakip/?query=${encodeURIComponent(trackingCode)}`;
-  }
-
-  if (normalizedCompany.includes('ups')) {
-    return `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingCode)}`;
-  }
-
-  return null;
-}
-
 interface ShipmentTimelineProps {
   order: Order;
 }
@@ -86,8 +53,10 @@ export function ShipmentTimeline({ order }: ShipmentTimelineProps) {
       <div className="space-y-4">
         {shipmentSteps.map((step, index) => {
           const Icon = step.icon;
-          const isCompleted = progress > index;
           const isCurrent = progress === index + 1 && effectiveShipmentStatus !== 'Delivered';
+          const isCompleted = effectiveShipmentStatus === 'Delivered'
+            ? progress >= index + 1
+            : progress > index + 1;
 
           return (
             <div key={step.status} className="flex gap-4">
