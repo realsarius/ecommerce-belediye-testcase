@@ -193,6 +193,23 @@ public class ProductReviewManager : IProductReviewService
         return new SuccessDataResult<List<ProductReviewDto>>(reviews.Select(MapToDto).ToList());
     }
 
+    public async Task<IDataResult<List<ProductReviewDto>>> GetSellerReviewsAsync(
+        int sellerUserId,
+        int? productId = null,
+        int? rating = null,
+        bool? replied = null)
+    {
+        var sellerProfile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(sellerUserId);
+        if (sellerProfile == null)
+            return new ErrorDataResult<List<ProductReviewDto>>("Seller profili bulunamadı.");
+
+        if (rating.HasValue && (rating.Value < 1 || rating.Value > 5))
+            return new ErrorDataResult<List<ProductReviewDto>>(Messages.ReviewRatingInvalid);
+
+        var reviews = await _reviewDal.GetSellerListAsync(sellerProfile.Id, productId, rating, replied);
+        return new SuccessDataResult<List<ProductReviewDto>>(reviews.Select(MapToDto).ToList());
+    }
+
     public async Task<IDataResult<ProductReviewDto>> AdminApproveAsync(int reviewId, int adminUserId)
     {
         var review = await _reviewDal.GetByIdWithDetailsAsync(reviewId);

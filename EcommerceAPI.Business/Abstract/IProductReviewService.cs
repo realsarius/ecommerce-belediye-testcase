@@ -9,6 +9,7 @@ public interface IProductReviewService
     Task<IDataResult<List<ProductReviewDto>>> GetByProductIdAsync(int productId);
     Task<IDataResult<ProductReviewSummaryDto>> GetProductReviewSummaryAsync(int productId);
     Task<IDataResult<List<ProductReviewDto>>> GetAdminReviewsAsync(ProductReviewModerationStatus? moderationStatus = null);
+    Task<IDataResult<List<ProductReviewDto>>> GetSellerReviewsAsync(int sellerUserId, int? productId = null, int? rating = null, bool? replied = null);
     Task<IDataResult<ProductReviewDto>> CreateAsync(int userId, int productId, CreateReviewRequest request);
     Task<IDataResult<ProductReviewDto>> UpdateAsync(int userId, int reviewId, UpdateReviewRequest request);
     Task<IDataResult<ProductReviewDto>> SellerReplyAsync(int sellerUserId, int reviewId, SellerReviewReplyRequest request);

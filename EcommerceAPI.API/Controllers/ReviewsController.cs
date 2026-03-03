@@ -159,6 +159,18 @@ public class SellerReviewsController : BaseApiController
         _reviewService = reviewService;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetReviews([FromQuery] int? productId = null, [FromQuery] int? rating = null, [FromQuery] bool? replied = null)
+    {
+        var result = await _reviewService.GetSellerReviewsAsync(
+            sellerUserId: GetUserId(),
+            productId: productId,
+            rating: rating,
+            replied: replied);
+
+        return HandleResult(result);
+    }
+
     [HttpPost("{reviewId}/reply")]
     public async Task<IActionResult> ReplyToReview(int reviewId, [FromBody] SellerReviewReplyRequest request)
     {

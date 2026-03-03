@@ -62,6 +62,38 @@ public class EfProductReviewDal : EfEntityRepositoryBase<ProductReview, AppDbCon
             .ToListAsync();
     }
 
+    public async Task<List<ProductReview>> GetSellerListAsync(int sellerProfileId, int? productId = null, int? rating = null, bool? replied = null)
+    {
+        var query = _context.ProductReviews
+            .Include(r => r.User)
+            .Include(r => r.Product)
+            .Where(r => r.Product != null
+                        && r.Product.SellerId == sellerProfileId
+                        && r.ModerationStatus == ProductReviewModerationStatus.Approved)
+            .AsQueryable();
+
+        if (productId.HasValue)
+        {
+            query = query.Where(r => r.ProductId == productId.Value);
+        }
+
+        if (rating.HasValue)
+        {
+            query = query.Where(r => r.Rating == rating.Value);
+        }
+
+        if (replied.HasValue)
+        {
+            query = replied.Value
+                ? query.Where(r => !string.IsNullOrWhiteSpace(r.SellerReply))
+                : query.Where(r => string.IsNullOrWhiteSpace(r.SellerReply));
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<(double average, int count)> GetProductRatingAsync(int productId)
     {
         var reviews = await _context.ProductReviews
