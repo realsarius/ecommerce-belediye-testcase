@@ -13,7 +13,8 @@ public interface IOrderService
 
     Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync();
     Task<IDataResult<List<OrderDto>>> GetOrdersForSellerAsync(int sellerId);
+    Task<IDataResult<OrderDto>> GetSellerOrderAsync(int sellerId, int orderId);
     Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status, int? sellerId = null);
+    Task<IDataResult<OrderDto>> ShipOrderAsync(int sellerId, int orderId, ShipOrderRequest request);
     Task<IDataResult<OrderDto>> UpdateOrderItemsAsync(int userId, int orderId, UpdateOrderItemsRequest request);
 }
-

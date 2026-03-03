@@ -405,6 +405,24 @@ public class OrderManager : IOrderService
     }
 
     [LogAspect]
+    public async Task<IDataResult<OrderDto>> GetSellerOrderAsync(int sellerId, int orderId)
+    {
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        if (order == null)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
+        }
+
+        var isSellerOrder = order.OrderItems.Any(oi => oi.Product.SellerId == sellerId);
+        if (!isSellerOrder)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotBelongToUser);
+        }
+
+        return new SuccessDataResult<OrderDto>(order.ToDto());
+    }
+
+    [LogAspect]
     public async Task<IDataResult<OrderDto>> UpdateOrderStatusAsync(int orderId, string status, int? sellerId = null)
     {
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
@@ -434,6 +452,83 @@ public class OrderManager : IOrderService
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, PreviousStatus = previousStatus.ToString(), NewStatus = orderStatus.ToString() });
 
         return new SuccessDataResult<OrderDto>(order.ToDto(), Messages.OrderStatusUpdated);
+    }
+
+    [LogAspect]
+    public async Task<IDataResult<OrderDto>> ShipOrderAsync(int sellerId, int orderId, ShipOrderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.TrackingCode) || string.IsNullOrWhiteSpace(request.CargoCompany))
+        {
+            return new ErrorDataResult<OrderDto>("Kargo firması ve takip kodu zorunludur.");
+        }
+
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        if (order == null)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
+        }
+
+        var isSellerOrder = order.OrderItems.Any(oi => oi.Product.SellerId == sellerId);
+        if (!isSellerOrder)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotBelongToUser);
+        }
+
+        if (order.Status is not OrderStatus.Paid and not OrderStatus.Processing)
+        {
+            return new ErrorDataResult<OrderDto>("Sadece ödenmiş veya hazırlanmakta olan siparişler kargoya verilebilir.");
+        }
+
+        var previousStatus = order.Status;
+        var shippedAt = DateTime.UtcNow;
+
+        order.Status = OrderStatus.Shipped;
+        order.CargoCompany = request.CargoCompany.Trim();
+        order.TrackingCode = request.TrackingCode.Trim();
+        order.ShippedAt = shippedAt;
+
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            _orderDal.Update(order);
+
+            await _publishEndpoint.Publish(new OrderShippedEvent
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                UserId = order.UserId,
+                CustomerEmail = order.User?.Email ?? string.Empty,
+                CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}".Trim() : string.Empty,
+                CargoCompany = order.CargoCompany,
+                TrackingCode = order.TrackingCode,
+                ShippedAt = shippedAt
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            _logger.LogError(ex, "Sipariş kargoya verilemedi. OrderId={OrderId}, SellerId={SellerId}", orderId, sellerId);
+            return new ErrorDataResult<OrderDto>($"Sipariş kargoya verilemedi: {ex.Message}");
+        }
+
+        await _auditService.LogActionAsync(
+            sellerId.ToString(),
+            "ShipOrder",
+            "Order",
+            new
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                PreviousStatus = previousStatus.ToString(),
+                NewStatus = order.Status.ToString(),
+                order.CargoCompany,
+                order.TrackingCode
+            });
+
+        return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş kargoya verildi.");
     }
 
     [LogAspect]
