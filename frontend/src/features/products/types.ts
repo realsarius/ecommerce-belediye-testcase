@@ -109,16 +109,37 @@ export interface UpdateStockRequest {
 export interface Category {
   id: number;
   name: string;
+  description: string;
   isActive: boolean;
+  parentCategoryId?: number | null;
+  sortOrder: number;
   productCount: number;
+  childCount: number;
+  createdAt?: string;
+  updatedAt?: string | null;
 }
 
 export interface CreateCategoryRequest {
   name: string;
+  description?: string;
   isActive: boolean;
+  parentCategoryId?: number | null;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
+  description?: string;
   isActive?: boolean;
+  parentCategoryId?: number | null;
+  sortOrder?: number;
+}
+
+export interface ReorderCategoryItemRequest {
+  id: number;
+  parentCategoryId?: number | null;
+  sortOrder: number;
+}
+
+export interface ReorderCategoriesRequest {
+  items: ReorderCategoryItemRequest[];
 }

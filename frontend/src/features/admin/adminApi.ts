@@ -4,6 +4,7 @@ import type {
   Category,
   CreateCategoryRequest,
   ProductReviewDto,
+  ReorderCategoriesRequest,
   ReviewModerationRequest,
   UpdateCategoryRequest,
 } from '@/features/products/types';
@@ -60,6 +61,14 @@ export const adminApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: Category }) => response.data,
+      invalidatesTags: ['Categories'],
+    }),
+    reorderCategories: builder.mutation<void, ReorderCategoriesRequest>({
+      query: (data) => ({
+        url: '/admin/categories/reorder',
+        method: 'PUT',
+        body: data,
+      }),
       invalidatesTags: ['Categories'],
     }),
     deleteCategory: builder.mutation<void, number>({
@@ -249,6 +258,7 @@ export const {
   useGetAdminCategoriesQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
+  useReorderCategoriesMutation,
   useDeleteCategoryMutation,
   useGetAddressesQuery,
   useCreateAddressMutation,
