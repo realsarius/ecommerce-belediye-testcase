@@ -21,6 +21,9 @@ export interface Order {
   shippingAddress: string;
   createdAt: string;
   updatedAt: string;
+  cargoCompany?: string;
+  trackingCode?: string;
+  shippedAt?: string;
   couponCode?: string;
   discountAmount?: number;
   loyaltyPointsUsed?: number;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Package, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/common/button';
@@ -31,17 +31,8 @@ import {
 import { Label } from '@/components/common/label';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
-import { useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
-import { useGetSellerOrdersQuery } from '@/features/seller/sellerApi';
+import { useGetSellerOrdersQuery, useShipSellerOrderMutation } from '@/features/seller/sellerApi';
 import type { Order, OrderStatus } from '@/features/orders/types';
-
-const SHIPPING_STORAGE_KEY = 'seller-order-shipping-records';
-
-type ShippingRecord = {
-  trackingCode: string;
-  cargoCompany: string;
-  updatedAt: string;
-};
 
 const orderStatusLabels: Record<OrderStatus, string> = {
   PendingPayment: 'Ödeme Bekleniyor',
@@ -84,7 +75,7 @@ function canShipOrder(status: OrderStatus) {
   return status === 'Paid' || status === 'Processing';
 }
 
-function buildTimeline(order: Order, shippingRecord?: ShippingRecord) {
+function buildTimeline(order: Order) {
   const currentIndex = ({
     PendingPayment: 0,
     Paid: 1,
@@ -102,8 +93,8 @@ function buildTimeline(order: Order, shippingRecord?: ShippingRecord) {
     {
       label: 'Kargoda',
       active: currentIndex >= 3,
-      meta: shippingRecord
-        ? `${shippingRecord.cargoCompany} • ${shippingRecord.trackingCode}`
+      meta: order.cargoCompany && order.trackingCode
+        ? `${order.cargoCompany} • ${order.trackingCode}`
         : (currentIndex >= 3 ? 'Kargo bilgisi bekleniyor' : 'Bekleniyor'),
     },
     { label: 'Teslim Edildi', active: currentIndex >= 4 && order.status !== 'Cancelled' && order.status !== 'Refunded', meta: currentIndex >= 4 ? 'Tamamlandı' : 'Bekleniyor' },
@@ -118,29 +109,9 @@ export default function SellerOrders() {
   const [shippingDialogOrder, setShippingDialogOrder] = useState<Order | null>(null);
   const [trackingCode, setTrackingCode] = useState('');
   const [cargoCompany, setCargoCompany] = useState('');
-  const [shippingRecords, setShippingRecords] = useState<Record<number, ShippingRecord>>(() => {
-    if (typeof window === 'undefined') {
-      return {};
-    }
-
-    try {
-      const saved = window.localStorage.getItem(SHIPPING_STORAGE_KEY);
-      return saved ? JSON.parse(saved) as Record<number, ShippingRecord> : {};
-    } catch {
-      return {};
-    }
-  });
 
   const { data: orders = [], isLoading } = useGetSellerOrdersQuery();
-  const [updateOrderStatus, { isLoading: isUpdating }] = useUpdateOrderStatusMutation();
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify(shippingRecords));
-  }, [shippingRecords]);
+  const [shipSellerOrder, { isLoading: isUpdating }] = useShipSellerOrderMutation();
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -171,10 +142,9 @@ export default function SellerOrders() {
   }, [filteredOrders]);
 
   const openShippingDialog = (order: Order) => {
-    const savedRecord = shippingRecords[order.id];
     setShippingDialogOrder(order);
-    setTrackingCode(savedRecord?.trackingCode ?? '');
-    setCargoCompany(savedRecord?.cargoCompany ?? '');
+    setTrackingCode(order.trackingCode ?? '');
+    setCargoCompany(order.cargoCompany ?? '');
   };
 
   const handleShipOrder = async () => {
@@ -188,17 +158,14 @@ export default function SellerOrders() {
     }
 
     try {
-      await updateOrderStatus({ id: shippingDialogOrder.id, status: 'Shipped' }).unwrap();
-      setShippingRecords((current) => ({
-        ...current,
-        [shippingDialogOrder.id]: {
-          trackingCode: trackingCode.trim(),
-          cargoCompany: cargoCompany.trim(),
-          updatedAt: new Date().toISOString(),
-        },
-      }));
-      toast.success('Sipariş kargoya verildi olarak işaretlendi');
+      const updatedOrder = await shipSellerOrder({
+        id: shippingDialogOrder.id,
+        trackingCode: trackingCode.trim(),
+        cargoCompany: cargoCompany.trim(),
+      }).unwrap();
+      setSelectedOrder((current) => (current?.id === updatedOrder.id ? updatedOrder : current));
       setShippingDialogOrder(null);
+      toast.success('Sipariş kargoya verildi ve müşteri bilgilendirildi');
       setTrackingCode('');
       setCargoCompany('');
     } catch {
@@ -227,9 +194,6 @@ export default function SellerOrders() {
           <h1 className="text-3xl font-bold tracking-tight">Siparişlerim</h1>
           <p className="max-w-3xl text-muted-foreground">
             Mağazanıza ait siparişleri filtreleyin, detaylarını inceleyin ve hazır olanları takip kodu ile kargoya verin.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Ayrı seller ship endpoint’i gelene kadar takip kodu ve kargo firması bilgisi bu panelde yerel olarak saklanır; sipariş durumu ise mevcut backend akışıyla güncellenir.
           </p>
         </div>
       </div>
@@ -320,8 +284,6 @@ export default function SellerOrders() {
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => {
-                const shippingRecord = shippingRecords[order.id];
-
                 return (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
@@ -334,10 +296,10 @@ export default function SellerOrders() {
                     </TableCell>
                     <TableCell>{formatCurrency(order.totalAmount, order.currency || 'TRY')}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {shippingRecord ? (
+                      {order.cargoCompany && order.trackingCode ? (
                         <div className="space-y-1">
-                          <p className="font-medium text-foreground">{shippingRecord.cargoCompany}</p>
-                          <p>{shippingRecord.trackingCode}</p>
+                          <p className="font-medium text-foreground">{order.cargoCompany}</p>
+                          <p>{order.trackingCode}</p>
                         </div>
                       ) : (
                         'Henüz tanımlanmadı'
@@ -463,13 +425,15 @@ export default function SellerOrders() {
                       <CardTitle className="text-base">Kargo Bilgisi</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
-                      {shippingRecords[selectedOrder.id] ? (
+                      {selectedOrder.cargoCompany && selectedOrder.trackingCode ? (
                         <>
-                          <p><span className="font-medium">Firma:</span> {shippingRecords[selectedOrder.id].cargoCompany}</p>
-                          <p><span className="font-medium">Takip Kodu:</span> {shippingRecords[selectedOrder.id].trackingCode}</p>
-                          <p className="text-muted-foreground">
-                            Son güncelleme: {new Date(shippingRecords[selectedOrder.id].updatedAt).toLocaleString('tr-TR')}
-                          </p>
+                          <p><span className="font-medium">Firma:</span> {selectedOrder.cargoCompany}</p>
+                          <p><span className="font-medium">Takip Kodu:</span> {selectedOrder.trackingCode}</p>
+                          {selectedOrder.shippedAt ? (
+                            <p className="text-muted-foreground">
+                              Gönderim zamanı: {new Date(selectedOrder.shippedAt).toLocaleString('tr-TR')}
+                            </p>
+                          ) : null}
                         </>
                       ) : (
                         <p className="text-muted-foreground">Henüz takip bilgisi girilmedi.</p>
@@ -485,7 +449,7 @@ export default function SellerOrders() {
                   <CardDescription>Mevcut sipariş durumuna göre operasyon adımları.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-5">
-                  {buildTimeline(selectedOrder, shippingRecords[selectedOrder.id]).map((step) => (
+                  {buildTimeline(selectedOrder).map((step) => (
                     <div
                       key={`${selectedOrder.id}-${step.label}`}
                       className={`rounded-xl border p-4 ${step.active ? 'border-primary/40 bg-primary/5' : 'border-border/70 bg-muted/20'}`}

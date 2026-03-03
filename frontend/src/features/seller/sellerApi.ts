@@ -81,9 +81,19 @@ export const sellerApi = baseApi.injectEndpoints({
     }),
 
     getSellerOrders: builder.query<Order[], void>({
-      query: () => '/admin/orders',
+      query: () => '/seller/orders',
       transformResponse: (response: Order[] | { data: Order[] }) => unwrapApiData(response),
       providesTags: ['Orders'],
+    }),
+
+    shipSellerOrder: builder.mutation<Order, { id: number; trackingCode: string; cargoCompany: string }>({
+      query: ({ id, trackingCode, cargoCompany }) => ({
+        url: `/seller/orders/${id}/ship`,
+        method: 'PUT',
+        body: { trackingCode, cargoCompany },
+      }),
+      transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
+      invalidatesTags: ['Orders'],
     }),
 
     // Seller Products endpoints (uses admin/products but filtered for seller)
@@ -149,6 +159,7 @@ export const {
   useGetSellerAnalyticsTrendsQuery,
   useGetSellerFinanceSummaryQuery,
   useGetSellerOrdersQuery,
+  useShipSellerOrderMutation,
   useGetSellerProductsQuery,
   useCreateSellerProductMutation,
   useUpdateSellerProductMutation,
