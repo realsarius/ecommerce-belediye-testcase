@@ -1,6 +1,6 @@
 using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.DataAccess.Abstract;
-using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using FluentAssertions;
 using Moq;
@@ -32,27 +32,27 @@ public class AdminDashboardManagerTests
         var yesterday = today.AddDays(-1);
 
         _orderDalMock
-            .Setup(x => x.GetAllOrdersWithDetailsAsync())
+            .Setup(x => x.GetAdminDashboardOrderProjectionsAsync())
             .ReturnsAsync([
-                new Order
+                new AdminDashboardOrderProjectionDto
                 {
-                    Id = 1,
+                    OrderId = 1,
                     CreatedAt = today.AddHours(3),
                     Status = OrderStatus.Paid,
                     TotalAmount = 120m,
                     Currency = "TRY"
                 },
-                new Order
+                new AdminDashboardOrderProjectionDto
                 {
-                    Id = 2,
+                    OrderId = 2,
                     CreatedAt = today.AddHours(5),
                     Status = OrderStatus.Cancelled,
                     TotalAmount = 999m,
                     Currency = "TRY"
                 },
-                new Order
+                new AdminDashboardOrderProjectionDto
                 {
-                    Id = 3,
+                    OrderId = 3,
                     CreatedAt = yesterday.AddHours(2),
                     Status = OrderStatus.Delivered,
                     TotalAmount = 80m,
@@ -61,52 +61,23 @@ public class AdminDashboardManagerTests
             ]);
 
         _userDalMock
-            .Setup(x => x.GetAdminUsersWithDetailsAsync())
+            .Setup(x => x.GetAdminDashboardUserCreatedDatesAsync())
             .ReturnsAsync([
-                new User { Id = 1, FirstName = "Bugun", LastName = "Uye", Email = "today@test.com", CreatedAt = today.AddHours(1) },
-                new User { Id = 2, FirstName = "Dun", LastName = "Uye", Email = "yesterday@test.com", CreatedAt = yesterday.AddHours(1) }
+                today.AddHours(1),
+                yesterday.AddHours(1)
             ]);
 
         _productDalMock
-            .Setup(x => x.GetAllActiveWithDetailsAsync())
-            .ReturnsAsync([
-                new Product { Id = 11, Name = "A", Description = "d", Price = 10, SKU = "A", Currency = "TRY", IsActive = true, SellerId = 101 },
-                new Product { Id = 12, Name = "B", Description = "d", Price = 20, SKU = "B", Currency = "TRY", IsActive = true, SellerId = 102 },
-                new Product { Id = 13, Name = "C", Description = "d", Price = 20, SKU = "C", Currency = "TRY", IsActive = false, SellerId = 103 }
-            ]);
+            .Setup(x => x.GetAdminDashboardProductSummaryAsync())
+            .ReturnsAsync((2, 2, "TRY"));
 
         _categoryDalMock
-            .Setup(x => x.GetAllWithProductsAsync())
-            .ReturnsAsync([
-                new Category { Id = 1, Name = "Elektronik" },
-                new Category { Id = 2, Name = "Giyim" }
-            ]);
+            .Setup(x => x.GetDashboardCategoryCountAsync())
+            .ReturnsAsync(2);
 
         _sellerProfileDalMock
-            .Setup(x => x.GetAdminListWithDetailsAsync())
-            .ReturnsAsync([
-                new SellerProfile
-                {
-                    Id = 201,
-                    BrandName = "Bekleyen",
-                    IsVerified = false,
-                    User = new User { Id = 10, FirstName = "Pending", LastName = "Seller", Email = "pending@test.com", AccountStatus = UserAccountStatus.Active }
-                },
-                new SellerProfile
-                {
-                    Id = 202,
-                    BrandName = "Onayli",
-                    IsVerified = true,
-                    User = new User { Id = 11, FirstName = "Verified", LastName = "Seller", Email = "verified@test.com", AccountStatus = UserAccountStatus.Active }
-                },
-                new SellerProfile
-                {
-                    Id = 203,
-                    BrandName = "Pasif",
-                    IsVerified = false,
-                    User = new User { Id = 12, FirstName = "Suspended", LastName = "Seller", Email = "suspended@test.com", AccountStatus = UserAccountStatus.Suspended }
-                }
-            ]);
+            .Setup(x => x.GetPendingApplicationCountAsync())
+            .ReturnsAsync(1);
 
         var result = await CreateManager().GetKpiAsync();
 
@@ -128,37 +99,21 @@ public class AdminDashboardManagerTests
     public async Task GetLowStockAsync_ShouldReturnThresholdFilteredProductsOrderedByStock()
     {
         _productDalMock
-            .Setup(x => x.GetAllActiveWithDetailsAsync())
+            .Setup(x => x.GetAdminDashboardLowStockAsync(5, 5))
             .ReturnsAsync([
-                new Product
+                new AdminDashboardLowStockItemDto
                 {
-                    Id = 21,
-                    Name = "Kulaklik",
-                    Description = "d",
-                    Price = 100,
-                    SKU = "K1",
-                    Seller = new SellerProfile { BrandName = "Ses Magazasi" },
-                    Inventory = new Inventory { QuantityAvailable = 4 }
-                },
-                new Product
-                {
-                    Id = 22,
                     Name = "Mouse",
-                    Description = "d",
-                    Price = 80,
-                    SKU = "M1",
-                    Seller = new SellerProfile { BrandName = "Tekno" },
-                    Inventory = new Inventory { QuantityAvailable = 0 }
+                    ProductId = 22,
+                    SellerName = "Tekno",
+                    Stock = 0
                 },
-                new Product
+                new AdminDashboardLowStockItemDto
                 {
-                    Id = 23,
-                    Name = "Klavye",
-                    Description = "d",
-                    Price = 120,
-                    SKU = "K2",
-                    Seller = new SellerProfile { BrandName = "Tekno" },
-                    Inventory = new Inventory { QuantityAvailable = 8 }
+                    Name = "Kulaklik",
+                    ProductId = 21,
+                    SellerName = "Ses Magazasi",
+                    Stock = 4
                 }
             ]);
 
