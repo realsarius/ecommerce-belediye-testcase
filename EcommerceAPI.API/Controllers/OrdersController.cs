@@ -30,6 +30,7 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request)
     {
         ApplyIdempotencyKeyHeader(request);
+        ApplyAcceptedFromIp(request);
 
         var userId = GetUserId();
         var result = await _orderService.CheckoutAsync(userId, request);
@@ -58,6 +59,14 @@ public class OrdersController : ControllerBase
         {
             request.IdempotencyKey = headerKey;
         }
+    }
+
+    private void ApplyAcceptedFromIp(CheckoutRequest request)
+    {
+        request.AcceptedFromIp = Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor)
+            && !string.IsNullOrWhiteSpace(forwardedFor)
+                ? forwardedFor.ToString().Split(',')[0].Trim()
+                : HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     [HttpGet]
@@ -110,4 +119,3 @@ public class OrdersController : ControllerBase
         return BadRequest(result);
     }
 }
-

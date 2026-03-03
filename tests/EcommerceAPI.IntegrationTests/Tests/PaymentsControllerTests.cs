@@ -6,6 +6,7 @@ using FluentAssertions;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
@@ -39,6 +40,16 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
     public PaymentsControllerTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
+    }
+
+    private static CheckoutInvoiceInfoRequest CreateInvoiceInfo(string address = "Test Invoice Address 123, Istanbul")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Individual,
+            FullName = "Test User",
+            InvoiceAddress = address
+        };
     }
 
     [Fact]
@@ -133,7 +144,10 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         var checkoutResponse = await authenticatedClient.PostAsJsonAsync("/api/v1/orders", new CheckoutRequest
         {
             ShippingAddress = "Test Address 123, Istanbul",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         });
 
         if (!checkoutResponse.IsSuccessStatusCode)

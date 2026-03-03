@@ -28,4 +28,5 @@ public class OrderDto : IDto
     
     public List<OrderItemDto> Items { get; set; } = new();
     public PaymentDto? Payment { get; set; }
+    public InvoiceInfoDto? InvoiceInfo { get; set; }
 }

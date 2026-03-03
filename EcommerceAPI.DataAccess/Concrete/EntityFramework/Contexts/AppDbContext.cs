@@ -46,6 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<InvoiceInfo> InvoiceInfos => Set<InvoiceInfo>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<ShippingAddress> ShippingAddresses => Set<ShippingAddress>();
@@ -128,6 +129,7 @@ public class AppDbContext : DbContext
             modelBuilder.ApplyConfiguration(new UserConfiguration(_encryptionService));
             modelBuilder.ApplyConfiguration(new ShippingAddressConfiguration(_encryptionService));
             modelBuilder.ApplyConfiguration(new OrderConfiguration(_encryptionService));
+            modelBuilder.ApplyConfiguration(new InvoiceInfoConfiguration(_encryptionService));
             modelBuilder.ApplyConfiguration(new CreditCardConfiguration(_encryptionService!));
         }
         else
@@ -135,6 +137,7 @@ public class AppDbContext : DbContext
             modelBuilder.ApplyConfiguration(new UserConfigurationBasic());
             modelBuilder.ApplyConfiguration(new ShippingAddressConfigurationBasic());
             modelBuilder.ApplyConfiguration(new OrderConfigurationBasic());
+            modelBuilder.ApplyConfiguration(new InvoiceInfoConfigurationBasic());
             modelBuilder.ApplyConfiguration(new CreditCardConfigurationBasic());
         }
     }

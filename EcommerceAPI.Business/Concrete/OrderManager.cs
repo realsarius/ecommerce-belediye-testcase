@@ -15,6 +15,7 @@ using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using InvoiceType = EcommerceAPI.Entities.Enums.InvoiceType;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -69,6 +70,17 @@ public class OrderManager : IOrderService
     [ValidationAspect(typeof(CheckoutRequestValidator))]
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
+        if (!request.PreliminaryInfoAccepted || !request.DistanceSalesContractAccepted)
+        {
+            return new ErrorDataResult<OrderDto>("Yasal onaylar tamamlanmadan sipariş oluşturulamaz.");
+        }
+
+        var invoiceValidationError = ValidateInvoiceInfo(request.InvoiceInfo);
+        if (invoiceValidationError != null)
+        {
+            return new ErrorDataResult<OrderDto>(invoiceValidationError);
+        }
+
         var idempotencyKey = NormalizeIdempotencyKey(request.IdempotencyKey);
         request.IdempotencyKey = idempotencyKey;
 
@@ -847,6 +859,7 @@ public class OrderManager : IOrderService
         LoyaltyRedemptionPreviewDto loyaltyRedemption,
         GiftCardValidationResult giftCardRedemption)
     {
+        var acceptedAt = DateTime.UtcNow;
         var order = new Order
         {
             UserId = userId,
@@ -854,6 +867,9 @@ public class OrderManager : IOrderService
             Status = giftCardRedemption.FinalTotal <= 0 ? OrderStatus.Paid : OrderStatus.PendingPayment,
             ShippingAddress = request.ShippingAddress,
             Notes = request.Notes ?? string.Empty,
+            PreliminaryInfoAcceptedAt = request.PreliminaryInfoAccepted ? acceptedAt : null,
+            DistanceSalesContractAcceptedAt = request.DistanceSalesContractAccepted ? acceptedAt : null,
+            AcceptedFromIp = string.IsNullOrWhiteSpace(request.AcceptedFromIp) ? null : request.AcceptedFromIp,
             SubtotalAmount = subtotal,
             TotalAmount = subtotal - couponData.Amount + shippingCost - loyaltyRedemption.DiscountAmount - giftCardRedemption.AppliedAmount,
             CouponId = couponData.Id,
@@ -863,7 +879,8 @@ public class OrderManager : IOrderService
             LoyaltyDiscountAmount = loyaltyRedemption.DiscountAmount,
             GiftCardId = giftCardRedemption.GiftCardId > 0 ? giftCardRedemption.GiftCardId : null,
             GiftCardCode = string.IsNullOrWhiteSpace(giftCardRedemption.Code) ? null : giftCardRedemption.Code,
-            GiftCardAmount = giftCardRedemption.AppliedAmount
+            GiftCardAmount = giftCardRedemption.AppliedAmount,
+            InvoiceInfo = CreateInvoiceInfo(request.InvoiceInfo!)
         };
 
         foreach (var cartItem in cartDto.Items)
@@ -920,5 +937,67 @@ public class OrderManager : IOrderService
         }
 
         return await _giftCardService.ValidateAsync(userId, giftCardCode, amountAfterDiscounts);
+    }
+
+    private static string? ValidateInvoiceInfo(CheckoutInvoiceInfoRequest? invoiceInfo)
+    {
+        if (invoiceInfo == null)
+        {
+            return "Fatura bilgisi zorunludur.";
+        }
+
+        if (string.IsNullOrWhiteSpace(invoiceInfo.InvoiceAddress) || invoiceInfo.InvoiceAddress.Length < 10)
+        {
+            return "Fatura adresi zorunludur.";
+        }
+
+        if (invoiceInfo.Type == InvoiceType.Corporate)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceInfo.CompanyName))
+            {
+                return "Kurumsal fatura için şirket adı zorunludur.";
+            }
+
+            if (string.IsNullOrWhiteSpace(invoiceInfo.TaxOffice))
+            {
+                return "Kurumsal fatura için vergi dairesi zorunludur.";
+            }
+
+            if (string.IsNullOrWhiteSpace(invoiceInfo.TaxNumber) || invoiceInfo.TaxNumber.Length != 10 || invoiceInfo.TaxNumber.Any(ch => !char.IsDigit(ch)))
+            {
+                return "Kurumsal fatura için 10 haneli vergi numarası zorunludur.";
+            }
+
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(invoiceInfo.FullName))
+        {
+            return "Bireysel fatura için ad soyad zorunludur.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(invoiceInfo.TcKimlikNo)
+            && (invoiceInfo.TcKimlikNo.Length != 11 || invoiceInfo.TcKimlikNo.Any(ch => !char.IsDigit(ch))))
+        {
+            return "TC kimlik numarası 11 haneli olmalıdır.";
+        }
+
+        return null;
+    }
+
+    private static InvoiceInfo CreateInvoiceInfo(CheckoutInvoiceInfoRequest invoiceInfo)
+    {
+        return new InvoiceInfo
+        {
+            Type = invoiceInfo.Type,
+            FullName = invoiceInfo.Type == InvoiceType.Corporate
+                ? (invoiceInfo.FullName ?? invoiceInfo.CompanyName ?? string.Empty)
+                : invoiceInfo.FullName ?? string.Empty,
+            TcKimlikNo = string.IsNullOrWhiteSpace(invoiceInfo.TcKimlikNo) ? null : invoiceInfo.TcKimlikNo,
+            CompanyName = string.IsNullOrWhiteSpace(invoiceInfo.CompanyName) ? null : invoiceInfo.CompanyName,
+            TaxOffice = string.IsNullOrWhiteSpace(invoiceInfo.TaxOffice) ? null : invoiceInfo.TaxOffice,
+            TaxNumber = string.IsNullOrWhiteSpace(invoiceInfo.TaxNumber) ? null : invoiceInfo.TaxNumber,
+            InvoiceAddress = invoiceInfo.InvoiceAddress
+        };
     }
 }

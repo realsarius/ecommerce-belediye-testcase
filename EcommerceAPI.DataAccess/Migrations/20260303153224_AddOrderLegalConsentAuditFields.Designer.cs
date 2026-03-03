@@ -3,6 +3,7 @@ using System;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EcommerceAPI.DataAccess.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260303153224_AddOrderLegalConsentAuditFields")]
+    partial class AddOrderLegalConsentAuditFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -698,60 +701,6 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("TBL_InventoryMovements", (string)null);
-                });
-
-            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.InvoiceInfo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CompanyName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("InvoiceAddress")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<int>("OrderId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TaxNumber")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("TaxOffice")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("TcKimlikNo")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderId")
-                        .IsUnique();
-
-                    b.ToTable("TBL_InvoiceInfos", (string)null);
                 });
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.LoyaltyTransaction", b =>
@@ -2539,17 +2488,6 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.InvoiceInfo", b =>
-                {
-                    b.HasOne("EcommerceAPI.Entities.Concrete.Order", "Order")
-                        .WithOne("InvoiceInfo")
-                        .HasForeignKey("EcommerceAPI.Entities.Concrete.InvoiceInfo", "OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Order");
-                });
-
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.LoyaltyTransaction", b =>
                 {
                     b.HasOne("EcommerceAPI.Entities.Concrete.Order", "Order")
@@ -3002,8 +2940,6 @@ namespace EcommerceAPI.DataAccess.Migrations
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Order", b =>
                 {
-                    b.Navigation("InvoiceInfo");
-
                     b.Navigation("LoyaltyTransactions");
 
                     b.Navigation("OrderItems");

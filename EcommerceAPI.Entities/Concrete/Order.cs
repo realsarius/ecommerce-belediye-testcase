@@ -16,6 +16,9 @@ public class Order : BaseEntity
     public string? TrackingCode { get; set; }
     public DateTime? ShippedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public DateTime? PreliminaryInfoAcceptedAt { get; set; }
+    public DateTime? DistanceSalesContractAcceptedAt { get; set; }
+    public string? AcceptedFromIp { get; set; }
     
     public int? CouponId { get; set; }
     public string? CouponCode { get; set; }
@@ -34,4 +37,5 @@ public class Order : BaseEntity
     public ICollection<LoyaltyTransaction> LoyaltyTransactions { get; set; } = new List<LoyaltyTransaction>();
     public ICollection<ReferralTransaction> ReferralTransactions { get; set; } = new List<ReferralTransaction>();
     public Payment? Payment { get; set; }
+    public InvoiceInfo? InvoiceInfo { get; set; }
 }

@@ -48,6 +48,16 @@ public static class MappingExtensions
                 PaymentMethod = order.Payment.PaymentMethod,
                 Provider = order.Payment.Provider,
                 CreatedAt = order.Payment.CreatedAt
+            } : null,
+            InvoiceInfo = order.InvoiceInfo != null ? new InvoiceInfoDto
+            {
+                Type = order.InvoiceInfo.Type,
+                FullName = order.InvoiceInfo.FullName,
+                TcKimlikNo = order.InvoiceInfo.TcKimlikNo,
+                CompanyName = order.InvoiceInfo.CompanyName,
+                TaxOffice = order.InvoiceInfo.TaxOffice,
+                TaxNumber = order.InvoiceInfo.TaxNumber,
+                InvoiceAddress = order.InvoiceInfo.InvoiceAddress
             } : null
         };
     }

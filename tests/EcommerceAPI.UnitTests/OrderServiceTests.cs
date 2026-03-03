@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using MassTransit;
 using EcommerceAPI.Entities.IntegrationEvents;
 using Microsoft.EntityFrameworkCore;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -98,6 +99,28 @@ public class OrderManagerTests
         );
     }
 
+    private static CheckoutInvoiceInfoRequest CreateInvoiceInfo(string address = "Test Invoice Address 123")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Individual,
+            FullName = "Test User",
+            InvoiceAddress = address
+        };
+    }
+
+    private static CheckoutInvoiceInfoRequest CreateCorporateInvoiceInfo(string address = "Test Invoice Address 123", string? taxNumber = "1234567890")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Corporate,
+            CompanyName = "Acme A.S.",
+            TaxOffice = "Kadikoy",
+            TaxNumber = taxNumber,
+            InvoiceAddress = address
+        };
+    }
+
     [Fact]
     public async Task CheckoutAsync_ValidCart_ShouldCalculateTotalCorrectly()
     {
@@ -105,7 +128,10 @@ public class OrderManagerTests
         var checkoutRequest = new CheckoutRequest 
         { 
             ShippingAddress = "Test Address",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
         
         var cartDto = new CartDto 
@@ -158,7 +184,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard",
-            LoyaltyPointsToUse = 1500
+            LoyaltyPointsToUse = 1500,
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var cartDto = new CartDto
@@ -216,7 +245,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard",
-            GiftCardCode = "GC-TEST-1"
+            GiftCardCode = "GC-TEST-1",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var cartDto = new CartDto
@@ -273,7 +305,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard",
-            GiftCardCode = "GC-FULL-1"
+            GiftCardCode = "GC-FULL-1",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var cartDto = new CartDto
@@ -322,10 +357,48 @@ public class OrderManagerTests
     }
 
     [Fact]
+    public async Task CheckoutAsync_WithoutLegalConsents_ShouldReturnError()
+    {
+        var result = await _orderManager.CheckoutAsync(100, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Yasal onaylar");
+        _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WithCorporateInvoiceMissingTaxNumber_ShouldReturnError()
+    {
+        var result = await _orderManager.CheckoutAsync(100, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateCorporateInvoiceInfo(taxNumber: null)
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("vergi numarası");
+        _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CheckoutAsync_WhenReserveFails_ShouldReturnError()
     {
         var userId = 100;
-        var checkoutRequest = new CheckoutRequest();
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
+        };
         var cartDto = new CartDto 
         { 
             Items = new List<CartItemDto> { new() { ProductId = 1, Quantity = 1, AvailableStock = 10 } } 
@@ -367,7 +440,14 @@ public class OrderManagerTests
         _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
             .ThrowsAsync(new Exception("DB Connection Failed"));
 
-        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest());
+        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
+        });
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Sipariş oluşturulamadı");
@@ -407,7 +487,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address 123",
             PaymentMethod = "CreditCard",
-            IdempotencyKey = idempotencyKey
+            IdempotencyKey = idempotencyKey,
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         });
 
         result.Success.Should().BeTrue();
@@ -469,7 +552,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address 123",
             PaymentMethod = "CreditCard",
-            IdempotencyKey = idempotencyKey
+            IdempotencyKey = idempotencyKey,
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         });
 
         result.Success.Should().BeTrue();

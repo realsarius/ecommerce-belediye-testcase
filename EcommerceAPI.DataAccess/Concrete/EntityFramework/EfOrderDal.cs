@@ -19,6 +19,7 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
+            .Include(o => o.InvoiceInfo)
             .Include(o => o.User)
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == orderId);
@@ -30,6 +31,7 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
+            .Include(o => o.InvoiceInfo)
             .Where(o => o.UserId == userId)
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()
@@ -41,6 +43,7 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
         return await _dbSet
             .Include(o => o.OrderItems)
             .Include(o => o.Payment)
+            .Include(o => o.InvoiceInfo)
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber);
     }
 
@@ -60,6 +63,7 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
+            .Include(o => o.InvoiceInfo)
             .Where(o => o.UserId == userId)
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()
@@ -73,6 +77,7 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
+            .Include(o => o.InvoiceInfo)
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()
             .ToListAsync();
@@ -85,6 +90,7 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
             .Include(o => o.Payment)
+            .Include(o => o.InvoiceInfo)
             .Where(o => o.OrderItems.Any(oi => oi.Product.SellerId == sellerId))
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()

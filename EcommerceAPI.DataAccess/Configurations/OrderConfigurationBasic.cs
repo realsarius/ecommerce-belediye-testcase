@@ -47,6 +47,9 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.TrackingCode)
             .HasMaxLength(120);
+
+        builder.Property(o => o.AcceptedFromIp)
+            .HasMaxLength(128);
         
         builder.Property(o => o.ShippingAddress)
             .HasMaxLength(2000);
