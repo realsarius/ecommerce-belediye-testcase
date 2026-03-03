@@ -4,6 +4,7 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.IntegrationEvents;
+using EcommerceAPI.Entities.Enums;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
     private const string ConsumerName = nameof(RefundRequestedConsumer);
     private readonly AppDbContext _dbContext;
     private readonly IRefundService _refundService;
+    private readonly IRefundRetryScheduler _refundRetryScheduler;
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly INotificationService _notificationService;
     private readonly INotificationPreferenceService _notificationPreferenceService;
@@ -22,6 +24,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
     public RefundRequestedConsumer(
         AppDbContext dbContext,
         IRefundService refundService,
+        IRefundRetryScheduler refundRetryScheduler,
         IEmailNotificationService emailNotificationService,
         INotificationService notificationService,
         INotificationPreferenceService notificationPreferenceService,
@@ -29,6 +32,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
     {
         _dbContext = dbContext;
         _refundService = refundService;
+        _refundRetryScheduler = refundRetryScheduler;
         _emailNotificationService = emailNotificationService;
         _notificationService = notificationService;
         _notificationPreferenceService = notificationPreferenceService;
@@ -98,6 +102,10 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         }
         else
         {
+            var retryScheduled = result.Data != null &&
+                string.Equals(result.Data.Status, RefundRequestStatus.Failed.ToString(), StringComparison.OrdinalIgnoreCase) &&
+                _refundRetryScheduler.TryScheduleRetry(message);
+
             if (result.Data != null)
             {
                 if (channelSettings.InAppEnabled)
@@ -106,14 +114,17 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
                     {
                         UserId = result.Data.UserId,
                         Type = "Refund",
-                        Title = "İade işlemi tamamlanamadı",
-                        Body = result.Data.FailureReason ?? $"{result.Data.OrderNumber} siparişi için iade işlemi başarısız oldu.",
+                        Title = retryScheduled ? "İade işlemi yeniden denenecek" : "İade işlemi tamamlanamadı",
+                        Body = retryScheduled
+                            ? $"{result.Data.OrderNumber} siparişi için iade işlemi geçici olarak tamamlanamadı. Sistem otomatik olarak yeniden deneyecek."
+                            : result.Data.FailureReason ?? $"{result.Data.OrderNumber} siparişi için iade işlemi başarısız oldu.",
                         DeepLink = "/returns"
                     });
                 }
             }
 
-            if (channelSettings.EmailEnabled &&
+            if (!retryScheduled &&
+                channelSettings.EmailEnabled &&
                 result.Data != null &&
                 !string.IsNullOrWhiteSpace(result.Data.CustomerEmail))
             {
@@ -125,7 +136,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
             }
 
             _logger.LogWarning(
-                "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, FailureReason={FailureReason}, MessageId={MessageId}",
+                "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, FailureReason={FailureReason}, MessageId={MessageId}, RetryAttempt={RetryAttempt}, RetryScheduled={RetryScheduled}",
                 "Refund",
                 "RefundFailed",
                 result.Data?.Id ?? message.RefundRequestId,
@@ -136,7 +147,9 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
                 result.Data?.Currency ?? message.Currency,
                 result.Data?.Status ?? "Failed",
                 result.Data?.FailureReason ?? result.Message,
-                messageId);
+                messageId,
+                message.RetryAttempt,
+                retryScheduled);
         }
 
         _dbContext.InboxMessages.Add(new InboxMessage
@@ -172,6 +185,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         activity.SetTag("ecommerce.message.type", nameof(RefundRequestedEvent));
         activity.SetTag("ecommerce.refund_request.id", message.RefundRequestId);
         activity.SetTag("ecommerce.order.id", message.OrderId);
+        activity.SetTag("ecommerce.refund.retry_attempt", message.RetryAttempt);
     }
 
     private static bool IsDuplicateKeyException(DbUpdateException ex)
