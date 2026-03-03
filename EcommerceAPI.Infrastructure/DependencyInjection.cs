@@ -4,6 +4,7 @@ using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Entities.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
 using EcommerceAPI.Infrastructure.Services;
 using EcommerceAPI.Infrastructure.Settings;
@@ -101,6 +102,11 @@ public static class DependencyInjection
         services.Configure<ReturnAttachmentSettings>(options =>
         {
             configuration.GetSection("ReturnAttachments").Bind(options);
+        });
+
+        services.Configure<FrontendFeatureSettings>(options =>
+        {
+            configuration.GetSection("FrontendFeatures").Bind(options);
         });
 
         services.Configure<EmailNotificationSettings>(options =>
