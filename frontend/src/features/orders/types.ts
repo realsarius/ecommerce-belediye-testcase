@@ -59,6 +59,7 @@ export interface Payment {
 
 export interface ProcessPaymentRequest {
   orderId: number;
+  paymentProvider?: PaymentProviderType;
   savedCardId?: number;  // Kayıtlı kart ile ödeme için
   cardHolderName?: string;
   cardNumber?: string;

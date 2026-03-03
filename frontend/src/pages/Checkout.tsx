@@ -34,6 +34,11 @@ import type { CouponValidationResult } from '@/features/coupons/types';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
 import { useGetGiftCardSummaryQuery, useValidateGiftCardMutation } from '@/features/giftCards/giftCardsApi';
 import type { GiftCardValidationResult } from '@/features/giftCards/types';
+import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
+
+const activePaymentProviders: { value: PaymentProviderType; label: string; status: string }[] = [
+  { value: 'Iyzico', label: 'Iyzico', status: 'Sandbox' },
+];
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -73,6 +78,7 @@ export default function Checkout() {
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string>('');
   const [saveCardForLater, setSaveCardForLater] = useState(false);
   const [cardAlias, setCardAlias] = useState('');
+  const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<PaymentProviderType>('Iyzico');
 
 
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
@@ -236,6 +242,11 @@ export default function Checkout() {
     }
 
     if (requiresPayment) {
+      if (isUsingSavedCard && selectedSavedCard?.tokenProvider && selectedSavedCard.tokenProvider !== selectedPaymentProvider) {
+        toast.error('Seçilen kayıtlı kart farklı bir ödeme sağlayıcısına ait.');
+        return;
+      }
+
       if (!isUsingSavedCard) {
         if (!paymentForm.cardNumber || !paymentForm.expireMonth || !paymentForm.expireYear || !paymentForm.cvc) {
           toast.error('Lütfen kart bilgilerini doldurun');
@@ -296,6 +307,7 @@ export default function Checkout() {
       
       const paymentResult = await processPayment({
         orderId: orderIdToUse,
+        paymentProvider: selectedPaymentProvider,
         savedCardId: isUsingSavedCard ? parseInt(selectedSavedCardId) : undefined,
         cardHolderName: isUsingSavedCard ? undefined : paymentForm.cardHolderName,
         cardNumber: isUsingSavedCard ? undefined : paymentForm.cardNumber.replace(/\s/g, ''),
@@ -425,6 +437,34 @@ export default function Checkout() {
                 </div>
               ) : (
                 <>
+              <div className="space-y-2">
+                <Label>Ödeme Sağlayıcısı</Label>
+                {activePaymentProviders.length > 1 ? (
+                  <Select
+                    value={selectedPaymentProvider}
+                    onValueChange={(value) => setSelectedPaymentProvider(value as PaymentProviderType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Ödeme sağlayıcısı seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activePaymentProviders.map((provider) => (
+                        <SelectItem key={provider.value} value={provider.value}>
+                          {provider.label} ({provider.status})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3 text-sm">
+                    <span className="font-medium">{activePaymentProviders[0].label}</span>
+                    <span className="text-muted-foreground">{activePaymentProviders[0].status}</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Stripe ve PayTR altyapısı hazırlanıyor. Şu an yalnızca Iyzico sandbox aktif.
+                </p>
+              </div>
 
               {savedCards && savedCards.length > 0 && (
                 <div className="space-y-2">

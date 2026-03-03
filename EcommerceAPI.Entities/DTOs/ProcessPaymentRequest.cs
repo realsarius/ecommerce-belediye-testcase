@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.Entities.DTOs;
 
@@ -6,6 +7,7 @@ public class ProcessPaymentRequest : IDto
 {
     public int OrderId { get; set; }
     public string? IdempotencyKey { get; set; }
+    public PaymentProviderType? PaymentProvider { get; set; }
 
 
     public int? SavedCardId { get; set; }
