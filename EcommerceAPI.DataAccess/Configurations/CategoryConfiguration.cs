@@ -24,5 +24,13 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         
         builder.Property(c => c.IsActive)
             .IsRequired();
+
+        builder.Property(c => c.SortOrder)
+            .HasDefaultValue(0);
+
+        builder.HasOne(c => c.ParentCategory)
+            .WithMany(c => c.Children)
+            .HasForeignKey(c => c.ParentCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
