@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +8,7 @@ namespace EcommerceAPI.API.Controllers;
 [ApiController]
 [Route("api/v1/seller/products")]
 [Authorize(Roles = "Seller")]
-public class SellerProductsController : BaseApiController
+public class SellerProductsController : SellerApiControllerBase
 {
     private readonly IProductService _productService;
     private readonly ISellerProfileService _sellerProfileService;
@@ -23,102 +22,108 @@ public class SellerProductsController : BaseApiController
     [HttpGet]
     public async Task<IActionResult> GetProducts([FromQuery] ProductListRequest request)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _productService.GetProductsForSellerAsync(request, sellerId.Value);
+        var result = await _productService.GetProductsForSellerAsync(request, sellerContext.SellerProfileId.Value);
         return HandleResult(result);
     }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetProduct(int id)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _productService.GetProductForSellerAsync(id, sellerId.Value);
+        var result = await _productService.GetProductForSellerAsync(id, sellerContext.SellerProfileId.Value);
         return HandleResult(result);
     }
 
     [HttpPost]
     public async Task<IActionResult> CreateProduct([FromBody] CreateProductRequest request)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Önce satıcı profilinizi oluşturmanız gerekiyor." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile("Önce satıcı profilinizi oluşturmanız gerekiyor.");
         }
 
-        var result = await _productService.CreateProductAsync(request, sellerId.Value);
+        var result = await _productService.CreateProductAsync(request, sellerContext.SellerProfileId.Value);
         return HandleCreatedResult(result, nameof(GetProduct), new { id = result.Data?.Id });
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateProduct(int id, [FromBody] UpdateProductRequest request)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profiliniz bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile("Satıcı profiliniz bulunamadı.");
         }
 
-        var result = await _productService.UpdateProductAsync(id, request, sellerId.Value);
+        var result = await _productService.UpdateProductAsync(id, request, sellerContext.SellerProfileId.Value);
         return HandleResult(result);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteProduct(int id)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profiliniz bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile("Satıcı profiliniz bulunamadı.");
         }
 
-        var result = await _productService.DeleteProductAsync(id, sellerId.Value);
-        return HandleResult(result);
+        var result = await _productService.DeleteProductAsync(id, sellerContext.SellerProfileId.Value);
+        return HandleDeleteResult(result);
     }
 
     [HttpPatch("{id:int}/stock")]
     public async Task<IActionResult> UpdateStock(int id, [FromBody] UpdateStockRequest request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return Unauthorized(new { success = false, message = "Geçersiz kullanıcı oturumu." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile("Satıcı profiliniz bulunamadı.");
         }
 
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
-        {
-            return BadRequest(new { success = false, message = "Satıcı profiliniz bulunamadı." });
-        }
-
-        var isOwner = await _productService.IsProductOwnedBySellerAsync(id, sellerId.Value);
+        var isOwner = await _productService.IsProductOwnedBySellerAsync(id, sellerContext.SellerProfileId.Value);
         if (!isOwner)
         {
-            return BadRequest(new { success = false, message = "Bu ürünün stoğunu güncelleme yetkiniz yok." });
+            return HandleForbidden("Bu ürünün stoğunu güncelleme yetkiniz yok.");
         }
 
-        var result = await _productService.UpdateStockAsync(id, request, userId);
+        var result = await _productService.UpdateStockAsync(id, request, sellerContext.UserId);
         return HandleResult(result);
-    }
-
-    private async Task<int?> ResolveSellerIdAsync()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
-        {
-            return null;
-        }
-
-        var profileResult = await _sellerProfileService.GetByUserIdAsync(userId);
-        return profileResult.Success ? profileResult.Data?.Id : null;
     }
 }

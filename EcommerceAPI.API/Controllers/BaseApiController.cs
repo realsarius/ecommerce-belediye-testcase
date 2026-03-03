@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.Utilities.Results;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 // IResult belirsizliğini önlemek için alias
@@ -26,6 +27,11 @@ public abstract class BaseApiController : ControllerBase
     {
         if (!result.Success)
         {
+            if (IsForbiddenMessage(result.Message))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = result.Message });
+            }
+
             // Mesajda "bulunamadı" varsa 404, yoksa 400
             if (result.Message?.Contains("bulunamadı", StringComparison.OrdinalIgnoreCase) == true ||
                 result.Message?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
@@ -45,6 +51,11 @@ public abstract class BaseApiController : ControllerBase
     {
         if (!result.Success)
         {
+            if (IsForbiddenMessage(result.Message))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = result.Message });
+            }
+
             // Mesajda "bulunamadı" varsa 404, yoksa 400
             if (result.Message?.Contains("bulunamadı", StringComparison.OrdinalIgnoreCase) == true ||
                 result.Message?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
@@ -77,9 +88,35 @@ public abstract class BaseApiController : ControllerBase
     {
         if (!result.Success)
         {
+            if (IsForbiddenMessage(result.Message))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = result.Message });
+            }
+
             return BadRequest(new { success = false, message = result.Message });
         }
 
         return NoContent();
+    }
+
+    protected IActionResult HandleForbidden(string message)
+    {
+        return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message });
+    }
+
+    private static bool IsForbiddenMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        return message.Contains("Yetkiniz yok", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("yetkiniz yok", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("erişim yetkiniz yok", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("işlem yapma yetkiniz yok", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("ait ürünler içermiyor", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("authorization denied", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("access denied", StringComparison.OrdinalIgnoreCase);
     }
 }

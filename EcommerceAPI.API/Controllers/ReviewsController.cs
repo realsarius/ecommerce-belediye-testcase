@@ -150,7 +150,7 @@ public class AdminReviewsController : BaseApiController
 [ApiController]
 [Route("api/v1/seller/reviews")]
 [Authorize(Roles = "Seller")]
-public class SellerReviewsController : BaseApiController
+public class SellerReviewsController : SellerApiControllerBase
 {
     private readonly IProductReviewService _reviewService;
 
@@ -162,8 +162,14 @@ public class SellerReviewsController : BaseApiController
     [HttpGet]
     public async Task<IActionResult> GetReviews([FromQuery] int? productId = null, [FromQuery] int? rating = null, [FromQuery] bool? replied = null)
     {
+        var sellerUserId = GetCurrentUserId();
+        if (sellerUserId == null)
+        {
+            return InvalidSellerSession();
+        }
+
         var result = await _reviewService.GetSellerReviewsAsync(
-            sellerUserId: GetUserId(),
+            sellerUserId: sellerUserId.Value,
             productId: productId,
             rating: rating,
             replied: replied);
@@ -174,13 +180,13 @@ public class SellerReviewsController : BaseApiController
     [HttpPost("{reviewId}/reply")]
     public async Task<IActionResult> ReplyToReview(int reviewId, [FromBody] SellerReviewReplyRequest request)
     {
-        var result = await _reviewService.SellerReplyAsync(reviewId: reviewId, sellerUserId: GetUserId(), request: request);
-        return HandleResult(result);
-    }
+        var sellerUserId = GetCurrentUserId();
+        if (sellerUserId == null)
+        {
+            return InvalidSellerSession();
+        }
 
-    private int GetUserId()
-    {
-        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.TryParse(userIdStr, out var userId) ? userId : 0;
+        var result = await _reviewService.SellerReplyAsync(reviewId: reviewId, sellerUserId: sellerUserId.Value, request: request);
+        return HandleResult(result);
     }
 }

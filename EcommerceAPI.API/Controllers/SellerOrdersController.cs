@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +8,7 @@ namespace EcommerceAPI.API.Controllers;
 [ApiController]
 [Route("api/v1/seller/orders")]
 [Authorize(Roles = "Seller")]
-public class SellerOrdersController : BaseApiController
+public class SellerOrdersController : SellerApiControllerBase
 {
     private readonly IOrderService _orderService;
     private readonly ISellerProfileService _sellerProfileService;
@@ -23,51 +22,51 @@ public class SellerOrdersController : BaseApiController
     [HttpGet]
     public async Task<IActionResult> GetOrders()
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _orderService.GetOrdersForSellerAsync(sellerId.Value);
+        var result = await _orderService.GetOrdersForSellerAsync(sellerContext.SellerProfileId.Value);
         return HandleResult(result);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetOrder(int id)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _orderService.GetSellerOrderAsync(sellerId.Value, id);
+        var result = await _orderService.GetSellerOrderAsync(sellerContext.SellerProfileId.Value, id);
         return HandleResult(result);
     }
 
     [HttpPut("{id}/ship")]
     public async Task<IActionResult> ShipOrder(int id, [FromBody] ShipOrderRequest request)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { success = false, message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _orderService.ShipOrderAsync(sellerId.Value, id, request);
+        var result = await _orderService.ShipOrderAsync(sellerContext.SellerProfileId.Value, id, request);
         return HandleResult(result);
-    }
-
-    private async Task<int?> ResolveSellerIdAsync()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
-        {
-            return null;
-        }
-
-        var profileResult = await _sellerProfileService.GetByUserIdAsync(userId);
-        return profileResult.Success ? profileResult.Data?.Id : null;
     }
 }
