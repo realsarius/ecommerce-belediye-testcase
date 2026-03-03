@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,21 +30,27 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
         await TestDataSeeder.EnsureUserAsync(db, TestUserId);
     }
 
-    private async Task<CreditCardDto?> CreateCardAsync(HttpClient client)
+    private async Task<CreditCardDto> CreateTokenizedCardAsync()
     {
-        var createRequest = new AddCreditCardRequest
+        using var scope = _factory.Services.CreateScope();
+        var creditCardService = scope.ServiceProvider.GetRequiredService<ICreditCardService>();
+
+        var result = await creditCardService.SaveTokenizedCardAsync(TestUserId, new SaveTokenizedCreditCardRequest
         {
+            CardAlias = $"My Card {Guid.NewGuid():N}",
             CardHolderName = "Test User",
-            CardNumber = "5406670000000009", // Sandbox Success Card
+            Last4Digits = "0009",
             ExpireMonth = "12",
             ExpireYear = "2030",
-            CardAlias = $"My Card {Guid.NewGuid():N}"
-        };
+            TokenProvider = PaymentProviderType.Iyzico,
+            IyzicoCardToken = $"token-{Guid.NewGuid():N}",
+            IyzicoUserKey = $"user-{Guid.NewGuid():N}",
+            IsDefault = false
+        });
 
-        var response = await client.PostAsJsonAsync("/api/v1/creditcards", createRequest);
-        if (response.StatusCode != HttpStatusCode.Created) return null;
-        
-        return await response.Content.ReadFromJsonAsync<CreditCardDto>();
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        return result.Data!;
     }
 
     [Fact]
@@ -53,7 +62,7 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
-    public async Task AddCard_ValidRequest_ReturnsCreated()
+    public async Task AddCard_ManualEntry_ReturnsBadRequest()
     {
         await EnsureTestUserExistsAsync();
         var client = _factory.CreateClient().AsCustomer(userId: TestUserId);
@@ -69,13 +78,12 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
 
         var response = await client.PostAsJsonAsync("/api/v1/creditcards", request);
 
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.InternalServerError, HttpStatusCode.BadRequest);
-        
-        if (response.StatusCode == HttpStatusCode.Created)
-        {
-            var result = await response.Content.ReadFromJsonAsync<CreditCardDto>();
-            result.Should().NotBeNull();
-        }
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(responseBody);
+        document.RootElement.GetProperty("message").GetString()
+            .Should().Contain("checkout");
     }
 
     [Fact]
@@ -84,10 +92,9 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
         await EnsureTestUserExistsAsync();
         var client = _factory.CreateClient().AsCustomer(userId: TestUserId);
         
-        var card = await CreateCardAsync(client);
-        card.Should().NotBeNull("Setup failed: Card could not be created");
+        var card = await CreateTokenizedCardAsync();
 
-        var response = await client.DeleteAsync($"/api/v1/creditcards/{card!.Id}");
+        var response = await client.DeleteAsync($"/api/v1/creditcards/{card.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -98,12 +105,11 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
         await EnsureTestUserExistsAsync();
         var client = _factory.CreateClient().AsCustomer(userId: TestUserId);
         
-        var card = await CreateCardAsync(client);
-        card.Should().NotBeNull("Setup failed: Card could not be created");
+        var card = await CreateTokenizedCardAsync();
 
         var request = new SetDefaultCreditCardRequest { IsDefault = true };
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/creditcards/{card!.Id}", request);
+        var response = await client.PatchAsJsonAsync($"/api/v1/creditcards/{card.Id}", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }

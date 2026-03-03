@@ -14,28 +14,11 @@ export interface CreditCard {
   isDefault: boolean;
 }
 
-export interface AddCreditCardRequest {
-  cardAlias: string;
-  cardHolderName: string;
-  cardNumber: string;
-  expireMonth: string;
-  expireYear: string;
-  isDefault?: boolean;
-}
-
 export const creditCardsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCreditCards: builder.query<CreditCard[], void>({
       query: () => '/creditcards',
       providesTags: ['CreditCards'],
-    }),
-    addCreditCard: builder.mutation<CreditCard, AddCreditCardRequest>({
-      query: (data) => ({
-        url: '/creditcards',
-        method: 'POST',
-        body: data,
-      }),
-      invalidatesTags: ['CreditCards'],
     }),
     deleteCreditCard: builder.mutation<void, number>({
       query: (id) => ({
@@ -57,7 +40,6 @@ export const creditCardsApi = baseApi.injectEndpoints({
 
 export const {
   useGetCreditCardsQuery,
-  useAddCreditCardMutation,
   useDeleteCreditCardMutation,
   useSetDefaultCardMutation,
 } = creditCardsApi;

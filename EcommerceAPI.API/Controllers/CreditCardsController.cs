@@ -38,17 +38,13 @@ public class CreditCardsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> AddCard([FromBody] AddCreditCardRequest request)
+    public IActionResult AddCard([FromBody] AddCreditCardRequest request)
     {
-        var userId = GetCurrentUserId();
-        var result = await _creditCardService.AddCardAsync(userId, request);
-        
-        if (result.Success)
+        _ = request;
+        return BadRequest(new
         {
-
-            return Created("", result.Data);
-        }
-        return BadRequest(result);
+            message = "Kart kaydetmek için checkout sırasında 'Bu kartı kaydet' seçeneğini kullanın."
+        });
     }
 
     [HttpDelete("{id}")]
