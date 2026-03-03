@@ -11,6 +11,9 @@ public class OrderDto : IDto
     public string ShippingAddress { get; set; } = string.Empty;
     public string? CustomerName { get; set; }
     public string? Notes { get; set; }
+    public string? CargoCompany { get; set; }
+    public string? TrackingCode { get; set; }
+    public DateTime? ShippedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     

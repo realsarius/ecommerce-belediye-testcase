@@ -50,6 +50,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.GiftCardCode)
             .HasMaxLength(64);
+
+        builder.Property(o => o.CargoCompany)
+            .HasMaxLength(120);
+
+        builder.Property(o => o.TrackingCode)
+            .HasMaxLength(120);
         
         // KVKK: ShippingAddress kişisel veri içerdiği için şifrelenir
         builder.Property(o => o.ShippingAddress)
