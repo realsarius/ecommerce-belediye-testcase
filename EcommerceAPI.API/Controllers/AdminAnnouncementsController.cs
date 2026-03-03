@@ -1,7 +1,8 @@
 using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
-using Hangfire;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,14 +14,14 @@ namespace EcommerceAPI.API.Controllers;
 public class AdminAnnouncementsController : BaseApiController
 {
     private readonly IAnnouncementService _announcementService;
-    private readonly IBackgroundJobClient _backgroundJobClient;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     public AdminAnnouncementsController(
         IAnnouncementService announcementService,
-        IBackgroundJobClient backgroundJobClient)
+        IPublishEndpoint publishEndpoint)
     {
         _announcementService = announcementService;
-        _backgroundJobClient = backgroundJobClient;
+        _publishEndpoint = publishEndpoint;
     }
 
     [HttpGet]
@@ -45,17 +46,11 @@ public class AdminAnnouncementsController : BaseApiController
             return HandleResult(created);
         }
 
-        var scheduledAt = created.Data.ScheduledAt;
-        if (scheduledAt.HasValue && scheduledAt.Value > DateTime.UtcNow.AddMinutes(1))
+        await _publishEndpoint.Publish(new AnnouncementCreatedEvent
         {
-            _backgroundJobClient.Schedule<IAnnouncementService>(
-                service => service.SendAnnouncementAsync(created.Data.Id),
-                scheduledAt.Value);
-        }
-        else
-        {
-            await _announcementService.SendAnnouncementAsync(created.Data.Id);
-        }
+            AnnouncementId = created.Data.Id,
+            ScheduledAt = created.Data.ScheduledAt
+        });
 
         var latest = await _announcementService.GetByIdAsync(created.Data.Id);
         return HandleResult(latest);

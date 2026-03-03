@@ -274,6 +274,7 @@ builder.Services.AddMassTransit(configurator =>
         options.UseBusOutbox();
     });
     configurator.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+    configurator.AddConsumer<AnnouncementCreatedConsumer, AnnouncementCreatedConsumerDefinition>();
     configurator.AddConsumer<OrderStatusChangedConsumer, OrderStatusChangedConsumerDefinition>();
     configurator.AddConsumer<OrderShippedConsumer, OrderShippedConsumerDefinition>();
     configurator.AddConsumer<SellerApplicationReviewedConsumer, SellerApplicationReviewedConsumerDefinition>();
