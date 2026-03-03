@@ -14,6 +14,7 @@ public class SellerAnalyticsManagerTests
     private readonly Mock<IOrderDal> _orderDalMock = new();
     private readonly Mock<IReturnRequestDal> _returnRequestDalMock = new();
     private readonly Mock<IProductReviewDal> _productReviewDalMock = new();
+    private readonly Mock<ISellerProfileDal> _sellerProfileDalMock = new();
     private readonly Mock<IWishlistItemDal> _wishlistItemDalMock = new();
     private readonly Mock<IRecommendationCacheService> _recommendationCacheServiceMock = new();
 
@@ -24,6 +25,7 @@ public class SellerAnalyticsManagerTests
             _orderDalMock.Object,
             _returnRequestDalMock.Object,
             _productReviewDalMock.Object,
+            _sellerProfileDalMock.Object,
             _wishlistItemDalMock.Object,
             _recommendationCacheServiceMock.Object);
     }
