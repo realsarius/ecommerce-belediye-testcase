@@ -98,6 +98,7 @@ export default function Returns() {
   const [createReturnRequest, { isLoading: isSubmitting }] = useCreateReturnRequestMutation();
 
   const [reasonCategory, setReasonCategory] = useState<ReturnReasonCategory | ''>('');
+  const [selectedOrderItemIds, setSelectedOrderItemIds] = useState<number[]>([]);
   const [reason, setReason] = useState('');
   const [requestNote, setRequestNote] = useState('');
 
@@ -119,6 +120,13 @@ export default function Returns() {
   const handleOrderChange = (orderId: string) => {
     setSearchParams(orderId ? { orderId } : {});
     setReasonCategory('');
+    setSelectedOrderItemIds([]);
+  };
+
+  const toggleSelectedOrderItem = (orderItemId: number, checked: boolean) => {
+    setSelectedOrderItemIds((current) =>
+      checked ? [...new Set([...current, orderItemId])] : current.filter((id) => id !== orderItemId)
+    );
   };
 
   const handleSubmit = async () => {
@@ -127,17 +135,31 @@ export default function Returns() {
       return;
     }
 
+    if (requestType === 'Return' && selectedOrder.items.length > 1 && selectedOrderItemIds.length === 0) {
+      toast.error('İade edilecek en az bir ürünü seçin.');
+      return;
+    }
+
+    const payloadSelectedItemIds =
+      requestType === 'Return'
+        ? selectedOrder.items.length === 1
+          ? [selectedOrder.items[0].id]
+          : selectedOrderItemIds
+        : undefined;
+
     try {
       await createReturnRequest({
         orderId: selectedOrder.id,
         type: requestType,
         reasonCategory,
+        selectedOrderItemIds: payloadSelectedItemIds,
         reason: reason.trim(),
         requestNote: requestNote.trim() || undefined,
       }).unwrap();
 
       toast.success('Talebiniz oluşturuldu.');
       setReasonCategory('');
+      setSelectedOrderItemIds([]);
       setReason('');
       setRequestNote('');
     } catch (err: unknown) {
@@ -234,6 +256,42 @@ export default function Returns() {
                     </p>
                   </div>
                 )}
+
+                {selectedOrder && requestType === 'Return' && selectedOrder.items.length > 1 ? (
+                  <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <div>
+                      <p className="font-medium">İade Edilecek Ürünler</p>
+                      <p className="text-sm text-muted-foreground">
+                        Birden fazla ürün içeren siparişlerde iade edilecek kalemleri seçin.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedOrder.items.map((item) => {
+                        const checked = selectedOrderItemIds.includes(item.id);
+
+                        return (
+                          <label
+                            key={item.id}
+                            className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/70 p-3"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4 rounded border-border"
+                              checked={checked}
+                              onChange={(event) => toggleSelectedOrderItem(item.id, event.target.checked)}
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium">{item.productName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.quantity} x {item.priceSnapshot.toLocaleString('tr-TR')} {selectedOrder.currency ?? 'TRY'}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="return-category">Kategori</Label>
@@ -375,6 +433,19 @@ export default function Returns() {
                           Ek Not
                         </p>
                         <p className="mt-2 text-sm">{request.requestNote}</p>
+                      </div>
+                    )}
+
+                    {request.selectedItems.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Seçilen Ürünler</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {request.selectedItems.map((item) => (
+                            <Badge key={item.orderItemId} variant="secondary">
+                              {item.productName} x {item.quantity}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

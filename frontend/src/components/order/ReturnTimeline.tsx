@@ -59,6 +59,18 @@ export function ReturnTimeline({ request }: ReturnTimelineProps) {
               <span className="font-medium">Ek Not:</span> {request.requestNote}
             </p>
           ) : null}
+          {request.selectedItems.length > 0 ? (
+            <div className="pt-2">
+              <p className="font-medium">Seçilen Ürünler:</p>
+              <ul className="mt-1 space-y-1 text-muted-foreground">
+                {request.selectedItems.map((item) => (
+                  <li key={item.orderItemId}>
+                    {item.productName} x {item.quantity}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </div>
 
