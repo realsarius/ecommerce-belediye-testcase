@@ -2,28 +2,31 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Entities.DTOs;
 using Hangfire;
 using Hangfire.Storage.Monitoring;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 
-namespace EcommerceAPI.API.Services;
+namespace EcommerceAPI.Business.Concrete;
 
-public sealed class AdminSystemMonitoringService
+public sealed class AdminSystemMonitoringManager : IAdminSystemMonitoringService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HealthCheckService _healthCheckService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
-    private readonly ILogger<AdminSystemMonitoringService> _logger;
+    private readonly ILogger<AdminSystemMonitoringManager> _logger;
 
-    public AdminSystemMonitoringService(
+    public AdminSystemMonitoringManager(
         HealthCheckService healthCheckService,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
-        ILogger<AdminSystemMonitoringService> logger)
+        ILogger<AdminSystemMonitoringManager> logger)
     {
         _healthCheckService = healthCheckService;
         _httpClientFactory = httpClientFactory;
@@ -259,9 +262,8 @@ public sealed class AdminSystemMonitoringService
                 Enabled = true,
                 ProcessingCount = statistics.Processing,
                 FailedCount = statistics.Failed,
-                ScheduledCount = statistics.Scheduled,
                 EnqueuedCount = statistics.Enqueued,
-                SucceededCount = statistics.Succeeded,
+                ScheduledCount = statistics.Scheduled,
                 FailedJobs = failedJobs,
             };
         }
@@ -270,34 +272,22 @@ public sealed class AdminSystemMonitoringService
             return new AdminHangfireSummaryDto
             {
                 Enabled = false,
+                ProcessingCount = 0,
+                FailedCount = 0,
+                EnqueuedCount = 0,
+                ScheduledCount = 0,
             };
         }
     }
 
-    private static string NormalizeServiceName(string rawName)
-    {
-        return rawName.ToLowerInvariant() switch
-        {
-            "postgresql" => "PostgreSQL",
-            "redis" => "Redis",
-            _ => rawName,
-        };
-    }
-
-    private static string GetDefaultDescription(string rawName, string status)
-    {
-        return $"{NormalizeServiceName(rawName)} durumu: {status}.";
-    }
-
     private static string CalculateOverallStatus(IEnumerable<string> statuses)
     {
-        var normalized = statuses.ToList();
-        if (normalized.Any(status => string.Equals(status, "Unhealthy", StringComparison.OrdinalIgnoreCase)))
+        if (statuses.Any(status => string.Equals(status, "Unhealthy", StringComparison.OrdinalIgnoreCase)))
         {
             return "Unhealthy";
         }
 
-        if (normalized.Any(status => string.Equals(status, "Degraded", StringComparison.OrdinalIgnoreCase)))
+        if (statuses.Any(status => string.Equals(status, "Degraded", StringComparison.OrdinalIgnoreCase)))
         {
             return "Degraded";
         }
@@ -305,41 +295,66 @@ public sealed class AdminSystemMonitoringService
         return "Healthy";
     }
 
-    private static string? ReadString(JsonElement source, string propertyName)
+    private static string NormalizeServiceName(string key)
     {
-        if (!source.TryGetProperty(propertyName, out var node))
+        return key.ToLowerInvariant() switch
         {
-            return null;
-        }
-
-        return node.ValueKind switch
-        {
-            JsonValueKind.String => node.GetString(),
-            JsonValueKind.Number => node.GetRawText(),
-            JsonValueKind.True => bool.TrueString,
-            JsonValueKind.False => bool.FalseString,
-            _ => null,
+            "postgres" or "postgresql" or "database" => "PostgreSQL",
+            "redis" => "Redis",
+            _ => char.ToUpperInvariant(key[0]) + key[1..]
         };
     }
 
-    private static string? ReadNestedString(JsonElement source, string parentName, string propertyName)
+    private static string GetDefaultDescription(string key, string status)
     {
-        if (!source.TryGetProperty(parentName, out var parent))
+        var service = NormalizeServiceName(key);
+        return status switch
+        {
+            "Healthy" => $"{service} sağlık kontrolü başarılı.",
+            "Degraded" => $"{service} kısmen erişilebilir durumda.",
+            _ => $"{service} sağlık kontrolü başarısız."
+        };
+    }
+
+    private static string? ReadString(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
         {
             return null;
         }
 
-        if (parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(propertyName, out var child))
+        return property.ValueKind switch
         {
-            return child.ValueKind == JsonValueKind.String ? child.GetString() : child.GetRawText();
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Number => property.GetRawText(),
+            JsonValueKind.True => bool.TrueString,
+            JsonValueKind.False => bool.FalseString,
+            _ => property.GetRawText()
+        };
+    }
+
+    private static string? ReadNestedString(JsonElement element, string objectName, string propertyName)
+    {
+        if (!element.TryGetProperty(objectName, out var nested) || nested.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return ReadString(nested, propertyName);
+    }
+
+    private static DateTime? ParseDateTime(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        if (property.ValueKind == JsonValueKind.String && DateTime.TryParse(property.GetString(), out var parsed))
+        {
+            return parsed;
         }
 
         return null;
-    }
-
-    private static DateTime? ParseDateTime(JsonElement source, string propertyName)
-    {
-        var raw = ReadString(source, propertyName);
-        return DateTime.TryParse(raw, out var parsed) ? parsed : null;
     }
 }

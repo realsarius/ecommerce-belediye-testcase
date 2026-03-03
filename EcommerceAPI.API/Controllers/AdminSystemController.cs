@@ -1,4 +1,4 @@
-using EcommerceAPI.API.Services;
+using EcommerceAPI.Business.Abstract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,9 +9,9 @@ namespace EcommerceAPI.API.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminSystemController : BaseApiController
 {
-    private readonly AdminSystemMonitoringService _adminSystemMonitoringService;
+    private readonly IAdminSystemMonitoringService _adminSystemMonitoringService;
 
-    public AdminSystemController(AdminSystemMonitoringService adminSystemMonitoringService)
+    public AdminSystemController(IAdminSystemMonitoringService adminSystemMonitoringService)
     {
         _adminSystemMonitoringService = adminSystemMonitoringService;
     }

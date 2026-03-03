@@ -27,10 +27,10 @@ using EcommerceAPI.Core.Utilities.IoC;
 using MassTransit;
 using EcommerceAPI.API.Consumers;
 using EcommerceAPI.API.HealthChecks;
+using EcommerceAPI.API.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
-using EcommerceAPI.API.Services;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
@@ -70,7 +70,6 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<AdminSystemMonitoringService>();
 builder.Services.AddHostedService<OutboxPublisherBackgroundService>();
 
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
