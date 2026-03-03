@@ -69,6 +69,7 @@ export interface Payment {
   transactionId: string;
   paymentMethod?: string;
   provider?: PaymentProviderType | null;
+  last4Digits?: string | null;
   errorMessage?: string;
   requiresThreeDS?: boolean;
   threeDSHtmlContent?: string | null;

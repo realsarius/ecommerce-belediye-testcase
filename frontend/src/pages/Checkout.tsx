@@ -30,6 +30,7 @@ import {
 } from '@/components/common/dialog';
 import { InvoiceInfo } from '@/components/checkout/InvoiceInfo';
 import { LegalConsents } from '@/components/checkout/LegalConsents';
+import { PaymentProviderLogo, getPaymentProviderLabel } from '@/components/order/PaymentProviderLogo';
 import { Package, CreditCard, MapPin, Loader2, Plus, Ticket, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -673,14 +674,20 @@ export default function Checkout() {
                     <SelectContent>
                       {activePaymentProviders.map((provider) => (
                         <SelectItem key={provider} value={provider}>
-                          {provider}
+                          <div className="flex items-center gap-2">
+                            <PaymentProviderLogo provider={provider} className="h-6 border-none bg-transparent p-0" />
+                            <span>{getPaymentProviderLabel(provider)}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 ) : (
                   <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3 text-sm">
-                    <span className="font-medium">{activePaymentProviders[0]}</span>
+                    <div className="flex items-center gap-2">
+                      <PaymentProviderLogo provider={activePaymentProviders[0]} className="h-6 border-none bg-transparent p-0" />
+                      <span className="font-medium">{getPaymentProviderLabel(activePaymentProviders[0])}</span>
+                    </div>
                     <span className="text-muted-foreground">Varsayılan</span>
                   </div>
                 )}
