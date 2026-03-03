@@ -1,31 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useGetOrdersQuery } from '@/features/orders/ordersApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
-import { Badge } from '@/components/common/badge';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
 import { ShoppingBag, Package, ArrowRight, RotateCcw } from 'lucide-react';
 import type { OrderStatus } from '@/features/orders/types';
-
-const statusColors: Record<OrderStatus, string> = {
-  PendingPayment: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  Paid: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  Processing: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  Shipped: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-  Delivered: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  Cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  Refunded: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-};
-
-const statusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Ödeme Bekleniyor',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoya Verildi',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal Edildi',
-  Refunded: 'İade Edildi',
-};
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 const getEligibleReturnAction = (orderStatus: OrderStatus) => {
   if (orderStatus === 'Delivered') {
@@ -83,9 +64,10 @@ export default function Orders() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Sipariş #{order.id}</CardTitle>
-                <Badge className={statusColors[order.status]}>
-                  {statusLabels[order.status]}
-                </Badge>
+                <StatusBadge
+                  label={getOrderStatusLabel(order.status)}
+                  tone={getOrderStatusTone(order.status)}
+                />
               </div>
               <p className="text-sm text-muted-foreground">
                 {new Date(order.createdAt).toLocaleDateString('tr-TR', {

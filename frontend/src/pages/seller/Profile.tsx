@@ -21,7 +21,7 @@ import {
   useGetSellerProfileQuery,
   useUpdateSellerProfileMutation,
 } from '@/features/seller/sellerApi';
-import { Badge } from '@/components/common/badge';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
@@ -346,18 +346,18 @@ export default function SellerProfile() {
                 <span className="text-muted-foreground">Durum</span>
                 {profile ? (
                   profile.isVerified ? (
-                    <Badge className="bg-green-500">
+                    <div className="flex items-center gap-2">
                       <CheckCircle className="mr-1 h-3 w-3" />
-                      Onaylı
-                    </Badge>
+                      <StatusBadge label="Onaylı" tone="success" />
+                    </div>
                   ) : (
-                    <Badge variant="outline" className="border-amber-500 text-amber-600">
+                    <div className="flex items-center gap-2">
                       <Clock className="mr-1 h-3 w-3" />
-                      Onay Bekliyor
-                    </Badge>
+                      <StatusBadge label="Onay Bekliyor" tone="warning" />
+                    </div>
                   )
                 ) : (
-                  <Badge variant="secondary">Henüz oluşturulmadı</Badge>
+                  <StatusBadge label="Henüz oluşturulmadı" tone="neutral" />
                 )}
               </div>
               <div className="flex items-center justify-between gap-4">

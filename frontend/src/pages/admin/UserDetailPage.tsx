@@ -19,12 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { EmptyState } from '@/components/admin/EmptyState';
 import {
   useGetAdminUserDetailQuery,
   useUpdateAdminUserRoleMutation,
   useUpdateAdminUserStatusMutation,
 } from '@/features/admin/adminApi';
 import type { AdminUserStatus } from '@/features/admin/types';
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -302,7 +304,12 @@ export default function UserDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {user.orders.length === 0 ? (
-                <p className="py-10 text-center text-muted-foreground">Bu kullanıcıya ait sipariş bulunmuyor.</p>
+                <EmptyState
+                  icon={ShoppingBag}
+                  title="Bu kullanıcıya ait sipariş bulunmuyor"
+                  description="Kullanıcı ilk siparişini verdiğinde geçmişi bu sekmede listelenecek."
+                  className="border-0 shadow-none"
+                />
               ) : (
                 user.orders.map((order) => (
                   <div key={order.id} className="rounded-2xl border p-4">
@@ -312,7 +319,10 @@ export default function UserDetailPage() {
                         <p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <StatusBadge label={order.status} tone={order.status === 'Cancelled' ? 'danger' : 'info'} />
+                        <StatusBadge
+                          label={getOrderStatusLabel(order.status)}
+                          tone={getOrderStatusTone(order.status)}
+                        />
                         <span className="font-semibold">{formatCurrency(order.totalAmount)}</span>
                       </div>
                     </div>
@@ -331,7 +341,12 @@ export default function UserDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {user.addresses.length === 0 ? (
-                <p className="py-10 text-center text-muted-foreground">Kayıtlı adres bulunmuyor.</p>
+                <EmptyState
+                  icon={MapPin}
+                  title="Kayıtlı adres bulunmuyor"
+                  description="Kullanıcı yeni teslimat adresi eklediğinde detayları bu sekmede gösterilecek."
+                  className="border-0 shadow-none"
+                />
               ) : (
                 user.addresses.map((address) => (
                   <div key={address.id} className="rounded-2xl border p-4">

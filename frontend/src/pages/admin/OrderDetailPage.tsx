@@ -11,7 +11,7 @@ import {
   Truck,
   User,
 } from 'lucide-react';
-import { Badge } from '@/components/common/badge';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import {
@@ -33,26 +33,7 @@ import {
 } from '@/components/common/table';
 import { useGetAdminOrderDetailQuery, useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
 import type { OrderStatus } from '@/features/orders/types';
-
-const statusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Ödeme Bekleniyor',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoda',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal',
-  Refunded: 'İade',
-};
-
-const statusBadgeClasses: Record<OrderStatus, string> = {
-  PendingPayment: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  Paid: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  Processing: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
-  Shipped: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-  Delivered: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  Cancelled: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  Refunded: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
-};
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 const primaryTimeline: OrderStatus[] = ['PendingPayment', 'Paid', 'Processing', 'Shipped', 'Delivered'];
 
@@ -168,9 +149,10 @@ export default function AdminOrderDetailPage() {
             <h1 className="text-3xl font-bold tracking-tight">
               Sipariş #{order.orderNumber || order.id}
             </h1>
-            <Badge variant="secondary" className={statusBadgeClasses[order.status]}>
-              {statusLabels[order.status]}
-            </Badge>
+            <StatusBadge
+              label={getOrderStatusLabel(order.status, { compact: true })}
+              tone={getOrderStatusTone(order.status)}
+            />
           </div>
           <p className="text-muted-foreground">{formatDateTime(order.createdAt)}</p>
         </div>
@@ -186,9 +168,9 @@ export default function AdminOrderDetailPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(statusLabels).map(([status, label]) => (
+                {(['PendingPayment', 'Paid', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'] as OrderStatus[]).map((status) => (
                   <SelectItem key={status} value={status}>
-                    {label}
+                    {getOrderStatusLabel(status, { compact: true })}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -230,7 +212,7 @@ export default function AdminOrderDetailPage() {
                         ) : null}
                       </div>
                       <div className="space-y-1 pb-2">
-                        <p className="font-medium">{statusLabels[step]}</p>
+                        <p className="font-medium">{getOrderStatusLabel(step, { compact: true })}</p>
                         <p className="text-sm text-muted-foreground">
                           {isCurrent ? 'Sipariş şu anda bu aşamada.' : isCompleted ? 'Tamamlanan adım.' : 'Henüz ulaşılmadı.'}
                         </p>

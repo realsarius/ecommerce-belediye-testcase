@@ -34,16 +34,7 @@ import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useGetSellerOrdersQuery, useShipSellerOrderMutation } from '@/features/seller/sellerApi';
 import type { Order, OrderStatus } from '@/features/orders/types';
-
-const orderStatusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Ödeme Bekleniyor',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoda',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal',
-  Refunded: 'İade',
-};
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 function formatCurrency(value: number, currency = 'TRY') {
   return new Intl.NumberFormat('tr-TR', {
@@ -63,13 +54,6 @@ function maskCustomerName(value?: string) {
     .filter(Boolean)
     .map((segment) => `${segment.charAt(0)}**`)
     .join(' ');
-}
-
-function getOrderStatusTone(status: OrderStatus) {
-  if (status === 'Delivered') return 'success' as const;
-  if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
-  if (status === 'PendingPayment') return 'warning' as const;
-  return 'info' as const;
 }
 
 function canShipOrder(status: OrderStatus) {
@@ -246,9 +230,9 @@ export default function SellerOrders() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Durumlar</SelectItem>
-              {Object.entries(orderStatusLabels).map(([status, label]) => (
+              {(['PendingPayment', 'Paid', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'] as OrderStatus[]).map((status) => (
                 <SelectItem key={status} value={status}>
-                  {label}
+                  {getOrderStatusLabel(status, { compact: true })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -307,7 +291,7 @@ export default function SellerOrders() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge label={orderStatusLabels[order.status]} tone={getOrderStatusTone(order.status)} />
+                      <StatusBadge label={getOrderStatusLabel(order.status, { compact: true })} tone={getOrderStatusTone(order.status)} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(order.createdAt).toLocaleDateString('tr-TR')}
@@ -375,7 +359,7 @@ export default function SellerOrders() {
                     <CardDescription>Durum</CardDescription>
                     <CardTitle className="text-lg">
                       <StatusBadge
-                        label={orderStatusLabels[selectedOrder.status]}
+                        label={getOrderStatusLabel(selectedOrder.status, { compact: true })}
                         tone={getOrderStatusTone(selectedOrder.status)}
                       />
                     </CardTitle>

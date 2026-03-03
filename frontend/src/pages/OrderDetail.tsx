@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, useUpdateOrderItemsMutation } from '@/features/orders/ordersApi';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
+import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
-import { Badge } from '@/components/common/badge';
 import { Separator } from '@/components/common/separator';
 import { Skeleton } from '@/components/common/skeleton';
 import { Input } from '@/components/common/input';
@@ -28,26 +29,7 @@ import { ArrowLeft, Package, MapPin, CreditCard, XCircle, RefreshCw, Loader2, Ed
 import { toast } from 'sonner';
 import type { OrderStatus, OrderItem } from '@/features/orders/types';
 import type { Product } from '@/features/products/types';
-
-const statusColors: Record<OrderStatus, string> = {
-  PendingPayment: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  Paid: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  Processing: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  Shipped: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-  Delivered: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  Cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  Refunded: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-};
-
-const statusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Ödeme Bekleniyor',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoya Verildi',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal Edildi',
-  Refunded: 'İade Edildi',
-};
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 interface EditableOrderItem {
   productId: number;
@@ -87,6 +69,7 @@ export default function OrderDetail() {
 
 
   const [showRetryDialog, setShowRetryDialog] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     cardHolderName: '',
     cardNumber: '',
@@ -182,9 +165,9 @@ export default function OrderDetail() {
   };
 
   const handleCancel = async () => {
-    if (!confirm('Siparişi iptal etmek istediğinize emin misiniz?')) return;
     try {
       await cancelOrder(orderId).unwrap();
+      setShowCancelConfirm(false);
       toast.success('Sipariş iptal edildi');
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
@@ -315,9 +298,10 @@ export default function OrderDetail() {
             })}
           </p>
         </div>
-        <Badge className={statusColors[order.status]} variant="secondary">
-          {statusLabels[order.status]}
-        </Badge>
+        <StatusBadge
+          label={getOrderStatusLabel(order.status)}
+          tone={getOrderStatusTone(order.status)}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -392,7 +376,7 @@ export default function OrderDetail() {
             {canCancel && (
               <Button
                 variant="destructive"
-                onClick={handleCancel}
+                onClick={() => setShowCancelConfirm(true)}
                 disabled={isCancelling}
               >
                 <XCircle className="mr-2 h-4 w-4" />
@@ -429,7 +413,7 @@ export default function OrderDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-muted-foreground text-sm">
-                Durum: {order.status === 'Paid' ? 'Ödeme alındı' : statusLabels[order.status]}
+                Durum: {order.status === 'Paid' ? 'Ödeme alındı' : getOrderStatusLabel(order.status)}
               </p>
               {order.payment?.paymentMethod ? (
                 <p className="text-muted-foreground text-sm">
@@ -555,6 +539,17 @@ export default function OrderDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        title="Siparişi iptal et"
+        description="Bu siparişi iptal ettiğinizde ödeme bekleyen süreç sonlandırılır. Devam etmek istediğinize emin misiniz?"
+        confirmLabel="Siparişi İptal Et"
+        confirmVariant="destructive"
+        isLoading={isCancelling}
+        onConfirm={handleCancel}
+      />
 
       {/* Edit Order Dialog */}
       <Dialog open={showEditDialog} onOpenChange={handleEditDialogOpenChange}>

@@ -35,16 +35,7 @@ import { useGetAdminOrdersQuery, useUpdateOrderStatusMutation } from '@/features
 import type { AdminOrdersQueryParams } from '@/features/admin/types';
 import type { OrderStatus } from '@/features/orders/types';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
-
-const statusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Ödeme Bekleniyor',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoda',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal',
-  Refunded: 'İade',
-};
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 function formatCurrency(value: number, currency = 'TRY') {
   return new Intl.NumberFormat('tr-TR', {
@@ -52,13 +43,6 @@ function formatCurrency(value: number, currency = 'TRY') {
     currency,
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function getOrderStatusTone(status: OrderStatus) {
-  if (status === 'Delivered') return 'success' as const;
-  if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
-  if (status === 'PendingPayment') return 'warning' as const;
-  return 'info' as const;
 }
 
 export default function OrdersAdmin() {
@@ -255,9 +239,9 @@ export default function OrdersAdmin() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Durumlar</SelectItem>
-              {Object.entries(statusLabels).map(([status, label]) => (
+              {(['PendingPayment', 'Paid', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'] as OrderStatus[]).map((status) => (
                 <SelectItem key={status} value={status}>
-                  {label}
+                  {getOrderStatusLabel(status, { compact: true })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -338,15 +322,15 @@ export default function OrdersAdmin() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(statusLabels).map(([status, label]) => (
+                            {(['PendingPayment', 'Paid', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'] as OrderStatus[]).map((status) => (
                               <SelectItem key={status} value={status}>
-                                {label}
+                                {getOrderStatusLabel(status, { compact: true })}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <StatusBadge
-                          label={statusLabels[order.status]}
+                          label={getOrderStatusLabel(order.status, { compact: true })}
                           tone={getOrderStatusTone(order.status)}
                           className="mt-2"
                         />

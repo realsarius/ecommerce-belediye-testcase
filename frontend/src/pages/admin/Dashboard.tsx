@@ -54,18 +54,9 @@ import {
 import type { OrderStatus } from '@/features/orders/types';
 import type { DashboardPeriod } from '@/types/chart';
 import { formatCompactNumber, formatCurrency, formatNumber } from '@/lib/format';
+import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 const chartColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
-
-const orderStatusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Beklemede',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoda',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal',
-  Refunded: 'İade',
-};
 
 function formatCountTooltip(value?: number, suffix?: string) {
   if (typeof value !== 'number') {
@@ -81,13 +72,6 @@ function formatDelta(current: number, previous: number) {
   }
 
   return ((current - previous) / previous) * 100;
-}
-
-function getOrderStatusTone(status: OrderStatus) {
-  if (status === 'Delivered') return 'success' as const;
-  if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
-  if (status === 'PendingPayment') return 'warning' as const;
-  return 'info' as const;
 }
 
 export default function AdminDashboard() {
@@ -118,8 +102,8 @@ export default function AdminDashboard() {
     recentOrdersLoading;
 
   const dashboardData = useMemo(() => {
-    const mappedStatusDistribution = Object.entries(orderStatusLabels).map(([status, label], index) => ({
-      name: label,
+    const mappedStatusDistribution = (['PendingPayment', 'Paid', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'] as OrderStatus[]).map((status, index) => ({
+      name: getOrderStatusLabel(status, { compact: true }),
       value: statusDistribution.find((item) => item.status === status)?.count ?? 0,
       fill: chartColors[index % chartColors.length],
     }));
@@ -398,7 +382,7 @@ export default function AdminDashboard() {
                   <TableCell>{formatCurrency(order.totalAmount, order.currency || kpi?.currency)}</TableCell>
                   <TableCell>
                     <StatusBadge
-                      label={orderStatusLabels[order.status]}
+                      label={getOrderStatusLabel(order.status, { compact: true })}
                       tone={getOrderStatusTone(order.status)}
                     />
                   </TableCell>
