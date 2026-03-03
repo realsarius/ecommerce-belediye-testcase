@@ -55,7 +55,7 @@ public class SellerAnalyticsController : SellerApiControllerBase
     }
 
     [HttpGet("finance")]
-    public async Task<IActionResult> GetFinance([FromQuery] int days = 30)
+    public async Task<IActionResult> GetFinance([FromQuery] int days = 30, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
     {
         var sellerContext = await GetSellerContextAsync(_sellerProfileService);
         if (sellerContext == null)
@@ -67,7 +67,7 @@ public class SellerAnalyticsController : SellerApiControllerBase
             return MissingSellerProfile();
         }
 
-        var result = await _sellerAnalyticsService.GetFinanceSummaryAsync(sellerContext.SellerProfileId.Value, days);
+        var result = await _sellerAnalyticsService.GetFinanceSummaryAsync(sellerContext.SellerProfileId.Value, days, from, to);
         return HandleResult(result);
     }
 }

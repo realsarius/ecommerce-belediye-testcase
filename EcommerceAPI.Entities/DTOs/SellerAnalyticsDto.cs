@@ -84,6 +84,8 @@ public class SellerAnalyticsTrendPointDto : IDto
 public class SellerFinanceSummaryDto : IDto
 {
     public int PeriodDays { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
     public int TotalOrders { get; set; }
     public decimal GrossSales { get; set; }
     public decimal RefundedAmount { get; set; }

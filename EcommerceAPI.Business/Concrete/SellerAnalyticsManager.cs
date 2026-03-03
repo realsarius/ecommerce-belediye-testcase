@@ -162,10 +162,19 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         return new SuccessDataResult<List<SellerAnalyticsTrendPointDto>>(trend.Values.OrderBy(point => point.Date).ToList());
     }
 
-    public async Task<IDataResult<SellerFinanceSummaryDto>> GetFinanceSummaryAsync(int sellerId, int days = 30)
+    public async Task<IDataResult<SellerFinanceSummaryDto>> GetFinanceSummaryAsync(int sellerId, int days = 30, DateOnly? from = null, DateOnly? to = null)
     {
-        var normalizedDays = Math.Clamp(days, 7, 90);
-        var fromDate = DateTime.UtcNow.Date.AddDays(-(normalizedDays - 1));
+        var rangeResult = ResolveFinanceDateRange(days, from, to);
+        if (!rangeResult.Success)
+        {
+            return new ErrorDataResult<SellerFinanceSummaryDto>(rangeResult.Message ?? "Geçersiz tarih aralığı.");
+        }
+
+        var normalizedDays = rangeResult.Data.PeriodDays;
+        var rangeStart = rangeResult.Data.FromDate;
+        var rangeEnd = rangeResult.Data.ToDate;
+        var fromDate = rangeStart.ToDateTime(TimeOnly.MinValue);
+        var toDateExclusive = rangeEnd.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var commissionRatePercent = await GetCommissionRatePercentAsync(sellerId);
         var commissionRate = commissionRatePercent / 100m;
 
@@ -182,6 +191,8 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
             return new SuccessDataResult<SellerFinanceSummaryDto>(new SellerFinanceSummaryDto
             {
                 PeriodDays = normalizedDays,
+                FromDate = rangeStart,
+                ToDate = rangeEnd,
                 CommissionRate = commissionRatePercent,
                 Currency = currency
             });
@@ -193,13 +204,13 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
             .Sum(item => item.PriceSnapshot * item.Quantity);
 
         var periodOrders = orders
-            .Where(order => order.CreatedAt >= fromDate)
+            .Where(order => order.CreatedAt >= fromDate && order.CreatedAt < toDateExclusive)
             .ToList();
 
         var dailyTrend = Enumerable.Range(0, normalizedDays)
             .Select(offset =>
             {
-                var date = DateOnly.FromDateTime(fromDate.AddDays(offset));
+                var date = rangeStart.AddDays(offset);
                 var sellerItems = periodOrders
                     .Where(order => DateOnly.FromDateTime(order.CreatedAt) == date && order.Status != OrderStatus.Cancelled)
                     .SelectMany(order => order.OrderItems.Where(item => item.Product.SellerId == sellerId))
@@ -258,6 +269,8 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         var summary = new SellerFinanceSummaryDto
         {
             PeriodDays = normalizedDays,
+            FromDate = rangeStart,
+            ToDate = rangeEnd,
             TotalOrders = totalOrders,
             GrossSales = Math.Round(grossSalesTotal, 2),
             RefundedAmount = refundedAmountTotal,
@@ -274,6 +287,35 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         };
 
         return new SuccessDataResult<SellerFinanceSummaryDto>(summary);
+    }
+
+    private static IDataResult<(DateOnly FromDate, DateOnly ToDate, int PeriodDays)> ResolveFinanceDateRange(int days, DateOnly? from, DateOnly? to)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        if (from.HasValue || to.HasValue)
+        {
+            var resolvedTo = to ?? today;
+            var resolvedFrom = from ?? resolvedTo.AddDays(-(Math.Clamp(days, 7, 90) - 1));
+
+            if (resolvedFrom > resolvedTo)
+            {
+                return new ErrorDataResult<(DateOnly FromDate, DateOnly ToDate, int PeriodDays)>("Başlangıç tarihi bitiş tarihinden büyük olamaz.");
+            }
+
+            var periodDays = resolvedTo.DayNumber - resolvedFrom.DayNumber + 1;
+            if (periodDays > 180)
+            {
+                return new ErrorDataResult<(DateOnly FromDate, DateOnly ToDate, int PeriodDays)>("Tarih aralığı en fazla 180 gün olabilir.");
+            }
+
+            return new SuccessDataResult<(DateOnly FromDate, DateOnly ToDate, int PeriodDays)>((resolvedFrom, resolvedTo, periodDays));
+        }
+
+        var normalizedDays = Math.Clamp(days, 7, 90);
+        var defaultTo = today;
+        var defaultFrom = defaultTo.AddDays(-(normalizedDays - 1));
+        return new SuccessDataResult<(DateOnly FromDate, DateOnly ToDate, int PeriodDays)>((defaultFrom, defaultTo, normalizedDays));
     }
 
     public async Task<IDataResult<SellerDashboardKpiDto>> GetDashboardKpiAsync(int sellerId, int days = 30)
