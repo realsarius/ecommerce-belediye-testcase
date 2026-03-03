@@ -42,10 +42,16 @@ import { DataTable } from '@/components/admin/DataTable';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
-import { useGetAdminCategoriesQuery, useGetAdminOrdersQuery, useGetAdminUsersQuery } from '@/features/admin/adminApi';
-import { useSearchProductsQuery } from '@/features/products/productsApi';
-import type { Order, OrderStatus } from '@/features/orders/types';
-import { formatShortDate } from '@/lib/dashboardLayout';
+import {
+  useGetAdminDashboardCategorySalesQuery,
+  useGetAdminDashboardKpiQuery,
+  useGetAdminDashboardLowStockQuery,
+  useGetAdminDashboardOrderStatusDistributionQuery,
+  useGetAdminDashboardRecentOrdersQuery,
+  useGetAdminDashboardRevenueTrendQuery,
+  useGetAdminDashboardUserRegistrationsQuery,
+} from '@/features/admin/adminApi';
+import type { OrderStatus } from '@/features/orders/types';
 
 const chartColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 type RevenuePeriod = 'daily' | 'weekly' | 'monthly';
@@ -92,157 +98,6 @@ function formatDelta(current: number, previous: number) {
   return ((current - previous) / previous) * 100;
 }
 
-function isRevenueOrder(status: OrderStatus) {
-  return status === 'Paid' || status === 'Processing' || status === 'Shipped' || status === 'Delivered';
-}
-
-function buildRevenueTrend(orders: Order[]) {
-  const today = new Date();
-  const buckets = Array.from({ length: 7 }).map((_, index) => {
-    const currentDate = new Date(today);
-    currentDate.setDate(today.getDate() - (6 - index));
-
-    const previousDate = new Date(currentDate);
-    previousDate.setDate(currentDate.getDate() - 7);
-
-    const currentKey = currentDate.toISOString().slice(0, 10);
-    const previousKey = previousDate.toISOString().slice(0, 10);
-
-    return {
-      label: formatShortDate(currentDate.toISOString()),
-      currentKey,
-      previousKey,
-      revenue: 0,
-      previousRevenue: 0,
-      orders: 0,
-    };
-  });
-
-  for (const bucket of buckets) {
-    for (const order of orders) {
-      const orderKey = new Date(order.createdAt).toISOString().slice(0, 10);
-      if (orderKey === bucket.currentKey) {
-        bucket.orders += 1;
-        if (isRevenueOrder(order.status)) {
-          bucket.revenue += order.totalAmount;
-        }
-      }
-
-      if (orderKey === bucket.previousKey && isRevenueOrder(order.status)) {
-        bucket.previousRevenue += order.totalAmount;
-      }
-    }
-  }
-
-  return buckets;
-}
-
-function getWeekKey(value: Date) {
-  const start = new Date(value.getFullYear(), 0, 1);
-  const diff = (value.getTime() - start.getTime()) / 86400000;
-  return `${value.getFullYear()}-${Math.ceil((diff + start.getDay() + 1) / 7)}`;
-}
-
-function buildWeeklyRevenueTrend(orders: Order[]) {
-  const now = new Date();
-  const buckets = Array.from({ length: 8 }).map((_, index) => {
-    const currentDate = new Date(now);
-    currentDate.setDate(now.getDate() - (7 - index) * 7);
-
-    const previousDate = new Date(currentDate);
-    previousDate.setDate(currentDate.getDate() - 56);
-
-    return {
-      label: currentDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
-      currentKey: getWeekKey(currentDate),
-      previousKey: getWeekKey(previousDate),
-      revenue: 0,
-      previousRevenue: 0,
-      orders: 0,
-    };
-  });
-
-  for (const bucket of buckets) {
-    for (const order of orders) {
-      const orderDate = new Date(order.createdAt);
-      const orderKey = getWeekKey(orderDate);
-      if (orderKey === bucket.currentKey) {
-        bucket.orders += 1;
-        if (isRevenueOrder(order.status)) {
-          bucket.revenue += order.totalAmount;
-        }
-      }
-
-      if (orderKey === bucket.previousKey && isRevenueOrder(order.status)) {
-        bucket.previousRevenue += order.totalAmount;
-      }
-    }
-  }
-
-  return buckets;
-}
-
-function buildMonthlyRevenueTrend(orders: Order[]) {
-  const now = new Date();
-  const buckets = Array.from({ length: 6 }).map((_, index) => {
-    const currentDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-    const previousDate = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
-
-    return {
-      label: currentDate.toLocaleDateString('tr-TR', { month: 'short' }),
-      currentKey: `${currentDate.getFullYear()}-${currentDate.getMonth()}`,
-      previousKey: `${previousDate.getFullYear()}-${previousDate.getMonth()}`,
-      revenue: 0,
-      previousRevenue: 0,
-      orders: 0,
-    };
-  });
-
-  for (const bucket of buckets) {
-    for (const order of orders) {
-      const orderDate = new Date(order.createdAt);
-      const orderKey = `${orderDate.getFullYear()}-${orderDate.getMonth()}`;
-      if (orderKey === bucket.currentKey) {
-        bucket.orders += 1;
-        if (isRevenueOrder(order.status)) {
-          bucket.revenue += order.totalAmount;
-        }
-      }
-
-      if (orderKey === bucket.previousKey && isRevenueOrder(order.status)) {
-        bucket.previousRevenue += order.totalAmount;
-      }
-    }
-  }
-
-  return buckets;
-}
-
-function buildUserRegistrationTrend(createdAtValues: string[]) {
-  const today = new Date();
-  const buckets = Array.from({ length: 30 }).map((_, index) => {
-    const currentDate = new Date(today);
-    currentDate.setDate(today.getDate() - (29 - index));
-
-    return {
-      label: formatShortDate(currentDate.toISOString()),
-      currentKey: currentDate.toISOString().slice(0, 10),
-      count: 0,
-    };
-  });
-
-  for (const bucket of buckets) {
-    for (const createdAt of createdAtValues) {
-      const createdAtKey = new Date(createdAt).toISOString().slice(0, 10);
-      if (createdAtKey === bucket.currentKey) {
-        bucket.count += 1;
-      }
-    }
-  }
-
-  return buckets;
-}
-
 function getOrderStatusTone(status: OrderStatus) {
   if (status === 'Delivered') return 'success' as const;
   if (status === 'Cancelled' || status === 'Refunded') return 'danger' as const;
@@ -252,93 +107,46 @@ function getOrderStatusTone(status: OrderStatus) {
 
 export default function AdminDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState<RevenuePeriod>('daily');
-  const { data: orders = [], isLoading: ordersLoading } = useGetAdminOrdersQuery();
-  const { data: categories = [], isLoading: categoriesLoading } = useGetAdminCategoriesQuery();
-  const { data: usersResponse, isLoading: usersLoading } = useGetAdminUsersQuery({ page: 1, pageSize: 500 });
-  const { data: products, isLoading: productsLoading } = useSearchProductsQuery({ page: 1, pageSize: 500 });
+  const pollingOptions = { pollingInterval: 60000 } as const;
 
-  const isLoading = ordersLoading || categoriesLoading || usersLoading || productsLoading;
+  const { data: kpi, isLoading: kpiLoading } = useGetAdminDashboardKpiQuery(undefined, pollingOptions);
+  const { data: revenueTrend = [], isLoading: revenueTrendLoading } =
+    useGetAdminDashboardRevenueTrendQuery({ period: selectedPeriod }, pollingOptions);
+  const { data: categorySales = [], isLoading: categorySalesLoading } =
+    useGetAdminDashboardCategorySalesQuery(undefined, pollingOptions);
+  const { data: userRegistrations = [], isLoading: registrationsLoading } =
+    useGetAdminDashboardUserRegistrationsQuery(30, pollingOptions);
+  const { data: statusDistribution = [], isLoading: statusLoading } =
+    useGetAdminDashboardOrderStatusDistributionQuery(undefined, pollingOptions);
+  const { data: lowStockProducts = [], isLoading: lowStockLoading } =
+    useGetAdminDashboardLowStockQuery(5, pollingOptions);
+  const { data: recentOrders = [], isLoading: recentOrdersLoading } =
+    useGetAdminDashboardRecentOrdersQuery(5, pollingOptions);
+
+  const isLoading =
+    kpiLoading ||
+    revenueTrendLoading ||
+    categorySalesLoading ||
+    registrationsLoading ||
+    statusLoading ||
+    lowStockLoading ||
+    recentOrdersLoading;
 
   const dashboardData = useMemo(() => {
-    const now = new Date();
-    const todayKey = now.toISOString().slice(0, 10);
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayKey = yesterday.toISOString().slice(0, 10);
-    const users = usersResponse?.items ?? [];
-
-    const todayOrders = orders.filter((order) => new Date(order.createdAt).toISOString().slice(0, 10) === todayKey);
-    const yesterdayOrders = orders.filter((order) => new Date(order.createdAt).toISOString().slice(0, 10) === yesterdayKey);
-    const todayUsers = users.filter((user) => new Date(user.createdAt).toISOString().slice(0, 10) === todayKey);
-    const yesterdayUsers = users.filter((user) => new Date(user.createdAt).toISOString().slice(0, 10) === yesterdayKey);
-
-    const todayRevenue = todayOrders
-      .filter((order) => isRevenueOrder(order.status))
-      .reduce((sum, order) => sum + order.totalAmount, 0);
-    const yesterdayRevenue = yesterdayOrders
-      .filter((order) => isRevenueOrder(order.status))
-      .reduce((sum, order) => sum + order.totalAmount, 0);
-
-    const productItems = products?.items ?? [];
-    const activeProducts = productItems.filter((product) => product.isActive).length;
-    const activeSellerIds = new Set(
-      productItems
-        .filter((product) => product.isActive && product.sellerId != null)
-        .map((product) => product.sellerId)
-    );
-    const lowStockProducts = productItems
-      .filter((product) => product.stockQuantity <= 5)
-      .sort((a, b) => a.stockQuantity - b.stockQuantity)
-      .slice(0, 5);
-
-    const recentOrders = [...orders]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 5);
-
-    const revenueTrend = {
-      daily: buildRevenueTrend(orders),
-      weekly: buildWeeklyRevenueTrend(orders),
-      monthly: buildMonthlyRevenueTrend(orders),
-    };
-    const statusDistribution = Object.entries(orderStatusLabels).map(([status, label], index) => ({
+    const mappedStatusDistribution = Object.entries(orderStatusLabels).map(([status, label], index) => ({
       name: label,
-      value: orders.filter((order) => order.status === status).length,
+      value: statusDistribution.find((item) => item.status === status)?.count ?? 0,
       fill: chartColors[index % chartColors.length],
     }));
 
-    const categoryProductCounts = [...categories]
-      .sort((a, b) => b.productCount - a.productCount)
-      .slice(0, 6)
-      .map((category) => ({
-        name: category.name,
-        count: category.productCount,
-      }));
-
-    const userRegistrationTrend = buildUserRegistrationTrend(users.map((user) => user.createdAt));
-
     return {
-      activeProducts,
-      activeSellerCount: activeSellerIds.size,
-      categoryCount: categories.length,
       lowStockProducts,
-      lowStockCount: lowStockProducts.length,
-      pendingSellerApplications: 0,
-      revenueTrend,
       recentOrders,
-      statusDistribution,
-      todayOrdersCount: todayOrders.length,
-      todayOrdersDelta: formatDelta(todayOrders.length, yesterdayOrders.length),
-      todayRevenue,
-      todayRevenueDelta: formatDelta(todayRevenue, yesterdayRevenue),
-      todayUsersCount: todayUsers.length,
-      todayUsersDelta: formatDelta(todayUsers.length, yesterdayUsers.length),
-      userRegistrationTrend,
-      categoryProductCounts,
-      totalOrders: orders.length,
+      statusDistribution: mappedStatusDistribution,
+      totalOrders: mappedStatusDistribution.reduce((sum, item) => sum + item.value, 0),
     };
-  }, [categories, orders, products, usersResponse?.items]);
+  }, [lowStockProducts, recentOrders, statusDistribution]);
 
-  const selectedRevenueTrend = dashboardData.revenueTrend[selectedPeriod];
   const revenueDescriptions: Record<RevenuePeriod, string> = {
     daily: 'Son 7 gün ile bir önceki 7 günlük dönemin günlük gelir karşılaştırması.',
     weekly: 'Son 8 hafta ile önceki 8 haftanın haftalık gelir karşılaştırması.',
@@ -378,8 +186,8 @@ export default function AdminDashboard() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="max-w-3xl text-muted-foreground">
-            Mevcut admin sipariş, katalog ve kullanıcı endpoint’lerinden türetilen operasyonel metrikleri tek ekranda
-            toplar. Seller başvuruları için ayrı backend hazır olduğunda aynı yüzey daha derin hale gelecek.
+            Sipariş, kullanıcı ve katalog metriklerini gerçek admin dashboard endpoint&apos;leri üzerinden tek ekranda
+            izleyin. Seller başvuruları için ayrı backend hazır olduğunda bu yüzey daha da derinleşecek.
           </p>
         </div>
 
@@ -396,8 +204,8 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Bugünkü Gelir"
-          value={formatCurrency(dashboardData.todayRevenue)}
-          delta={dashboardData.todayRevenueDelta}
+          value={formatCurrency(kpi?.todayRevenue ?? 0, kpi?.currency)}
+          delta={formatDelta(kpi?.todayRevenue ?? 0, kpi?.yesterdayRevenue ?? 0)}
           deltaLabel="düne göre"
           helperText="Bugün gelir oluşturan siparişlerden hesaplandı."
           icon={CircleDollarSign}
@@ -406,8 +214,8 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Bugünkü Sipariş"
-          value={dashboardData.todayOrdersCount.toLocaleString('tr-TR')}
-          delta={dashboardData.todayOrdersDelta}
+          value={(kpi?.todayOrders ?? 0).toLocaleString('tr-TR')}
+          delta={formatDelta(kpi?.todayOrders ?? 0, kpi?.yesterdayOrders ?? 0)}
           deltaLabel="düne göre"
           helperText="Yeni oluşturulan sipariş adedi."
           icon={ShoppingBag}
@@ -416,8 +224,8 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Yeni Üye"
-          value={dashboardData.todayUsersCount.toLocaleString('tr-TR')}
-          delta={dashboardData.todayUsersDelta}
+          value={(kpi?.todayNewUsers ?? 0).toLocaleString('tr-TR')}
+          delta={formatDelta(kpi?.todayNewUsers ?? 0, kpi?.yesterdayNewUsers ?? 0)}
           deltaLabel="düne göre"
           helperText="Bugün kayıt olan kullanıcı sayısı."
           icon={UserPlus}
@@ -426,9 +234,9 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Aktif Seller"
-          value={dashboardData.activeSellerCount.toLocaleString('tr-TR')}
-          helperText={`${dashboardData.activeProducts.toLocaleString('tr-TR')} aktif ürün ve ${dashboardData.categoryCount.toLocaleString('tr-TR')} kategori içinde hesaplandı.`}
-          badge={`${dashboardData.pendingSellerApplications} bekleyen`}
+          value={(kpi?.activeSellers ?? 0).toLocaleString('tr-TR')}
+          helperText={`${(kpi?.activeProducts ?? 0).toLocaleString('tr-TR')} aktif ürün ve ${(kpi?.categoryCount ?? 0).toLocaleString('tr-TR')} kategori içinde hesaplandı.`}
+          badge={`${kpi?.pendingSellerApplications ?? 0} bekleyen`}
           icon={Store}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"
@@ -457,25 +265,21 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={selectedRevenueTrend}>
+              <LineChart data={revenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatCompactTick}
-                />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
                 <Tooltip
                   formatter={(value, name) => [
-                    formatCurrency(typeof value === 'number' ? value : 0),
-                    name === 'revenue' ? 'Bu hafta' : 'Geçen hafta',
+                    formatCurrency(typeof value === 'number' ? value : 0, kpi?.currency),
+                    name === 'revenue' ? 'Seçili dönem' : 'Karşılaştırma',
                   ]}
                 />
                 <Legend />
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  name="Bu hafta"
+                  name="Seçili dönem"
                   stroke="#6366f1"
                   strokeWidth={3}
                   dot={{ r: 3 }}
@@ -483,7 +287,7 @@ export default function AdminDashboard() {
                 <Line
                   type="monotone"
                   dataKey="previousRevenue"
-                  name="Geçen hafta"
+                  name="Karşılaştırma"
                   stroke="#94a3b8"
                   strokeWidth={2}
                   strokeDasharray="6 6"
@@ -531,17 +335,17 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Kategori Bazlı Katalog Yoğunluğu</CardTitle>
-            <CardDescription>MVP kapsamında kategori bazlı ürün sayısı gösterilmektedir.</CardDescription>
+            <CardTitle>Kategori Bazlı Satış</CardTitle>
+            <CardDescription>Kategori bazlı satış hacmi başarılı sipariş kalemlerinden hesaplanır.</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dashboardData.categoryProductCounts}>
+              <BarChart data={categorySales}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                <XAxis dataKey="categoryName" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'ürün')} />
-                <Bar dataKey="count" fill="#06b6d4" radius={[8, 8, 0, 0]} />
+                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'adet')} />
+                <Bar dataKey="salesCount" fill="#06b6d4" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -554,7 +358,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboardData.userRegistrationTrend}>
+              <AreaChart data={userRegistrations}>
                 <defs>
                   <linearGradient id="userRegistrationGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.45} />
@@ -564,13 +368,13 @@ export default function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'kullanıcı')} />
+                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'kayıt')} />
                 <Area
                   type="monotone"
                   dataKey="count"
                   stroke="#8b5cf6"
-                  fill="url(#userRegistrationGradient)"
                   strokeWidth={3}
+                  fill="url(#userRegistrationGradient)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -581,11 +385,11 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <DataTable
           title="Son Siparişler"
-          description="En son gelen 5 sipariş hızlı inceleme için listeleniyor."
+          description="En son oluşturulan siparişlerin hızlı görünümü."
           actions={(
             <Button variant="ghost" size="sm" asChild>
               <Link to="/admin/orders">
-                Tümünü Gör
+                Siparişleri Gör
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
@@ -598,15 +402,15 @@ export default function AdminDashboard() {
                 <TableHead>Müşteri</TableHead>
                 <TableHead>Tutar</TableHead>
                 <TableHead>Durum</TableHead>
-                <TableHead className="text-right">Detay</TableHead>
+                <TableHead className="text-right">Aksiyon</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {dashboardData.recentOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
-                  <TableCell>{order.customerName || `Kullanıcı #${order.userId}`}</TableCell>
-                  <TableCell>{formatCurrency(order.totalAmount, order.currency || 'TRY')}</TableCell>
+                <TableRow key={order.orderId}>
+                  <TableCell className="font-medium">#{order.orderNumber || order.orderId}</TableCell>
+                  <TableCell>{order.customerName || 'Misafir kullanıcı'}</TableCell>
+                  <TableCell>{formatCurrency(order.totalAmount, order.currency || kpi?.currency)}</TableCell>
                   <TableCell>
                     <StatusBadge
                       label={orderStatusLabels[order.status]}
@@ -615,7 +419,7 @@ export default function AdminDashboard() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/admin/orders/${order.id}`}>Git</Link>
+                      <Link to={`/admin/orders/${order.orderId}`}>Detay</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -625,8 +429,8 @@ export default function AdminDashboard() {
                   <TableCell colSpan={5} className="p-0">
                     <EmptyState
                       icon={ShoppingBag}
-                      title="Henüz sipariş kaydı yok"
-                      description="Yeni siparişler geldikçe bu alan en güncel hareketleri gösterecek."
+                      title="Henüz sipariş verisi yok"
+                      description="Yeni siparişler oluştukça hızlı özet burada görünecek."
                       className="border-0 shadow-none"
                     />
                   </TableCell>
@@ -638,59 +442,43 @@ export default function AdminDashboard() {
 
         <DataTable
           title="Düşük Stok Uyarıları"
-          description="En kritik stok seviyesine sahip ürünler listeleniyor."
-          actions={(
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/admin/products">
-                Ürünlere Git
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          )}
+          description="Stok seviyesi kritik eşiğin altında kalan aktif ürünler."
+          actions={<StatusBadge label={`${dashboardData.lowStockProducts.length} kayıt`} tone="warning" />}
         >
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Ürün</TableHead>
                 <TableHead>Stok</TableHead>
-                <TableHead>Kategori</TableHead>
-                <TableHead>Durum</TableHead>
+                <TableHead>Seller</TableHead>
                 <TableHead className="text-right">Aksiyon</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {dashboardData.lowStockProducts.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Boxes className="h-4 w-4 text-muted-foreground" />
-                      <span className="max-w-[16rem] truncate font-medium">{product.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className={product.stockQuantity <= 0 ? 'font-semibold text-rose-600' : 'font-semibold text-amber-600'}>
-                    {product.stockQuantity}
-                  </TableCell>
-                  <TableCell>{product.categoryName}</TableCell>
+                <TableRow key={product.productId}>
+                  <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
                     <StatusBadge
-                      label={product.stockQuantity <= 0 ? 'Tükendi' : 'Kritik'}
-                      tone={product.stockQuantity <= 0 ? 'danger' : 'warning'}
+                      label={String(product.stock)}
+                      tone={product.stock <= 0 ? 'danger' : 'warning'}
                     />
                   </TableCell>
+                  <TableCell>{product.sellerName}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/admin/products/${product.id}`}>Ürüne Git</Link>
+                      <Link to={`/admin/products/${product.productId}`}>Ürüne Git</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
               ))}
               {dashboardData.lowStockProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-0">
+                  <TableCell colSpan={4} className="p-0">
                     <EmptyState
                       icon={Boxes}
                       title="Kritik stok uyarısı yok"
-                      description="Şu an aksiyon gerektiren düşük stoklu ürün bulunmuyor."
+                      description="Seçilen eşikte stok seviyesi düşük olan aktif ürün bulunmuyor."
                       className="border-0 shadow-none"
                     />
                   </TableCell>

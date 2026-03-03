@@ -11,6 +11,13 @@ import type {
 import type {
   AdminErrorLog,
   AdminAnnouncement,
+  AdminDashboardCategorySalesItem,
+  AdminDashboardKpi,
+  AdminDashboardLowStockItem,
+  AdminDashboardOrderStatusDistributionItem,
+  AdminDashboardRecentOrder,
+  AdminDashboardRevenueTrendPoint,
+  AdminDashboardUserRegistrationPoint,
   AdminUserDetail,
   AdminUserListItem,
   CreateAdminAnnouncementRequest,
@@ -35,6 +42,53 @@ function unwrapApiData<T>(response: T | { data: T }) {
 
 export const adminApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getAdminDashboardKpi: builder.query<AdminDashboardKpi, void>({
+      query: () => '/admin/dashboard/kpi',
+      transformResponse: (response: { data: AdminDashboardKpi }) => response.data,
+      providesTags: ['Orders', 'Users', 'Products', 'Categories'],
+    }),
+    getAdminDashboardRevenueTrend: builder.query<AdminDashboardRevenueTrendPoint[], { period?: 'daily' | 'weekly' | 'monthly' } | void>({
+      query: (params) => ({
+        url: '/admin/dashboard/revenue-trend',
+        params: params ?? undefined,
+      }),
+      transformResponse: (response: { data: AdminDashboardRevenueTrendPoint[] }) => response.data,
+      providesTags: ['Orders'],
+    }),
+    getAdminDashboardCategorySales: builder.query<AdminDashboardCategorySalesItem[], void>({
+      query: () => '/admin/dashboard/category-sales',
+      transformResponse: (response: { data: AdminDashboardCategorySalesItem[] }) => response.data,
+      providesTags: ['Orders', 'Categories'],
+    }),
+    getAdminDashboardUserRegistrations: builder.query<AdminDashboardUserRegistrationPoint[], number | void>({
+      query: (days = 30) => ({
+        url: '/admin/dashboard/user-registrations',
+        params: { days },
+      }),
+      transformResponse: (response: { data: AdminDashboardUserRegistrationPoint[] }) => response.data,
+      providesTags: ['Users'],
+    }),
+    getAdminDashboardOrderStatusDistribution: builder.query<AdminDashboardOrderStatusDistributionItem[], void>({
+      query: () => '/admin/dashboard/order-status-distribution',
+      transformResponse: (response: { data: AdminDashboardOrderStatusDistributionItem[] }) => response.data,
+      providesTags: ['Orders'],
+    }),
+    getAdminDashboardLowStock: builder.query<AdminDashboardLowStockItem[], number | void>({
+      query: (threshold = 5) => ({
+        url: '/admin/dashboard/low-stock',
+        params: { threshold },
+      }),
+      transformResponse: (response: { data: AdminDashboardLowStockItem[] }) => response.data,
+      providesTags: ['Products'],
+    }),
+    getAdminDashboardRecentOrders: builder.query<AdminDashboardRecentOrder[], number | void>({
+      query: (limit = 5) => ({
+        url: '/admin/dashboard/recent-orders',
+        params: { limit },
+      }),
+      transformResponse: (response: { data: AdminDashboardRecentOrder[] }) => response.data,
+      providesTags: ['Orders'],
+    }),
     getCategories: builder.query<Category[], void>({
       query: () => '/categories',
       transformResponse: (response: { data: Category[] }) => response.data,
@@ -254,6 +308,13 @@ export const adminApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetAdminDashboardKpiQuery,
+  useGetAdminDashboardRevenueTrendQuery,
+  useGetAdminDashboardCategorySalesQuery,
+  useGetAdminDashboardUserRegistrationsQuery,
+  useGetAdminDashboardOrderStatusDistributionQuery,
+  useGetAdminDashboardLowStockQuery,
+  useGetAdminDashboardRecentOrdersQuery,
   useGetCategoriesQuery,
   useGetAdminCategoriesQuery,
   useCreateCategoryMutation,

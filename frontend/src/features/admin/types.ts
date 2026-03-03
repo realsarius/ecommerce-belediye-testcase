@@ -1,4 +1,4 @@
-import type { Order, ShippingAddress } from '@/features/orders/types';
+import type { Order, OrderStatus, ShippingAddress } from '@/features/orders/types';
 
 export type AdminUserStatus = 'Active' | 'Suspended' | 'Banned';
 
@@ -116,4 +116,59 @@ export interface CreateAdminAnnouncementRequest {
   targetUserIds: number[];
   channels: AdminAnnouncementChannel[];
   scheduledAt?: string | null;
+}
+
+export interface AdminDashboardKpi {
+  todayRevenue: number;
+  yesterdayRevenue: number;
+  todayOrders: number;
+  yesterdayOrders: number;
+  todayNewUsers: number;
+  yesterdayNewUsers: number;
+  activeSellers: number;
+  activeProducts: number;
+  categoryCount: number;
+  pendingSellerApplications: number;
+  currency: string;
+}
+
+export interface AdminDashboardRevenueTrendPoint {
+  label: string;
+  date: string;
+  revenue: number;
+  previousRevenue: number;
+  orders: number;
+}
+
+export interface AdminDashboardCategorySalesItem {
+  categoryName: string;
+  salesCount: number;
+}
+
+export interface AdminDashboardUserRegistrationPoint {
+  label: string;
+  date: string;
+  count: number;
+}
+
+export interface AdminDashboardOrderStatusDistributionItem {
+  status: OrderStatus;
+  count: number;
+}
+
+export interface AdminDashboardLowStockItem {
+  productId: number;
+  name: string;
+  stock: number;
+  sellerName: string;
+}
+
+export interface AdminDashboardRecentOrder {
+  orderId: number;
+  orderNumber: string;
+  customerName: string;
+  totalAmount: number;
+  currency: string;
+  status: OrderStatus;
+  createdAt: string;
 }
