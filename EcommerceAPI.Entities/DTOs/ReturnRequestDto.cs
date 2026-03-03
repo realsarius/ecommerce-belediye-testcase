@@ -14,6 +14,7 @@ public class ReturnRequestDto : IDto
     public string Status { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
     public string? RequestNote { get; set; }
+    public DateTime? RequestWindowEndsAt { get; set; }
     public List<ReturnRequestItemDto> SelectedItems { get; set; } = new();
     public List<ReturnRequestAttachmentDto> Attachments { get; set; } = new();
     public decimal RequestedRefundAmount { get; set; }

@@ -141,6 +141,7 @@ public class ReturnRequestManager : IReturnRequestService
             Status = ReturnRequestStatus.Pending,
             Reason = request.Reason.Trim(),
             RequestNote = string.IsNullOrWhiteSpace(request.RequestNote) ? null : request.RequestNote.Trim(),
+            RequestWindowEndsAt = ResolveRequestWindowEndsAt(order, requestType),
             Attachments = finalizedAttachmentsResult.Data,
             RequestedRefundAmount = order.Payment?.Status == PaymentStatus.Success
                 ? selectedOrderItems.Sum(item => item.PriceSnapshot * item.Quantity)
@@ -483,6 +484,7 @@ public class ReturnRequestManager : IReturnRequestService
             Status = request.Status.ToString(),
             Reason = request.Reason,
             RequestNote = request.RequestNote,
+            RequestWindowEndsAt = request.RequestWindowEndsAt,
             SelectedItems = selectedItems,
             Attachments = request.Attachments
                 .Select(attachment => new ReturnRequestAttachmentDto
@@ -504,5 +506,15 @@ public class ReturnRequestManager : IReturnRequestService
             RefundStatus = request.RefundRequest?.Status.ToString(),
             CreatedAt = request.CreatedAt
         };
+    }
+
+    private static DateTime? ResolveRequestWindowEndsAt(Order order, ReturnRequestType requestType)
+    {
+        if (requestType != ReturnRequestType.Return || !order.DeliveredAt.HasValue)
+        {
+            return null;
+        }
+
+        return order.DeliveredAt.Value.AddDays(14);
     }
 }

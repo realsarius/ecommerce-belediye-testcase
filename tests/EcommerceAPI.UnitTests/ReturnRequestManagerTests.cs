@@ -109,6 +109,7 @@ public class ReturnRequestManagerTests
         result.Data.ReasonCategory.Should().Be(ReturnReasonCategory.NotAsDescribed.ToString());
         result.Data.RequestedRefundAmount.Should().Be(order.TotalAmount);
         result.Data.SelectedItems.Should().ContainSingle();
+        result.Data.RequestWindowEndsAt.Should().Be(order.DeliveredAt!.Value.AddDays(14));
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
 

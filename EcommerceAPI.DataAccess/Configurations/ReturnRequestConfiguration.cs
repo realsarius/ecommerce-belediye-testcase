@@ -25,6 +25,8 @@ public class ReturnRequestConfiguration : IEntityTypeConfiguration<ReturnRequest
         builder.Property(rr => rr.RequestNote)
             .HasMaxLength(1000);
 
+        builder.Property(rr => rr.RequestWindowEndsAt);
+
         builder.Property(rr => rr.ReviewNote)
             .HasMaxLength(1000);
 

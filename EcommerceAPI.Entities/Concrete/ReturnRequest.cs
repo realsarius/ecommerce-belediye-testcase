@@ -12,6 +12,7 @@ public class ReturnRequest : BaseEntity
     public ReturnRequestStatus Status { get; set; } = ReturnRequestStatus.Pending;
     public string Reason { get; set; } = string.Empty;
     public string? RequestNote { get; set; }
+    public DateTime? RequestWindowEndsAt { get; set; }
     public decimal RequestedRefundAmount { get; set; }
     public int? ReviewedByUserId { get; set; }
     public string? ReviewNote { get; set; }

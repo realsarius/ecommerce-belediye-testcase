@@ -26,6 +26,7 @@ export interface ReturnRequest {
   status: ReturnRequestStatus;
   reason: string;
   requestNote?: string | null;
+  requestWindowEndsAt?: string | null;
   selectedItems: ReturnRequestItem[];
   attachments: ReturnRequestAttachment[];
   requestedRefundAmount: number;
@@ -63,6 +64,11 @@ export interface ReturnRequestAttachment {
   contentType: string;
   sizeBytes: number;
   createdAt: string;
+}
+
+export interface ReturnAttachmentAccessUrl {
+  url: string;
+  expiresAt: string;
 }
 
 export interface UploadedReturnPhoto {
