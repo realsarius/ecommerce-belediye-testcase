@@ -23,6 +23,7 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
                     .ThenInclude(item => item.Product)
             .Include(rr => rr.User)
             .Include(rr => rr.ReviewedByUser)
+            .Include(rr => rr.Attachments)
             .Include(rr => rr.RefundRequest)
             .FirstOrDefaultAsync(rr => rr.Id == id);
     }
@@ -37,6 +38,7 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
                     .ThenInclude(item => item.Product)
             .Include(rr => rr.User)
             .Include(rr => rr.ReviewedByUser)
+            .Include(rr => rr.Attachments)
             .Include(rr => rr.RefundRequest)
             .Where(rr => rr.UserId == userId)
             .OrderByDescending(rr => rr.CreatedAt)
@@ -53,6 +55,7 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
                     .ThenInclude(item => item.Product)
             .Include(rr => rr.User)
             .Include(rr => rr.ReviewedByUser)
+            .Include(rr => rr.Attachments)
             .Include(rr => rr.RefundRequest)
             .AsQueryable();
 
@@ -81,6 +84,7 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
                     .ThenInclude(item => item.Product)
             .Include(rr => rr.User)
             .Include(rr => rr.ReviewedByUser)
+            .Include(rr => rr.Attachments)
             .Include(rr => rr.RefundRequest)
             .Where(rr => rr.Order.OrderItems.Any(item => item.Product.SellerId == sellerId))
             .OrderByDescending(rr => rr.CreatedAt)

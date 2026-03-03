@@ -71,6 +71,7 @@ public class AppDbContext : DbContext
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
     public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
+    public DbSet<ReturnRequestAttachment> ReturnRequestAttachments => Set<ReturnRequestAttachment>();
     public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
     public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
     public DbSet<GiftCard> GiftCards => Set<GiftCard>();
@@ -112,6 +113,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new AnnouncementConfiguration());
         modelBuilder.ApplyConfiguration(new ContactMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ReturnRequestConfiguration());
+        modelBuilder.ApplyConfiguration(new ReturnRequestAttachmentConfiguration());
         modelBuilder.ApplyConfiguration(new RefundRequestConfiguration());
         modelBuilder.ApplyConfiguration(new LoyaltyTransactionConfiguration());
         modelBuilder.ApplyConfiguration(new GiftCardConfiguration());

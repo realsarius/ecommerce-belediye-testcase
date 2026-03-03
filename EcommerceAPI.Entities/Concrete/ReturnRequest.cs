@@ -21,4 +21,5 @@ public class ReturnRequest : BaseEntity
     public User User { get; set; } = null!;
     public User? ReviewedByUser { get; set; }
     public RefundRequest? RefundRequest { get; set; }
+    public ICollection<ReturnRequestAttachment> Attachments { get; set; } = new List<ReturnRequestAttachment>();
 }

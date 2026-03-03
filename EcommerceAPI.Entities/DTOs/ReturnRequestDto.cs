@@ -15,6 +15,7 @@ public class ReturnRequestDto : IDto
     public string Reason { get; set; } = string.Empty;
     public string? RequestNote { get; set; }
     public List<ReturnRequestItemDto> SelectedItems { get; set; } = new();
+    public List<ReturnRequestAttachmentDto> Attachments { get; set; } = new();
     public decimal RequestedRefundAmount { get; set; }
     public string? PaymentStatus { get; set; }
     public int? ReviewedByUserId { get; set; }
