@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, CheckCircle2, GitCompareArrows, Package, Trash2 } from 'lucide-react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Button } from '@/components/common/button';
@@ -86,12 +86,19 @@ const categoryFocusedFields: Record<string, CompareFieldKey[]> = {
 export default function Compare() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { compareIds, removeProduct, clearProducts, replaceProducts } = useProductCompare();
+  const didHydrateFromQueryRef = useRef(false);
 
   const queryIds = useMemo(() => parseCompareIds(searchParams.get('ids')), [searchParams]);
   const activeIds = queryIds.length > 0 ? queryIds : compareIds;
   const productIds = activeIds.slice(0, 4);
 
   useEffect(() => {
+    if (didHydrateFromQueryRef.current) {
+      return;
+    }
+
+    didHydrateFromQueryRef.current = true;
+
     if (queryIds.length === 0 || queryIds.join(',') === compareIds.join(',')) {
       return;
     }
@@ -132,6 +139,11 @@ export default function Compare() {
     removeProduct(productId);
   };
 
+  const handleClear = () => {
+    setSearchParams({}, { replace: true });
+    clearProducts();
+  };
+
   return (
     <StaticPageLayout
       eyebrow="Karşılaştırma"
@@ -143,7 +155,7 @@ export default function Compare() {
       ]}
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Button variant="ghost" asChild className="w-fit">
+          <Button variant="ghost" asChild className="w-fit">
           <Link to="/">
             <ArrowLeft className="h-4 w-4" />
             Ürünlere dön
@@ -151,7 +163,7 @@ export default function Compare() {
         </Button>
         <div className="flex flex-wrap items-center gap-3">
           {compareIds.length > 0 && (
-            <Button variant="outline" onClick={clearProducts}>
+            <Button variant="outline" onClick={handleClear}>
               <Trash2 className="h-4 w-4" />
               Listeyi temizle
             </Button>
