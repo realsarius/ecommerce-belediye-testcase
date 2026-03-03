@@ -104,6 +104,11 @@ public static class DependencyInjection
             configuration.GetSection("ReturnAttachments").Bind(options);
         });
 
+        services.Configure<RefundRetrySettings>(options =>
+        {
+            configuration.GetSection("RefundRetry").Bind(options);
+        });
+
         services.Configure<FrontendFeatureSettings>(options =>
         {
             configuration.GetSection("FrontendFeatures").Bind(options);
@@ -155,6 +160,7 @@ public static class DependencyInjection
         services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<PayTrRefundProvider>());
         services.AddScoped<IRefundProviderFactory, RefundProviderFactory>();
         services.AddScoped<IRefundService, RefundService>();
+        services.AddScoped<IRefundRetryJob, RefundRetryJob>();
         services.AddScoped<IIyzicoRefundGateway, IyzicoRefundGateway>();
         services.AddScoped<IIyzicoPaymentGateway, IyzicoPaymentGateway>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
@@ -172,6 +178,16 @@ public static class DependencyInjection
         services.AddScoped<IReturnAttachmentAccessService, ReturnAttachmentAccessService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
+
+        var hangfireEnabled = configuration.GetValue("Hangfire:Enabled", !string.Equals(environment, "Test", StringComparison.OrdinalIgnoreCase));
+        if (hangfireEnabled)
+        {
+            services.AddScoped<IRefundRetryScheduler, HangfireRefundRetryScheduler>();
+        }
+        else
+        {
+            services.AddSingleton<IRefundRetryScheduler, NoOpRefundRetryScheduler>();
+        }
 
         services.AddScoped<IProductSearchIndexService, ElasticProductSearchIndexService>();
 

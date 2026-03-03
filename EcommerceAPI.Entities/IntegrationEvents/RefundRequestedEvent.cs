@@ -9,5 +9,6 @@ public sealed class RefundRequestedEvent
     public int UserId { get; init; }
     public decimal Amount { get; init; }
     public string Currency { get; init; } = "TRY";
+    public int RetryAttempt { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }
