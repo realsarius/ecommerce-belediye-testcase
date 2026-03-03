@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, useUpdateOrderItemsMutation } from '@/features/orders/ordersApi';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
+import { useGetMyReturnRequestsQuery } from '@/features/returns/returnsApi';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { ReturnTimeline } from '@/components/order/ReturnTimeline';
 import { ShipmentTimeline } from '@/components/order/ShipmentTimeline';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
@@ -29,6 +31,7 @@ import {
 import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Order, OrderItem } from '@/features/orders/types';
+import type { ReturnRequest } from '@/features/returns/types';
 import type { Product } from '@/features/products/types';
 import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
@@ -73,11 +76,23 @@ const getReturnActionLabel = (order: Order) => {
   return null;
 };
 
+const getLatestReturnRequest = (requests: ReturnRequest[] | undefined, orderId: number) => {
+  const matches = (requests ?? [])
+    .filter((request) => request.orderId === orderId)
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+  return matches[0];
+};
+
+const hasActiveReturnRequest = (request: ReturnRequest | undefined) =>
+  request?.status === 'Pending' || request?.status === 'Approved' || request?.status === 'RefundPending';
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = parseInt(id || '0');
 
   const { data: order, isLoading, error } = useGetOrderQuery(orderId);
+  const { data: returnRequests, isLoading: isReturnRequestsLoading } = useGetMyReturnRequestsQuery();
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const [updateOrderItems, { isLoading: isUpdatingOrder }] = useUpdateOrderItemsMutation();
@@ -289,7 +304,8 @@ export default function OrderDetail() {
 
   const canCancel = order.status === 'PendingPayment';
   const canEdit = order.status === 'PendingPayment';
-  const returnActionLabel = getReturnActionLabel(order);
+  const latestReturnRequest = getLatestReturnRequest(returnRequests, order.id);
+  const returnActionLabel = hasActiveReturnRequest(latestReturnRequest) ? null : getReturnActionLabel(order);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -408,6 +424,17 @@ export default function OrderDetail() {
               <ShipmentTimeline order={order} />
             </CardContent>
           </Card>
+
+          {latestReturnRequest && !isReturnRequestsLoading ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>İade Süreci</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ReturnTimeline request={latestReturnRequest} />
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
         {/* Sidebar */}
