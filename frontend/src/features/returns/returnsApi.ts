@@ -1,7 +1,7 @@
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { baseApi } from '@/app/api';
 import { getRuntimeApiBaseUrl } from '@/lib/runtimeApi';
-import type { CreateReturnRequestPayload, ReturnRequest, UploadedReturnPhoto } from '@/features/returns/types';
+import type { CreateReturnRequestPayload, ReturnAttachmentAccessUrl, ReturnRequest, UploadedReturnPhoto } from '@/features/returns/types';
 
 export const returnsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -56,6 +56,10 @@ export const returnsApi = baseApi.injectEndpoints({
         }
       },
     }),
+    getReturnAttachmentAccessUrl: builder.query<ReturnAttachmentAccessUrl, { returnRequestId: number; attachmentId: number }>({
+      query: ({ returnRequestId, attachmentId }) => `/returns/${returnRequestId}/attachments/${attachmentId}/access-url`,
+      transformResponse: (response: { data: ReturnAttachmentAccessUrl }) => response.data,
+    }),
   }),
 });
 
@@ -63,4 +67,5 @@ export const {
   useGetMyReturnRequestsQuery,
   useCreateReturnRequestMutation,
   useUploadReturnPhotosMutation,
+  useLazyGetReturnAttachmentAccessUrlQuery,
 } = returnsApi;

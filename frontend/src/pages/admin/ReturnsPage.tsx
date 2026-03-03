@@ -39,6 +39,7 @@ import {
   useGetAdminReturnsQuery,
   useRejectAdminReturnMutation,
 } from '@/features/admin/adminApi';
+import { useLazyGetReturnAttachmentAccessUrlQuery } from '@/features/returns/returnsApi';
 import type { ReturnReasonCategory, ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format';
 
@@ -88,6 +89,7 @@ export default function ReturnsPage() {
   const { data: requests = [], isLoading } = useGetAdminReturnsQuery();
   const [approveReturn, { isLoading: isApproving }] = useApproveAdminReturnMutation();
   const [rejectReturn, { isLoading: isRejecting }] = useRejectAdminReturnMutation();
+  const [getAttachmentAccessUrl] = useLazyGetReturnAttachmentAccessUrlQuery();
   const isReviewing = isApproving || isRejecting;
 
   const summary = useMemo(() => {
@@ -148,6 +150,16 @@ export default function ReturnsPage() {
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       toast.error(err.data?.message || 'Talep değerlendirilemedi.');
+    }
+  };
+
+  const openAttachment = async (returnRequestId: number, attachmentId: number) => {
+    try {
+      const result = await getAttachmentAccessUrl({ returnRequestId, attachmentId }).unwrap();
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      toast.error(err.data?.message || 'Görsel açılamadı.');
     }
   };
 
@@ -487,9 +499,14 @@ export default function ReturnsPage() {
                   <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
                     <div className="flex flex-wrap gap-2">
                       {selectedRequest.attachments.map((attachment) => (
-                        <Badge key={attachment.id} variant="secondary">
+                        <button
+                          key={attachment.id}
+                          type="button"
+                          className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs transition hover:border-primary hover:text-primary"
+                          onClick={() => void openAttachment(selectedRequest.id, attachment.id)}
+                        >
                           {attachment.fileName}
-                        </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>

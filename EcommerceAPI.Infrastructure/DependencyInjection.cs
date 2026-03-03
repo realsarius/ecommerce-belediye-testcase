@@ -162,6 +162,7 @@ public static class DependencyInjection
         services.AddScoped<IHashingService, HashingService>();
         services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
         services.AddScoped<IReturnAttachmentStorageService, ReturnAttachmentStorageService>();
+        services.AddScoped<IReturnAttachmentAccessService, ReturnAttachmentAccessService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
 

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowRight, ClipboardList, ImagePlus, PackageSearch, RotateCcw, ShieldX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetOrdersQuery } from '@/features/orders/ordersApi';
-import { useCreateReturnRequestMutation, useGetMyReturnRequestsQuery, useUploadReturnPhotosMutation } from '@/features/returns/returnsApi';
+import { useCreateReturnRequestMutation, useGetMyReturnRequestsQuery, useLazyGetReturnAttachmentAccessUrlQuery, useUploadReturnPhotosMutation } from '@/features/returns/returnsApi';
 import type { OrderStatus } from '@/features/orders/types';
 import type { ReturnReasonCategory, ReturnRequestStatus, ReturnRequestType, UploadedReturnPhoto } from '@/features/returns/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
@@ -97,6 +97,7 @@ export default function Returns() {
   const { data: returnRequests, isLoading: isRequestsLoading } = useGetMyReturnRequestsQuery();
   const [createReturnRequest, { isLoading: isSubmitting }] = useCreateReturnRequestMutation();
   const [uploadReturnPhotos, { isLoading: isUploadingPhotos }] = useUploadReturnPhotosMutation();
+  const [getAttachmentAccessUrl] = useLazyGetReturnAttachmentAccessUrlQuery();
 
   const [reasonCategory, setReasonCategory] = useState<ReturnReasonCategory | ''>('');
   const [selectedOrderItemIds, setSelectedOrderItemIds] = useState<number[]>([]);
@@ -161,6 +162,16 @@ export default function Returns() {
 
   const removeUploadedPhoto = (uploadKey: string) => {
     setUploadedPhotos((current) => current.filter((photo) => photo.uploadKey !== uploadKey));
+  };
+
+  const openAttachment = async (returnRequestId: number, attachmentId: number) => {
+    try {
+      const result = await getAttachmentAccessUrl({ returnRequestId, attachmentId }).unwrap();
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+    } catch (err: unknown) {
+      const error = err as { data?: { message?: string } };
+      toast.error(error.data?.message || 'Görsel açılamadı.');
+    }
   };
 
   const handleSubmit = async () => {
@@ -533,9 +544,14 @@ export default function Returns() {
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Eklenen Fotoğraflar</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {request.attachments.map((attachment) => (
-                            <Badge key={attachment.id} variant="outline">
+                            <button
+                              key={attachment.id}
+                              type="button"
+                              className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs transition hover:border-primary hover:text-primary"
+                              onClick={() => void openAttachment(request.id, attachment.id)}
+                            >
                               {attachment.fileName}
-                            </Badge>
+                            </button>
                           ))}
                         </div>
                       </div>
