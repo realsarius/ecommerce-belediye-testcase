@@ -9,8 +9,10 @@ using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
-public class IyzicoRefundService : IRefundService
+public class IyzicoRefundService : IRefundService, IRefundProvider
 {
+    public PaymentProviderType ProviderType => PaymentProviderType.Iyzico;
+
     private readonly IRefundRequestDal _refundRequestDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IIyzicoRefundGateway _refundGateway;

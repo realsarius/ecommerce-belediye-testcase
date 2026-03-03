@@ -1,0 +1,11 @@
+using EcommerceAPI.Entities.Enums;
+
+namespace EcommerceAPI.Infrastructure.Settings;
+
+public class PaymentSettings
+{
+    public List<PaymentProviderType> ActiveProviders { get; set; } = [PaymentProviderType.Iyzico];
+    public PaymentProviderType DefaultProvider { get; set; } = PaymentProviderType.Iyzico;
+    public bool Force3DSecure { get; set; }
+    public decimal Force3DSecureAbove { get; set; } = 5000m;
+}

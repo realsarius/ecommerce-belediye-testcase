@@ -134,6 +134,71 @@ public class IyzicoPaymentServiceTests
     }
 
     [Fact]
+    public async Task ProcessPaymentAsync_WhenUnsupportedProviderRequested_ShouldReturnError()
+    {
+        var result = await _paymentService.ProcessPaymentAsync(1, new ProcessPaymentRequest
+        {
+            OrderId = 42,
+            PaymentProvider = PaymentProviderType.Stripe,
+            IdempotencyKey = "provider-check"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("henuz aktif degil");
+        _lockServiceMock.Verify(x => x.TryAcquireLockAsync(It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+        _orderDalMock.Verify(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessPaymentAsync_WhenSavedCardBelongsToDifferentProvider_ShouldReturnReadableError()
+    {
+        var order = new Order
+        {
+            Id = 15,
+            UserId = 1,
+            OrderNumber = "ORD-15",
+            Status = OrderStatus.PendingPayment,
+            TotalAmount = 100,
+            Currency = "TRY",
+            ShippingAddress = "Test Address",
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Pending,
+                Amount = 100,
+                Currency = "TRY",
+                PaymentMethod = "CreditCard"
+            }
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        _creditCardServiceMock
+            .Setup(x => x.GetStoredCardForPaymentAsync(order.UserId, 99))
+            .ReturnsAsync(new SuccessDataResult<StoredCardPaymentDto>(new StoredCardPaymentDto
+            {
+                Id = 99,
+                CardHolderName = "Test User",
+                ExpireMonth = "12",
+                ExpireYear = "2030",
+                IsTokenized = true,
+                TokenProvider = PaymentProviderType.Stripe
+            }));
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            SavedCardId = 99,
+            PaymentProvider = PaymentProviderType.Iyzico,
+            IdempotencyKey = "saved-card-provider-check"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("yalnizca Iyzico ile alinabilir");
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
     public async Task ProcessWebhookAsync_WhenOrderAlreadyPaid_ShouldReturnSuccessWithoutMutation()
     {
         var request = new IyzicoWebhookRequest

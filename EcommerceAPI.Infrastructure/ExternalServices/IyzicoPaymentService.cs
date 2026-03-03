@@ -18,8 +18,10 @@ namespace EcommerceAPI.Infrastructure.ExternalServices;
 /// <summary>
 /// Iyzico ödeme API entegrasyonu.
 /// </summary>
-public class IyzicoPaymentService : IPaymentService
+public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 {
+    public PaymentProviderType ProviderType => PaymentProviderType.Iyzico;
+
     private readonly IOrderDal _orderDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IyzicoSettings _settings;
@@ -51,11 +53,21 @@ public class IyzicoPaymentService : IPaymentService
 
     public async Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request)
     {
+        var requestedProvider = request.PaymentProvider ?? PaymentProviderType.Iyzico;
+        if (requestedProvider != PaymentProviderType.Iyzico)
+        {
+            return new ErrorDataResult<PaymentDto>(
+                $"Secilen odeme saglayicisi henuz aktif degil: {requestedProvider}");
+        }
+
+        request.PaymentProvider = requestedProvider;
+
         _logger.LogInformation(
-            "Processing payment request. UserId={UserId}, OrderId={OrderId}, UsesSavedCard={UsesSavedCard}",
+            "Processing payment request. UserId={UserId}, OrderId={OrderId}, UsesSavedCard={UsesSavedCard}, Provider={Provider}",
             userId,
             request.OrderId,
-            request.SavedCardId.HasValue);
+            request.SavedCardId.HasValue,
+            requestedProvider);
         var lockKey = RedisKeys.PaymentLock(request.OrderId);
         var lockToken = await _lockService.TryAcquireLockAsync(lockKey);
 
@@ -103,7 +115,15 @@ public class IyzicoPaymentService : IPaymentService
                 return new ErrorDataResult<PaymentDto>(validationError);
             }
 
-            var iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
+            Iyzipay.Model.Payment iyzicoPayment;
+            try
+            {
+                iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return new ErrorDataResult<PaymentDto>(ex.Message);
+            }
 
             if (iyzicoPayment.Status == "success")
             {
@@ -193,6 +213,12 @@ public class IyzicoPaymentService : IPaymentService
             }
             
             var savedCard = savedCardResult.Data;
+            if (savedCard.IsTokenized && savedCard.TokenProvider != PaymentProviderType.Iyzico)
+            {
+                throw new InvalidOperationException(
+                    $"Secilen kayitli kart {savedCard.TokenProvider} saglayicisi ile kayitli. Bu odeme yalnizca Iyzico ile alinabilir.");
+            }
+
             if (savedCard.IsTokenized &&
                 savedCard.TokenProvider == PaymentProviderType.Iyzico &&
                 !string.IsNullOrWhiteSpace(savedCard.IyzicoCardToken) &&

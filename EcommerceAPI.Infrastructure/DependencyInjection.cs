@@ -70,8 +70,26 @@ public static class DependencyInjection
                                 ?? config["SecretKey"]
                                 ?? string.Empty;
             options.BaseUrl = Environment.GetEnvironmentVariable("IYZICO_BASE_URL")
-                              ?? config["BaseUrl"]
+                                ?? config["BaseUrl"]
                               ?? "https://sandbox-api.iyzipay.com";
+        });
+
+        services.Configure<PaymentSettings>(options =>
+        {
+            configuration.GetSection("PaymentSettings").Bind(options);
+
+            if (options.ActiveProviders == null || options.ActiveProviders.Count == 0)
+            {
+                options.ActiveProviders = new List<Entities.Enums.PaymentProviderType>
+                {
+                    Entities.Enums.PaymentProviderType.Iyzico
+                };
+            }
+
+            if (!options.ActiveProviders.Contains(options.DefaultProvider))
+            {
+                options.DefaultProvider = options.ActiveProviders[0];
+            }
         });
 
         services.Configure<EmailNotificationSettings>(options =>
@@ -103,8 +121,15 @@ public static class DependencyInjection
                                ?? "E-Ticaret";
         });
 
-        services.AddScoped<IPaymentService, IyzicoPaymentService>();
-        services.AddScoped<IRefundService, IyzicoRefundService>();
+        services.AddScoped<IyzicoPaymentService>();
+        services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<IyzicoPaymentService>());
+        services.AddScoped<IPaymentProviderFactory, PaymentProviderFactory>();
+        services.AddScoped<IPaymentService, PaymentService>();
+
+        services.AddScoped<IyzicoRefundService>();
+        services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<IyzicoRefundService>());
+        services.AddScoped<IRefundProviderFactory, RefundProviderFactory>();
+        services.AddScoped<IRefundService, RefundService>();
         services.AddScoped<IIyzicoRefundGateway, IyzicoRefundGateway>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
         services.AddScoped<IRecommendationCacheService, RedisRecommendationCacheService>();
