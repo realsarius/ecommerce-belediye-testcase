@@ -3,8 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useGetProductQuery } from '@/features/products/productsApi';
-import { useCreateSellerProductMutation, useUpdateSellerProductMutation, useGetSellerProfileQuery } from '@/features/seller/sellerApi';
+import {
+  useCreateSellerProductMutation,
+  useGetSellerProductQuery,
+  useGetSellerProfileQuery,
+  useUpdateSellerProductMutation,
+} from '@/features/seller/sellerApi';
 import { useGetCategoriesQuery } from '@/features/admin/adminApi';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
@@ -71,7 +75,7 @@ export default function SellerProductForm() {
   const productId = isEdit ? parseInt(id) : 0;
 
   const { data: profile, isLoading: profileLoading } = useGetSellerProfileQuery();
-  const { data: product, isLoading: isProductLoading } = useGetProductQuery(productId, {
+  const { data: product, isLoading: isProductLoading } = useGetSellerProductQuery(productId, {
     skip: !isEdit,
   });
   const { data: categories } = useGetCategoriesQuery();

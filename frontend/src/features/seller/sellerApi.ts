@@ -99,16 +99,22 @@ export const sellerApi = baseApi.injectEndpoints({
     // Seller Products endpoints (uses admin/products but filtered for seller)
     getSellerProducts: builder.query<PaginatedResponse<Product>, ProductListRequest>({
       query: (params) => ({
-        url: '/admin/products',
+        url: '/seller/products',
         params,
       }),
       transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
       providesTags: ['SellerProducts'],
     }),
 
+    getSellerProduct: builder.query<Product, number>({
+      query: (id) => `/seller/products/${id}`,
+      transformResponse: (response: { data: Product }) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'SellerProducts', id }],
+    }),
+
     createSellerProduct: builder.mutation<Product, CreateProductRequest>({
       query: (data) => ({
-        url: '/admin/products',
+        url: '/seller/products',
         method: 'POST',
         body: data,
       }),
@@ -118,7 +124,7 @@ export const sellerApi = baseApi.injectEndpoints({
 
     updateSellerProduct: builder.mutation<Product, { id: number; data: UpdateProductRequest }>({
       query: ({ id, data }) => ({
-        url: `/admin/products/${id}`,
+        url: `/seller/products/${id}`,
         method: 'PUT',
         body: data,
       }),
@@ -128,7 +134,7 @@ export const sellerApi = baseApi.injectEndpoints({
 
     deleteSellerProduct: builder.mutation<void, number>({
       query: (id) => ({
-        url: `/admin/products/${id}`,
+        url: `/seller/products/${id}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['SellerProducts', 'Products'],
@@ -161,6 +167,7 @@ export const {
   useGetSellerOrdersQuery,
   useShipSellerOrderMutation,
   useGetSellerProductsQuery,
+  useGetSellerProductQuery,
   useCreateSellerProductMutation,
   useUpdateSellerProductMutation,
   useDeleteSellerProductMutation,
