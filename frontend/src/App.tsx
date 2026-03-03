@@ -81,6 +81,7 @@ const SellerDashboard = lazy(() => import('@/pages/seller/Dashboard'));
 const SellerProducts = lazy(() => import('@/pages/seller/Products'));
 const SellerProductForm = lazy(() => import('@/pages/seller/ProductForm'));
 const SellerOrders = lazy(() => import('@/pages/seller/Orders'));
+const SellerReturnsPage = lazy(() => import('@/pages/seller/Returns'));
 const SellerFinancePage = lazy(() => import('@/pages/seller/Finance'));
 const SellerReviewsPage = lazy(() => import('@/pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('@/pages/seller/Profile'));
@@ -281,6 +282,7 @@ function App() {
                     <Route path="products/new" element={<SellerProductForm />} />
                     <Route path="products/:id" element={<SellerProductForm />} />
                     <Route path="orders" element={<SellerOrders />} />
+                    <Route path="returns" element={<SellerReturnsPage />} />
                     <Route path="finance" element={<SellerFinancePage />} />
                     <Route path="reviews" element={<SellerReviewsPage />} />
                     <Route path="profile" element={<SellerProfile />} />

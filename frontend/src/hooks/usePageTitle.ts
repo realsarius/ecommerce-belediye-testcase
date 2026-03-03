@@ -55,6 +55,7 @@ const pageTitles: Record<string, string> = {
   '/seller/products': 'Ürünlerim',
   '/seller/products/new': 'Yeni Ürün Ekle',
   '/seller/orders': 'Siparişlerim',
+  '/seller/returns': 'Satıcı İade Talepleri',
   '/seller/finance': 'Kazancım ve Finans',
   '/seller/reviews': 'Müşteri Yorumları',
   '/seller/profile': 'Satıcı Profili',

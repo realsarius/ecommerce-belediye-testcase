@@ -9,7 +9,8 @@ import type {
   SellerReviewReplyRequest,
 } from '@/features/products/types';
 import type { PaginatedResponse } from '@/types/api';
-import type { Order } from '@/features/orders/types';
+import type { CargoProvider, Order } from '@/features/orders/types';
+import type { ReturnRequest } from '@/features/returns/types';
 import type {
   SellerProfile,
   CreateSellerProfileRequest,
@@ -29,7 +30,7 @@ function unwrapApiData<T>(response: T | { data: T }) {
   return (response as { data?: T }).data ?? (response as T);
 }
 
-type SellerGranularTag = 'Orders' | 'SellerProducts' | 'Reviews';
+type SellerGranularTag = 'Orders' | 'SellerProducts' | 'Reviews' | 'Returns';
 
 function createListTags<T extends { id: number | string }, TTag extends SellerGranularTag>(type: TTag, items?: T[]) {
   if (!items?.length) {
@@ -160,11 +161,11 @@ export const sellerApi = baseApi.injectEndpoints({
       providesTags: (result) => createListTags('Orders', result),
     }),
 
-    shipSellerOrder: builder.mutation<Order, { id: number; trackingCode: string; cargoCompany: string; estimatedDeliveryDate?: string }>({
-      query: ({ id, trackingCode, cargoCompany, estimatedDeliveryDate }) => ({
+    shipSellerOrder: builder.mutation<Order, { id: number; trackingCode: string; cargoProvider: CargoProvider; estimatedDeliveryDate?: string }>({
+      query: ({ id, trackingCode, cargoProvider, estimatedDeliveryDate }) => ({
         url: `/seller/orders/${id}/ship`,
         method: 'PUT',
-        body: { trackingCode, cargoCompany, estimatedDeliveryDate },
+        body: { trackingCode, cargoProvider, estimatedDeliveryDate },
       }),
       transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
       invalidatesTags: (_result, _error, { id }) => [
@@ -174,6 +175,32 @@ export const sellerApi = baseApi.injectEndpoints({
         { type: 'SellerAnalytics', id: 'DASHBOARD_STATUS' },
         { type: 'SellerAnalytics', id: 'DASHBOARD_ORDERS' },
       ],
+    }),
+    getSellerReturns: builder.query<ReturnRequest[], { status?: string } | void>({
+      query: (params) => ({
+        url: '/seller/returns',
+        params: params?.status ? { status: params.status } : undefined,
+      }),
+      transformResponse: (response: { data: ReturnRequest[] }) => response.data,
+      providesTags: (result) => createListTags('Returns', result),
+    }),
+    approveSellerReturn: builder.mutation<ReturnRequest, { id: number; reviewNote?: string }>({
+      query: ({ id, reviewNote }) => ({
+        url: `/seller/returns/${id}/approve`,
+        method: 'PUT',
+        body: { reviewNote },
+      }),
+      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      invalidatesTags: ['Orders', 'Returns'],
+    }),
+    rejectSellerReturn: builder.mutation<ReturnRequest, { id: number; reviewNote?: string }>({
+      query: ({ id, reviewNote }) => ({
+        url: `/seller/returns/${id}/reject`,
+        method: 'PUT',
+        body: { reviewNote },
+      }),
+      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      invalidatesTags: ['Orders', 'Returns'],
     }),
 
     // Seller Products endpoints (uses admin/products but filtered for seller)
@@ -260,6 +287,9 @@ export const {
   useGetSellerFinanceSummaryQuery,
   useGetSellerOrdersQuery,
   useShipSellerOrderMutation,
+  useGetSellerReturnsQuery,
+  useApproveSellerReturnMutation,
+  useRejectSellerReturnMutation,
   useGetSellerProductsQuery,
   useGetSellerProductQuery,
   useCreateSellerProductMutation,
