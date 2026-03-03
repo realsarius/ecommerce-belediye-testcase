@@ -15,6 +15,7 @@ using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using InvoiceType = EcommerceAPI.Entities.Enums.InvoiceType;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -37,6 +38,7 @@ public class OrderManager : IOrderService
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
     private const int OrderTimeoutMinutes = 30;
+    private static readonly Regex TrackingCodeRegex = new("^[A-Za-z0-9/-]{6,40}$", RegexOptions.Compiled);
 
     public OrderManager(
         IOrderDal orderDal,
@@ -544,11 +546,19 @@ public class OrderManager : IOrderService
     }
 
     [LogAspect]
+    [ValidationAspect(typeof(ShipOrderRequestValidator))]
     public async Task<IDataResult<OrderDto>> ShipOrderAsync(int sellerId, int orderId, ShipOrderRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.TrackingCode) || string.IsNullOrWhiteSpace(request.CargoCompany))
+        var resolvedCargoCompany = ResolveCargoCompany(request);
+
+        if (string.IsNullOrWhiteSpace(request.TrackingCode) || string.IsNullOrWhiteSpace(resolvedCargoCompany))
         {
             return new ErrorDataResult<OrderDto>("Kargo firması ve takip kodu zorunludur.");
+        }
+
+        if (!IsValidTrackingCode(request.TrackingCode))
+        {
+            return new ErrorDataResult<OrderDto>("Takip kodu 6-40 karakter olmalı ve yalnızca harf, rakam, tire veya eğik çizgi içermelidir.");
         }
 
         if (request.EstimatedDeliveryDate.HasValue && request.EstimatedDeliveryDate.Value.Date < DateTime.UtcNow.Date)
@@ -577,7 +587,7 @@ public class OrderManager : IOrderService
         var shippedAt = DateTime.UtcNow;
 
         order.Status = OrderStatus.Shipped;
-        order.CargoCompany = request.CargoCompany.Trim();
+        order.CargoCompany = resolvedCargoCompany;
         order.TrackingCode = request.TrackingCode.Trim();
         order.ShippedAt = shippedAt;
         order.EstimatedDeliveryDate = request.EstimatedDeliveryDate?.Date;
@@ -627,6 +637,32 @@ public class OrderManager : IOrderService
             });
 
         return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş kargoya verildi.");
+    }
+
+    private static bool IsValidTrackingCode(string trackingCode)
+    {
+        return TrackingCodeRegex.IsMatch(trackingCode.Trim());
+    }
+
+    private static string? ResolveCargoCompany(ShipOrderRequest request)
+    {
+        if (request.CargoProvider.HasValue && request.CargoProvider.Value != CargoProvider.Unknown)
+        {
+            return request.CargoProvider.Value switch
+            {
+                CargoProvider.YurticiKargo => "Yurtiçi Kargo",
+                CargoProvider.ArasCargo => "Aras Kargo",
+                CargoProvider.MngKargo => "MNG Kargo",
+                CargoProvider.PttKargo => "PTT Kargo",
+                CargoProvider.SuratKargo => "Sürat Kargo",
+                CargoProvider.UpsKargo => "UPS Kargo",
+                _ => null
+            };
+        }
+
+        return string.IsNullOrWhiteSpace(request.CargoCompany)
+            ? null
+            : request.CargoCompany.Trim();
     }
 
     [LogAspect]

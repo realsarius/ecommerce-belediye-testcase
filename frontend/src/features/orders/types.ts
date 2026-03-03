@@ -22,6 +22,14 @@ export type ShipmentStatus =
   | 'Failed'
   | 'Returned';
 
+export type CargoProvider =
+  | 'YurticiKargo'
+  | 'ArasCargo'
+  | 'MngKargo'
+  | 'PttKargo'
+  | 'SuratKargo'
+  | 'UpsKargo';
+
 export interface Order {
   id: number;
   orderNumber?: string;

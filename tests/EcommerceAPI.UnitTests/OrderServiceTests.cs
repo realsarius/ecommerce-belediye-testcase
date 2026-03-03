@@ -669,7 +669,7 @@ public class OrderManagerTests
 
         var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
         {
-            CargoCompany = "Yurtici",
+            CargoProvider = CargoProvider.YurticiKargo,
             TrackingCode = "TRK-123"
         });
 
@@ -722,7 +722,7 @@ public class OrderManagerTests
 
         var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
         {
-            CargoCompany = "Yurtiçi Kargo",
+            CargoProvider = CargoProvider.YurticiKargo,
             TrackingCode = "TRK-555",
             EstimatedDeliveryDate = estimatedDeliveryDate
         });
@@ -737,6 +737,71 @@ public class OrderManagerTests
         publishedEvent.CargoCompany.Should().Be("Yurtiçi Kargo");
         publishedEvent.TrackingCode.Should().Be("TRK-555");
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.PendingPayment)]
+    [InlineData(OrderStatus.Shipped)]
+    [InlineData(OrderStatus.Delivered)]
+    [InlineData(OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Refunded)]
+    public async Task ShipOrderAsync_WhenOrderStatusIsNotShippable_ShouldReturnError(OrderStatus orderStatus)
+    {
+        const int sellerId = 7;
+        var order = new Order
+        {
+            Id = 705,
+            UserId = 203,
+            OrderNumber = "ORD-SHIP-STATUS",
+            Status = orderStatus,
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 92,
+                    Quantity = 1,
+                    PriceSnapshot = 100m,
+                    Product = new Product
+                    {
+                        Id = 92,
+                        Name = "Durum Test Urunu",
+                        Description = "d",
+                        Price = 100m,
+                        SKU = "DS1",
+                        SellerId = sellerId
+                    }
+                }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
+        {
+            CargoProvider = CargoProvider.YurticiKargo,
+            TrackingCode = "TRK-123456"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Sadece ödenmiş veya hazırlanmakta olan siparişler kargoya verilebilir.");
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uowMock.Verify(x => x.BeginTransactionAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ShipOrderAsync_WhenTrackingCodeFormatIsInvalid_ShouldReturnError()
+    {
+        var result = await _orderManager.ShipOrderAsync(7, 999, new ShipOrderRequest
+        {
+            CargoProvider = CargoProvider.YurticiKargo,
+            TrackingCode = "ABC 12"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Takip kodu 6-40 karakter olmalı ve yalnızca harf, rakam, tire veya eğik çizgi içermelidir.");
+        _orderDalMock.Verify(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
