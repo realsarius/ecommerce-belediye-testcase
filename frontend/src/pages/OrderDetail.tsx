@@ -25,7 +25,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
-import { ArrowLeft, Package, MapPin, CreditCard, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { OrderStatus, OrderItem } from '@/features/orders/types';
 import type { Product } from '@/features/products/types';
@@ -420,6 +420,11 @@ export default function OrderDetail() {
                   Yöntem: {order.payment.paymentMethod}
                 </p>
               ) : null}
+              {order.payment?.provider ? (
+                <p className="text-muted-foreground text-sm">
+                  Sağlayıcı: {order.payment.provider}
+                </p>
+              ) : null}
               {order.payment?.status === 'Failed' && (
                 <p className="text-sm text-destructive">
                   Hata: {order.payment.errorMessage || 'Ödeme başarısız'}
@@ -437,6 +442,44 @@ export default function OrderDetail() {
               )}
             </CardContent>
           </Card>
+
+          {order.invoiceInfo && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  <CardTitle className="text-base">Fatura Bilgisi</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-muted-foreground text-sm">
+                  Tür: {order.invoiceInfo.type === 'Corporate' ? 'Kurumsal' : 'Bireysel'}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {order.invoiceInfo.type === 'Corporate'
+                    ? `Şirket: ${order.invoiceInfo.companyName || '-'}`
+                    : `Ad Soyad: ${order.invoiceInfo.fullName}`}
+                </p>
+                {order.invoiceInfo.type === 'Corporate' ? (
+                  <>
+                    <p className="text-muted-foreground text-sm">
+                      Vergi Dairesi: {order.invoiceInfo.taxOffice || '-'}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      Vergi Numarası: {order.invoiceInfo.taxNumber || '-'}
+                    </p>
+                  </>
+                ) : order.invoiceInfo.tcKimlikNo ? (
+                  <p className="text-muted-foreground text-sm">
+                    TC Kimlik No: {order.invoiceInfo.tcKimlikNo}
+                  </p>
+                ) : null}
+                <p className="text-muted-foreground text-sm">
+                  Adres: {order.invoiceInfo.invoiceAddress}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

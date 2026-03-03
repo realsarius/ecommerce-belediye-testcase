@@ -1,4 +1,5 @@
 import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
+import type { CheckoutInvoiceInfo } from '@/features/cart/types';
 
 // Order Types
 
@@ -34,6 +35,7 @@ export interface Order {
   giftCardCode?: string;
   giftCardAmount?: number;
   payment?: Payment;
+  invoiceInfo?: CheckoutInvoiceInfo;
 }
 
 export interface OrderItem {
@@ -54,7 +56,16 @@ export interface Payment {
   paymentMethod?: string;
   provider?: PaymentProviderType | null;
   errorMessage?: string;
+  requiresThreeDS?: boolean;
+  threeDSHtmlContent?: string | null;
   createdAt: string;
+}
+
+export interface PaymentSettings {
+  activeProviders: PaymentProviderType[];
+  defaultProvider: PaymentProviderType;
+  force3DSecure: boolean;
+  force3DSecureAbove: number;
 }
 
 export interface ProcessPaymentRequest {

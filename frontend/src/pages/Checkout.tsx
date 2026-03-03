@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { useGetAddressesQuery, useCreateAddressMutation } from '@/features/admin/adminApi';
-import { useCheckoutMutation, useProcessPaymentMutation } from '@/features/orders/ordersApi';
+import { useCheckoutMutation, useGetPaymentSettingsQuery, useProcessPaymentMutation } from '@/features/orders/ordersApi';
 import { useGetCreditCardsQuery } from '@/features/creditCards/creditCardsApi';
+import { useClearCartMutation } from '@/features/cart/cartApi';
+import type { CheckoutInvoiceInfo } from '@/features/cart/types';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
@@ -26,6 +28,8 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
+import { InvoiceInfo } from '@/components/checkout/InvoiceInfo';
+import { LegalConsents } from '@/components/checkout/LegalConsents';
 import { Package, CreditCard, MapPin, Loader2, Plus, Ticket, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,9 +40,7 @@ import { useGetGiftCardSummaryQuery, useValidateGiftCardMutation } from '@/featu
 import type { GiftCardValidationResult } from '@/features/giftCards/types';
 import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
 
-const activePaymentProviders: { value: PaymentProviderType; label: string; status: string }[] = [
-  { value: 'Iyzico', label: 'Iyzico', status: 'Sandbox' },
-];
+const PENDING_THREE_DS_ORDER_ID_KEY = 'pending_three_ds_order_id';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -46,8 +48,10 @@ export default function Checkout() {
   const { data: cart, isLoading: isCartLoading } = useGetCartQuery();
   const { data: addresses, isLoading: isAddressLoading } = useGetAddressesQuery();
   const [createAddress, { isLoading: isCreatingAddress }] = useCreateAddressMutation();
+  const [clearCart] = useClearCartMutation();
   const [checkout, { isLoading: isCheckingOut }] = useCheckoutMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
+  const { data: paymentSettings } = useGetPaymentSettingsQuery();
   const { data: savedCards } = useGetCreditCardsQuery();
   const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary } = useGetGiftCardSummaryQuery();
@@ -79,6 +83,15 @@ export default function Checkout() {
   const [saveCardForLater, setSaveCardForLater] = useState(false);
   const [cardAlias, setCardAlias] = useState('');
   const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<PaymentProviderType>('Iyzico');
+  const [preliminaryInfoAccepted, setPreliminaryInfoAccepted] = useState(false);
+  const [distanceSalesAccepted, setDistanceSalesAccepted] = useState(false);
+  const [useShippingAddressForInvoice, setUseShippingAddressForInvoice] = useState(true);
+  const [invoiceInfo, setInvoiceInfo] = useState<CheckoutInvoiceInfo>({
+    type: 'Individual',
+    fullName: '',
+    tcKimlikNo: '',
+    invoiceAddress: '',
+  });
 
 
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
@@ -111,9 +124,10 @@ export default function Checkout() {
         });
     }
   }, [cart, couponCodeFromState, appliedCoupon, isValidatingCoupon, validateCoupon]);
-  
+
   // Yönlendirme yapılıyor mu? (race condition önlemek için)
   const isNavigatingRef = useRef(false);
+  const isHandlingThreeDSReturnRef = useRef(false);
   
 
   const cheatCodeBuffer = useRef('');
@@ -176,6 +190,10 @@ export default function Checkout() {
   const displayCart = cartSnapshot || cart;
   const subtotal = displayCart?.totalAmount ?? 0;
   const shippingCost = subtotal >= 1000 ? 0 : 29.9;
+  const selectedAddress = addresses?.find((address) => address.id.toString() === selectedAddressId);
+  const selectedAddressText = selectedAddress
+    ? `${selectedAddress.fullName}, ${selectedAddress.addressLine}, ${selectedAddress.district}/${selectedAddress.city} P.K: ${selectedAddress.postalCode} - Tel: ${selectedAddress.phone}`
+    : '';
   const amountAfterCoupon = appliedCoupon?.isValid ? appliedCoupon.finalTotal : subtotal;
   const normalizedRequestedPoints = Math.max(0, Math.floor((Number(loyaltyPointsToUse) || 0) / 100) * 100);
   const maxPointsByBalance = loyaltySummary?.availablePoints ?? 0;
@@ -190,6 +208,100 @@ export default function Checkout() {
   const selectedSavedCard = savedCards?.find((card) => card.id.toString() === selectedSavedCardId);
   const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
   const isTokenizedSavedCard = !!selectedSavedCard?.isTokenized;
+  const effectivePaymentSettings = paymentSettings ?? {
+    activeProviders: ['Iyzico' as PaymentProviderType],
+    defaultProvider: 'Iyzico' as PaymentProviderType,
+    force3DSecure: false,
+    force3DSecureAbove: 5000,
+  };
+  const activePaymentProviders = effectivePaymentSettings.activeProviders.length > 0
+    ? effectivePaymentSettings.activeProviders
+    : ['Iyzico' as PaymentProviderType];
+  const hasAcceptedLegalConsents = preliminaryInfoAccepted && distanceSalesAccepted;
+  const willRequireThreeDS = requiresPayment && (
+    effectivePaymentSettings.force3DSecure ||
+    grandTotal >= effectivePaymentSettings.force3DSecureAbove
+  );
+
+  useEffect(() => {
+    const nextProvider = activePaymentProviders.includes(selectedPaymentProvider)
+      ? selectedPaymentProvider
+      : effectivePaymentSettings.defaultProvider;
+
+    if (nextProvider !== selectedPaymentProvider) {
+      setSelectedPaymentProvider(nextProvider);
+    }
+  }, [activePaymentProviders, effectivePaymentSettings.defaultProvider, selectedPaymentProvider]);
+
+  useEffect(() => {
+    if (willRequireThreeDS && saveCardForLater) {
+      setSaveCardForLater(false);
+      setCardAlias('');
+    }
+  }, [saveCardForLater, willRequireThreeDS]);
+
+  useEffect(() => {
+    if (!selectedAddress) {
+      return;
+    }
+
+    setInvoiceInfo((current) => ({
+      ...current,
+      fullName: current.type === 'Individual' ? selectedAddress.fullName : current.fullName,
+      invoiceAddress: useShippingAddressForInvoice ? selectedAddressText : current.invoiceAddress,
+    }));
+  }, [selectedAddress, selectedAddressText, useShippingAddressForInvoice]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const threeDSStatus = searchParams.get('threeDS');
+
+    if (!threeDSStatus || isHandlingThreeDSReturnRef.current) {
+      return;
+    }
+
+    isHandlingThreeDSReturnRef.current = true;
+    isNavigatingRef.current = true;
+
+    const pendingThreeDSOrderId = window.localStorage.getItem(PENDING_THREE_DS_ORDER_ID_KEY);
+    const targetOrderId = pendingThreeDSOrderId ? parseInt(pendingThreeDSOrderId, 10) : null;
+
+    const finalizeThreeDSReturn = async () => {
+      try {
+        if (threeDSStatus === 'success') {
+          try {
+            await clearCart().unwrap();
+          } catch {
+            // Sipariş başarılıysa cart temizliği başarısız olsa da yönlendirmeyi engelleme.
+          }
+
+          window.localStorage.removeItem(PENDING_THREE_DS_ORDER_ID_KEY);
+          setPendingOrderId(null);
+          setCartSnapshot(null);
+          toast.success('3D Secure doğrulaması tamamlandı. Siparişiniz alındı.');
+          navigate(targetOrderId ? `/orders/${targetOrderId}` : '/orders', { replace: true });
+          return;
+        }
+
+        window.localStorage.removeItem(PENDING_THREE_DS_ORDER_ID_KEY);
+        setPendingOrderId(null);
+        setCartSnapshot(null);
+        toast.error('3D Secure doğrulaması tamamlanamadı. Lütfen tekrar deneyin.');
+        navigate('/cart', { replace: true });
+      } finally {
+        isHandlingThreeDSReturnRef.current = false;
+      }
+    };
+
+    void finalizeThreeDSReturn();
+  }, [clearCart, location.search, navigate]);
+
+  const submitThreeDSForm = (base64HtmlContent: string) => {
+    const decodedHtml = window.atob(base64HtmlContent);
+    document.open();
+    document.write(decodedHtml);
+    document.close();
+  };
 
   const handleAddressSubmit = async () => {
     try {
@@ -235,15 +347,73 @@ export default function Checkout() {
     return sum % 10 === 0;
   };
 
+  const buildInvoicePayload = (shippingAddress: string): CheckoutInvoiceInfo => ({
+    type: invoiceInfo.type,
+    fullName: invoiceInfo.type === 'Individual'
+      ? (invoiceInfo.fullName?.trim() || selectedAddress?.fullName || '')
+      : (invoiceInfo.fullName?.trim() || invoiceInfo.companyName?.trim() || ''),
+    tcKimlikNo: invoiceInfo.type === 'Individual' && invoiceInfo.tcKimlikNo?.trim()
+      ? invoiceInfo.tcKimlikNo.trim()
+      : undefined,
+    companyName: invoiceInfo.type === 'Corporate' ? invoiceInfo.companyName?.trim() : undefined,
+    taxOffice: invoiceInfo.type === 'Corporate' ? invoiceInfo.taxOffice?.trim() : undefined,
+    taxNumber: invoiceInfo.type === 'Corporate' ? invoiceInfo.taxNumber?.trim() : undefined,
+    invoiceAddress: useShippingAddressForInvoice ? shippingAddress : invoiceInfo.invoiceAddress.trim(),
+  });
+
+  const validateInvoiceForm = (shippingAddress: string): string | null => {
+    const nextInvoice = buildInvoicePayload(shippingAddress);
+
+    if (!nextInvoice.invoiceAddress || nextInvoice.invoiceAddress.length < 10) {
+      return 'Lütfen geçerli bir fatura adresi girin';
+    }
+
+    if (nextInvoice.type === 'Corporate') {
+      if (!nextInvoice.companyName) {
+        return 'Kurumsal fatura için şirket adı zorunludur';
+      }
+
+      if (!nextInvoice.taxOffice) {
+        return 'Kurumsal fatura için vergi dairesi zorunludur';
+      }
+
+      if (!nextInvoice.taxNumber || nextInvoice.taxNumber.length !== 10) {
+        return 'Kurumsal fatura için 10 haneli vergi numarası girin';
+      }
+
+      return null;
+    }
+
+    if (!nextInvoice.fullName) {
+      return 'Bireysel fatura için ad soyad zorunludur';
+    }
+
+    if (nextInvoice.tcKimlikNo && nextInvoice.tcKimlikNo.length !== 11) {
+      return 'TC kimlik numarası 11 haneli olmalıdır';
+    }
+
+    return null;
+  };
+
   const handleCheckout = async () => {
     if (!selectedAddressId) {
       toast.error('Lütfen teslimat adresi seçin');
       return;
     }
 
+    if (!hasAcceptedLegalConsents) {
+      toast.error('Siparişi tamamlamak için yasal onayları kabul etmelisiniz');
+      return;
+    }
+
     if (requiresPayment) {
       if (isUsingSavedCard && selectedSavedCard?.tokenProvider && selectedSavedCard.tokenProvider !== selectedPaymentProvider) {
         toast.error('Seçilen kayıtlı kart farklı bir ödeme sağlayıcısına ait.');
+        return;
+      }
+
+      if (saveCardForLater && !isUsingSavedCard && willRequireThreeDS) {
+        toast.error('3D Secure gereken ödemelerde yeni kartı kaydetme özelliği henüz aktif değil.');
         return;
       }
 
@@ -276,10 +446,13 @@ export default function Checkout() {
 
     try {
       if (!orderIdToUse) {
-        const selectedAddress = addresses?.find(a => a.id.toString() === selectedAddressId);
         if (!selectedAddress) throw new Error('Adres bulunamadı');
-
-        const addressString = `${selectedAddress.fullName}, ${selectedAddress.addressLine}, ${selectedAddress.district}/${selectedAddress.city} P.K: ${selectedAddress.postalCode} - Tel: ${selectedAddress.phone}`;
+        const addressString = selectedAddressText;
+        const invoiceValidationError = validateInvoiceForm(addressString);
+        if (invoiceValidationError) {
+          toast.error(invoiceValidationError);
+          return;
+        }
 
         const order = await checkout({
           shippingAddress: addressString,
@@ -289,6 +462,9 @@ export default function Checkout() {
           couponCode: appliedCoupon?.isValid ? appliedCoupon.coupon?.code : undefined,
           loyaltyPointsToUse: appliedLoyaltyPoints > 0 ? appliedLoyaltyPoints : undefined,
           giftCardCode: appliedGiftCard?.isValid ? appliedGiftCard.code : undefined,
+          preliminaryInfoAccepted,
+          distanceSalesContractAccepted: distanceSalesAccepted,
+          invoiceInfo: buildInvoicePayload(addressString),
         }).unwrap();
 
         orderIdToUse = order.id;
@@ -316,6 +492,12 @@ export default function Checkout() {
         saveCard: saveCardForLater && !isUsingSavedCard,
         saveCardAlias: saveCardForLater && !isUsingSavedCard ? (cardAlias || undefined) : undefined,
       }).unwrap();
+
+      if (paymentResult.requiresThreeDS && paymentResult.threeDSHtmlContent) {
+        window.localStorage.setItem(PENDING_THREE_DS_ORDER_ID_KEY, String(orderIdToUse));
+        submitThreeDSForm(paymentResult.threeDSHtmlContent);
+        return;
+      }
 
       if (paymentResult.status !== 'Success') {
         toast.error(paymentResult.errorMessage || 'Ödeme işlemi başarısız oldu. Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
@@ -351,6 +533,11 @@ export default function Checkout() {
 
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.has('threeDS')) {
+      return;
+    }
+
     if (!isLoading && !pendingOrderId && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
       navigate('/cart');
     }
@@ -414,6 +601,42 @@ export default function Checkout() {
                   Kayıtlı adresiniz yok. Yeni adres ekleyin.
                 </p>
               )}
+          </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                <CardTitle>Fatura Bilgisi</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <InvoiceInfo
+                value={invoiceInfo}
+                useShippingAddress={useShippingAddressForInvoice}
+                selectedAddress={selectedAddress ? {
+                  fullName: selectedAddress.fullName,
+                  fullAddress: selectedAddressText,
+                } : undefined}
+                onTypeChange={(type) => {
+                  setInvoiceInfo((current) => ({
+                    ...current,
+                    type,
+                    fullName: type === 'Individual' ? (selectedAddress?.fullName || current.fullName) : current.fullName,
+                  }));
+                }}
+                onChange={setInvoiceInfo}
+                onUseShippingAddressChange={(checked) => {
+                  setUseShippingAddressForInvoice(checked);
+                  if (checked && selectedAddressText) {
+                    setInvoiceInfo((current) => ({
+                      ...current,
+                      invoiceAddress: selectedAddressText,
+                    }));
+                  }
+                }}
+              />
             </CardContent>
           </Card>
 
@@ -449,21 +672,26 @@ export default function Checkout() {
                     </SelectTrigger>
                     <SelectContent>
                       {activePaymentProviders.map((provider) => (
-                        <SelectItem key={provider.value} value={provider.value}>
-                          {provider.label} ({provider.status})
+                        <SelectItem key={provider} value={provider}>
+                          {provider}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 ) : (
                   <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3 text-sm">
-                    <span className="font-medium">{activePaymentProviders[0].label}</span>
-                    <span className="text-muted-foreground">{activePaymentProviders[0].status}</span>
+                    <span className="font-medium">{activePaymentProviders[0]}</span>
+                    <span className="text-muted-foreground">Varsayılan</span>
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Stripe ve PayTR altyapısı hazırlanıyor. Şu an yalnızca Iyzico sandbox aktif.
+                  Aktif sağlayıcı listesi backend ödeme ayarlarından okunur. Şu an yalnızca aktif olan seçenekler gösterilir.
                 </p>
+                {willRequireThreeDS && (
+                  <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-xs text-blue-700 dark:text-blue-300">
+                    Bu ödeme için 3D Secure doğrulaması uygulanacak.
+                  </div>
+                )}
               </div>
 
               {savedCards && savedCards.length > 0 && (
@@ -595,11 +823,17 @@ export default function Checkout() {
                         id="saveCard"
                         checked={saveCardForLater}
                         onCheckedChange={(checked) => setSaveCardForLater(!!checked)}
+                        disabled={willRequireThreeDS}
                       />
-                      <label htmlFor="saveCard" className="text-sm cursor-pointer">
+                      <label htmlFor="saveCard" className={`text-sm ${willRequireThreeDS ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>
                         Bu kartı sonraki alışverişlerim için kaydet
                       </label>
                     </div>
+                    {willRequireThreeDS && (
+                      <p className="text-xs text-muted-foreground">
+                        3D Secure gereken ödemelerde yeni kart kaydetme desteği sonraki adımda açılacak.
+                      </p>
+                    )}
                     {saveCardForLater && (
                       <div className="space-y-2">
                         <Label>Kart Takma Adı</Label>
@@ -882,11 +1116,17 @@ export default function Checkout() {
                 <span>Toplam</span>
                 <span>{grandTotal.toLocaleString('tr-TR')} ₺</span>
               </div>
+              <LegalConsents
+                preliminaryInfoAccepted={preliminaryInfoAccepted}
+                distanceSalesAccepted={distanceSalesAccepted}
+                onPreliminaryInfoAcceptedChange={setPreliminaryInfoAccepted}
+                onDistanceSalesAcceptedChange={setDistanceSalesAccepted}
+              />
               <Button
-                className="w-full"
+                className={`w-full ${!hasAcceptedLegalConsents ? 'opacity-50' : ''}`}
                 size="lg"
                 onClick={handleCheckout}
-                disabled={isCheckingOut || isProcessingPayment}
+                disabled={isCheckingOut || isProcessingPayment || !hasAcceptedLegalConsents}
               >
                 {(isCheckingOut || isProcessingPayment) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -27,6 +27,18 @@ export interface UpdateCartItemRequest {
   quantity: number;
 }
 
+export type CheckoutInvoiceType = 'Individual' | 'Corporate';
+
+export interface CheckoutInvoiceInfo {
+  type: CheckoutInvoiceType;
+  fullName?: string;
+  tcKimlikNo?: string;
+  companyName?: string;
+  taxOffice?: string;
+  taxNumber?: string;
+  invoiceAddress: string;
+}
+
 // Checkout Request
 export interface CheckoutRequest {
   shippingAddress: string;
@@ -36,4 +48,7 @@ export interface CheckoutRequest {
   couponCode?: string;
   loyaltyPointsToUse?: number;
   giftCardCode?: string;
+  preliminaryInfoAccepted: boolean;
+  distanceSalesContractAccepted: boolean;
+  invoiceInfo: CheckoutInvoiceInfo;
 }
