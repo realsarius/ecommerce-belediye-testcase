@@ -238,7 +238,7 @@ export default function SellerDashboard() {
             <CardDescription>Son 30 gün boyunca günlük ciro değişimi.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={dashboardData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
@@ -268,7 +268,7 @@ export default function SellerDashboard() {
             <CardDescription>Mağazanıza ait siparişlerin dağılımı.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={dashboardData.orderStatusDistribution}

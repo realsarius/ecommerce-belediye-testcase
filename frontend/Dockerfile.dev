@@ -11,4 +11,4 @@ EXPOSE 5173
 
 RUN chmod +x /app/scripts/ensure-node-modules.sh
 
-CMD ["/app/scripts/ensure-node-modules.sh"]
+CMD ["sh", "/app/scripts/ensure-node-modules.sh"]

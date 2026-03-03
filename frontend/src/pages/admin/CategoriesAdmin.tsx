@@ -99,6 +99,15 @@ function createFormState(category?: Category, forcedParentId?: number | null): C
   };
 }
 
+function areFormStatesEqual(left: CategoryFormState, right: CategoryFormState) {
+  return (
+    left.name === right.name &&
+    left.description === right.description &&
+    left.isActive === right.isActive &&
+    left.parentCategoryId === right.parentCategoryId
+  );
+}
+
 function getParentCategoryId(value: ParentValue): number | null {
   return value === ROOT_PARENT ? null : Number(value);
 }
@@ -289,7 +298,8 @@ export default function AdminCategories() {
     }
 
     if (mode === 'edit') {
-      setFormState(createFormState(nextSelectedCategory));
+      const nextFormState = createFormState(nextSelectedCategory);
+      setFormState((current) => (areFormStatesEqual(current, nextFormState) ? current : nextFormState));
     }
   }, [categories, mode, selectedCategoryId]);
 

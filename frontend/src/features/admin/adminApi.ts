@@ -3,6 +3,8 @@ import type { PaginatedResponse } from '@/types/api';
 import type { DashboardPeriod } from '@/types/chart';
 import type {
   Category,
+  Product,
+  ProductListRequest,
   CreateCategoryRequest,
   ProductReviewDto,
   ReorderCategoriesRequest,
@@ -49,6 +51,7 @@ type AdminGranularTag =
   | 'Addresses'
   | 'Orders'
   | 'Returns'
+  | 'Products'
   | 'SellerProfile'
   | 'Users'
   | 'Reviews'
@@ -130,6 +133,14 @@ export const adminApi = baseApi.injectEndpoints({
       query: () => '/admin/categories',
       transformResponse: (response: { data: Category[] }) => response.data,
       providesTags: (result) => createListTags('Categories', result),
+    }),
+    getAdminProducts: builder.query<PaginatedResponse<Product>, ProductListRequest | void>({
+      query: (params) => ({
+        url: '/admin/products',
+        params: params ?? undefined,
+      }),
+      transformResponse: (response: { data: PaginatedResponse<Product> }) => response.data,
+      providesTags: (result) => createPaginatedListTags('Products', result),
     }),
     createCategory: builder.mutation<Category, CreateCategoryRequest>({
       query: (data) => ({
@@ -457,6 +468,7 @@ export const {
   useGetAdminDashboardRecentOrdersQuery,
   useGetCategoriesQuery,
   useGetAdminCategoriesQuery,
+  useGetAdminProductsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useReorderCategoriesMutation,

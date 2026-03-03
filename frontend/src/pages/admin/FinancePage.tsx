@@ -184,7 +184,7 @@ export default function AdminFinancePage() {
             <CardDescription>En yüksek net satış üreten seller hesaplarının özeti.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[340px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 12, right: 16 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.25} />
                 <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />

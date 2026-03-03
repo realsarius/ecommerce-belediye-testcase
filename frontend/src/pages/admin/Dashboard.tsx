@@ -233,7 +233,7 @@ export default function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={revenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
@@ -273,7 +273,7 @@ export default function AdminDashboard() {
             <CardDescription>Toplam {formatNumber(dashboardData.totalOrders)} siparişin güncel dağılımı.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={dashboardData.statusDistribution}
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
             <CardDescription>Kategori bazlı satış hacmi başarılı sipariş kalemlerinden hesaplanır.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={categorySales}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="categoryName" tickLine={false} axisLine={false} />
@@ -326,7 +326,7 @@ export default function AdminDashboard() {
             <CardDescription>Son 30 günde sisteme katılan kullanıcı sayısı.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={userRegistrations}>
                 <defs>
                   <linearGradient id="userRegistrationGradient" x1="0" y1="0" x2="0" y2="1">

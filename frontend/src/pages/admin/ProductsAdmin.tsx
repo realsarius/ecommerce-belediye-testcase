@@ -46,18 +46,17 @@ import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useGetAdminCategoriesQuery } from '@/features/admin/adminApi';
+import { useGetAdminCategoriesQuery, useGetAdminProductsQuery } from '@/features/admin/adminApi';
 import {
   useBulkUpdateProductsMutation,
   useDeleteProductMutation,
-  useSearchProductsQuery,
   useUpdateProductMutation,
   useUpdateStockMutation,
 } from '@/features/products/productsApi';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type StockFilter = 'all' | 'critical' | 'out';
-type BulkAction = 'activate' | 'deactivate' | 'delete' | '';
+type BulkAction = 'activate' | 'deactivate' | 'delete';
 
 function formatCurrency(value: number, currency = 'TRY') {
   return new Intl.NumberFormat('tr-TR', {
@@ -65,6 +64,10 @@ function formatCurrency(value: number, currency = 'TRY') {
     currency,
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function areNumberArraysEqual(left: number[], right: number[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export default function AdminProducts() {
@@ -76,7 +79,8 @@ export default function AdminProducts() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [bulkAction, setBulkAction] = useState<BulkAction>('');
+  const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [bulkActionResetKey, setBulkActionResetKey] = useState(0);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [statusTarget, setStatusTarget] = useState<{ id: number; name: string; nextState: boolean } | null>(null);
@@ -92,7 +96,7 @@ export default function AdminProducts() {
   const debouncedSearch = useDebounce(search, 400);
 
   const { data: categories = [] } = useGetAdminCategoriesQuery();
-  const { data: products, isLoading } = useSearchProductsQuery({
+  const { data: products, isLoading } = useGetAdminProductsQuery({
     page,
     pageSize: 20,
     search: debouncedSearch || undefined,
@@ -150,7 +154,10 @@ export default function AdminProducts() {
   }, [items, sellerFilter, statusFilter, stockFilter]);
 
   useEffect(() => {
-    setSelectedIds((current) => current.filter((id) => filteredItems.some((product) => product.id === id)));
+    setSelectedIds((current) => {
+      const next = current.filter((id) => filteredItems.some((product) => product.id === id));
+      return areNumberArraysEqual(current, next) ? current : next;
+    });
   }, [filteredItems]);
 
   const summary = useMemo(() => {
@@ -166,7 +173,8 @@ export default function AdminProducts() {
 
   const resetBulkSelection = () => {
     setSelectedIds([]);
-    setBulkAction('');
+    setBulkAction(null);
+    setBulkActionResetKey((current) => current + 1);
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -434,7 +442,7 @@ export default function AdminProducts() {
                 ? `${selectedIds.length} ürün seçildi`
                 : 'İşlem için ürün seçin'}
             </p>
-            <Select value={bulkAction} onValueChange={(value) => setBulkAction(value as BulkAction)}>
+            <Select key={bulkActionResetKey} onValueChange={(value) => setBulkAction(value as BulkAction)}>
               <SelectTrigger className="w-full sm:w-[210px]">
                 <SelectValue placeholder="Toplu işlem seçin" />
               </SelectTrigger>

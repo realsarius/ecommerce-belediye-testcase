@@ -354,7 +354,7 @@ export default function SellerFinancePage() {
             <CardDescription>Seçili dönemde gün bazlı net kazanç akışı.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
@@ -377,7 +377,7 @@ export default function SellerFinancePage() {
             <CardDescription>Seçili dönemde günlük satış kırılımı.</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
