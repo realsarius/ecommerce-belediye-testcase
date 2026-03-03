@@ -35,11 +35,7 @@ public class CreditCardConfigurationBasic : IEntityTypeConfiguration<CreditCard>
         builder.Property(cc => cc.ExpireMonthEncrypted)
             .IsRequired()
             .HasMaxLength(200);
-        
-        builder.Property(cc => cc.CvvEncrypted)
-            .IsRequired()
-            .HasMaxLength(200);
-        
+
         builder.Property(cc => cc.IsDefault)
             .IsRequired();
         

@@ -35,7 +35,6 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
             CardNumber = "5406670000000009", // Sandbox Success Card
             ExpireMonth = "12",
             ExpireYear = "2030",
-            Cvv = "123",
             CardAlias = $"My Card {Guid.NewGuid():N}"
         };
 
@@ -65,7 +64,6 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
             CardNumber = "5406670000000009", // Sandbox Success Card
             ExpireMonth = "12",
             ExpireYear = "2030",
-            Cvv = "123",
             CardAlias = "My Card"
         };
 

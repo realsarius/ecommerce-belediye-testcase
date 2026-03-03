@@ -6,7 +6,9 @@ using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Core.Aspects.Autofac.Caching;
+using EcommerceAPI.Core.Aspects.Autofac.Validation;
 using EcommerceAPI.Business.Constants;
+using EcommerceAPI.Business.Validators;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -46,8 +48,9 @@ public class CreditCardManager : ICreditCardService
         return new SuccessDataResult<List<CreditCardDto>>(cardDtos);
     }
 
-    // Logging omitted for AddCardAsync due to sensitive data (CardNumber, CVV) in request.
+    // Logging omitted for AddCardAsync due to sensitive data (card data) in request.
     [CacheRemoveAspect("GetUserCardsAsync")]
+    [ValidationAspect(typeof(AddCreditCardRequestValidator))]
     public async Task<IDataResult<CreditCardDto>> AddCardAsync(int userId, AddCreditCardRequest request)
     {
         var existingCards = await _creditCardDal.GetListAsync(c => c.UserId == userId);
@@ -76,7 +79,6 @@ public class CreditCardManager : ICreditCardService
             Last4Digits = last4Digits,
             ExpireYearEncrypted = _encryptionService.Encrypt(request.ExpireYear),
             ExpireMonthEncrypted = _encryptionService.Encrypt(request.ExpireMonth),
-            CvvEncrypted = _encryptionService.Encrypt(request.Cvv),
             IsDefault = shouldBeDefault
         };
 

@@ -9,7 +9,6 @@ public class CreditCard : BaseEntity
     public string Last4Digits { get; set; } = string.Empty;
     public string ExpireYearEncrypted { get; set; } = string.Empty;
     public string ExpireMonthEncrypted { get; set; } = string.Empty;
-    public string CvvEncrypted { get; set; } = string.Empty;
     public bool IsDefault { get; set; } = false;
     
     public User User { get; set; } = null!;

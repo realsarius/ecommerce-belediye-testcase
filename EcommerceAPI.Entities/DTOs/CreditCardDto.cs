@@ -18,7 +18,6 @@ public class AddCreditCardRequest
     public string CardNumber { get; set; } = string.Empty;
     public string ExpireMonth { get; set; } = string.Empty;
     public string ExpireYear { get; set; } = string.Empty;
-    public string Cvv { get; set; } = string.Empty;
     public bool IsDefault { get; set; } = false;
 }
 

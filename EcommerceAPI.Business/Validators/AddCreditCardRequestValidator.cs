@@ -29,10 +29,6 @@ public class AddCreditCardRequestValidator : AbstractValidator<AddCreditCardRequ
 
         RuleFor(x => x)
             .Must(NotBeExpired).WithMessage("Kart son kullanma tarihi geçmiş olamaz");
-
-        RuleFor(x => x.Cvv)
-            .NotEmpty().WithMessage("Güvenlik kodu (CVV) zorunludur")
-            .Must(BeValidCvv).WithMessage("CVV 3 veya 4 haneli sayısal değer olmalıdır");
     }
 
     private bool BeValidCardNumber(string cardNumber)
@@ -117,15 +113,5 @@ public class AddCreditCardRequestValidator : AbstractValidator<AddCreditCardRequ
         var expiryDate = new DateTime(year, month, 1).AddMonths(1).AddDays(-1);
         
         return expiryDate >= now;
-    }
-
-    private bool BeValidCvv(string cvv)
-    {
-        if (string.IsNullOrWhiteSpace(cvv))
-            return false;
-
-        string digitsOnly = new string(cvv.Where(char.IsDigit).ToArray());
-        
-        return digitsOnly.Length >= 3 && digitsOnly.Length <= 4;
     }
 }
