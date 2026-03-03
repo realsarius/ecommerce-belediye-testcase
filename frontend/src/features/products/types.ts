@@ -26,6 +26,23 @@ export interface Product {
   campaignBadgeText?: string | null;
   campaignEndsAt?: string | null;
   isCampaignFeatured: boolean;
+  primaryImageUrl?: string | null;
+  images?: ProductImage[];
+  variants?: ProductVariant[];
+}
+
+export interface ProductImage {
+  id?: number;
+  imageUrl: string;
+  sortOrder: number;
+  isPrimary: boolean;
+}
+
+export interface ProductVariant {
+  id?: number;
+  name: string;
+  value: string;
+  sortOrder: number;
 }
 
 export interface ProductReviewDto {
@@ -87,6 +104,8 @@ export interface CreateProductRequest {
   isActive: boolean;
   categoryId: number;
   initialStock: number;
+  images?: ProductImage[];
+  variants?: ProductVariant[];
 }
 
 export interface UpdateProductRequest {
@@ -98,6 +117,8 @@ export interface UpdateProductRequest {
   isActive?: boolean;
   categoryId?: number;
   stockQuantity?: number;
+  images?: ProductImage[];
+  variants?: ProductVariant[];
 }
 
 export interface BulkUpdateProductsRequest {

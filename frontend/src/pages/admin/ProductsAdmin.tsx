@@ -496,7 +496,15 @@ export default function AdminProducts() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                          <PackageIcon className="h-5 w-5 text-muted-foreground" />
+                          {product.primaryImageUrl ? (
+                            <img
+                              src={product.primaryImageUrl}
+                              alt={product.name}
+                              className="h-full w-full rounded-lg object-cover"
+                            />
+                          ) : (
+                            <PackageIcon className="h-5 w-5 text-muted-foreground" />
+                          )}
                         </div>
                         <div>
                           <p className="font-medium">{product.name}</p>

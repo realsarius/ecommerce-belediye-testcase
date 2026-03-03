@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -25,9 +25,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
-import { ArrowLeft, Boxes, Hash, Loader2, Save, Sparkles, Store } from 'lucide-react';
+import { ArrowLeft, Boxes, Hash, ImagePlus, Layers3, Loader2, Save, Sparkles, Store, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+
+const imageSchema = z.object({
+  imageUrl: z.string().url('Geçerli bir görsel URL girin'),
+  isPrimary: z.boolean().default(false),
+});
+
+const variantSchema = z.object({
+  name: z.string().min(1, 'Varyant adı gereklidir').max(100, 'Varyant adı çok uzun'),
+  value: z.string().min(1, 'Varyant değeri gereklidir').max(200, 'Varyant değeri çok uzun'),
+});
 
 const productSchema = z.object({
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
@@ -49,6 +59,8 @@ const productSchema = z.object({
     .refine((val) => !isNaN(val) && val >= 0, { message: 'Stok negatif olamaz' })
     .default(0),
   isActive: z.boolean().default(true),
+  images: z.array(imageSchema).max(8, 'En fazla 8 görsel ekleyebilirsiniz').default([]),
+  variants: z.array(variantSchema).max(20, 'En fazla 20 varyant ekleyebilirsiniz').default([]),
 });
 
 type ProductFormInput = z.input<typeof productSchema>;
@@ -100,7 +112,17 @@ export default function SellerProductForm() {
       categoryId: '',
       initialStock: 0,
       isActive: true,
+      images: [],
+      variants: [],
     },
+  });
+  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({
+    control,
+    name: 'images',
+  });
+  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
+    control,
+    name: 'variants',
   });
 
   const productName = watch('name');
@@ -110,6 +132,8 @@ export default function SellerProductForm() {
   const stock = Number(watch('initialStock') || 0);
   const isActive = watch('isActive');
   const selectedCategoryId = watch('categoryId');
+  const images = watch('images') || [];
+  const variants = watch('variants') || [];
   const selectedCategory = categories?.find((category) => category.id.toString() === selectedCategoryId);
   const stockMeta = useMemo(() => {
     if (stock <= 0) {
@@ -138,6 +162,27 @@ export default function SellerProductForm() {
     toast.success('SKU otomatik oluşturuldu');
   };
 
+  const handleAddImage = () => {
+    appendImage({ imageUrl: '', isPrimary: imageFields.length === 0 });
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    const currentImages = watch('images') || [];
+    currentImages.forEach((_, imageIndex) => {
+      setValue(`images.${imageIndex}.isPrimary`, imageIndex === index, { shouldDirty: true });
+    });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    removeImage(index);
+    const nextImages = (watch('images') || []).filter((_, imageIndex) => imageIndex !== index);
+    if (nextImages.length > 0 && nextImages.every((image) => !image.isPrimary)) {
+      setTimeout(() => {
+        setValue('images.0.isPrimary', true, { shouldDirty: true });
+      }, 0);
+    }
+  };
+
   useEffect(() => {
     if (product && isEdit && categories) {
       const legacyCategoryId = (product as { CategoryId?: unknown }).CategoryId;
@@ -150,6 +195,14 @@ export default function SellerProductForm() {
         categoryId: rawCatId ? rawCatId.toString() : '',
         initialStock: product.stockQuantity,
         isActive: product.isActive,
+        images: (product.images || []).map((image) => ({
+          imageUrl: image.imageUrl,
+          isPrimary: image.isPrimary,
+        })),
+        variants: (product.variants || []).map((variant) => ({
+          name: variant.name,
+          value: variant.value,
+        })),
       });
     }
   }, [product, categories, isEdit, reset]);
@@ -166,6 +219,16 @@ export default function SellerProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           stockQuantity: data.initialStock, // Form uses initialStock field name for stock input
           isActive: data.isActive,
+          images: data.images.map((image, index) => ({
+            imageUrl: image.imageUrl,
+            isPrimary: image.isPrimary,
+            sortOrder: index,
+          })),
+          variants: data.variants.map((variant, index) => ({
+            name: variant.name,
+            value: variant.value,
+            sortOrder: index,
+          })),
         };
         await updateProduct({ id: productId, data: updatePayload }).unwrap();
         toast.success('Ürün güncellendi');
@@ -179,6 +242,16 @@ export default function SellerProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           initialStock: data.initialStock,
           isActive: data.isActive,
+          images: data.images.map((image, index) => ({
+            imageUrl: image.imageUrl,
+            isPrimary: image.isPrimary,
+            sortOrder: index,
+          })),
+          variants: data.variants.map((variant, index) => ({
+            name: variant.name,
+            value: variant.value,
+            sortOrder: index,
+          })),
         };
         await createProduct(createPayload).unwrap();
         toast.success('Ürün oluşturuldu');
@@ -361,6 +434,136 @@ export default function SellerProductForm() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle>Görseller</CardTitle>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddImage}>
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  Görsel Ekle
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {imageFields.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/70 p-6 text-sm text-muted-foreground">
+                    Ürün için henüz görsel eklenmedi. URL ile birden fazla görsel ekleyebilir, birini ana görsel olarak işaretleyebilirsiniz.
+                  </div>
+                ) : (
+                  imageFields.map((field, index) => (
+                    <div key={field.id} className="space-y-3 rounded-xl border border-border/70 p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="h-20 w-20 overflow-hidden rounded-xl bg-muted">
+                          {images[index]?.imageUrl ? (
+                            <img
+                              src={images[index]?.imageUrl}
+                              alt={`${productName || 'Ürün'} görsel ${index + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                              Önizleme
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={`image-${index}`}>Görsel URL #{index + 1}</Label>
+                            <Input
+                              id={`image-${index}`}
+                              placeholder="https://..."
+                              {...register(`images.${index}.imageUrl`)}
+                            />
+                            {errors.images?.[index]?.imageUrl ? (
+                              <p className="text-sm text-destructive">{errors.images[index]?.imageUrl?.message}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <Button
+                              type="button"
+                              variant={images[index]?.isPrimary ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleSetPrimaryImage(index)}
+                            >
+                              {images[index]?.isPrimary ? 'Ana Görsel' : 'Ana Görsel Yap'}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveImage(index)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Kaldır
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle>Varyantlar</CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendVariant({ name: '', value: '' })}
+                >
+                  <Layers3 className="mr-2 h-4 w-4" />
+                  Varyant Ekle
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {variantFields.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/70 p-6 text-sm text-muted-foreground">
+                    Beden, renk veya materyal gibi varyant satırlarını buraya ekleyebilirsiniz.
+                  </div>
+                ) : (
+                  variantFields.map((field, index) => (
+                    <div key={field.id} className="grid gap-3 rounded-xl border border-border/70 p-4 md:grid-cols-[1fr_1fr_auto]">
+                      <div className="space-y-2">
+                        <Label htmlFor={`variant-name-${index}`}>Varyant Adı</Label>
+                        <Input
+                          id={`variant-name-${index}`}
+                          placeholder="Örn: Renk"
+                          {...register(`variants.${index}.name`)}
+                        />
+                        {errors.variants?.[index]?.name ? (
+                          <p className="text-sm text-destructive">{errors.variants[index]?.name?.message}</p>
+                        ) : null}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`variant-value-${index}`}>Varyant Değeri</Label>
+                        <Input
+                          id={`variant-value-${index}`}
+                          placeholder="Örn: Siyah"
+                          {...register(`variants.${index}.value`)}
+                        />
+                        {errors.variants?.[index]?.value ? (
+                          <p className="text-sm text-destructive">{errors.variants[index]?.value?.message}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => removeVariant(index)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Kaldır
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div className="space-y-6">
@@ -423,6 +626,14 @@ export default function SellerProductForm() {
 
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Görsel</span>
+                    <span className="font-medium">{images.length} adet</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Varyant</span>
+                    <span className="font-medium">{variants.length} satır</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">SKU</span>
                     <span className="font-medium">{sku || '-'}</span>
                   </div>
@@ -443,8 +654,8 @@ export default function SellerProductForm() {
                 <CardTitle>Not</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>Bu form şu an mevcut backend kontratındaki alanlarla çalışır.</p>
-                <p>Çoklu görsel, varyant ve zengin içerik alanları ayrı backend desteği geldiğinde genişletilecek.</p>
+                <p>Bu form URL tabanlı çoklu görsel ve dinamik varyant alanlarını destekler.</p>
+                <p>Dosya upload ve sürükle bırak akışı ayrı medya/storage altyapısı geldiğinde bu formun üstüne eklenebilir.</p>
               </CardContent>
             </Card>
 
