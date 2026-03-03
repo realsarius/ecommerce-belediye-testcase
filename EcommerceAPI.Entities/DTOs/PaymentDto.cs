@@ -11,5 +11,7 @@ public class PaymentDto : IDto
     public string PaymentMethod { get; set; } = string.Empty;
     public PaymentProviderType? Provider { get; set; }
     public string? ErrorMessage { get; set; }
+    public bool RequiresThreeDS { get; set; }
+    public string? ThreeDSHtmlContent { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -72,41 +72,60 @@ public class PaymentWebhookController : ControllerBase
     [AllowAnonymous]
     [Consumes("application/x-www-form-urlencoded", "application/json")]
     public async Task<IActionResult> HandleCallback(
-        [FromForm] string? token,
-        [FromForm] string? conversationId)
+        [FromForm] string? paymentId,
+        [FromForm] string? conversationId,
+        [FromForm] string? conversationData,
+        [FromForm] string? status,
+        [FromForm] string? mdStatus)
     {
-        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(conversationId))
+        var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000";
+
+        if (string.IsNullOrEmpty(paymentId) ||
+            string.IsNullOrEmpty(conversationId) ||
+            string.IsNullOrEmpty(conversationData))
         {
-            _logger.LogWarning("Callback rejected: Missing token or conversationId");
-            return BadRequest(new { message = "Token ve conversationId gereklidir" });
+            _logger.LogWarning(
+                "Callback rejected: Missing paymentId, conversationId or conversationData. ConversationId={ConversationId}",
+                conversationId);
+            return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
         }
 
-        _logger.LogInformation("Callback received: ConversationId={ConversationId}", conversationId);
+        _logger.LogInformation(
+            "3DS callback received: ConversationId={ConversationId}, PaymentId={PaymentId}, Status={Status}, MdStatus={MdStatus}",
+            conversationId,
+            paymentId,
+            status,
+            mdStatus);
 
         try
         {
-            var result = await _paymentService.VerifyAndFinalizePaymentAsync(token, conversationId);
+            if (!string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "3DS callback returned unsuccessful status. ConversationId={ConversationId}, Status={Status}, MdStatus={MdStatus}",
+                    conversationId,
+                    status,
+                    mdStatus);
+                return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
+            }
 
-
-            var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000";
+            var result = await _paymentService.VerifyAndFinalizePaymentAsync(paymentId, conversationId, conversationData);
             
             if (result.Success)
             {
                 _logger.LogInformation("Payment verified successfully: ConversationId={ConversationId}", conversationId);
-                return Redirect($"{frontendBaseUrl}/payment/success?orderId={conversationId}");
+                return Redirect($"{frontendBaseUrl}/checkout?threeDS=success");
             }
             else
             {
                 _logger.LogWarning("Payment verification failed: ConversationId={ConversationId}", conversationId);
-                return Redirect($"{frontendBaseUrl}/payment/failed?orderId={conversationId}");
+                return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Callback error: ConversationId={ConversationId}", conversationId);
-            var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000";
-            return Redirect($"{frontendBaseUrl}/payment/error?orderId={conversationId}");
+            return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
         }
     }
 }
-

@@ -22,9 +22,17 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 {
     public PaymentProviderType ProviderType => PaymentProviderType.Iyzico;
 
+    private sealed class IyzicoPaymentExecutionResult
+    {
+        public Iyzipay.Model.Payment? Payment { get; init; }
+        public ThreedsInitialize? ThreeDSInitialize { get; init; }
+        public bool RequiresThreeDS => ThreeDSInitialize != null;
+    }
+
     private readonly IOrderDal _orderDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IyzicoSettings _settings;
+    private readonly PaymentSettings _paymentSettings;
     private readonly ICreditCardService _creditCardService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IReferralService _referralService;
@@ -35,6 +43,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         IOrderDal orderDal,
         IUnitOfWork unitOfWork,
         IOptions<IyzicoSettings> settings,
+        IOptions<PaymentSettings> paymentSettings,
         ICreditCardService creditCardService,
         ILoyaltyService loyaltyService,
         IReferralService referralService,
@@ -44,6 +53,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         _orderDal = orderDal;
         _unitOfWork = unitOfWork;
         _settings = settings.Value;
+        _paymentSettings = paymentSettings.Value;
         _creditCardService = creditCardService;
         _loyaltyService = loyaltyService;
         _referralService = referralService;
@@ -115,15 +125,68 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                 return new ErrorDataResult<PaymentDto>(validationError);
             }
 
-            Iyzipay.Model.Payment iyzicoPayment;
+            var requiresThreeDS = ShouldRequireThreeDS(order.TotalAmount, request);
+            if (requiresThreeDS && request.SaveCard && !request.SavedCardId.HasValue)
+            {
+                return new ErrorDataResult<PaymentDto>(
+                    "3D Secure gereken odemelerde yeni karti kaydetme simdilik desteklenmiyor.");
+            }
+
+            IyzicoPaymentExecutionResult iyzicoPaymentResult;
             try
             {
-                iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
+                iyzicoPaymentResult = await ProcessIyzicoPaymentAsync(order, request, requiresThreeDS);
             }
             catch (InvalidOperationException ex)
             {
                 return new ErrorDataResult<PaymentDto>(ex.Message);
             }
+
+            if (iyzicoPaymentResult.RequiresThreeDS)
+            {
+                var threeDSInitialize = iyzicoPaymentResult.ThreeDSInitialize!;
+
+                if (threeDSInitialize.Status == "success" && !string.IsNullOrWhiteSpace(threeDSInitialize.HtmlContent))
+                {
+                    order.Payment.Status = PaymentStatus.Pending;
+                    order.Payment.Provider = PaymentProviderType.Iyzico;
+                    order.Payment.PaymentProviderId = threeDSInitialize.PaymentId;
+                    order.Payment.ErrorMessage = null;
+                    order.Payment.IdempotencyKey = idempotencyKey;
+
+                    _orderDal.Update(order);
+                    await _unitOfWork.SaveChangesAsync();
+
+                    return new SuccessDataResult<PaymentDto>(new PaymentDto
+                    {
+                        Id = order.Payment.Id,
+                        Amount = order.Payment.Amount,
+                        Currency = order.Payment.Currency,
+                        Status = order.Payment.Status.ToString(),
+                        PaymentMethod = order.Payment.PaymentMethod,
+                        Provider = order.Payment.Provider,
+                        ErrorMessage = null,
+                        RequiresThreeDS = true,
+                        ThreeDSHtmlContent = threeDSInitialize.HtmlContent,
+                        CreatedAt = order.Payment.CreatedAt
+                    });
+                }
+
+                order.Payment.Status = PaymentStatus.Failed;
+                order.Payment.ErrorMessage = threeDSInitialize.ErrorMessage ?? "3D Secure baslatilamadi.";
+                order.Payment.IdempotencyKey = idempotencyKey;
+
+                _orderDal.Update(order);
+                await _unitOfWork.SaveChangesAsync();
+
+                return new ErrorDataResult<PaymentDto>(
+                    MapToDto(order.Payment),
+                    order.Payment.ErrorMessage,
+                    Constants.InfrastructureConstants.Payment.DefaultErrorCode,
+                    threeDSInitialize.ErrorMessage);
+            }
+
+            var iyzicoPayment = iyzicoPaymentResult.Payment!;
 
             if (iyzicoPayment.Status == "success")
             {
@@ -178,7 +241,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         }
     }
 
-    private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request)
+    private async Task<IyzicoPaymentExecutionResult> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request, bool requiresThreeDS)
     {
         var options = new Iyzipay.Options
         {
@@ -197,7 +260,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             Installment = 1,
             BasketId = $"B{order.Id}",
             PaymentChannel = PaymentChannel.WEB.ToString(),
-            PaymentGroup = PaymentGroup.PRODUCT.ToString()
+            PaymentGroup = PaymentGroup.PRODUCT.ToString(),
+            CallbackUrl = requiresThreeDS ? BuildThreeDSCallbackUrl() : null
         };
 
         // Kart bilgileri - kayıtlı kart veya yeni kart
@@ -348,7 +412,18 @@ BuildBuyerAndBasket:
         
         paymentRequest.BasketItems = basketItems;
 
-        return await Iyzipay.Model.Payment.Create(paymentRequest, options);
+        if (requiresThreeDS)
+        {
+            return new IyzicoPaymentExecutionResult
+            {
+                ThreeDSInitialize = await ThreedsInitialize.Create(paymentRequest, options)
+            };
+        }
+
+        return new IyzicoPaymentExecutionResult
+        {
+            Payment = await Iyzipay.Model.Payment.Create(paymentRequest, options)
+        };
     }
 
     private static string? ValidatePaymentRequest(ProcessPaymentRequest request)
@@ -450,6 +525,23 @@ BuildBuyerAndBasket:
         return year.Length == 2 ? $"20{year}" : year;
     }
 
+    private bool ShouldRequireThreeDS(decimal orderAmount, ProcessPaymentRequest request)
+    {
+        return _paymentSettings.Force3DSecure
+            || orderAmount >= _paymentSettings.Force3DSecureAbove;
+    }
+
+    private string BuildThreeDSCallbackUrl()
+    {
+        var baseUrl = _paymentSettings.PublicApiBaseUrl?.Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            throw new InvalidOperationException("PublicApiBaseUrl ayari bulunamadi.");
+        }
+
+        return $"{baseUrl}/api/v1/payments/callback";
+    }
+
     public async Task<IDataResult<PaymentDto>> GetPaymentByOrderIdAsync(int orderId)
     {
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
@@ -502,12 +594,6 @@ BuildBuyerAndBasket:
         if (order.Status == OrderStatus.Paid)
             return new SuccessResult("Already paid");
 
-        // Token varsa - Double Verification
-        if (!string.IsNullOrEmpty(request.Token))
-        {
-            return await VerifyAndFinalizePaymentAsync(request.Token, request.PaymentConversationId);
-        }
-
         // Direct webhook - status'a göre güncelle
         await _unitOfWork.BeginTransactionAsync();
         try
@@ -551,7 +637,7 @@ BuildBuyerAndBasket:
         }
     }
 
-    public async Task<IResult> VerifyAndFinalizePaymentAsync(string token, string conversationId)
+    public async Task<IResult> VerifyAndFinalizePaymentAsync(string paymentId, string conversationId, string conversationData)
     {
         var options = new Iyzipay.Options
         {
@@ -560,14 +646,15 @@ BuildBuyerAndBasket:
             BaseUrl = _settings.BaseUrl
         };
 
-        var retrieveRequest = new RetrieveCheckoutFormRequest
+        var threeDSPaymentRequest = new CreateThreedsPaymentRequest
         {
             ConversationId = conversationId,
-            Token = token
+            PaymentId = paymentId,
+            ConversationData = conversationData,
+            Locale = Locale.TR.ToString()
         };
 
-        // iyzico'dan gerçek sonucu al
-        var checkoutForm = await CheckoutForm.Retrieve(retrieveRequest, options);
+        var threeDSPayment = await ThreedsPayment.Create(threeDSPaymentRequest, options);
 
         var order = await _orderDal.GetByOrderNumberAsync(conversationId);
         if (order == null || order.Payment == null)
@@ -580,10 +667,12 @@ BuildBuyerAndBasket:
         await _unitOfWork.BeginTransactionAsync();
         try
         {
-            if (checkoutForm.Status == "success" && checkoutForm.PaymentStatus == "SUCCESS")
+            if (threeDSPayment.Status == "success" && threeDSPayment.PaymentStatus == "SUCCESS")
             {
                 order.Payment.Status = PaymentStatus.Success;
-                order.Payment.PaymentProviderId = checkoutForm.PaymentId;
+                order.Payment.Provider = PaymentProviderType.Iyzico;
+                order.Payment.PaymentProviderId = threeDSPayment.PaymentId;
+                order.Payment.ErrorMessage = null;
                 order.Status = OrderStatus.Paid;
                 order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
 
@@ -593,20 +682,27 @@ BuildBuyerAndBasket:
                     await _unitOfWork.RollbackTransactionAsync();
                     return new ErrorResult(loyaltyResult.Message);
                 }
+
+                var referralResult = await _referralService.AwardFirstPurchaseRewardsAsync(order.Id);
+                if (!referralResult.Success)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return new ErrorResult(referralResult.Message);
+                }
             }
             else
             {
                 order.Payment.Status = PaymentStatus.Failed;
-                order.Payment.ErrorMessage = checkoutForm.ErrorMessage ?? "Ödeme doğrulaması başarısız";
+                order.Payment.ErrorMessage = threeDSPayment.ErrorMessage ?? "3D Secure odeme dogrulamasi basarisiz";
             }
 
             _orderDal.Update(order);
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
 
-            return checkoutForm.Status == "success" 
+            return threeDSPayment.Status == "success" 
                 ? new SuccessResult(@"Payment verified and updated") 
-                : new ErrorResult(checkoutForm.ErrorMessage ?? "Payment verification failed");
+                : new ErrorResult(threeDSPayment.ErrorMessage ?? "Payment verification failed");
         }
         catch
         {

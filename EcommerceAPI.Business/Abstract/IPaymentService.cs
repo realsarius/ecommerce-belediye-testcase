@@ -26,5 +26,5 @@ public interface IPaymentService
     /// <summary>
     /// Ödemeyi doğrular ve sonuçlandırır (3D Secure callback sonrası).
     /// </summary>
-    Task<IResult> VerifyAndFinalizePaymentAsync(string token, string conversationId);
+    Task<IResult> VerifyAndFinalizePaymentAsync(string paymentId, string conversationId, string conversationData);
 }

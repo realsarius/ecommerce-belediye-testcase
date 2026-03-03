@@ -1,9 +1,14 @@
 import { baseApi } from '@/app/api';
-import type { Order, Payment, ProcessPaymentRequest } from '@/features/orders/types';
+import type { Order, Payment, PaymentSettings, ProcessPaymentRequest } from '@/features/orders/types';
 import type { CheckoutRequest } from '@/features/cart/types';
+import type { ApiResponse } from '@/types/api';
 
 export const ordersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getPaymentSettings: builder.query<PaymentSettings, void>({
+      query: () => '/payments/settings',
+      transformResponse: (response: ApiResponse<PaymentSettings>) => response.data!,
+    }),
     checkout: builder.mutation<Order, CheckoutRequest>({
       query: (data) => ({
         url: '/orders',
@@ -54,6 +59,7 @@ export const ordersApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetPaymentSettingsQuery,
   useCheckoutMutation,
   useGetOrdersQuery,
   useGetOrderQuery,

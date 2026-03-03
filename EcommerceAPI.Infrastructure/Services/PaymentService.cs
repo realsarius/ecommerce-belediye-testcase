@@ -70,9 +70,9 @@ public class PaymentService : IPaymentService
             .ProcessWebhookAsync(request, signatureHeader);
     }
 
-    public Task<IResult> VerifyAndFinalizePaymentAsync(string token, string conversationId)
+    public Task<IResult> VerifyAndFinalizePaymentAsync(string paymentId, string conversationId, string conversationData)
     {
         return _paymentProviderFactory.GetProvider(PaymentProviderType.Iyzico)
-            .VerifyAndFinalizePaymentAsync(token, conversationId);
+            .VerifyAndFinalizePaymentAsync(paymentId, conversationId, conversationData);
     }
 }

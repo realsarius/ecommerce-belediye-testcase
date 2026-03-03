@@ -21,6 +21,7 @@ public class IyzicoPaymentServiceTests
 {
     private readonly Mock<IOrderDal> _orderDalMock;
     private readonly Mock<IOptions<IyzicoSettings>> _optionsMock;
+    private readonly Mock<IOptions<PaymentSettings>> _paymentSettingsOptionsMock;
     private readonly Mock<IUnitOfWork> _uowMock;
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
@@ -34,6 +35,7 @@ public class IyzicoPaymentServiceTests
         _orderDalMock = new Mock<IOrderDal>();
         _uowMock = new Mock<IUnitOfWork>();
         _optionsMock = new Mock<IOptions<IyzicoSettings>>();
+        _paymentSettingsOptionsMock = new Mock<IOptions<PaymentSettings>>();
         _creditCardServiceMock = new Mock<ICreditCardService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _referralServiceMock = new Mock<IReferralService>();
@@ -45,6 +47,14 @@ public class IyzicoPaymentServiceTests
             ApiKey = "test", 
             SecretKey = "test", 
             BaseUrl = "https://sandbox-api.iyzipay.com" 
+        });
+        _paymentSettingsOptionsMock.Setup(o => o.Value).Returns(new PaymentSettings
+        {
+            ActiveProviders = [PaymentProviderType.Iyzico],
+            DefaultProvider = PaymentProviderType.Iyzico,
+            Force3DSecure = false,
+            Force3DSecureAbove = 5000m,
+            PublicApiBaseUrl = "http://localhost:5294"
         });
 
         _lockServiceMock.Setup(x => x.TryAcquireLockAsync(It.IsAny<string>(), It.IsAny<int>()))
@@ -62,6 +72,7 @@ public class IyzicoPaymentServiceTests
             _orderDalMock.Object,
             _uowMock.Object,
             _optionsMock.Object,
+            _paymentSettingsOptionsMock.Object,
             _creditCardServiceMock.Object,
             _loyaltyServiceMock.Object,
             _referralServiceMock.Object,
