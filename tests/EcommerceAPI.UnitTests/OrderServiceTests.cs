@@ -50,6 +50,12 @@ public class OrderManagerTests
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<OrderStatusChangedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _loyaltyServiceMock
             .Setup(x => x.CalculateRedemptionAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>()))
             .ReturnsAsync(new SuccessDataResult<LoyaltyRedemptionPreviewDto>(new LoyaltyRedemptionPreviewDto()));
@@ -499,5 +505,91 @@ public class OrderManagerTests
 
         result.Success.Should().BeTrue();
         _giftCardServiceMock.Verify(x => x.RestoreForOrderAsync(order.UserId, order.Id, It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSellerOrderAsync_WhenOrderDoesNotBelongToSeller_ShouldReturnError()
+    {
+        const int sellerId = 9;
+        var order = new Order
+        {
+            Id = 701,
+            UserId = 200,
+            OrderNumber = "ORD-SELLER-1",
+            Status = EcommerceAPI.Entities.Enums.OrderStatus.Paid,
+            Payment = new Payment { Status = EcommerceAPI.Entities.Enums.PaymentStatus.Success },
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 88,
+                    Quantity = 1,
+                    PriceSnapshot = 90m,
+                    Product = new Product
+                    {
+                        Id = 88,
+                        Name = "Diger Seller Urunu",
+                        Description = "d",
+                        Price = 90m,
+                        SKU = "D1",
+                        SellerId = 5
+                    }
+                }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.GetSellerOrderAsync(sellerId, order.Id);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Sipariş size ait ürünler içermiyor");
+    }
+
+    [Fact]
+    public async Task ShipOrderAsync_WhenOrderDoesNotBelongToSeller_ShouldReturnErrorWithoutPublishingEvent()
+    {
+        const int sellerId = 9;
+        var order = new Order
+        {
+            Id = 702,
+            UserId = 200,
+            OrderNumber = "ORD-SELLER-2",
+            Status = EcommerceAPI.Entities.Enums.OrderStatus.Paid,
+            Payment = new Payment { Status = EcommerceAPI.Entities.Enums.PaymentStatus.Success },
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 89,
+                    Quantity = 1,
+                    PriceSnapshot = 120m,
+                    Product = new Product
+                    {
+                        Id = 89,
+                        Name = "Yetkisiz Urun",
+                        Description = "d",
+                        Price = 120m,
+                        SKU = "Y1",
+                        SellerId = 4
+                    }
+                }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
+        {
+            CargoCompany = "Yurtici",
+            TrackingCode = "TRK-123"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Sipariş size ait ürünler içermiyor");
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uowMock.Verify(x => x.BeginTransactionAsync(), Times.Never);
     }
 }

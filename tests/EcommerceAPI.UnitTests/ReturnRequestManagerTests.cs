@@ -44,6 +44,9 @@ public class ReturnRequestManagerTests
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<ReturnRequestReviewedEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _loyaltyServiceMock
             .Setup(x => x.RestoreRedeemedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
@@ -194,6 +197,73 @@ public class ReturnRequestManagerTests
         _referralServiceMock.Verify(x => x.ReverseRewardsForOrderAsync(returnRequest.OrderId, It.IsAny<string>()), Times.Once);
         _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Never);
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ReviewReturnRequestAsync_RejectedRequest_ShouldRejectWithoutCreatingRefund()
+    {
+        var returnRequest = new ReturnRequest
+        {
+            Id = 3003,
+            OrderId = 502,
+            UserId = 42,
+            Type = ReturnRequestType.Return,
+            Status = ReturnRequestStatus.Pending,
+            Reason = "Vazgectim",
+            RequestedRefundAmount = 149.90m,
+            Order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success),
+            User = new User { Id = 42, FirstName = "Test", LastName = "Customer", Email = "customer@test.com", EmailHash = "hash", PasswordHash = "pw", RoleId = 1 }
+        };
+        returnRequest.Order.Id = 502;
+
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(returnRequest.Id))
+            .ReturnsAsync(returnRequest);
+
+        var result = await _manager.ReviewReturnRequestAsync(returnRequest.Id, 7, new ReviewReturnRequestRequest
+        {
+            Status = "Rejected",
+            ReviewNote = "Kosullar saglanmadi"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Status.Should().Be(ReturnRequestStatus.Rejected.ToString());
+        _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<ReturnRequestReviewedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReviewReturnRequestAsync_WhenSellerDoesNotOwnOrderItems_ShouldReturnError()
+    {
+        var returnRequest = new ReturnRequest
+        {
+            Id = 3004,
+            OrderId = 503,
+            UserId = 42,
+            Type = ReturnRequestType.Return,
+            Status = ReturnRequestStatus.Pending,
+            Reason = "Iade",
+            RequestedRefundAmount = 249.90m,
+            Order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success),
+            User = new User { Id = 42, FirstName = "Test", LastName = "Customer", Email = "customer@test.com", EmailHash = "hash", PasswordHash = "pw", RoleId = 1 }
+        };
+        returnRequest.Order.Id = 503;
+
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(returnRequest.Id))
+            .ReturnsAsync(returnRequest);
+
+        var result = await _manager.ReviewReturnRequestAsync(returnRequest.Id, 7, new ReviewReturnRequestRequest
+        {
+            Status = "Approved",
+            ReviewNote = "Yetkisiz deneme"
+        }, sellerId: 999);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("ait ürünler");
+        _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<ReturnRequestReviewedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus)
