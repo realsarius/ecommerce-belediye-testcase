@@ -46,7 +46,7 @@ public class LoyaltyManagerTests
     }
 
     [Fact]
-    public async Task RedeemPointsForOrderAsync_ShouldCreateNegativeTransactionAndUpdateOrder()
+    public async Task RedeemPointsForOrderAsync_ShouldCreateNegativeTransactionWithoutUpdatingOrderEntity()
     {
         var order = new Order
         {
@@ -73,12 +73,11 @@ public class LoyaltyManagerTests
         captured.Should().NotBeNull();
         captured!.Points.Should().Be(-1500);
         captured.BalanceAfter.Should().Be(1000);
-        order.LoyaltyPointsUsed.Should().Be(1500);
-        order.LoyaltyDiscountAmount.Should().Be(15m);
+        _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
     }
 
     [Fact]
-    public async Task AwardPointsForOrderAsync_ShouldSetOrderEarnedPointsAndCreateTransaction()
+    public async Task AwardPointsForOrderAsync_ShouldCreateTransactionWithoutUpdatingOrderEntity()
     {
         var order = new Order
         {
@@ -102,9 +101,9 @@ public class LoyaltyManagerTests
         var result = await _loyaltyManager.AwardPointsForOrderAsync(1, order.Id, 349.90m);
 
         result.Success.Should().BeTrue();
-        order.LoyaltyPointsEarned.Should().Be(349);
         captured.Should().NotBeNull();
         captured!.Points.Should().Be(349);
         captured.BalanceAfter.Should().Be(849);
+        _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
     }
 }

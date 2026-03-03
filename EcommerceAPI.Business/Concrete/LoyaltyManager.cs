@@ -132,10 +132,6 @@ public class LoyaltyManager : ILoyaltyService
             Description = description
         });
 
-        order.LoyaltyPointsUsed = points;
-        order.LoyaltyDiscountAmount = discountAmount;
-        _orderDal.Update(order);
-
         await _auditService.LogActionAsync(
             userId.ToString(),
             "RedeemLoyaltyPoints",
@@ -196,8 +192,6 @@ public class LoyaltyManager : ILoyaltyService
         }
 
         var pointsToAward = (int)Math.Floor(Math.Max(0m, paidAmount));
-        order.LoyaltyPointsEarned = pointsToAward;
-        _orderDal.Update(order);
 
         if (pointsToAward <= 0)
         {

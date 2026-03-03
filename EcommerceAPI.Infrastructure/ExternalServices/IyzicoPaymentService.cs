@@ -101,6 +101,7 @@ public class IyzicoPaymentService : IPaymentService
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.PaymentProviderId = iyzicoPayment.PaymentId;
                 order.Status = OrderStatus.Paid;
+                order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
 
                 var loyaltyResult = await _loyaltyService.AwardPointsForOrderAsync(userId, order.Id, order.TotalAmount);
                 if (!loyaltyResult.Success)
@@ -330,6 +331,11 @@ public class IyzicoPaymentService : IPaymentService
         };
     }
 
+    private static int CalculateEarnedLoyaltyPoints(decimal paidAmount)
+    {
+        return (int)Math.Floor(Math.Max(0m, paidAmount));
+    }
+
     #region Webhook Processing
 
     public async Task<IResult> ProcessWebhookAsync(IyzicoWebhookRequest request, string signatureHeader)
@@ -373,6 +379,7 @@ public class IyzicoPaymentService : IPaymentService
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.PaymentProviderId = request.IyziPaymentId ?? request.PaymentId;
                 order.Status = OrderStatus.Paid;
+                order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
 
                 var loyaltyResult = await _loyaltyService.AwardPointsForOrderAsync(order.UserId, order.Id, order.TotalAmount);
                 if (!loyaltyResult.Success)
@@ -434,6 +441,7 @@ public class IyzicoPaymentService : IPaymentService
                 order.Payment.Status = PaymentStatus.Success;
                 order.Payment.PaymentProviderId = checkoutForm.PaymentId;
                 order.Status = OrderStatus.Paid;
+                order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
 
                 var loyaltyResult = await _loyaltyService.AwardPointsForOrderAsync(order.UserId, order.Id, order.TotalAmount);
                 if (!loyaltyResult.Success)
