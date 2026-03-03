@@ -33,16 +33,7 @@ import {
 import { KpiCard } from '@/components/admin/KpiCard';
 import { useGetAdminFinanceSummaryQuery } from '@/features/admin/adminApi';
 import { formatCompactNumber, formatCurrency, formatDateInput, formatNumber } from '@/lib/format';
-
-function buildApiUrl(path: string) {
-  const configuredBase = import.meta.env.VITE_API_URL || '/api/v1';
-
-  if (configuredBase.startsWith('http://') || configuredBase.startsWith('https://')) {
-    return `${configuredBase}${path}`;
-  }
-
-  return `${window.location.origin}${configuredBase}${path}`;
-}
+import { buildRuntimeApiUrl } from '@/lib/runtimeApi';
 
 export default function AdminFinancePage() {
   const defaultToDate = new Date();
@@ -77,7 +68,7 @@ export default function AdminFinancePage() {
 
     try {
       const query = new URLSearchParams({ from: fromDate, to: toDate }).toString();
-      const response = await fetch(buildApiUrl(`/admin/finance/export?${query}`), {
+      const response = await fetch(buildRuntimeApiUrl(`/admin/finance/export?${query}`), {
         headers: {
           Authorization: `Bearer ${token}`,
         },

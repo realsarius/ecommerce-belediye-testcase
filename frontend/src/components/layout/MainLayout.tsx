@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { CategoryNav } from './CategoryNav';
 import { Footer } from './Footer';
-import { CookieBanner } from '@/components/ui/CookieBanner';
+import { ConsentBanner } from '@/components/ui/ConsentBanner';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useGetMeQuery } from '@/features/auth/authApi';
 import { setUser } from '@/features/auth/authSlice';
@@ -39,7 +39,7 @@ export function MainLayout() {
         <Outlet />
       </main>
       <Footer />
-      <CookieBanner />
+      <ConsentBanner />
     </div>
   );
 }

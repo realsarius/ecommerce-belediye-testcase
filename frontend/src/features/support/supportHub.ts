@@ -5,6 +5,7 @@ import {
     HttpTransportType,
     LogLevel,
 } from '@microsoft/signalr';
+import { getRuntimeApiBaseUrl } from '@/lib/runtimeApi';
 
 const HUB_PATH = '/hubs/live-support';
 const RECONNECT_DELAYS = [0, 2000, 5000, 10000];
@@ -33,7 +34,7 @@ function resolveHubUrl(apiBaseUrl: string): string {
     return `${normalized}${HUB_PATH}`;
 }
 
-const apiBaseUrl = import.meta.env.VITE_API_URL || '/api/v1';
+const apiBaseUrl = getRuntimeApiBaseUrl();
 export const liveSupportHubUrl = resolveHubUrl(apiBaseUrl);
 
 export function createLiveSupportConnection(getToken: () => string | null): HubConnection {
