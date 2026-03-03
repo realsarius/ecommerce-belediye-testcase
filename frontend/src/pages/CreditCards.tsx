@@ -188,6 +188,11 @@ export default function CreditCards() {
                   <span>{card.cardHolderName}</span>
                   <span>{card.expireMonth}/{card.expireYear.slice(-2)}</span>
                 </div>
+                {card.isTokenized && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Saglayici token'i ile korunuyor{card.tokenProvider ? ` (${card.tokenProvider})` : ''}.
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}

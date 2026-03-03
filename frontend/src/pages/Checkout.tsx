@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { useGetAddressesQuery, useCreateAddressMutation } from '@/features/admin/adminApi';
 import { useCheckoutMutation, useProcessPaymentMutation } from '@/features/orders/ordersApi';
-import { useGetCreditCardsQuery, useAddCreditCardMutation } from '@/features/creditCards/creditCardsApi';
+import { useGetCreditCardsQuery } from '@/features/creditCards/creditCardsApi';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
@@ -44,7 +44,6 @@ export default function Checkout() {
   const [checkout, { isLoading: isCheckingOut }] = useCheckoutMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const { data: savedCards } = useGetCreditCardsQuery();
-  const [addCreditCard] = useAddCreditCardMutation();
   const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary } = useGetGiftCardSummaryQuery();
 
@@ -182,6 +181,9 @@ export default function Checkout() {
   const giftCardRemainingBalance = Math.max(0, (appliedGiftCard?.availableBalance ?? 0) - giftCardDiscountAmount);
   const grandTotal = Math.max(0, amountAfterLoyalty - giftCardDiscountAmount);
   const requiresPayment = grandTotal > 0;
+  const selectedSavedCard = savedCards?.find((card) => card.id.toString() === selectedSavedCardId);
+  const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
+  const isTokenizedSavedCard = !!selectedSavedCard?.isTokenized;
 
   const handleAddressSubmit = async () => {
     try {
@@ -232,7 +234,6 @@ export default function Checkout() {
       toast.error('Lütfen teslimat adresi seçin');
       return;
     }
-    const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
 
     if (requiresPayment) {
       if (!isUsingSavedCard) {
@@ -245,12 +246,12 @@ export default function Checkout() {
           toast.error('Kart numarası geçersizdir');
           return;
         }
-      } else if (!paymentForm.cvc) {
+      } else if (!isTokenizedSavedCard && !paymentForm.cvc) {
         toast.error('Lütfen CVV kodunu giriniz');
         return;
       }
 
-      if (paymentForm.cvc.length < 3) {
+      if ((!isUsingSavedCard || !isTokenizedSavedCard) && paymentForm.cvc.length < 3) {
         toast.error('CVC en az 3 haneli olmalıdır');
         return;
       }
@@ -300,28 +301,14 @@ export default function Checkout() {
         cardNumber: isUsingSavedCard ? undefined : paymentForm.cardNumber.replace(/\s/g, ''),
         expiryDate: isUsingSavedCard ? undefined : `${paymentForm.expireMonth}/${paymentForm.expireYear.slice(-2)}`,
         cvv: paymentForm.cvc,
+        saveCard: saveCardForLater && !isUsingSavedCard,
+        saveCardAlias: saveCardForLater && !isUsingSavedCard ? (cardAlias || undefined) : undefined,
       }).unwrap();
 
       if (paymentResult.status !== 'Success') {
         toast.error(paymentResult.errorMessage || 'Ödeme işlemi başarısız oldu. Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
         navigate('/cart');
         return;
-      }
-
-
-      if (saveCardForLater && (!selectedSavedCardId || selectedSavedCardId === 'new')) {
-        try {
-          await addCreditCard({
-            cardAlias: cardAlias || 'Kartım',
-            cardHolderName: paymentForm.cardHolderName,
-            cardNumber: paymentForm.cardNumber.replace(/\s/g, ''),
-            expireMonth: paymentForm.expireMonth,
-            expireYear: paymentForm.expireYear,
-          }).unwrap();
-          toast.success('Kart bilgileriniz kaydedildi');
-        } catch {
-          // Silent fail - don't block checkout success
-        }
       }
 
       isNavigatingRef.current = true;
@@ -581,6 +568,9 @@ export default function Checkout() {
                           value={cardAlias}
                           onChange={(e) => setCardAlias(e.target.value)}
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Kart Iyzico token'i ile kaydedilir. Kart numarasi ve CVV tekrar saklanmaz.
+                        </p>
                       </div>
                     )}
                   </div>
@@ -592,7 +582,7 @@ export default function Checkout() {
               )}
               
 
-              {selectedSavedCardId && selectedSavedCardId !== 'new' && (
+              {selectedSavedCardId && selectedSavedCardId !== 'new' && !isTokenizedSavedCard && (
                 <div className="space-y-2">
                   <Label>Güvenlik Kodu (CVV)</Label>
                   <Input
@@ -606,6 +596,16 @@ export default function Checkout() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Kartınızın arkasındaki 3 haneli güvenlik kodu
+                  </p>
+                </div>
+              )}
+              {selectedSavedCardId && selectedSavedCardId !== 'new' && isTokenizedSavedCard && (
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm">
+                  <p className="font-medium text-emerald-700 dark:text-emerald-300">
+                    Bu kayitli kart saglayici token'i ile korunuyor.
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    Bu kart icin yeniden CVV girmeniz gerekmiyor.
                   </p>
                 </div>
               )}

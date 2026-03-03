@@ -1,3 +1,5 @@
+import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
+
 // Order Types
 
 export type OrderStatus =
@@ -50,6 +52,7 @@ export interface Payment {
   status: string;
   transactionId: string;
   paymentMethod?: string;
+  provider?: PaymentProviderType | null;
   errorMessage?: string;
   createdAt: string;
 }
@@ -61,6 +64,8 @@ export interface ProcessPaymentRequest {
   cardNumber?: string;
   expiryDate?: string;
   cvv: string;
+  saveCard?: boolean;
+  saveCardAlias?: string;
   idempotencyKey?: string;
 }
 

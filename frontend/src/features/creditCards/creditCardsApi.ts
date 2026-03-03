@@ -1,5 +1,7 @@
 import { baseApi } from '@/app/api';
 
+export type PaymentProviderType = 'Iyzico' | 'Stripe' | 'PayTR';
+
 export interface CreditCard {
   id: number;
   cardAlias: string;
@@ -7,6 +9,8 @@ export interface CreditCard {
   last4Digits: string;
   expireMonth: string;
   expireYear: string;
+  isTokenized: boolean;
+  tokenProvider?: PaymentProviderType | null;
   isDefault: boolean;
 }
 
