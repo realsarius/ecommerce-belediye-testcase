@@ -3,14 +3,11 @@ using System.Collections.Generic;
 namespace EcommerceAPI.Entities.DTOs;
 
 public class WishlistDto
+    : CursorPaginatedResponse<WishlistItemDto>
 {
     public int Id { get; set; }
     public int UserId { get; set; }
     public int? ActiveCollectionId { get; set; }
-    public int Limit { get; set; }
-    public bool HasMore { get; set; }
-    public string? NextCursor { get; set; }
-    public List<WishlistItemDto> Items { get; set; } = new();
 }
 
 public class WishlistItemDto

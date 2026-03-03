@@ -16,3 +16,10 @@ export interface PaginatedResponse<T> {
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 }
+
+export interface CursorPaginatedResponse<TItem, TCursor = string> {
+  items: TItem[];
+  limit?: number;
+  hasMore?: boolean;
+  nextCursor?: TCursor | null;
+}
