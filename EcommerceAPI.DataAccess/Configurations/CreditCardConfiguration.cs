@@ -30,6 +30,10 @@ public class CreditCardConfiguration : IEntityTypeConfiguration<CreditCard>
             .IsRequired()
             .HasMaxLength(500)
             .HasConversion(new EncryptedStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.Brand)
+            .HasConversion<int>()
+            .IsRequired();
         
         builder.Property(cc => cc.CardNumberEncrypted)
             .IsRequired()

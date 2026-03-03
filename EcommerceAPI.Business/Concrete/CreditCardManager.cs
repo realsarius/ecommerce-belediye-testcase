@@ -10,6 +10,7 @@ using EcommerceAPI.Core.Aspects.Autofac.Validation;
 using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Business.Validators;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Utilities;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -40,6 +41,7 @@ public class CreditCardManager : ICreditCardService
             Id = c.Id,
             CardAlias = c.CardAlias,
             CardHolderName = c.CardHolderName,
+            Brand = c.Brand,
             Last4Digits = c.Last4Digits,
             ExpireMonth = _encryptionService.Decrypt(c.ExpireMonthEncrypted),
             ExpireYear = _encryptionService.Decrypt(c.ExpireYearEncrypted),
@@ -80,6 +82,7 @@ public class CreditCardManager : ICreditCardService
             UserId = userId,
             CardAlias = request.CardAlias,
             CardHolderName = request.CardHolderName,
+            Brand = CardBrandDetector.Detect(request.CardNumber),
             CardNumberEncrypted = _encryptionService.Encrypt(request.CardNumber),
             Last4Digits = last4Digits,
             ExpireYearEncrypted = _encryptionService.Encrypt(request.ExpireYear),
@@ -95,6 +98,7 @@ public class CreditCardManager : ICreditCardService
             Id = creditCard.Id,
             CardAlias = creditCard.CardAlias,
             CardHolderName = creditCard.CardHolderName,
+            Brand = creditCard.Brand,
             Last4Digits = creditCard.Last4Digits,
             ExpireMonth = request.ExpireMonth,
             ExpireYear = request.ExpireYear,
@@ -141,6 +145,7 @@ public class CreditCardManager : ICreditCardService
                 UserId = userId,
                 CardAlias = string.IsNullOrWhiteSpace(request.CardAlias) ? "Kayitli Kartim" : request.CardAlias.Trim(),
                 CardHolderName = request.CardHolderName.Trim(),
+                Brand = request.Brand,
                 CardNumberEncrypted = encryptedPlaceholder,
                 Last4Digits = request.Last4Digits,
                 ExpireYearEncrypted = _encryptionService.Encrypt(request.ExpireYear),
@@ -157,6 +162,7 @@ public class CreditCardManager : ICreditCardService
         {
             existingCard.CardAlias = string.IsNullOrWhiteSpace(request.CardAlias) ? existingCard.CardAlias : request.CardAlias.Trim();
             existingCard.CardHolderName = request.CardHolderName.Trim();
+            existingCard.Brand = request.Brand;
             existingCard.Last4Digits = request.Last4Digits;
             existingCard.ExpireYearEncrypted = _encryptionService.Encrypt(request.ExpireYear);
             existingCard.ExpireMonthEncrypted = _encryptionService.Encrypt(request.ExpireMonth);
@@ -176,6 +182,7 @@ public class CreditCardManager : ICreditCardService
             Id = existingCard.Id,
             CardAlias = existingCard.CardAlias,
             CardHolderName = existingCard.CardHolderName,
+            Brand = existingCard.Brand,
             Last4Digits = existingCard.Last4Digits,
             ExpireMonth = request.ExpireMonth,
             ExpireYear = request.ExpireYear,
@@ -259,6 +266,7 @@ public class CreditCardManager : ICreditCardService
         {
             Id = card.Id,
             CardHolderName = card.CardHolderName,
+            Brand = card.Brand,
             Last4Digits = card.Last4Digits,
             ExpireMonth = _encryptionService.Decrypt(card.ExpireMonthEncrypted),
             ExpireYear = _encryptionService.Decrypt(card.ExpireYearEncrypted),

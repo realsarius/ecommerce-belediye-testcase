@@ -7,6 +7,7 @@ import { useGetCreditCardsQuery } from '@/features/creditCards/creditCardsApi';
 import { useClearCartMutation } from '@/features/cart/cartApi';
 import type { CheckoutInvoiceInfo } from '@/features/cart/types';
 import { Button } from '@/components/common/button';
+import { Badge } from '@/components/common/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
@@ -28,9 +29,11 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
+import { CardBrandIcon } from '@/components/checkout/CardBrandIcon';
 import { InvoiceInfo } from '@/components/checkout/InvoiceInfo';
 import { LegalConsents } from '@/components/checkout/LegalConsents';
 import { PaymentProviderLogo, getPaymentProviderLabel } from '@/components/order/PaymentProviderLogo';
+import { detectCardBrand, getCardBrandLabel } from '@/lib/cardBrand';
 import { Package, CreditCard, MapPin, Loader2, Plus, Ticket, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +45,10 @@ import type { GiftCardValidationResult } from '@/features/giftCards/types';
 import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
 
 const PENDING_THREE_DS_ORDER_ID_KEY = 'pending_three_ds_order_id';
+
+function formatExpiry(month: string, year: string) {
+  return `${month.padStart(2, '0')}/${year.slice(-2)}`;
+}
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -212,17 +219,54 @@ export default function Checkout() {
   const effectivePaymentSettings = paymentSettings ?? {
     activeProviders: ['Iyzico' as PaymentProviderType],
     defaultProvider: 'Iyzico' as PaymentProviderType,
+    enableMultiProviderSelection: false,
+    enableTokenizedCardSave: false,
     force3DSecure: false,
     force3DSecureAbove: 5000,
   };
-  const activePaymentProviders = effectivePaymentSettings.activeProviders.length > 0
+  const configuredActivePaymentProviders = effectivePaymentSettings.activeProviders.length > 0
     ? effectivePaymentSettings.activeProviders
     : ['Iyzico' as PaymentProviderType];
+  const activePaymentProviders = effectivePaymentSettings.enableMultiProviderSelection
+    ? configuredActivePaymentProviders
+    : [effectivePaymentSettings.defaultProvider];
   const hasAcceptedLegalConsents = preliminaryInfoAccepted && distanceSalesAccepted;
   const willRequireThreeDS = requiresPayment && (
     effectivePaymentSettings.force3DSecure ||
     grandTotal >= effectivePaymentSettings.force3DSecureAbove
   );
+  const currentCardBrand = detectCardBrand(paymentForm.cardNumber);
+  const selectedSavedCardProviderMismatch = !!(
+    selectedSavedCard?.tokenProvider &&
+    selectedSavedCard.tokenProvider !== selectedPaymentProvider
+  );
+
+  const handleSavedCardSelection = (value: string) => {
+    setSelectedSavedCardId(value);
+
+    if (value && value !== 'new') {
+      const card = savedCards?.find((savedCard) => savedCard.id.toString() === value);
+      if (card) {
+        setPaymentForm({
+          cardHolderName: card.cardHolderName,
+          cardNumber: `•••• •••• •••• ${card.last4Digits}`,
+          expireMonth: card.expireMonth.padStart(2, '0'),
+          expireYear: card.expireYear,
+          cvc: '',
+        });
+      }
+
+      return;
+    }
+
+    setPaymentForm({
+      cardHolderName: '',
+      cardNumber: '',
+      expireMonth: '',
+      expireYear: '',
+      cvc: '',
+    });
+  };
 
   useEffect(() => {
     const nextProvider = activePaymentProviders.includes(selectedPaymentProvider)
@@ -233,6 +277,13 @@ export default function Checkout() {
       setSelectedPaymentProvider(nextProvider);
     }
   }, [activePaymentProviders, effectivePaymentSettings.defaultProvider, selectedPaymentProvider]);
+
+  useEffect(() => {
+    if (!effectivePaymentSettings.enableTokenizedCardSave && saveCardForLater) {
+      setSaveCardForLater(false);
+      setCardAlias('');
+    }
+  }, [effectivePaymentSettings.enableTokenizedCardSave, saveCardForLater]);
 
   useEffect(() => {
     if (willRequireThreeDS && saveCardForLater) {
@@ -408,7 +459,7 @@ export default function Checkout() {
     }
 
     if (requiresPayment) {
-      if (isUsingSavedCard && selectedSavedCard?.tokenProvider && selectedSavedCard.tokenProvider !== selectedPaymentProvider) {
+      if (selectedSavedCardProviderMismatch) {
         toast.error('Seçilen kayıtlı kart farklı bir ödeme sağlayıcısına ait.');
         return;
       }
@@ -490,6 +541,7 @@ export default function Checkout() {
         cardNumber: isUsingSavedCard ? undefined : paymentForm.cardNumber.replace(/\s/g, ''),
         expiryDate: isUsingSavedCard ? undefined : `${paymentForm.expireMonth}/${paymentForm.expireYear.slice(-2)}`,
         cvv: paymentForm.cvc,
+        require3DS: willRequireThreeDS,
         saveCard: saveCardForLater && !isUsingSavedCard,
         saveCardAlias: saveCardForLater && !isUsingSavedCard ? (cardAlias || undefined) : undefined,
       }).unwrap();
@@ -663,32 +715,49 @@ export default function Checkout() {
                 <>
               <div className="space-y-2">
                 <Label>Ödeme Sağlayıcısı</Label>
-                {activePaymentProviders.length > 1 ? (
-                  <Select
-                    value={selectedPaymentProvider}
-                    onValueChange={(value) => setSelectedPaymentProvider(value as PaymentProviderType)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Ödeme sağlayıcısı seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activePaymentProviders.map((provider) => (
-                        <SelectItem key={provider} value={provider}>
-                          <div className="flex items-center gap-2">
-                            <PaymentProviderLogo provider={provider} className="h-6 border-none bg-transparent p-0" />
-                            <span>{getPaymentProviderLabel(provider)}</span>
+                {effectivePaymentSettings.enableMultiProviderSelection && activePaymentProviders.length > 1 ? (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {activePaymentProviders.map((provider) => {
+                      const isSelected = selectedPaymentProvider === provider;
+
+                      return (
+                        <button
+                          key={provider}
+                          type="button"
+                          onClick={() => setSelectedPaymentProvider(provider)}
+                          className={`rounded-xl border p-4 text-left transition ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                              : 'border-border bg-background hover:border-primary/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <PaymentProviderLogo provider={provider} className="h-7 border-none bg-transparent p-0" />
+                              <div>
+                                <p className="font-medium">{getPaymentProviderLabel(provider)}</p>
+                                <p className="text-xs text-muted-foreground">Backend ayarlarında aktif</p>
+                              </div>
+                            </div>
+                            {isSelected ? (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            ) : null}
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
                       <PaymentProviderLogo provider={activePaymentProviders[0]} className="h-6 border-none bg-transparent p-0" />
                       <span className="font-medium">{getPaymentProviderLabel(activePaymentProviders[0])}</span>
                     </div>
-                    <span className="text-muted-foreground">Varsayılan</span>
+                    <span className="text-muted-foreground">
+                      {effectivePaymentSettings.enableMultiProviderSelection ? 'Varsayılan' : 'Feature flag ile sabit'}
+                    </span>
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">
@@ -702,46 +771,97 @@ export default function Checkout() {
               </div>
 
               {savedCards && savedCards.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label>Kayıtlı Kartlarım</Label>
-                  <Select
-                    value={selectedSavedCardId}
-                    onValueChange={(value) => {
-                      setSelectedSavedCardId(value);
-                      if (value && value !== 'new') {
-                        const card = savedCards.find(c => c.id.toString() === value);
-                        if (card) {
-                          setPaymentForm({
-                            cardHolderName: card.cardHolderName,
-                            cardNumber: `•••• •••• •••• ${card.last4Digits}`,
-                            expireMonth: card.expireMonth.padStart(2, '0'),
-                            expireYear: card.expireYear,
-                            cvc: '',
-                          });
-                        }
-                      } else {
-                        setPaymentForm({
-                          cardHolderName: '',
-                          cardNumber: '',
-                          expireMonth: '',
-                          expireYear: '',
-                          cvc: '',
-                        });
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Kayıtlı kart seçin veya yeni kart girin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">+ Yeni kart ile öde</SelectItem>
-                      {savedCards.map((card) => (
-                        <SelectItem key={card.id} value={card.id.toString()}>
-                          {card.cardAlias} - •••• {card.last4Digits}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    {savedCards.map((card) => {
+                      const value = card.id.toString();
+                      const isSelected = selectedSavedCardId === value;
+                      const isProviderMismatch = !!card.tokenProvider && card.tokenProvider !== selectedPaymentProvider;
+
+                      return (
+                        <button
+                          key={card.id}
+                          type="button"
+                          onClick={() => handleSavedCardSelection(value)}
+                          className={`w-full rounded-xl border p-4 text-left transition ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                              : 'border-border bg-background hover:border-primary/40'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <CardBrandIcon brand={card.brand} />
+                                <p className="font-medium">{card.cardAlias}</p>
+                                {card.isDefault ? <Badge variant="secondary">Varsayılan</Badge> : null}
+                                {card.isTokenized ? (
+                                  <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Tokenized</Badge>
+                                ) : (
+                                  <Badge variant="outline">Legacy</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                •••• •••• •••• {card.last4Digits} • {formatExpiry(card.expireMonth, card.expireYear)}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                {card.tokenProvider ? (
+                                  <>
+                                    <PaymentProviderLogo provider={card.tokenProvider} className="h-5 border-none bg-transparent p-0" />
+                                    <span>{getPaymentProviderLabel(card.tokenProvider)} token akışı</span>
+                                  </>
+                                ) : (
+                                  <span>Mevcut şifreli kart kaydı</span>
+                                )}
+                              </div>
+                              {isProviderMismatch ? (
+                                <p className="text-xs text-amber-600 dark:text-amber-300">
+                                  Bu kart {getPaymentProviderLabel(card.tokenProvider!)} sağlayıcısına bağlı. Kullanmak için sağlayıcıyı değiştirin.
+                                </p>
+                              ) : card.isTokenized ? (
+                                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                  Bu kart token ile korunuyor; yeniden CVV girmeniz gerekmez.
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  Bu eski kayıt için ödeme sırasında CVV doğrulaması istenir.
+                                </p>
+                              )}
+                            </div>
+                            {isSelected ? (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => handleSavedCardSelection('new')}
+                      className={`w-full rounded-xl border border-dashed p-4 text-left transition ${
+                        selectedSavedCardId === 'new' || selectedSavedCardId === ''
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'border-border bg-background hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium">Yeni kart ile öde</p>
+                          <p className="text-sm text-muted-foreground">
+                            Yeni kart girişi yapabilir ve isterseniz token ile kaydedebilirsiniz.
+                          </p>
+                        </div>
+                        {selectedSavedCardId === 'new' || selectedSavedCardId === '' ? (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="h-4 w-4" />
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  </div>
                 </div>
               )}
               
@@ -764,11 +884,15 @@ export default function Checkout() {
                       placeholder="4111 1111 1111 1111"
                       value={paymentForm.cardNumber}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 16);
-                        const formatted = value.replace(/(\d{4})/g, '$1 ').trim();
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 19);
+                        const formatted = value.match(/.{1,4}/g)?.join(' ') ?? value;
                         setPaymentForm({ ...paymentForm, cardNumber: formatted });
                       }}
                     />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <CardBrandIcon brand={currentCardBrand} className="h-6 min-w-[2.75rem]" />
+                      <span>{getCardBrandLabel(currentCardBrand)}</span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
@@ -824,35 +948,43 @@ export default function Checkout() {
                   </div>
                   
                   {/* Save for later checkbox */}
-                  <div className="space-y-3 pt-2 border-t">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="saveCard"
-                        checked={saveCardForLater}
-                        onCheckedChange={(checked) => setSaveCardForLater(!!checked)}
-                        disabled={willRequireThreeDS}
-                      />
-                      <label htmlFor="saveCard" className={`text-sm ${willRequireThreeDS ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>
-                        Bu kartı sonraki alışverişlerim için kaydet
-                      </label>
-                    </div>
-                    {willRequireThreeDS && (
+                  <div className="space-y-3 border-t pt-2">
+                    {effectivePaymentSettings.enableTokenizedCardSave ? (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="saveCard"
+                            checked={saveCardForLater}
+                            onCheckedChange={(checked) => setSaveCardForLater(!!checked)}
+                            disabled={willRequireThreeDS}
+                          />
+                          <label htmlFor="saveCard" className={`text-sm ${willRequireThreeDS ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>
+                            Bu kartı sonraki alışverişlerim için kaydet
+                          </label>
+                        </div>
+                        {willRequireThreeDS && (
+                          <p className="text-xs text-muted-foreground">
+                            3D Secure gereken ödemelerde yeni kart kaydetme desteği sonraki adımda açılacak.
+                          </p>
+                        )}
+                        {saveCardForLater && (
+                          <div className="space-y-2">
+                            <Label>Kart Takma Adı</Label>
+                            <Input
+                              placeholder="Bonus Kartım, Akbank vb."
+                              value={cardAlias}
+                              onChange={(e) => setCardAlias(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Kart Iyzico token'i ile kaydedilir. Kart numarasi ve CVV tekrar saklanmaz.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
                       <p className="text-xs text-muted-foreground">
-                        3D Secure gereken ödemelerde yeni kart kaydetme desteği sonraki adımda açılacak.
+                        Kayıtlı kart kaydetme özelliği bu ortamda feature flag ile kapalı.
                       </p>
-                    )}
-                    {saveCardForLater && (
-                      <div className="space-y-2">
-                        <Label>Kart Takma Adı</Label>
-                        <Input
-                          placeholder="Bonus Kartım, Akbank vb."
-                          value={cardAlias}
-                          onChange={(e) => setCardAlias(e.target.value)}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Kart Iyzico token'i ile kaydedilir. Kart numarasi ve CVV tekrar saklanmaz.
-                        </p>
-                      </div>
                     )}
                   </div>
                   

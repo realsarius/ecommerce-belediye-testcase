@@ -7,6 +7,7 @@ public class CreditCard : BaseEntity
     public int UserId { get; set; }
     public string CardAlias { get; set; } = string.Empty;
     public string CardHolderName { get; set; } = string.Empty;
+    public CardBrand Brand { get; set; } = CardBrand.Unknown;
     public string CardNumberEncrypted { get; set; } = string.Empty;
     public string Last4Digits { get; set; } = string.Empty;
     public string ExpireYearEncrypted { get; set; } = string.Empty;

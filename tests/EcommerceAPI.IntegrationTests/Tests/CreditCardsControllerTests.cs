@@ -39,6 +39,7 @@ public class CreditCardsControllerTests : IClassFixture<CustomWebApplicationFact
         {
             CardAlias = $"My Card {Guid.NewGuid():N}",
             CardHolderName = "Test User",
+            Brand = CardBrand.Mastercard,
             Last4Digits = "0009",
             ExpireMonth = "12",
             ExpireYear = "2030",

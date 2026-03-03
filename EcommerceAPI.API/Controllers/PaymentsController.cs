@@ -73,6 +73,8 @@ public class PaymentsController : ControllerBase
         {
             ActiveProviders = activeProviders,
             DefaultProvider = defaultProvider,
+            EnableMultiProviderSelection = _paymentSettings.EnableMultiProviderSelection,
+            EnableTokenizedCardSave = _paymentSettings.EnableTokenizedCardSave,
             Force3DSecure = _paymentSettings.Force3DSecure,
             Force3DSecureAbove = _paymentSettings.Force3DSecureAbove
         }));

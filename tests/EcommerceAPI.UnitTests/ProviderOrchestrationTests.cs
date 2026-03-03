@@ -68,6 +68,47 @@ public class ProviderOrchestrationTests
     }
 
     [Fact]
+    public async Task PaymentService_ProcessPaymentAsync_ShouldForwardRequireThreeDSFlag()
+    {
+        var providerFactoryMock = new Mock<IPaymentProviderFactory>();
+        var orderDalMock = new Mock<IOrderDal>();
+        var providerMock = new Mock<IPaymentProvider>();
+
+        providerMock.SetupGet(x => x.ProviderType).Returns(PaymentProviderType.Iyzico);
+        providerMock
+            .Setup(x => x.ProcessPaymentAsync(7, It.IsAny<ProcessPaymentRequest>()))
+            .ReturnsAsync(new SuccessDataResult<PaymentDto>(new PaymentDto
+            {
+                Id = 2,
+                Status = PaymentStatus.Pending.ToString(),
+                Provider = PaymentProviderType.Iyzico,
+                RequiresThreeDS = true
+            }));
+
+        providerFactoryMock
+            .Setup(x => x.GetProvider(PaymentProviderType.Iyzico))
+            .Returns(providerMock.Object);
+
+        var service = new PaymentService(
+            providerFactoryMock.Object,
+            orderDalMock.Object,
+            CreatePaymentSettings(PaymentProviderType.Iyzico, PaymentProviderType.Iyzico));
+
+        var result = await service.ProcessPaymentAsync(7, new ProcessPaymentRequest
+        {
+            OrderId = 15,
+            PaymentProvider = PaymentProviderType.Iyzico,
+            Require3DS = true
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.RequiresThreeDS.Should().BeTrue();
+        providerMock.Verify(x => x.ProcessPaymentAsync(7, It.Is<ProcessPaymentRequest>(request =>
+            request.OrderId == 15 &&
+            request.Require3DS)), Times.Once);
+    }
+
+    [Fact]
     public async Task PaymentService_GetPaymentByOrderIdAsync_ShouldUseStoredPaymentProvider()
     {
         var providerFactoryMock = new Mock<IPaymentProviderFactory>();

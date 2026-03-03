@@ -1,4 +1,5 @@
 import { baseApi } from '@/app/api';
+import type { CardBrand } from '@/lib/cardBrand';
 
 export type PaymentProviderType = 'Iyzico' | 'Stripe' | 'PayTR';
 
@@ -6,6 +7,7 @@ export interface CreditCard {
   id: number;
   cardAlias: string;
   cardHolderName: string;
+  brand: CardBrand;
   last4Digits: string;
   expireMonth: string;
   expireYear: string;

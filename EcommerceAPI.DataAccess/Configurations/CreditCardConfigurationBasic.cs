@@ -19,6 +19,10 @@ public class CreditCardConfigurationBasic : IEntityTypeConfiguration<CreditCard>
         builder.Property(cc => cc.CardHolderName)
             .IsRequired()
             .HasMaxLength(500);
+
+        builder.Property(cc => cc.Brand)
+            .HasConversion<int>()
+            .IsRequired();
         
         builder.Property(cc => cc.CardNumberEncrypted)
             .IsRequired()

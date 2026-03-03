@@ -6,6 +6,7 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Utilities;
 using EcommerceAPI.Core.Utilities.Redis;
 using Iyzipay;
 using Iyzipay.Model;
@@ -493,6 +494,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                 ? (string.IsNullOrWhiteSpace(request.CardHolderName) ? "Kayitli Kartim" : request.CardHolderName)
                 : request.SaveCardAlias,
             CardHolderName = request.CardHolderName ?? "Card Holder",
+            Brand = CardBrandDetector.Detect(request.CardNumber),
             Last4Digits = iyzicoPayment.LastFourDigits,
             ExpireMonth = GetExpireMonth(request.ExpiryDate),
             ExpireYear = GetExpireYear(request.ExpiryDate),
@@ -553,7 +555,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     private bool ShouldRequireThreeDS(decimal orderAmount, ProcessPaymentRequest request)
     {
         return _paymentSettings.Force3DSecure
-            || orderAmount >= _paymentSettings.Force3DSecureAbove;
+            || orderAmount >= _paymentSettings.Force3DSecureAbove
+            || request.Require3DS;
     }
 
     private string BuildThreeDSCallbackUrl()

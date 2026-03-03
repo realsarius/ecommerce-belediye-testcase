@@ -87,6 +87,8 @@ export interface Payment {
 export interface PaymentSettings {
   activeProviders: PaymentProviderType[];
   defaultProvider: PaymentProviderType;
+  enableMultiProviderSelection: boolean;
+  enableTokenizedCardSave: boolean;
   force3DSecure: boolean;
   force3DSecureAbove: number;
 }
@@ -99,6 +101,7 @@ export interface ProcessPaymentRequest {
   cardNumber?: string;
   expiryDate?: string;
   cvv: string;
+  require3DS?: boolean;
   saveCard?: boolean;
   saveCardAlias?: string;
   idempotencyKey?: string;

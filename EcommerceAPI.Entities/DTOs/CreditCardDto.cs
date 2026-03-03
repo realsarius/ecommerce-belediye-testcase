@@ -7,6 +7,7 @@ public class CreditCardDto
     public int Id { get; set; }
     public string CardAlias { get; set; } = string.Empty;
     public string CardHolderName { get; set; } = string.Empty;
+    public CardBrand Brand { get; set; }
     public string Last4Digits { get; set; } = string.Empty;
     public string ExpireMonth { get; set; } = string.Empty;
     public string ExpireYear { get; set; } = string.Empty;
@@ -29,6 +30,7 @@ public class SaveTokenizedCreditCardRequest
 {
     public string CardAlias { get; set; } = string.Empty;
     public string CardHolderName { get; set; } = string.Empty;
+    public CardBrand Brand { get; set; }
     public string Last4Digits { get; set; } = string.Empty;
     public string ExpireMonth { get; set; } = string.Empty;
     public string ExpireYear { get; set; } = string.Empty;
@@ -47,6 +49,7 @@ public class StoredCardPaymentDto
 {
     public int Id { get; set; }
     public string CardHolderName { get; set; } = string.Empty;
+    public CardBrand Brand { get; set; }
     public string Last4Digits { get; set; } = string.Empty;
     public string? CardNumber { get; set; }
     public string ExpireMonth { get; set; } = string.Empty;

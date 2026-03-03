@@ -7,7 +7,10 @@ import {
 } from '@/features/creditCards/creditCardsApi';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/common/card';
 import { Button } from '@/components/common/button';
+import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
+import { CardBrandIcon } from '@/components/checkout/CardBrandIcon';
+import { getCardBrandLabel } from '@/lib/cardBrand';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +24,10 @@ import {
 import { CreditCard as CreditCardIcon, ArrowRight, ShieldCheck, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+
+function formatExpiry(month: string, year: string) {
+  return `${month.padStart(2, '0')}/${year.slice(-2)}`;
+}
 
 export default function CreditCards() {
   const { data: cards, isLoading } = useGetCreditCardsQuery();
@@ -110,7 +117,7 @@ export default function CreditCards() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CreditCardIcon className="h-5 w-5 text-primary" />
+                    <CardBrandIcon brand={card.brand} />
                     <CardTitle className="text-lg">{card.cardAlias}</CardTitle>
                     {card.isDefault && (
                       <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
@@ -143,9 +150,14 @@ export default function CreditCards() {
                 <div className="font-mono text-lg tracking-wider">
                   •••• •••• •••• {card.last4Digits}
                 </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <CreditCardIcon className="h-4 w-4" />
+                  <span>{getCardBrandLabel(card.brand)}</span>
+                  {card.isTokenized ? <Badge variant="secondary">Tokenized</Badge> : <Badge variant="outline">Legacy</Badge>}
+                </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{card.cardHolderName}</span>
-                  <span>{card.expireMonth}/{card.expireYear.slice(-2)}</span>
+                  <span>{formatExpiry(card.expireMonth, card.expireYear)}</span>
                 </div>
                 {card.isTokenized && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400">
