@@ -243,7 +243,7 @@ public class WishlistConsumersTests
                 new NotificationDto()));
         var notificationPreferenceService = new Mock<INotificationPreferenceService>();
         notificationPreferenceService
-            .Setup(x => x.GetChannelSettingsAsync(
+            .Setup(x => x.GetChannelSettingsByUsersAsync(
                 It.IsAny<IEnumerable<int>>(),
                 NotificationType.Wishlist))
             .ReturnsAsync((IEnumerable<int> userIds, NotificationType _) => userIds
