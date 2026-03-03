@@ -10,6 +10,7 @@ import type {
 } from '@/features/products/types';
 import type {
   AdminErrorLog,
+  AdminFinanceSummary,
   AdminAnnouncement,
   AdminDashboardCategorySalesItem,
   AdminDashboardKpi,
@@ -18,6 +19,8 @@ import type {
   AdminDashboardRecentOrder,
   AdminDashboardRevenueTrendPoint,
   AdminDashboardUserRegistrationPoint,
+  AdminSellerDetail,
+  AdminSellerListItem,
   AdminUserDetail,
   AdminUserListItem,
   CreateAdminAnnouncementRequest,
@@ -34,7 +37,6 @@ import type {
   NotificationTemplate,
   UpdateNotificationTemplateRequest,
 } from '@/features/notifications/types';
-import type { SellerProfile } from '@/features/seller/types';
 
 function unwrapApiData<T>(response: T | { data: T }) {
   return (response as { data?: T }).data ?? (response as T);
@@ -173,27 +175,94 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
       invalidatesTags: ['Orders'],
     }),
-    getAdminReturns: builder.query<ReturnRequest[], void>({
-      query: () => '/admin/returns',
+    getAdminReturns: builder.query<ReturnRequest[], { status?: string } | void>({
+      query: (params) => ({
+        url: '/admin/returns',
+        params: params?.status ? { status: params.status } : undefined,
+      }),
       transformResponse: (response: { data: ReturnRequest[] }) => response.data,
       providesTags: ['Returns'],
     }),
-    reviewAdminReturn: builder.mutation<
+    approveAdminReturn: builder.mutation<
       ReturnRequest,
-      { id: number; status: 'Approved' | 'Rejected'; reviewNote?: string }
+      { id: number; reviewNote?: string }
     >({
-      query: ({ id, ...body }) => ({
-        url: `/admin/returns/${id}`,
-        method: 'PATCH',
-        body,
+      query: ({ id, reviewNote }) => ({
+        url: `/admin/returns/${id}/approve`,
+        method: 'PUT',
+        body: { reviewNote },
       }),
       transformResponse: (response: { data: ReturnRequest }) => response.data,
       invalidatesTags: ['Returns', 'Orders', 'Loyalty', 'GiftCards', 'Referrals'],
     }),
-    getAdminSellerProfile: builder.query<SellerProfile, number>({
-      query: (id) => `/admin/sellers/${id}`,
-      transformResponse: (response: { data: SellerProfile }) => response.data,
+    rejectAdminReturn: builder.mutation<
+      ReturnRequest,
+      { id: number; reviewNote?: string }
+    >({
+      query: ({ id, reviewNote }) => ({
+        url: `/admin/returns/${id}/reject`,
+        method: 'PUT',
+        body: { reviewNote },
+      }),
+      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      invalidatesTags: ['Returns', 'Orders', 'Loyalty', 'GiftCards', 'Referrals'],
+    }),
+    getAdminSellers: builder.query<AdminSellerListItem[], { status?: string } | void>({
+      query: (params) => ({
+        url: '/admin/sellers',
+        params: params?.status ? { status: params.status } : undefined,
+      }),
+      transformResponse: (response: { data: AdminSellerListItem[] }) => response.data,
       providesTags: ['SellerProfile'],
+    }),
+    getAdminSellerDetail: builder.query<AdminSellerDetail, number>({
+      query: (id) => `/admin/sellers/${id}`,
+      transformResponse: (response: { data: AdminSellerDetail }) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'SellerProfile', id }],
+    }),
+    getAdminFinanceSummary: builder.query<AdminFinanceSummary, { from?: string; to?: string } | void>({
+      query: (params) => ({
+        url: '/admin/finance',
+        params: params ?? undefined,
+      }),
+      transformResponse: (response: { data: AdminFinanceSummary }) => response.data,
+      providesTags: ['Orders', 'SellerProfile'],
+    }),
+    updateAdminSellerStatus: builder.mutation<AdminSellerDetail, { id: number; status: string; reviewNote?: string }>({
+      query: ({ id, status, reviewNote }) => ({
+        url: `/admin/sellers/${id}/status`,
+        method: 'PUT',
+        body: { status, reviewNote },
+      }),
+      transformResponse: (response: { data: AdminSellerDetail }) => response.data,
+      invalidatesTags: ['SellerProfile', 'Users'],
+    }),
+    updateAdminSellerCommission: builder.mutation<AdminSellerDetail, { id: number; rate?: number | null }>({
+      query: ({ id, rate }) => ({
+        url: `/admin/sellers/${id}/commission`,
+        method: 'PUT',
+        body: { rate },
+      }),
+      transformResponse: (response: { data: AdminSellerDetail }) => response.data,
+      invalidatesTags: ['SellerProfile'],
+    }),
+    approveAdminSellerApplication: builder.mutation<AdminSellerDetail, { id: number; reviewNote?: string }>({
+      query: ({ id, reviewNote }) => ({
+        url: `/admin/sellers/applications/${id}/approve`,
+        method: 'PUT',
+        body: { reviewNote },
+      }),
+      transformResponse: (response: { data: AdminSellerDetail }) => response.data,
+      invalidatesTags: ['SellerProfile', 'Users'],
+    }),
+    rejectAdminSellerApplication: builder.mutation<AdminSellerDetail, { id: number; reviewNote?: string }>({
+      query: ({ id, reviewNote }) => ({
+        url: `/admin/sellers/applications/${id}/reject`,
+        method: 'PUT',
+        body: { reviewNote },
+      }),
+      transformResponse: (response: { data: AdminSellerDetail }) => response.data,
+      invalidatesTags: ['SellerProfile', 'Users'],
     }),
     getAdminUsers: builder.query<PaginatedResponse<AdminUserListItem>, AdminUsersQueryParams | void>({
       query: (params) => ({
@@ -328,8 +397,15 @@ export const {
   useGetAdminOrdersQuery,
   useUpdateOrderStatusMutation,
   useGetAdminReturnsQuery,
-  useReviewAdminReturnMutation,
-  useGetAdminSellerProfileQuery,
+  useApproveAdminReturnMutation,
+  useRejectAdminReturnMutation,
+  useGetAdminSellersQuery,
+  useGetAdminSellerDetailQuery,
+  useGetAdminFinanceSummaryQuery,
+  useUpdateAdminSellerStatusMutation,
+  useUpdateAdminSellerCommissionMutation,
+  useApproveAdminSellerApplicationMutation,
+  useRejectAdminSellerApplicationMutation,
   useGetAdminUsersQuery,
   useGetAdminUserDetailQuery,
   useGetAdminSystemHealthQuery,

@@ -1,6 +1,7 @@
 import type { Order, OrderStatus, ShippingAddress } from '@/features/orders/types';
 
 export type AdminUserStatus = 'Active' | 'Suspended' | 'Banned';
+export type AdminSellerStatus = 'Active' | 'Pending' | 'Suspended' | 'Closed';
 
 export interface AdminUserListItem {
   id: number;
@@ -171,4 +172,90 @@ export interface AdminDashboardRecentOrder {
   currency: string;
   status: OrderStatus;
   createdAt: string;
+}
+
+export interface AdminSellerListItem {
+  id: number;
+  userId: number;
+  brandName: string;
+  sellerFirstName: string;
+  sellerLastName: string;
+  ownerEmail: string;
+  status: AdminSellerStatus;
+  productCount: number;
+  activeProductCount: number;
+  totalStock: number;
+  totalSales: number;
+  averageRating: number;
+  commissionRate: number;
+  hasCommissionOverride: boolean;
+  createdAt: string;
+  isVerified: boolean;
+}
+
+export interface AdminSellerProductSummary {
+  productId: number;
+  productName: string;
+  categoryName: string;
+  price: number;
+  currency: string;
+  stockQuantity: number;
+  isActive: boolean;
+  averageRating: number;
+}
+
+export interface AdminSellerDetail {
+  id: number;
+  userId: number;
+  brandName: string;
+  brandDescription?: string;
+  logoUrl?: string;
+  bannerImageUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  xUrl?: string;
+  isVerified: boolean;
+  status: AdminSellerStatus;
+  sellerFirstName: string;
+  sellerLastName: string;
+  ownerEmail: string;
+  productCount: number;
+  activeProductCount: number;
+  totalStock: number;
+  totalSales: number;
+  averageRating: number;
+  commissionRate: number;
+  commissionRateOverride?: number | null;
+  currency: string;
+  applicationReviewNote?: string | null;
+  applicationReviewedAt?: string | null;
+  createdAt: string;
+  products: AdminSellerProductSummary[];
+}
+
+export interface AdminFinanceSellerRow {
+  sellerId?: number | null;
+  sellerName: string;
+  grossSales: number;
+  refundedAmount: number;
+  netSales: number;
+  successfulOrders: number;
+  commissionRate: number;
+  commissionAmount: number;
+  netEarnings: number;
+}
+
+export interface AdminFinanceSummary {
+  fromDate?: string | null;
+  toDate?: string | null;
+  totalRevenue: number;
+  totalCommission: number;
+  averageOrderValue: number;
+  totalRefundAmount: number;
+  successfulOrderCount: number;
+  currency: string;
+  sellers: AdminFinanceSellerRow[];
 }

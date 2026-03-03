@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  AlertCircle,
   BadgeCheck,
   Clock3,
-  PackageSearch,
   RotateCcw,
   ShieldX,
 } from 'lucide-react';
@@ -32,8 +30,13 @@ import {
 } from '@/components/common/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/tabs';
 import { Textarea } from '@/components/common/textarea';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
-import { useGetAdminReturnsQuery, useReviewAdminReturnMutation } from '@/features/admin/adminApi';
+import {
+  useApproveAdminReturnMutation,
+  useGetAdminReturnsQuery,
+  useRejectAdminReturnMutation,
+} from '@/features/admin/adminApi';
 import type { ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
 
 const returnStatusLabels: Record<ReturnRequestStatus, string> = {
@@ -82,14 +85,18 @@ export default function ReturnsPage() {
   const [selectedRequest, setSelectedRequest] = useState<ReturnRequest | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const { data: requests = [], isLoading } = useGetAdminReturnsQuery();
-  const [reviewReturn, { isLoading: isReviewing }] = useReviewAdminReturnMutation();
+  const [approveReturn, { isLoading: isApproving }] = useApproveAdminReturnMutation();
+  const [rejectReturn, { isLoading: isRejecting }] = useRejectAdminReturnMutation();
+  const isReviewing = isApproving || isRejecting;
 
   const summary = useMemo(() => {
     return {
       pendingCount: requests.filter((request) => request.status === 'Pending').length,
       cancellationCount: requests.filter((request) => request.type === 'Cancellation').length,
       returnCount: requests.filter((request) => request.type === 'Return').length,
-      pendingRefundAmount: requests.reduce((sum, request) => sum + request.requestedRefundAmount, 0),
+      pendingRefundAmount: requests
+        .filter((request) => request.status === 'Pending')
+        .reduce((sum, request) => sum + request.requestedRefundAmount, 0),
     };
   }, [requests]);
 
@@ -98,7 +105,12 @@ export default function ReturnsPage() {
       return requests.filter((request) => request.status === 'Pending');
     }
 
-    return [];
+    if (activeTab === 'Approved') {
+      return requests.filter((request) =>
+        request.status === 'Approved' || request.status === 'RefundPending' || request.status === 'Refunded');
+    }
+
+    return requests.filter((request) => request.status === 'Rejected');
   }, [activeTab, requests]);
 
   const handleOpenRequest = (request: ReturnRequest) => {
@@ -117,11 +129,17 @@ export default function ReturnsPage() {
     }
 
     try {
-      await reviewReturn({
-        id: selectedRequest.id,
-        status,
-        reviewNote: reviewNote.trim() || undefined,
-      }).unwrap();
+      if (status === 'Approved') {
+        await approveReturn({
+          id: selectedRequest.id,
+          reviewNote: reviewNote.trim() || undefined,
+        }).unwrap();
+      } else {
+        await rejectReturn({
+          id: selectedRequest.id,
+          reviewNote: reviewNote.trim() || undefined,
+        }).unwrap();
+      }
 
       toast.success(status === 'Approved' ? 'Talep onaylandı' : 'Talep reddedildi');
       setSelectedRequest(null);
@@ -151,7 +169,6 @@ export default function ReturnsPage() {
         <h1 className="text-3xl font-bold tracking-tight">İade Talepleri</h1>
         <p className="max-w-3xl text-muted-foreground">
           Bekleyen iade ve iptal taleplerini inceleyin, onaylayın veya gerekçeyle reddedin.
-          Mevcut backend bu aşamada yalnızca bekleyen kayıtları döndürüyor.
         </p>
       </div>
 
@@ -255,28 +272,122 @@ export default function ReturnsPage() {
 
         <TabsContent value="Approved">
           <Card className="border-border/70">
-            <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
-              <AlertCircle className="h-10 w-10 text-muted-foreground" />
-              <div className="space-y-1">
-                <p className="font-medium">Bu sekme sonraki backend genişletmesini bekliyor</p>
-                <p className="text-sm text-muted-foreground">
-                  Admin returns endpoint’i şu an yalnızca bekleyen kayıtları döndürüyor.
-                </p>
-              </div>
+            <CardHeader>
+              <CardTitle>Onaylanan Talepler</CardTitle>
+              <CardDescription>
+                Onaylanan, iade sürecine alınan ve tamamlanan talepler burada görünür.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sipariş</TableHead>
+                    <TableHead>Müşteri</TableHead>
+                    <TableHead>Tip</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead>Tutar</TableHead>
+                    <TableHead>İnceleyen</TableHead>
+                    <TableHead className="text-right">İşlem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tabData.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">
+                        {request.orderNumber || `Sipariş #${request.orderId}`}
+                      </TableCell>
+                      <TableCell>{request.customerName || `Kullanıcı #${request.userId}`}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{returnTypeLabels[request.type]}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={returnStatusClasses[request.status]} variant="secondary">
+                          {returnStatusLabels[request.status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatCurrency(request.requestedRefundAmount)}</TableCell>
+                      <TableCell>{request.reviewerName || 'Sistem'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenRequest(request)}>
+                          Detay
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {tabData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="p-0">
+                        <EmptyState
+                          icon={BadgeCheck}
+                          title="Onaylanan talep yok"
+                          description="İşleme alınan veya tamamlanan talepler burada listelenecek."
+                          className="border-0 shadow-none"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="Rejected">
           <Card className="border-border/70">
-            <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
-              <PackageSearch className="h-10 w-10 text-muted-foreground" />
-              <div className="space-y-1">
-                <p className="font-medium">Reddedilen talepler burada listelenecek</p>
-                <p className="text-sm text-muted-foreground">
-                  Liste endpoint’i statü filtresi desteklediğinde bu sekme otomatik olarak anlam kazanacak.
-                </p>
-              </div>
+            <CardHeader>
+              <CardTitle>Reddedilen Talepler</CardTitle>
+              <CardDescription>
+                Red nedeni girilen ve işleme alınmayan taleplerin geçmişi.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sipariş</TableHead>
+                    <TableHead>Müşteri</TableHead>
+                    <TableHead>Tip</TableHead>
+                    <TableHead>Neden</TableHead>
+                    <TableHead>İnceleyen</TableHead>
+                    <TableHead className="text-right">İşlem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tabData.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">
+                        {request.orderNumber || `Sipariş #${request.orderId}`}
+                      </TableCell>
+                      <TableCell>{request.customerName || `Kullanıcı #${request.userId}`}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{returnTypeLabels[request.type]}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[20rem] truncate">
+                        {request.reviewNote || request.reason}
+                      </TableCell>
+                      <TableCell>{request.reviewerName || 'Sistem'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenRequest(request)}>
+                          Detay
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {tabData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="p-0">
+                        <EmptyState
+                          icon={ShieldX}
+                          title="Reddedilen talep yok"
+                          description="Red kararı verilen talepler burada listelenecek."
+                          className="border-0 shadow-none"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
