@@ -160,11 +160,11 @@ export const sellerApi = baseApi.injectEndpoints({
       providesTags: (result) => createListTags('Orders', result),
     }),
 
-    shipSellerOrder: builder.mutation<Order, { id: number; trackingCode: string; cargoCompany: string }>({
-      query: ({ id, trackingCode, cargoCompany }) => ({
+    shipSellerOrder: builder.mutation<Order, { id: number; trackingCode: string; cargoCompany: string; estimatedDeliveryDate?: string }>({
+      query: ({ id, trackingCode, cargoCompany, estimatedDeliveryDate }) => ({
         url: `/seller/orders/${id}/ship`,
         method: 'PUT',
-        body: { trackingCode, cargoCompany },
+        body: { trackingCode, cargoCompany, estimatedDeliveryDate },
       }),
       transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
       invalidatesTags: (_result, _error, { id }) => [

@@ -50,6 +50,9 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.AcceptedFromIp)
             .HasMaxLength(128);
+
+        builder.Property(o => o.ShipmentStatus)
+            .IsRequired();
         
         builder.Property(o => o.ShippingAddress)
             .HasMaxLength(2000);

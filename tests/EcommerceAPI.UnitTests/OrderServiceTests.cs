@@ -678,4 +678,107 @@ public class OrderManagerTests
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
         _uowMock.Verify(x => x.BeginTransactionAsync(), Times.Never);
     }
+
+    [Fact]
+    public async Task ShipOrderAsync_WithEstimatedDelivery_ShouldPersistShipmentMetadata()
+    {
+        const int sellerId = 5;
+        var estimatedDeliveryDate = DateTime.UtcNow.Date.AddDays(2);
+        OrderShippedEvent? publishedEvent = null;
+        var order = new Order
+        {
+            Id = 703,
+            UserId = 201,
+            OrderNumber = "ORD-SELLER-3",
+            Status = OrderStatus.Paid,
+            Payment = new Payment { Status = PaymentStatus.Success },
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 90,
+                    Quantity = 1,
+                    PriceSnapshot = 240m,
+                    Product = new Product
+                    {
+                        Id = 90,
+                        Name = "Kargo Test Urunu",
+                        Description = "d",
+                        Price = 240m,
+                        SKU = "K1",
+                        SellerId = sellerId
+                    }
+                }
+            ]
+        };
+
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((message, _) => publishedEvent = message as OrderShippedEvent)
+            .Returns(Task.CompletedTask);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
+        {
+            CargoCompany = "Yurtiçi Kargo",
+            TrackingCode = "TRK-555",
+            EstimatedDeliveryDate = estimatedDeliveryDate
+        });
+
+        result.Success.Should().BeTrue();
+        order.Status.Should().Be(OrderStatus.Shipped);
+        order.ShipmentStatus.Should().Be(ShipmentStatus.HandedToCargo);
+        order.EstimatedDeliveryDate.Should().Be(estimatedDeliveryDate);
+        order.ShippedAt.Should().NotBeNull();
+        publishedEvent.Should().NotBeNull();
+        publishedEvent!.EstimatedDeliveryDate.Should().Be(estimatedDeliveryDate);
+        publishedEvent.CargoCompany.Should().Be("Yurtiçi Kargo");
+        publishedEvent.TrackingCode.Should().Be("TRK-555");
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateOrderStatusAsync_WhenDelivered_ShouldSetDeliveredShipmentMetadata()
+    {
+        var order = new Order
+        {
+            Id = 704,
+            UserId = 202,
+            OrderNumber = "ORD-DELIVERED-1",
+            Status = OrderStatus.Shipped,
+            ShipmentStatus = ShipmentStatus.HandedToCargo,
+            ShippedAt = DateTime.UtcNow.AddDays(-1),
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 91,
+                    Quantity = 1,
+                    PriceSnapshot = 100m,
+                    Product = new Product
+                    {
+                        Id = 91,
+                        Name = "Teslim Test Urunu",
+                        Description = "d",
+                        Price = 100m,
+                        SKU = "T1",
+                        SellerId = 6
+                    }
+                }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.UpdateOrderStatusAsync(order.Id, "Delivered");
+
+        result.Success.Should().BeTrue();
+        order.Status.Should().Be(OrderStatus.Delivered);
+        order.ShipmentStatus.Should().Be(ShipmentStatus.Delivered);
+        order.DeliveredAt.Should().NotBeNull();
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderStatusChangedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

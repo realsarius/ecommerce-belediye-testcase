@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, useUpdateOrderItemsMutation } from '@/features/orders/ordersApi';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { ShipmentTimeline } from '@/components/order/ShipmentTimeline';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
@@ -27,7 +28,7 @@ import {
 } from '@/components/common/dialog';
 import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import type { OrderStatus, OrderItem } from '@/features/orders/types';
+import type { Order, OrderItem } from '@/features/orders/types';
 import type { Product } from '@/features/products/types';
 import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
@@ -384,6 +385,15 @@ export default function OrderDetail() {
               </Button>
             )}
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Kargo Takibi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ShipmentTimeline order={order} />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}

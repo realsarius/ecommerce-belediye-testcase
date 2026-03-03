@@ -12,6 +12,16 @@ export type OrderStatus =
   | 'Cancelled'
   | 'Refunded';
 
+export type ShipmentStatus =
+  | 'Pending'
+  | 'Preparing'
+  | 'HandedToCargo'
+  | 'InTransit'
+  | 'OutForDelivery'
+  | 'Delivered'
+  | 'Failed'
+  | 'Returned';
+
 export interface Order {
   id: number;
   orderNumber?: string;
@@ -27,6 +37,9 @@ export interface Order {
   cargoCompany?: string;
   trackingCode?: string;
   shippedAt?: string;
+  estimatedDeliveryDate?: string;
+  deliveredAt?: string;
+  shipmentStatus?: ShipmentStatus;
   couponCode?: string;
   discountAmount?: number;
   loyaltyPointsUsed?: number;

@@ -15,6 +15,9 @@ public class Order : BaseEntity
     public string? CargoCompany { get; set; }
     public string? TrackingCode { get; set; }
     public DateTime? ShippedAt { get; set; }
+    public DateTime? EstimatedDeliveryDate { get; set; }
+    public DateTime? DeliveredAt { get; set; }
+    public ShipmentStatus ShipmentStatus { get; set; } = ShipmentStatus.Pending;
     public DateTime? CancelledAt { get; set; }
     public DateTime? PreliminaryInfoAcceptedAt { get; set; }
     public DateTime? DistanceSalesContractAcceptedAt { get; set; }

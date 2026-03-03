@@ -60,12 +60,16 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
 
         if (channelSettings.InAppEnabled)
         {
+            var estimatedDeliveryText = message.EstimatedDeliveryDate.HasValue
+                ? $" Tahmini teslimat: {message.EstimatedDeliveryDate.Value.ToLocalTime():dd.MM.yyyy}."
+                : string.Empty;
+
             await _notificationService.CreateNotificationAsync(new CreateNotificationRequest
             {
                 UserId = message.UserId,
                 Type = "Order",
                 Title = "Siparişiniz kargoya verildi",
-                Body = $"{message.OrderNumber} numaralı siparişiniz {message.CargoCompany} ile yola çıktı. Takip kodu: {message.TrackingCode}",
+                Body = $"{message.OrderNumber} numaralı siparişiniz {message.CargoCompany} ile yola çıktı. Takip kodu: {message.TrackingCode}.{estimatedDeliveryText}",
                 DeepLink = $"/orders/{message.OrderId}"
             });
         }
@@ -130,6 +134,7 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
                   <li>Kargo firması: {message.CargoCompany}</li>
                   <li>Takip kodu: {message.TrackingCode}</li>
                   <li>Gönderim zamanı: {message.ShippedAt.ToLocalTime():dd.MM.yyyy HH:mm}</li>
+                  {(message.EstimatedDeliveryDate.HasValue ? $"<li>Tahmini teslimat: {message.EstimatedDeliveryDate.Value.ToLocalTime():dd.MM.yyyy}</li>" : string.Empty)}
                 </ul>
                 <p>Sipariş detaylarınızı hesabınızdan takip edebilirsiniz.</p>
                 """;

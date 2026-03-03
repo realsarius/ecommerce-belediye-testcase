@@ -504,6 +504,7 @@ public class OrderManager : IOrderService
 
         order.Status = orderStatus;
         order.UpdatedAt = DateTime.UtcNow;
+        ApplyShipmentMetadataForOrderStatus(order, orderStatus);
 
         await _unitOfWork.BeginTransactionAsync();
 
@@ -550,6 +551,11 @@ public class OrderManager : IOrderService
             return new ErrorDataResult<OrderDto>("Kargo firması ve takip kodu zorunludur.");
         }
 
+        if (request.EstimatedDeliveryDate.HasValue && request.EstimatedDeliveryDate.Value.Date < DateTime.UtcNow.Date)
+        {
+            return new ErrorDataResult<OrderDto>("Tahmini teslimat tarihi bugunden once olamaz.");
+        }
+
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
         if (order == null)
         {
@@ -574,6 +580,9 @@ public class OrderManager : IOrderService
         order.CargoCompany = request.CargoCompany.Trim();
         order.TrackingCode = request.TrackingCode.Trim();
         order.ShippedAt = shippedAt;
+        order.EstimatedDeliveryDate = request.EstimatedDeliveryDate?.Date;
+        order.DeliveredAt = null;
+        order.ShipmentStatus = ShipmentStatus.HandedToCargo;
 
         await _unitOfWork.BeginTransactionAsync();
         try
@@ -589,7 +598,8 @@ public class OrderManager : IOrderService
                 CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}".Trim() : string.Empty,
                 CargoCompany = order.CargoCompany,
                 TrackingCode = order.TrackingCode,
-                ShippedAt = shippedAt
+                ShippedAt = shippedAt,
+                EstimatedDeliveryDate = order.EstimatedDeliveryDate
             });
 
             await _unitOfWork.SaveChangesAsync();
@@ -999,5 +1009,31 @@ public class OrderManager : IOrderService
             TaxNumber = string.IsNullOrWhiteSpace(invoiceInfo.TaxNumber) ? null : invoiceInfo.TaxNumber,
             InvoiceAddress = invoiceInfo.InvoiceAddress
         };
+    }
+
+    private static void ApplyShipmentMetadataForOrderStatus(Order order, OrderStatus orderStatus)
+    {
+        switch (orderStatus)
+        {
+            case OrderStatus.Processing:
+                order.ShipmentStatus = ShipmentStatus.Preparing;
+                order.DeliveredAt = null;
+                break;
+            case OrderStatus.Shipped:
+                order.ShipmentStatus = order.ShipmentStatus == ShipmentStatus.Pending
+                    ? ShipmentStatus.HandedToCargo
+                    : order.ShipmentStatus;
+                break;
+            case OrderStatus.Delivered:
+                order.ShipmentStatus = ShipmentStatus.Delivered;
+                order.DeliveredAt ??= DateTime.UtcNow;
+                break;
+            case OrderStatus.Cancelled:
+                if (order.ShippedAt == null)
+                {
+                    order.ShipmentStatus = ShipmentStatus.Pending;
+                }
+                break;
+        }
     }
 }

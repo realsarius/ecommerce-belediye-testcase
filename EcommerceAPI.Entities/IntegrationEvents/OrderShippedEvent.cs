@@ -11,4 +11,5 @@ public sealed class OrderShippedEvent
     public string CargoCompany { get; init; } = string.Empty;
     public string TrackingCode { get; init; } = string.Empty;
     public DateTime ShippedAt { get; init; } = DateTime.UtcNow;
+    public DateTime? EstimatedDeliveryDate { get; init; }
 }
