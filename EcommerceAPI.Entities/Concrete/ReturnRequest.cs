@@ -7,6 +7,7 @@ public class ReturnRequest : BaseEntity
     public int OrderId { get; set; }
     public int UserId { get; set; }
     public ReturnRequestType Type { get; set; } = ReturnRequestType.Return;
+    public ReturnReasonCategory ReasonCategory { get; set; } = ReturnReasonCategory.Other;
     public ReturnRequestStatus Status { get; set; } = ReturnRequestStatus.Pending;
     public string Reason { get; set; } = string.Empty;
     public string? RequestNote { get; set; }

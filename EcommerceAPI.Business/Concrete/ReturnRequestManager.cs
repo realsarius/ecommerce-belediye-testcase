@@ -101,9 +101,14 @@ public class ReturnRequestManager : IReturnRequestService
             return new ErrorDataResult<ReturnRequestDto>("Geçersiz talep tipi.");
         }
 
-        if (!IsRequestAllowed(order.Status, requestType))
+        if (!TryParseReasonCategory(request.ReasonCategory, out var reasonCategory))
         {
-            return new ErrorDataResult<ReturnRequestDto>(GetInvalidStateMessage(order.Status, requestType));
+            return new ErrorDataResult<ReturnRequestDto>("Geçersiz talep kategorisi.");
+        }
+
+        if (!IsRequestAllowed(order, requestType))
+        {
+            return new ErrorDataResult<ReturnRequestDto>(GetInvalidStateMessage(order, requestType));
         }
 
         var returnRequest = new ReturnRequest
@@ -111,6 +116,7 @@ public class ReturnRequestManager : IReturnRequestService
             OrderId = orderId,
             UserId = userId,
             Type = requestType,
+            ReasonCategory = reasonCategory,
             Status = ReturnRequestStatus.Pending,
             Reason = request.Reason.Trim(),
             RequestNote = string.IsNullOrWhiteSpace(request.RequestNote) ? null : request.RequestNote.Trim(),
@@ -128,15 +134,17 @@ public class ReturnRequestManager : IReturnRequestService
             {
                 OrderId = orderId,
                 returnRequest.Type,
+                returnRequest.ReasonCategory,
                 returnRequest.Reason,
                 returnRequest.RequestedRefundAmount
             });
 
         _logger.LogInformation(
-            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, RequestedRefundAmount={RequestedRefundAmount}",
+            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, ReasonCategory={ReasonCategory}, RequestedRefundAmount={RequestedRefundAmount}",
             orderId,
             userId,
             returnRequest.Type,
+            returnRequest.ReasonCategory,
             returnRequest.RequestedRefundAmount);
 
         var createdRequest = await _returnRequestDal.GetByIdWithDetailsAsync(returnRequest.Id) ?? returnRequest;
@@ -309,29 +317,47 @@ public class ReturnRequestManager : IReturnRequestService
         return Enum.TryParse(value, true, out requestType);
     }
 
+    private static bool TryParseReasonCategory(string value, out ReturnReasonCategory category)
+    {
+        return Enum.TryParse(value, true, out category);
+    }
+
     private static bool TryParseReviewStatus(string value, out ReturnRequestStatus status)
     {
         var success = Enum.TryParse(value, true, out status);
         return success && (status == ReturnRequestStatus.Approved || status == ReturnRequestStatus.Rejected);
     }
 
-    private static bool IsRequestAllowed(OrderStatus orderStatus, ReturnRequestType requestType)
+    private static bool IsRequestAllowed(Order order, ReturnRequestType requestType)
     {
         return requestType switch
         {
-            ReturnRequestType.Cancellation => orderStatus == OrderStatus.PendingPayment ||
-                                              orderStatus == OrderStatus.Paid ||
-                                              orderStatus == OrderStatus.Processing,
-            ReturnRequestType.Return => orderStatus == OrderStatus.Delivered,
+            ReturnRequestType.Cancellation => order.Status == OrderStatus.PendingPayment ||
+                                              order.Status == OrderStatus.Paid ||
+                                              order.Status == OrderStatus.Processing,
+            ReturnRequestType.Return => order.Status == OrderStatus.Delivered &&
+                                        !IsReturnWindowExpired(order),
             _ => false
         };
     }
 
-    private static string GetInvalidStateMessage(OrderStatus orderStatus, ReturnRequestType requestType)
+    private static bool IsReturnWindowExpired(Order order)
+    {
+        if (!order.DeliveredAt.HasValue)
+        {
+            return false;
+        }
+
+        return order.DeliveredAt.Value.Date.AddDays(14) < DateTime.UtcNow.Date;
+    }
+
+    private static string GetInvalidStateMessage(Order order, ReturnRequestType requestType)
     {
         return requestType switch
         {
-            ReturnRequestType.Cancellation => $"Sipariş durumu {orderStatus} iken iptal talebi açılamaz.",
+            ReturnRequestType.Cancellation => $"Sipariş durumu {order.Status} iken iptal talebi açılamaz.",
+            ReturnRequestType.Return when order.Status == OrderStatus.Delivered && IsReturnWindowExpired(order)
+                => "İade talebi teslim tarihinden itibaren 14 gün içinde açılabilir.",
             ReturnRequestType.Return => "İade talebi yalnızca teslim edilen siparişler için açılabilir.",
             _ => "Talep oluşturulamadı."
         };
@@ -347,6 +373,7 @@ public class ReturnRequestManager : IReturnRequestService
             UserId = request.UserId,
             CustomerName = request.User != null ? $"{request.User.FirstName} {request.User.LastName}".Trim() : string.Empty,
             Type = request.Type.ToString(),
+            ReasonCategory = request.ReasonCategory.ToString(),
             Status = request.Status.ToString(),
             Reason = request.Reason,
             RequestNote = request.RequestNote,

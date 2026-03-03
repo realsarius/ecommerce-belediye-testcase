@@ -46,6 +46,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "NotAsDescribed",
             Reason = "Ürün beklentimi karşılamadı",
             RequestNote = "Paket açıldı ancak kullanılmadı."
         });
@@ -58,6 +59,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.Data.OrderId.Should().Be(orderId);
         result.Data.Status.Should().Be(ReturnRequestStatus.Pending.ToString());
         result.Data.Type.Should().Be(ReturnRequestType.Return.ToString());
+        result.Data.ReasonCategory.Should().Be(ReturnReasonCategory.NotAsDescribed.ToString());
     }
 
     [Fact]
@@ -91,6 +93,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createResponse = await customerClient.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "WrongProduct",
             Reason = "Ürünü iade etmek istiyorum"
         });
 

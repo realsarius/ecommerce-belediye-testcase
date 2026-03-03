@@ -16,6 +16,9 @@ public class ReturnRequestConfiguration : IEntityTypeConfiguration<ReturnRequest
             .IsRequired()
             .HasMaxLength(250);
 
+        builder.Property(rr => rr.ReasonCategory)
+            .IsRequired();
+
         builder.Property(rr => rr.RequestNote)
             .HasMaxLength(1000);
 
@@ -29,6 +32,7 @@ public class ReturnRequestConfiguration : IEntityTypeConfiguration<ReturnRequest
         builder.HasIndex(rr => rr.OrderId);
         builder.HasIndex(rr => rr.UserId);
         builder.HasIndex(rr => rr.Status);
+        builder.HasIndex(rr => rr.ReasonCategory);
 
         builder.HasOne(rr => rr.Order)
             .WithMany()

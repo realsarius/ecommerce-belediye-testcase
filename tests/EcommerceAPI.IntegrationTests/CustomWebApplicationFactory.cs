@@ -251,6 +251,7 @@ public static class TestDataSeeder
             UserId = userId,
             OrderNumber = orderNumber,
             Status = orderStatus,
+            DeliveredAt = orderStatus == OrderStatus.Delivered ? DateTime.UtcNow.Date : null,
             SubtotalAmount = product.Price,
             TotalAmount = product.Price,
             ShippingAddress = "Integration Test Address 123",

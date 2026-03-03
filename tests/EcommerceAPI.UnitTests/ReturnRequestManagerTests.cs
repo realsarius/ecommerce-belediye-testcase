@@ -91,6 +91,7 @@ public class ReturnRequestManagerTests
         var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "NotAsDescribed",
             Reason = "Ürün beklentimi karşılamadı",
             RequestNote = "Kutusu açıldı ama hasarsız."
         });
@@ -98,6 +99,7 @@ public class ReturnRequestManagerTests
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(ReturnRequestStatus.Pending.ToString());
         result.Data.Type.Should().Be(ReturnRequestType.Return.ToString());
+        result.Data.ReasonCategory.Should().Be(ReturnReasonCategory.NotAsDescribed.ToString());
         result.Data.RequestedRefundAmount.Should().Be(order.TotalAmount);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
@@ -115,11 +117,57 @@ public class ReturnRequestManagerTests
         var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "Other",
             Reason = "İade denemesi"
         });
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("teslim edilen");
+        _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WhenActiveRequestExists_ShouldFail()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(true);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "Other",
+            Reason = "Aynı sipariş için ikinci talep"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("zaten aktif");
+        _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WhenDeliveredMoreThan14DaysAgo_ShouldFail()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+        order.DeliveredAt = DateTime.UtcNow.Date.AddDays(-15);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "ChangedMind",
+            Reason = "Süre dışı iade denemesi"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("14 gün");
         _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
     }
 
@@ -274,6 +322,7 @@ public class ReturnRequestManagerTests
             UserId = 42,
             OrderNumber = "ORD-TEST",
             Status = orderStatus,
+            DeliveredAt = orderStatus == OrderStatus.Delivered ? DateTime.UtcNow.Date : null,
             TotalAmount = 249.90m,
             ShippingAddress = "Test Address",
             Payment = new Payment
