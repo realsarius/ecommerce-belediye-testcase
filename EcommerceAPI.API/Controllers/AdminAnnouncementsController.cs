@@ -2,7 +2,6 @@ using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.IntegrationEvents;
-using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,14 +13,14 @@ namespace EcommerceAPI.API.Controllers;
 public class AdminAnnouncementsController : BaseApiController
 {
     private readonly IAnnouncementService _announcementService;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IOutboxService _outboxService;
 
     public AdminAnnouncementsController(
         IAnnouncementService announcementService,
-        IPublishEndpoint publishEndpoint)
+        IOutboxService outboxService)
     {
         _announcementService = announcementService;
-        _publishEndpoint = publishEndpoint;
+        _outboxService = outboxService;
     }
 
     [HttpGet]
@@ -46,7 +45,7 @@ public class AdminAnnouncementsController : BaseApiController
             return HandleResult(created);
         }
 
-        await _publishEndpoint.Publish(new AnnouncementCreatedEvent
+        await _outboxService.EnqueueAsync(new AnnouncementCreatedEvent
         {
             AnnouncementId = created.Data.Id,
             ScheduledAt = created.Data.ScheduledAt

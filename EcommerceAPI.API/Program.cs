@@ -71,6 +71,7 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AdminSystemMonitoringService>();
+builder.Services.AddHostedService<OutboxPublisherBackgroundService>();
 
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
                             ?? builder.Configuration["Redis:ConnectionString"]

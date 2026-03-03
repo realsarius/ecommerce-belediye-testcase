@@ -100,6 +100,13 @@ public sealed class OutboxPublisherBackgroundService : BackgroundService
                     await publishEndpoint.Publish(orderShipped, cancellationToken);
                     break;
 
+                case var eventType when eventType == (typeof(AnnouncementCreatedEvent).FullName ?? nameof(AnnouncementCreatedEvent)):
+                    var announcementCreated = JsonSerializer.Deserialize<AnnouncementCreatedEvent>(outboxMessage.Payload, SerializerOptions);
+                    if (announcementCreated is null)
+                        throw new InvalidOperationException("AnnouncementCreatedEvent deserialization failed.");
+                    await publishEndpoint.Publish(announcementCreated, cancellationToken);
+                    break;
+
                 default:
                     throw new InvalidOperationException($"Unsupported outbox event type: {outboxMessage.EventType}");
             }
