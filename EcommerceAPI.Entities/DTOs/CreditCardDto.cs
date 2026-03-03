@@ -47,6 +47,7 @@ public class StoredCardPaymentDto
 {
     public int Id { get; set; }
     public string CardHolderName { get; set; } = string.Empty;
+    public string Last4Digits { get; set; } = string.Empty;
     public string? CardNumber { get; set; }
     public string ExpireMonth { get; set; } = string.Empty;
     public string ExpireYear { get; set; } = string.Empty;

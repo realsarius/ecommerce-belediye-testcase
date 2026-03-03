@@ -24,6 +24,9 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(p => p.Last4Digits)
+            .HasMaxLength(4);
+
         builder.Property(p => p.Provider)
             .HasConversion<int?>();
         

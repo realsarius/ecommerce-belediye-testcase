@@ -50,6 +50,7 @@ public static class MappingExtensions
                 Status = order.Payment.Status.ToString(),
                 PaymentMethod = order.Payment.PaymentMethod,
                 Provider = order.Payment.Provider,
+                Last4Digits = order.Payment.Last4Digits,
                 CreatedAt = order.Payment.CreatedAt
             } : null,
             InvoiceInfo = order.InvoiceInfo != null ? new InvoiceInfoDto

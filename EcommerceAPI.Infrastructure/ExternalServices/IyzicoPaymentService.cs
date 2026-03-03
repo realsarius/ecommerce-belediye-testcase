@@ -26,6 +26,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     {
         public Iyzipay.Model.Payment? Payment { get; init; }
         public ThreedsInitialize? ThreeDSInitialize { get; init; }
+        public string? Last4Digits { get; init; }
         public bool RequiresThreeDS => ThreeDSInitialize != null;
     }
 
@@ -142,6 +143,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                 return new ErrorDataResult<PaymentDto>(ex.Message);
             }
 
+            order.Payment.Last4Digits = iyzicoPaymentResult.Last4Digits;
+
             if (iyzicoPaymentResult.RequiresThreeDS)
             {
                 var threeDSInitialize = iyzicoPaymentResult.ThreeDSInitialize!;
@@ -165,6 +168,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                         Status = order.Payment.Status.ToString(),
                         PaymentMethod = order.Payment.PaymentMethod,
                         Provider = order.Payment.Provider,
+                        Last4Digits = order.Payment.Last4Digits,
                         ErrorMessage = null,
                         RequiresThreeDS = true,
                         ThreeDSHtmlContent = threeDSInitialize.HtmlContent,
@@ -267,7 +271,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         // Kart bilgileri - kayıtlı kart veya yeni kart
         string cardHolderName, cardNumber, expireMonth, expireYear;
         
-        if (request.SavedCardId.HasValue)
+            if (request.SavedCardId.HasValue)
         {
             // Kayıtlı kart kullan
             var savedCardResult = await _creditCardService.GetStoredCardForPaymentAsync(order.UserId, request.SavedCardId.Value);
@@ -295,7 +299,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                     RegisterCard = 0
                 };
 
-                goto BuildBuyerAndBasket;
+                return await ExecuteIyzicoChargeAsync(options, paymentRequest, order, requiresThreeDS, savedCard.Last4Digits);
             }
 
             if (!IsValidCvv(request.CVV))
@@ -335,8 +339,16 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             Cvc = request.CVV ?? "",
             RegisterCard = request.SaveCard && !request.SavedCardId.HasValue ? 1 : 0
         };
+        return await ExecuteIyzicoChargeAsync(options, paymentRequest, order, requiresThreeDS, ResolveLast4Digits(cardNumber));
+    }
 
-BuildBuyerAndBasket:
+    private async Task<IyzicoPaymentExecutionResult> ExecuteIyzicoChargeAsync(
+        Iyzipay.Options options,
+        CreatePaymentRequest paymentRequest,
+        Order order,
+        bool requiresThreeDS,
+        string? last4Digits)
+    {
         // Alıcı bilgileri
         paymentRequest.Buyer = new Buyer
         {
@@ -416,13 +428,15 @@ BuildBuyerAndBasket:
         {
             return new IyzicoPaymentExecutionResult
             {
-                ThreeDSInitialize = await ThreedsInitialize.Create(paymentRequest, options)
+                ThreeDSInitialize = await ThreedsInitialize.Create(paymentRequest, options),
+                Last4Digits = last4Digits
             };
         }
 
         return new IyzicoPaymentExecutionResult
         {
-            Payment = await Iyzipay.Model.Payment.Create(paymentRequest, options)
+            Payment = await Iyzipay.Model.Payment.Create(paymentRequest, options),
+            Last4Digits = last4Digits
         };
     }
 
@@ -525,6 +539,17 @@ BuildBuyerAndBasket:
         return year.Length == 2 ? $"20{year}" : year;
     }
 
+    private static string? ResolveLast4Digits(string? cardNumber)
+    {
+        if (string.IsNullOrWhiteSpace(cardNumber))
+        {
+            return null;
+        }
+
+        var digitsOnly = new string(cardNumber.Where(char.IsDigit).ToArray());
+        return digitsOnly.Length >= 4 ? digitsOnly[^4..] : null;
+    }
+
     private bool ShouldRequireThreeDS(decimal orderAmount, ProcessPaymentRequest request)
     {
         return _paymentSettings.Force3DSecure
@@ -562,6 +587,7 @@ BuildBuyerAndBasket:
             Status = payment.Status.ToString(),
             PaymentMethod = payment.PaymentMethod,
             Provider = payment.Provider,
+            Last4Digits = payment.Last4Digits,
             ErrorMessage = payment.ErrorMessage,
             CreatedAt = payment.CreatedAt
         };

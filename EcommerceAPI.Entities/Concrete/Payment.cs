@@ -11,6 +11,7 @@ public class Payment : BaseEntity
     public string PaymentMethod { get; set; } = string.Empty; 
     public PaymentProviderType? Provider { get; set; }
     public string? PaymentProviderId { get; set; }
+    public string? Last4Digits { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }
     

@@ -259,6 +259,7 @@ public class CreditCardManager : ICreditCardService
         {
             Id = card.Id,
             CardHolderName = card.CardHolderName,
+            Last4Digits = card.Last4Digits,
             ExpireMonth = _encryptionService.Decrypt(card.ExpireMonthEncrypted),
             ExpireYear = _encryptionService.Decrypt(card.ExpireYearEncrypted),
             IsTokenized = isTokenized,

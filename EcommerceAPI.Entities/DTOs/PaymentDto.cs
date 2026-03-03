@@ -10,6 +10,7 @@ public class PaymentDto : IDto
     public string Status { get; set; } = string.Empty;
     public string PaymentMethod { get; set; } = string.Empty;
     public PaymentProviderType? Provider { get; set; }
+    public string? Last4Digits { get; set; }
     public string? ErrorMessage { get; set; }
     public bool RequiresThreeDS { get; set; }
     public string? ThreeDSHtmlContent { get; set; }
