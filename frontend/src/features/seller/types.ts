@@ -64,6 +64,52 @@ export interface SellerAnalyticsSummary {
   currency: string;
 }
 
+export interface SellerDashboardKpi {
+  periodDays: number;
+  revenue: number;
+  revenueDelta: number;
+  totalOrders: number;
+  completedOrdersInPeriod: number;
+  averageRating: number;
+  reviewCount: number;
+  netEarnings: number;
+  commissionRate: number;
+  currency: string;
+}
+
+export interface SellerDashboardRevenueTrendPoint {
+  label: string;
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface SellerDashboardOrderStatusDistributionItem {
+  status: string;
+  count: number;
+}
+
+export interface SellerDashboardProductPerformanceItem {
+  productId: number;
+  productName: string;
+  categoryName: string;
+  unitsSold: number;
+  revenue: number;
+  averageRating: number;
+  stockQuantity: number;
+  currency: string;
+}
+
+export interface SellerDashboardRecentOrder {
+  orderId: number;
+  orderNumber: string;
+  customerName: string;
+  totalAmount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
 export interface SellerAnalyticsTrendPoint {
   date: string;
   views: number;

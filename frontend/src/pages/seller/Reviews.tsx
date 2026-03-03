@@ -15,6 +15,13 @@ import { Input } from '@/components/common/input';
 import { Skeleton } from '@/components/common/skeleton';
 import { Textarea } from '@/components/common/textarea';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/common/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -24,13 +31,13 @@ import {
 } from '@/components/common/table';
 import { KpiCard } from '@/components/admin/KpiCard';
 import {
-  useGetProductReviewsQuery,
   useGetReviewSummaryQuery,
 } from '@/features/products/productsApi';
 import {
   useGetSellerAnalyticsSummaryQuery,
   useGetSellerProductsQuery,
   useGetSellerProfileQuery,
+  useGetSellerReviewsQuery,
   useReplySellerReviewMutation,
 } from '@/features/seller/sellerApi';
 import { toast } from 'sonner';
@@ -58,6 +65,8 @@ function renderStars(rating: number) {
 export default function SellerReviewsPage() {
   const [search, setSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [ratingFilter, setRatingFilter] = useState<'all' | '5' | '4' | '3' | '2' | '1'>('all');
+  const [replyStatusFilter, setReplyStatusFilter] = useState<'all' | 'answered' | 'unanswered'>('all');
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 
   const { data: profile, isLoading: profileLoading } = useGetSellerProfileQuery();
@@ -111,9 +120,16 @@ export default function SellerReviewsPage() {
   const { data: productSummary, isLoading: productSummaryLoading } = useGetReviewSummaryQuery(selectedProductId ?? 0, {
     skip: !selectedProductId,
   });
-  const { data: productReviews = [], isLoading: productReviewsLoading } = useGetProductReviewsQuery(selectedProductId ?? 0, {
-    skip: !selectedProductId,
-  });
+  const { data: productReviews = [], isLoading: productReviewsLoading } = useGetSellerReviewsQuery(
+    selectedProductId
+      ? {
+          productId: selectedProductId,
+          rating: ratingFilter === 'all' ? undefined : Number(ratingFilter),
+          replied: replyStatusFilter === 'all' ? undefined : replyStatusFilter === 'answered',
+        }
+      : undefined,
+    { skip: !selectedProductId }
+  );
   const [replyToReview, { isLoading: isReplySaving }] = useReplySellerReviewMutation();
 
   const isLoading = profileLoading || summaryLoading || productsLoading;
@@ -361,10 +377,37 @@ export default function SellerReviewsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-sm font-medium">Yorum Akışı</p>
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <p className="text-sm font-medium">Yorum Akışı</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Select value={ratingFilter} onValueChange={(value) => setRatingFilter(value as typeof ratingFilter)}>
+                        <SelectTrigger className="w-full md:w-[180px]">
+                          <SelectValue placeholder="Puana göre filtrele" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Puanlar</SelectItem>
+                          <SelectItem value="5">5 yıldız</SelectItem>
+                          <SelectItem value="4">4 yıldız</SelectItem>
+                          <SelectItem value="3">3 yıldız</SelectItem>
+                          <SelectItem value="2">2 yıldız</SelectItem>
+                          <SelectItem value="1">1 yıldız</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={replyStatusFilter} onValueChange={(value) => setReplyStatusFilter(value as typeof replyStatusFilter)}>
+                        <SelectTrigger className="w-full md:w-[200px]">
+                          <SelectValue placeholder="Yanıt durumuna göre filtrele" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Yorumlar</SelectItem>
+                          <SelectItem value="answered">Yanıtlananlar</SelectItem>
+                          <SelectItem value="unanswered">Yanıt Bekleyenler</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   {productReviews.length === 0 ? (
                     <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-                      Bu ürün için henüz metin yorumu görünmüyor.
+                      Seçili filtrelerle eşleşen yorum bulunmuyor.
                     </div>
                   ) : (
                     <div className="space-y-3">

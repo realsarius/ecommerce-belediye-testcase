@@ -38,14 +38,14 @@ import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import {
-  useGetSellerFinanceSummaryQuery,
-  useGetSellerAnalyticsSummaryQuery,
-  useGetSellerOrdersQuery,
-  useGetSellerProductsQuery,
+  useGetSellerDashboardKpiQuery,
+  useGetSellerDashboardOrderStatusDistributionQuery,
+  useGetSellerDashboardProductPerformanceQuery,
+  useGetSellerDashboardRecentOrdersQuery,
+  useGetSellerDashboardRevenueTrendQuery,
   useGetSellerProfileQuery,
 } from '@/features/seller/sellerApi';
 import type { OrderStatus } from '@/features/orders/types';
-import { formatShortDate } from '@/lib/dashboardLayout';
 
 const chartColors = ['#f59e0b', '#10b981', '#6366f1', '#8b5cf6', '#ef4444', '#06b6d4'];
 
@@ -105,82 +105,61 @@ function getOrderStatusTone(status: OrderStatus) {
 export default function SellerDashboard() {
   const { data: profile, isLoading: profileLoading } = useGetSellerProfileQuery();
   const shouldSkipProtectedQueries = profileLoading || !profile;
-  const { data: summary, isLoading: summaryLoading } = useGetSellerAnalyticsSummaryQuery(undefined, {
+  const pollingOptions = {
     skip: shouldSkipProtectedQueries,
-  });
-  const { data: financeSummary, isLoading: financeLoading } = useGetSellerFinanceSummaryQuery(30, {
-    skip: shouldSkipProtectedQueries,
-  });
-  const { data: sellerOrders = [], isLoading: ordersLoading } = useGetSellerOrdersQuery(undefined, {
-    skip: shouldSkipProtectedQueries,
-  });
-  const { data: sellerProducts, isLoading: productsLoading } = useGetSellerProductsQuery(
-    { page: 1, pageSize: 6 },
-    { skip: shouldSkipProtectedQueries }
+    pollingInterval: 60000,
+  } as const;
+  const { data: dashboardKpi, isLoading: kpiLoading } = useGetSellerDashboardKpiQuery(30, pollingOptions);
+  const { data: revenueTrend = [], isLoading: revenueTrendLoading } = useGetSellerDashboardRevenueTrendQuery(
+    { period: 'daily' },
+    pollingOptions
   );
+  const { data: orderStatusDistribution = [], isLoading: statusLoading } =
+    useGetSellerDashboardOrderStatusDistributionQuery(undefined, pollingOptions);
+  const { data: productPerformance = [], isLoading: productPerformanceLoading } =
+    useGetSellerDashboardProductPerformanceQuery(5, pollingOptions);
+  const { data: recentOrders = [], isLoading: recentOrdersLoading } =
+    useGetSellerDashboardRecentOrdersQuery(5, pollingOptions);
 
-  const isLoading = profileLoading || summaryLoading || financeLoading || ordersLoading || productsLoading;
+  const isLoading =
+    profileLoading ||
+    kpiLoading ||
+    revenueTrendLoading ||
+    statusLoading ||
+    productPerformanceLoading ||
+    recentOrdersLoading;
 
   const dashboardData = useMemo(() => {
-    const currency = financeSummary?.currency || summary?.currency || 'TRY';
-    const recentOrders = [...sellerOrders]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 5);
+    const currency = dashboardKpi?.currency || 'TRY';
 
-    const financeTrend = financeSummary?.dailyTrend ?? [];
-    const monthlyRevenue = financeSummary?.grossSales ?? 0;
-    const netRevenue = financeSummary?.netEarnings ?? 0;
-    const commissionRate = financeSummary?.commissionRate ?? 0;
-    const midpoint = Math.ceil(financeTrend.length / 2);
-    const previousWindowRevenue = financeTrend
-      .slice(0, midpoint)
-      .reduce((sum, point) => sum + point.grossSales, 0);
-    const currentWindowRevenue = financeTrend
-      .slice(midpoint)
-      .reduce((sum, point) => sum + point.grossSales, 0);
-    const revenueDelta = previousWindowRevenue === 0
-      ? currentWindowRevenue === 0 ? 0 : 100
-      : ((currentWindowRevenue - previousWindowRevenue) / previousWindowRevenue) * 100;
-
-    const productPerformance = [...(sellerProducts?.items ?? [])]
-      .sort((a, b) => {
-        if (b.wishlistCount !== a.wishlistCount) {
-          return b.wishlistCount - a.wishlistCount;
-        }
-
-        if (b.reviewCount !== a.reviewCount) {
-          return b.reviewCount - a.reviewCount;
-        }
-
-        return b.stockQuantity - a.stockQuantity;
-      })
-      .slice(0, 5);
-
-    const orderStatusDistribution = Object.entries(orderStatusLabels).map(([status, label], index) => ({
+    const distribution = Object.entries(orderStatusLabels).map(([status, label], index) => ({
       name: label,
-      value: sellerOrders.filter((order) => order.status === status).length,
+      value: orderStatusDistribution.find((item) => item.status === status)?.count ?? 0,
       fill: chartColors[index % chartColors.length],
     }));
 
-    const trendSeries = financeTrend.map((point) => ({
-      label: formatShortDate(point.date),
-      revenue: point.grossSales,
+    const trendSeries = revenueTrend.map((point) => ({
+      label: point.label,
+      revenue: point.revenue,
       orders: point.orders,
     }));
 
     return {
       currency,
-      commissionRate,
-      monthlyRevenue,
-      netRevenue,
-      revenueDelta,
+      commissionRate: dashboardKpi?.commissionRate ?? 0,
+      monthlyRevenue: dashboardKpi?.revenue ?? 0,
+      netRevenue: dashboardKpi?.netEarnings ?? 0,
+      revenueDelta: dashboardKpi?.revenueDelta ?? 0,
       recentOrders,
       productPerformance,
-      orderStatusDistribution,
-      totalOrders: sellerOrders.length,
+      orderStatusDistribution: distribution,
+      totalOrders: dashboardKpi?.totalOrders ?? 0,
+      completedOrders: dashboardKpi?.completedOrdersInPeriod ?? 0,
+      averageRating: dashboardKpi?.averageRating ?? 0,
+      reviewCount: dashboardKpi?.reviewCount ?? 0,
       trendSeries,
     };
-  }, [financeSummary, sellerOrders, sellerProducts?.items, summary?.currency]);
+  }, [dashboardKpi, orderStatusDistribution, productPerformance, recentOrders, revenueTrend]);
 
   if (isLoading) {
     return (
@@ -260,15 +239,15 @@ export default function SellerDashboard() {
         <KpiCard
           title="Toplam Sipariş"
           value={dashboardData.totalOrders.toLocaleString('tr-TR')}
-          helperText={`${summary?.successfulOrderCount ?? 0} adet başarılı sipariş tamamlandı.`}
+          helperText={`Son ${dashboardKpi?.periodDays ?? 30} günde ${dashboardData.completedOrders.toLocaleString('tr-TR')} sipariş teslim edildi.`}
           icon={ShoppingBag}
           accentClass="text-sky-600 dark:text-sky-300"
           surfaceClass="bg-sky-500/10"
         />
         <KpiCard
           title="Ortalama Ürün Puanı"
-          value={summary ? `${summary.averageRating.toFixed(1)} / 5` : '-'}
-          helperText={`${summary?.reviewCount ?? 0} değerlendirme üzerinden hesaplandı.`}
+          value={`${dashboardData.averageRating.toFixed(1)} / 5`}
+          helperText={`${dashboardData.reviewCount.toLocaleString('tr-TR')} değerlendirme üzerinden hesaplandı.`}
           icon={Star}
           accentClass="text-violet-600 dark:text-violet-300"
           surfaceClass="bg-violet-500/10"
@@ -351,7 +330,7 @@ export default function SellerDashboard() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <DataTable
           title="Ürün Performans Görünümü"
-          description="Wishlist, değerlendirme ve stok sinyallerine göre öne çıkan ürünler."
+          description="Satış adedi, ciro ve stok görünümüne göre öne çıkan ürünler."
           actions={(
             <Button variant="ghost" size="sm" asChild>
               <Link to="/seller/products">
@@ -365,8 +344,8 @@ export default function SellerDashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ürün</TableHead>
-                  <TableHead>Fiyat</TableHead>
-                  <TableHead>Favori</TableHead>
+                  <TableHead>Ciro</TableHead>
+                  <TableHead>Satış</TableHead>
                   <TableHead>Puan</TableHead>
                   <TableHead>Stok</TableHead>
                   <TableHead className="text-right">Aksiyon</TableHead>
@@ -374,18 +353,16 @@ export default function SellerDashboard() {
               </TableHeader>
               <TableBody>
                 {dashboardData.productPerformance.map((product) => (
-                  <TableRow key={product.id}>
+                  <TableRow key={product.productId}>
                     <TableCell>
                       <div className="space-y-1">
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">{product.categoryName}</p>
+                        <p className="font-medium">{product.productName}</p>
+                        <p className="text-xs text-muted-foreground">{product.categoryName || 'Kategori bilgisi bekleniyor'}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{formatCurrency(product.price, product.currency)}</TableCell>
-                    <TableCell>{product.wishlistCount.toLocaleString('tr-TR')}</TableCell>
-                    <TableCell>
-                      {product.reviewCount > 0 ? `${product.averageRating.toFixed(1)} / 5` : 'Henüz yok'}
-                    </TableCell>
+                    <TableCell>{formatCurrency(product.revenue, product.currency)}</TableCell>
+                    <TableCell>{product.unitsSold.toLocaleString('tr-TR')}</TableCell>
+                    <TableCell>{product.averageRating > 0 ? `${product.averageRating.toFixed(1)} / 5` : 'Henüz yok'}</TableCell>
                     <TableCell>
                       <StatusBadge
                         label={String(product.stockQuantity)}
@@ -400,7 +377,7 @@ export default function SellerDashboard() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/seller/products/${product.id}`}>Düzenle</Link>
+                        <Link to={`/seller/products/${product.productId}`}>Düzenle</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -438,14 +415,14 @@ export default function SellerDashboard() {
               </TableHeader>
               <TableBody>
                 {dashboardData.recentOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">#{order.orderNumber || order.id}</TableCell>
+                  <TableRow key={order.orderId}>
+                    <TableCell className="font-medium">#{order.orderNumber || order.orderId}</TableCell>
                     <TableCell>{maskCustomerName(order.customerName)}</TableCell>
                     <TableCell>{formatCurrency(order.totalAmount, order.currency || dashboardData.currency)}</TableCell>
                     <TableCell>
                       <StatusBadge
-                        label={orderStatusLabels[order.status]}
-                        tone={getOrderStatusTone(order.status)}
+                        label={orderStatusLabels[order.status as OrderStatus]}
+                        tone={getOrderStatusTone(order.status as OrderStatus)}
                       />
                     </TableCell>
                     <TableCell className="text-right">

@@ -14,6 +14,11 @@ import type {
   CreateSellerProfileRequest,
   UpdateSellerProfileRequest,
   HasProfileResponse,
+  SellerDashboardKpi,
+  SellerDashboardOrderStatusDistributionItem,
+  SellerDashboardProductPerformanceItem,
+  SellerDashboardRecentOrder,
+  SellerDashboardRevenueTrendPoint,
   SellerAnalyticsSummary,
   SellerAnalyticsTrendPoint,
   SellerFinanceSummary,
@@ -59,6 +64,48 @@ export const sellerApi = baseApi.injectEndpoints({
     getSellerAnalyticsSummary: builder.query<SellerAnalyticsSummary, void>({
       query: () => '/seller/analytics/summary',
       transformResponse: (response: { data: SellerAnalyticsSummary }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerDashboardKpi: builder.query<SellerDashboardKpi, number | void>({
+      query: (days = 30) => ({
+        url: '/seller/dashboard/kpi',
+        params: { days },
+      }),
+      transformResponse: (response: { data: SellerDashboardKpi }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerDashboardRevenueTrend: builder.query<SellerDashboardRevenueTrendPoint[], { period?: 'daily' | 'weekly' | 'monthly' } | void>({
+      query: (params) => ({
+        url: '/seller/dashboard/revenue-trend',
+        params: params ?? undefined,
+      }),
+      transformResponse: (response: { data: SellerDashboardRevenueTrendPoint[] }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerDashboardOrderStatusDistribution: builder.query<SellerDashboardOrderStatusDistributionItem[], void>({
+      query: () => '/seller/dashboard/order-status-distribution',
+      transformResponse: (response: { data: SellerDashboardOrderStatusDistributionItem[] }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerDashboardProductPerformance: builder.query<SellerDashboardProductPerformanceItem[], number | void>({
+      query: (take = 5) => ({
+        url: '/seller/dashboard/product-performance',
+        params: { take },
+      }),
+      transformResponse: (response: { data: SellerDashboardProductPerformanceItem[] }) => response.data,
+      providesTags: ['SellerAnalytics'],
+    }),
+
+    getSellerDashboardRecentOrders: builder.query<SellerDashboardRecentOrder[], number | void>({
+      query: (take = 5) => ({
+        url: '/seller/dashboard/recent-orders',
+        params: { take },
+      }),
+      transformResponse: (response: { data: SellerDashboardRecentOrder[] }) => response.data,
       providesTags: ['SellerAnalytics'],
     }),
 
@@ -140,6 +187,15 @@ export const sellerApi = baseApi.injectEndpoints({
       invalidatesTags: ['SellerProducts', 'Products'],
     }),
 
+    getSellerReviews: builder.query<ProductReviewDto[], { productId?: number; rating?: number; replied?: boolean } | void>({
+      query: (params) => ({
+        url: '/seller/reviews',
+        params: params ?? undefined,
+      }),
+      transformResponse: (response: { data: ProductReviewDto[] }) => response.data,
+      providesTags: ['Reviews'],
+    }),
+
     replySellerReview: builder.mutation<ProductReviewDto, { reviewId: number; data: SellerReviewReplyRequest; productId: number }>({
       query: ({ reviewId, data }) => ({
         url: `/seller/reviews/${reviewId}/reply`,
@@ -162,6 +218,11 @@ export const {
   useCreateSellerProfileMutation,
   useUpdateSellerProfileMutation,
   useGetSellerAnalyticsSummaryQuery,
+  useGetSellerDashboardKpiQuery,
+  useGetSellerDashboardRevenueTrendQuery,
+  useGetSellerDashboardOrderStatusDistributionQuery,
+  useGetSellerDashboardProductPerformanceQuery,
+  useGetSellerDashboardRecentOrdersQuery,
   useGetSellerAnalyticsTrendsQuery,
   useGetSellerFinanceSummaryQuery,
   useGetSellerOrdersQuery,
@@ -171,5 +232,6 @@ export const {
   useCreateSellerProductMutation,
   useUpdateSellerProductMutation,
   useDeleteSellerProductMutation,
+  useGetSellerReviewsQuery,
   useReplySellerReviewMutation,
 } = sellerApi;
