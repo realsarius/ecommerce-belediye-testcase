@@ -61,6 +61,7 @@ public class SeedRunner
     {
         await SeedRolesAsync();
         await SeedUsersAsync();
+        await SeedSellerProfilesAsync();
         await SeedShippingAddressesAsync();
         
         await SeedCategoriesAsync();
@@ -287,6 +288,62 @@ public class SeedRunner
         _logger.LogInformation("✅ {Count} kullanıcı eklendi.", insertedCount);
     }
 
+    private async Task SeedSellerProfilesAsync()
+    {
+        var sellerProfilesData = new[]
+        {
+            new
+            {
+                Id = 1,
+                UserId = 3,
+                BrandName = "Test Seller Store",
+                BrandDescription = "Seed satıcı profili",
+                ContactEmail = "testseller@test.com",
+                ContactPhone = "5550000000",
+                WebsiteUrl = "https://example.com",
+                IsVerified = true
+            }
+        };
+
+        var existingProfileIds = (await _context.SellerProfiles.AsNoTracking().Select(x => x.Id).ToListAsync()).ToHashSet();
+        var existingUserIds = (await _context.SellerProfiles.AsNoTracking().Select(x => x.UserId).ToListAsync()).ToHashSet();
+
+        var insertedCount = 0;
+        foreach (var profile in sellerProfilesData)
+        {
+            if (existingProfileIds.Contains(profile.Id) || existingUserIds.Contains(profile.UserId))
+            {
+                continue;
+            }
+
+            await _context.Database.ExecuteSqlRawAsync(
+                @"INSERT INTO ""TBL_SellerProfiles"" (""Id"", ""UserId"", ""BrandName"", ""BrandDescription"", ""ContactEmail"", ""ContactPhone"", ""WebsiteUrl"", ""IsVerified"", ""CreatedAt"", ""UpdatedAt"")
+                  VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9})",
+                profile.Id,
+                profile.UserId,
+                profile.BrandName,
+                profile.BrandDescription,
+                profile.ContactEmail,
+                profile.ContactPhone,
+                profile.WebsiteUrl,
+                profile.IsVerified,
+                DateTime.UtcNow,
+                DateTime.UtcNow);
+
+            insertedCount++;
+            existingProfileIds.Add(profile.Id);
+            existingUserIds.Add(profile.UserId);
+        }
+
+        if (insertedCount == 0)
+        {
+            _logger.LogInformation("🏪 Satıcı profilleri zaten mevcut, atlanıyor...");
+            return;
+        }
+
+        _logger.LogInformation("✅ {Count} satıcı profili eklendi.", insertedCount);
+    }
+
     private async Task SeedShippingAddressesAsync()
     {
         if (await _context.ShippingAddresses.AnyAsync())
@@ -328,6 +385,7 @@ public class SeedRunner
             "TBL_Categories", 
             "TBL_Products", 
             "TBL_Roles", 
+            "TBL_SellerProfiles",
             "TBL_Users", 
             "TBL_ShippingAddresses" 
         };

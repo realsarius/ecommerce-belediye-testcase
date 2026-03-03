@@ -21,6 +21,33 @@ public class SellerProfileConfiguration : IEntityTypeConfiguration<SellerProfile
         
         builder.Property(sp => sp.LogoUrl)
             .HasMaxLength(500);
+
+        builder.Property(sp => sp.BannerImageUrl)
+            .HasMaxLength(500);
+
+        builder.Property(sp => sp.ContactEmail)
+            .HasMaxLength(200);
+
+        builder.Property(sp => sp.ContactPhone)
+            .HasMaxLength(50);
+
+        builder.Property(sp => sp.WebsiteUrl)
+            .HasMaxLength(500);
+
+        builder.Property(sp => sp.InstagramUrl)
+            .HasMaxLength(500);
+
+        builder.Property(sp => sp.FacebookUrl)
+            .HasMaxLength(500);
+
+        builder.Property(sp => sp.XUrl)
+            .HasMaxLength(500);
+
+        builder.Property(sp => sp.CommissionRateOverride)
+            .HasPrecision(5, 2);
+
+        builder.Property(sp => sp.ApplicationReviewNote)
+            .HasMaxLength(1000);
         
         builder.Property(sp => sp.IsVerified)
             .HasDefaultValue(false);

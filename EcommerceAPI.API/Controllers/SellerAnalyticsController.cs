@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +7,7 @@ namespace EcommerceAPI.API.Controllers;
 [ApiController]
 [Route("api/v1/seller/analytics")]
 [Authorize(Roles = "Seller")]
-public class SellerAnalyticsController : ControllerBase
+public class SellerAnalyticsController : SellerApiControllerBase
 {
     private readonly ISellerAnalyticsService _sellerAnalyticsService;
     private readonly ISellerProfileService _sellerProfileService;
@@ -24,48 +23,51 @@ public class SellerAnalyticsController : ControllerBase
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary()
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _sellerAnalyticsService.GetSummaryAsync(sellerId.Value);
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-
-        return BadRequest(result);
+        var result = await _sellerAnalyticsService.GetSummaryAsync(sellerContext.SellerProfileId.Value);
+        return HandleResult(result);
     }
 
     [HttpGet("trends")]
     public async Task<IActionResult> GetTrends([FromQuery] int days = 30)
     {
-        var sellerId = await ResolveSellerIdAsync();
-        if (sellerId == null)
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return BadRequest(new { message = "Satıcı profili bulunamadı." });
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var result = await _sellerAnalyticsService.GetTrendAsync(sellerId.Value, days);
-        if (result.Success)
-        {
-            return Ok(result);
-        }
-
-        return BadRequest(result);
+        var result = await _sellerAnalyticsService.GetTrendAsync(sellerContext.SellerProfileId.Value, days);
+        return HandleResult(result);
     }
 
-    private async Task<int?> ResolveSellerIdAsync()
+    [HttpGet("finance")]
+    public async Task<IActionResult> GetFinance([FromQuery] int days = 30, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+        var sellerContext = await GetSellerContextAsync(_sellerProfileService);
+        if (sellerContext == null)
         {
-            return null;
+            return InvalidSellerSession();
+        }
+        if (sellerContext.SellerProfileId == null)
+        {
+            return MissingSellerProfile();
         }
 
-        var profileResult = await _sellerProfileService.GetByUserIdAsync(userId);
-        return profileResult.Success ? profileResult.Data?.Id : null;
+        var result = await _sellerAnalyticsService.GetFinanceSummaryAsync(sellerContext.SellerProfileId.Value, days, from, to);
+        return HandleResult(result);
     }
 }

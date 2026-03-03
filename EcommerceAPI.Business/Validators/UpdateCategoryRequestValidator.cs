@@ -13,5 +13,13 @@ public class UpdateCategoryRequestValidator : AbstractValidator<UpdateCategoryRe
 
         RuleFor(x => x.Description)
             .MaximumLength(1000).WithMessage("Açıklama en fazla 1000 karakter olabilir");
+
+        RuleFor(x => x.ParentCategoryId)
+            .GreaterThan(0).WithMessage("Geçersiz üst kategori seçimi")
+            .When(x => x.ParentCategoryId.HasValue);
+
+        RuleFor(x => x.SortOrder)
+            .GreaterThanOrEqualTo(0).WithMessage("Sıralama 0 veya daha büyük olmalıdır")
+            .When(x => x.SortOrder.HasValue);
     }
 }

@@ -43,7 +43,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSuccess, on
                 data: { rating, comment },
             }).unwrap();
 
-            toast.success('Değerlendirmeniz başarıyla eklendi!');
+            toast.success('Değerlendirmeniz alındı. Moderasyon sonrası yayınlanacaktır.');
             setRating(0);
             setComment('');
             if (onSuccess) onSuccess();

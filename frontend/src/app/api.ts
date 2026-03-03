@@ -124,6 +124,7 @@ export const baseApi = createApi({
     'CreditCards',
     'Coupons',
     'Coupon',
+    'Campaigns',
     'SellerProfile',
     'SellerProducts',
     'SellerAnalytics',
@@ -140,6 +141,9 @@ export const baseApi = createApi({
     'GiftCards',
     'GiftCard',
     'Referrals',
+    'Reviews',
+    'Users',
+    'Announcements',
   ],
   endpoints: () => ({}),
 });

@@ -130,6 +130,21 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
                             <div className="mt-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
                                 {review.comment}
                             </div>
+                            {review.sellerReply ? (
+                                <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                            Satıcı Yanıtı
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            {review.sellerRepliedAt ? dayjs(review.sellerRepliedAt).format('DD.MM.YYYY') : ''}
+                                        </p>
+                                    </div>
+                                    <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                                        {review.sellerReply}
+                                    </p>
+                                </div>
+                            ) : null}
                         </div>
                     ))
                 )}

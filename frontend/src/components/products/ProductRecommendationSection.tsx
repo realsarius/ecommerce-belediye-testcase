@@ -93,8 +93,16 @@ export function ProductRecommendationSection({
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex h-28 items-center justify-center rounded-2xl border border-border/60 bg-muted/30">
-                  <Package className="h-10 w-10 text-muted-foreground" />
+                <div className="flex h-28 items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/30">
+                  {product.primaryImageUrl ? (
+                    <img
+                      src={product.primaryImageUrl}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Package className="h-10 w-10 text-muted-foreground" />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <h3 className="line-clamp-2 font-semibold">{product.name}</h3>

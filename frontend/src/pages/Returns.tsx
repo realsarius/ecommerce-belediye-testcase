@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
+import { getOrderStatusLabel } from '@/lib/orderStatus';
 
 const returnStatusLabels: Record<ReturnRequestStatus, string> = {
   Pending: 'İnceleniyor',
@@ -40,16 +41,6 @@ const returnStatusColors: Record<ReturnRequestStatus, string> = {
 const requestTypeLabels: Record<ReturnRequestType, string> = {
   Return: 'İade',
   Cancellation: 'İptal',
-};
-
-const orderStatusLabels: Record<OrderStatus, string> = {
-  PendingPayment: 'Ödeme Bekleniyor',
-  Paid: 'Ödendi',
-  Processing: 'Hazırlanıyor',
-  Shipped: 'Kargoya Verildi',
-  Delivered: 'Teslim Edildi',
-  Cancelled: 'İptal Edildi',
-  Refunded: 'İade Edildi',
 };
 
 function getEligibleRequestType(orderStatus: OrderStatus): ReturnRequestType | null {
@@ -176,7 +167,7 @@ export default function Returns() {
                     <SelectContent>
                       {eligibleOrders.map((order) => (
                         <SelectItem key={order.id} value={order.id.toString()}>
-                          {order.orderNumber ? `${order.orderNumber} · ` : ''}#{order.id} · {orderStatusLabels[order.status]}
+                          {order.orderNumber ? `${order.orderNumber} · ` : ''}#{order.id} · {getOrderStatusLabel(order.status)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -200,7 +191,7 @@ export default function Returns() {
                       {selectedOrder.orderNumber ? `${selectedOrder.orderNumber} · ` : ''}#{selectedOrder.id}
                     </p>
                     <p className="mt-2 text-muted-foreground">
-                      Durum: <span className="font-medium text-foreground">{orderStatusLabels[selectedOrder.status]}</span>
+                      Durum: <span className="font-medium text-foreground">{getOrderStatusLabel(selectedOrder.status)}</span>
                     </p>
                     <p className="mt-1 text-muted-foreground">
                       Tutar: <span className="font-medium text-foreground">{selectedOrder.totalAmount.toLocaleString('tr-TR')} {selectedOrder.currency ?? 'TRY'}</span>

@@ -1,4 +1,4 @@
-export type NotificationType = 'Wishlist' | 'Order' | 'Campaign' | 'Support' | 'Refund';
+export type NotificationType = 'Wishlist' | 'Order' | 'Campaign' | 'Support' | 'Refund' | 'Announcement';
 
 export interface NotificationItem {
   id: number;

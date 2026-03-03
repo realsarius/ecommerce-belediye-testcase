@@ -14,45 +14,30 @@ import { toast } from 'sonner';
 import { useLoginMutation } from '@/features/auth/authApi';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { logout, setCredentials } from '@/features/auth/authSlice';
+import { seedTestUsers } from '@/lib/testUsers';
 
-const testUsers = [
-  {
-    role: 'Admin',
-    email: 'testadmin@test.com',
-    password: 'Test123!',
-    description: 'Tüm yetkilere sahip yönetici hesabı',
+const roleMeta = {
+  Admin: {
     icon: Shield,
     color: 'bg-red-500',
     hoverColor: 'hover:bg-red-600',
   },
-  {
-    role: 'Seller',
-    email: 'testseller@test.com',
-    password: 'Test123!',
-    description: 'Satıcı hesabı - Ürün ve sipariş yönetimi',
+  Seller: {
     icon: Store,
     color: 'bg-amber-500',
     hoverColor: 'hover:bg-amber-600',
   },
-  {
-    role: 'Support',
-    email: 'support@test.com',
-    password: 'Test123!',
-    description: 'Canlı destek temsilcisi hesabı',
+  Support: {
     icon: MessageSquare,
     color: 'bg-emerald-500',
     hoverColor: 'hover:bg-emerald-600',
   },
-  {
-    role: 'Customer',
-    email: 'customer@test.com',
-    password: 'Test123!',
-    description: 'Standart müşteri hesabı',
+  Customer: {
     icon: ShoppingBag,
     color: 'bg-blue-500',
     hoverColor: 'hover:bg-blue-600',
   },
-];
+} as const;
 
 interface TestUsersDialogProps {
   open: boolean;
@@ -133,8 +118,9 @@ export function TestUsersDialog({ open, onOpenChange }: TestUsersDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {testUsers.map((user, index) => {
-            const Icon = user.icon;
+          {seedTestUsers.map((user, index) => {
+            const meta = roleMeta[user.role];
+            const Icon = meta.icon;
             const isLoggingIn = loggingInIndex === index;
             
             return (
@@ -144,11 +130,11 @@ export function TestUsersDialog({ open, onOpenChange }: TestUsersDialogProps) {
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${user.color}`}>
+                    <div className={`p-2 rounded-lg ${meta.color}`}>
                       <Icon className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <Badge className={`${user.color} text-white`}>
+                      <Badge className={`${meta.color} text-white`}>
                         {user.role}
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -160,7 +146,7 @@ export function TestUsersDialog({ open, onOpenChange }: TestUsersDialogProps) {
                   {/* Quick Login Button */}
                   <Button
                     size="sm"
-                    className={`${user.color} ${user.hoverColor} text-white`}
+                    className={`${meta.color} ${meta.hoverColor} text-white`}
                     onClick={() => handleQuickLogin(user.email, user.password, user.role, index)}
                     disabled={isLoggingIn}
                   >

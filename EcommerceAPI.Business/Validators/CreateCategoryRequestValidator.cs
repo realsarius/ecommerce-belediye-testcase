@@ -13,5 +13,9 @@ public class CreateCategoryRequestValidator : AbstractValidator<CreateCategoryRe
 
         RuleFor(x => x.Description)
             .MaximumLength(1000).WithMessage("Açıklama en fazla 1000 karakter olabilir");
+
+        RuleFor(x => x.ParentCategoryId)
+            .GreaterThan(0).WithMessage("Geçersiz üst kategori seçimi")
+            .When(x => x.ParentCategoryId.HasValue);
     }
 }

@@ -1,6 +1,7 @@
 using EcommerceAPI.Core.DataAccess.EntityFramework;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.DTOs;
 using Microsoft.EntityFrameworkCore;
 
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
@@ -18,6 +19,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
     {
         var query = _dbSet.Include(p => p.Category)
                           .Include(p => p.Inventory)
+                          .Include(p => p.Images)
+                          .Include(p => p.Variants)
                           .Include(p => p.CampaignProducts)
                           .ThenInclude(cp => cp.Campaign)
                           .AsNoTracking()
@@ -76,6 +79,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
     public async Task<List<Product>> GetByIdsWithInventoryAsync(List<int> ids)
     {
         return await _dbSet.Include(p => p.Inventory)
+                           .Include(p => p.Images)
+                           .Include(p => p.Variants)
                            .Include(p => p.CampaignProducts)
                            .ThenInclude(cp => cp.Campaign)
                            .Include(p => p.Category)
@@ -89,9 +94,20 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         return await _dbSet
             .Include(p => p.Category)
             .Include(p => p.Inventory)
+            .Include(p => p.Images)
+            .Include(p => p.Variants)
             .Include(p => p.CampaignProducts)
             .ThenInclude(cp => cp.Campaign)
             .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<Product?> GetByIdForUpdateAsync(int id)
+    {
+        return await _dbSet
+            .Include(p => p.Inventory)
+            .Include(p => p.Images)
+            .Include(p => p.Variants)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
@@ -102,6 +118,8 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
         var query = _dbSet.Include(p => p.Category)
                           .Include(p => p.Inventory)
                           .Include(p => p.Seller)
+                          .Include(p => p.Images)
+                          .Include(p => p.Variants)
                           .Include(p => p.CampaignProducts)
                           .ThenInclude(cp => cp.Campaign)
                           .Where(p => p.SellerId == sellerId)
@@ -147,10 +165,50 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .Include(p => p.Category)
             .Include(p => p.Inventory)
             .Include(p => p.Seller)
+            .Include(p => p.Images)
+            .Include(p => p.Variants)
             .Include(p => p.CampaignProducts)
             .ThenInclude(cp => cp.Campaign)
             .Where(p => p.IsActive)
             .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<(int ActiveProducts, int ActiveSellers, string Currency)> GetAdminDashboardProductSummaryAsync()
+    {
+        var activeProductsQuery = _dbSet
+            .AsNoTracking()
+            .Where(product => product.IsActive);
+
+        var activeProducts = await activeProductsQuery.CountAsync();
+        var activeSellers = await activeProductsQuery
+            .Where(product => product.SellerId.HasValue)
+            .Select(product => product.SellerId!.Value)
+            .Distinct()
+            .CountAsync();
+        var currency = await activeProductsQuery
+            .Select(product => product.Currency)
+            .FirstOrDefaultAsync()
+            ?? "TRY";
+
+        return (activeProducts, activeSellers, currency);
+    }
+
+    public async Task<IReadOnlyList<AdminDashboardLowStockItemDto>> GetAdminDashboardLowStockAsync(int threshold, int limit = 5)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Where(product => product.IsActive && product.Inventory != null && product.Inventory.QuantityAvailable <= threshold)
+            .OrderBy(product => product.Inventory != null ? product.Inventory.QuantityAvailable : int.MaxValue)
+            .ThenBy(product => product.Name)
+            .Select(product => new AdminDashboardLowStockItemDto
+            {
+                ProductId = product.Id,
+                Name = product.Name,
+                Stock = product.Inventory != null ? product.Inventory.QuantityAvailable : 0,
+                SellerName = product.Seller != null ? product.Seller.BrandName : "Satıcı bilgisi yok"
+            })
+            .Take(Math.Clamp(limit, 1, 20))
             .ToListAsync();
     }
 

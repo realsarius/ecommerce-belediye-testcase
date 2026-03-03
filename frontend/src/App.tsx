@@ -57,18 +57,32 @@ const SellerRegister = lazy(() => import('@/pages/SellerRegister'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
+const AdminUsersPage = lazy(() => import('@/pages/admin/UsersPage'));
+const AdminUserDetailPage = lazy(() => import('@/pages/admin/UserDetailPage'));
 const AdminProducts = lazy(() => import('@/pages/admin/ProductsAdmin'));
 const ProductForm = lazy(() => import('@/pages/admin/ProductForm'));
 const AdminCategories = lazy(() => import('@/pages/admin/CategoriesAdmin'));
 const AdminOrders = lazy(() => import('@/pages/admin/OrdersAdmin'));
+const AdminOrderDetailPage = lazy(() => import('@/pages/admin/OrderDetailPage'));
+const AdminReturnsPage = lazy(() => import('@/pages/admin/ReturnsPage'));
+const AdminSellersPage = lazy(() => import('@/pages/admin/SellersPage'));
+const AdminSellerDetailPage = lazy(() => import('@/pages/admin/SellerDetailPage'));
+const AdminSupportPage = lazy(() => import('@/pages/admin/SupportPage'));
+const AdminFinancePage = lazy(() => import('@/pages/admin/FinancePage'));
 const AdminCoupons = lazy(() => import('@/pages/admin/CouponsAdmin'));
+const AdminReviewsPage = lazy(() => import('@/pages/admin/ReviewsPage'));
 const AdminGiftCards = lazy(() => import('@/pages/admin/GiftCardsAdmin'));
+const AdminAnnouncementsPage = lazy(() => import('@/pages/admin/AnnouncementsPage'));
 const AdminNotificationTemplates = lazy(() => import('@/pages/admin/NotificationTemplatesAdmin'));
+const AdminSystemHealthPage = lazy(() => import('@/pages/admin/SystemHealthPage'));
 
 // Seller pages
 const SellerDashboard = lazy(() => import('@/pages/seller/Dashboard'));
 const SellerProducts = lazy(() => import('@/pages/seller/Products'));
 const SellerProductForm = lazy(() => import('@/pages/seller/ProductForm'));
+const SellerOrders = lazy(() => import('@/pages/seller/Orders'));
+const SellerFinancePage = lazy(() => import('@/pages/seller/Finance'));
+const SellerReviewsPage = lazy(() => import('@/pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('@/pages/seller/Profile'));
 
 function App() {
@@ -231,14 +245,26 @@ function App() {
                     }
                   >
                     <Route index element={<AdminDashboard />} />
+                    <Route path="dashboard" element={<AdminDashboard />} />
+                    <Route path="users" element={<AdminUsersPage />} />
+                    <Route path="users/:id" element={<AdminUserDetailPage />} />
                     <Route path="products" element={<AdminProducts />} />
                     <Route path="products/new" element={<ProductForm />} />
                     <Route path="products/:id" element={<ProductForm />} />
                     <Route path="categories" element={<AdminCategories />} />
                     <Route path="orders" element={<AdminOrders />} />
+                    <Route path="orders/:id" element={<AdminOrderDetailPage />} />
+                    <Route path="returns" element={<AdminReturnsPage />} />
+                    <Route path="sellers" element={<AdminSellersPage />} />
+                    <Route path="sellers/:id" element={<AdminSellerDetailPage />} />
+                    <Route path="support" element={<AdminSupportPage />} />
+                    <Route path="finance" element={<AdminFinancePage />} />
                     <Route path="coupons" element={<AdminCoupons />} />
+                    <Route path="reviews" element={<AdminReviewsPage />} />
                     <Route path="gift-cards" element={<AdminGiftCards />} />
+                    <Route path="announcements" element={<AdminAnnouncementsPage />} />
                     <Route path="notifications/templates" element={<AdminNotificationTemplates />} />
+                    <Route path="system" element={<AdminSystemHealthPage />} />
                   </Route>
 
                   <Route
@@ -250,9 +276,13 @@ function App() {
                     }
                   >
                     <Route index element={<SellerDashboard />} />
+                    <Route path="dashboard" element={<SellerDashboard />} />
                     <Route path="products" element={<SellerProducts />} />
                     <Route path="products/new" element={<SellerProductForm />} />
                     <Route path="products/:id" element={<SellerProductForm />} />
+                    <Route path="orders" element={<SellerOrders />} />
+                    <Route path="finance" element={<SellerFinancePage />} />
+                    <Route path="reviews" element={<SellerReviewsPage />} />
                     <Route path="profile" element={<SellerProfile />} />
                   </Route>
                 </Routes>

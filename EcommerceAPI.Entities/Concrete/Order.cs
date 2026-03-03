@@ -12,6 +12,9 @@ public class Order : BaseEntity
     public string Currency { get; set; } = "TRY";
     public string ShippingAddress { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
+    public string? CargoCompany { get; set; }
+    public string? TrackingCode { get; set; }
+    public DateTime? ShippedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     
     public int? CouponId { get; set; }

@@ -25,4 +25,7 @@ public class ProductDto : IDto
     public string? CampaignBadgeText { get; set; }
     public DateTime? CampaignEndsAt { get; set; }
     public bool IsCampaignFeatured { get; set; }
+    public string? PrimaryImageUrl { get; set; }
+    public List<ProductImageDto> Images { get; set; } = new();
+    public List<ProductVariantDto> Variants { get; set; } = new();
 }

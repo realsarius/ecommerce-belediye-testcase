@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
 import { getSiteUrl, truncateDescription } from '@/lib/seo';
 import { useGetProductQuery } from '@/features/products/productsApi';
@@ -29,6 +29,7 @@ import { buildCompareUrl, useProductCompare } from '@/features/compare';
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const productId = parseInt(id || '0');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const { data: product, isLoading, error } = useGetProductQuery(productId);
@@ -84,6 +85,7 @@ export default function ProductDetail() {
       '@type': 'Product',
       name: product.name,
       description: productDescription,
+      image: product.images?.map((image) => image.imageUrl),
       sku: product.sku,
       category: product.categoryName,
       offers: {
@@ -125,6 +127,10 @@ export default function ProductDetail() {
     const sessionId = getRecommendationSessionId();
     void trackProductView({ productId, sessionId }).unwrap().catch(() => undefined);
   }, [productId, trackProductView]);
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [product?.id]);
 
   const handleRecommendationClick = (targetProductId: number, source: 'also-viewed' | 'frequently-bought' | 'for-you') => {
     const sessionId = getRecommendationSessionId();
@@ -237,6 +243,24 @@ export default function ProductDetail() {
     );
   }
 
+  const productImages = product.images?.length
+    ? product.images
+    : product.primaryImageUrl
+      ? [{ imageUrl: product.primaryImageUrl, isPrimary: true, sortOrder: 0 }]
+      : [];
+
+  const activeImageUrl = productImages[selectedImageIndex]?.imageUrl;
+  const groupedVariants = Object.entries(
+    (product.variants ?? []).reduce<Record<string, string[]>>((acc, variant) => {
+      if (!acc[variant.name]) {
+        acc[variant.name] = [];
+      }
+
+      acc[variant.name].push(variant.value);
+      return acc;
+    }, {})
+  );
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Button variant="ghost" asChild className="mb-8">
@@ -248,8 +272,41 @@ export default function ProductDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Product Image */}
-        <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-          <Package className="h-32 w-32 text-muted-foreground" />
+        <div className="space-y-4">
+          <div className="aspect-square overflow-hidden rounded-3xl border border-border/70 bg-muted/40 flex items-center justify-center">
+            {activeImageUrl ? (
+              <img
+                src={activeImageUrl}
+                alt={product.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <Package className="h-32 w-32 text-muted-foreground" />
+            )}
+          </div>
+
+          {productImages.length > 1 ? (
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
+              {productImages.map((image, index) => (
+                <button
+                  key={`${image.imageUrl}-${index}`}
+                  type="button"
+                  className={`aspect-square overflow-hidden rounded-2xl border transition ${
+                    index === selectedImageIndex
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'border-border/60 hover:border-primary/40'
+                  }`}
+                  onClick={() => setSelectedImageIndex(index)}
+                >
+                  <img
+                    src={image.imageUrl}
+                    alt={`${product.name} gorsel ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Product Info */}
@@ -307,6 +364,29 @@ export default function ProductDetail() {
               {product.description || 'Bu ürün için açıklama bulunmamaktadır.'}
             </p>
           </div>
+
+          {groupedVariants.length > 0 ? (
+            <>
+              <Separator />
+              <div>
+                <h3 className="mb-3 font-semibold">Varyantlar</h3>
+                <div className="space-y-3">
+                  {groupedVariants.map(([name, values]) => (
+                    <div key={name} className="space-y-2">
+                      <p className="text-sm font-medium">{name}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {values.map((value) => (
+                          <Badge key={`${name}-${value}`} variant="outline">
+                            {value}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <Separator />
 

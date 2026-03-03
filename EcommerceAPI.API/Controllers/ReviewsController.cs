@@ -89,3 +89,104 @@ public class ReviewsController : BaseApiController
         return BadRequest(result);
     }
 }
+
+[ApiController]
+[Route("api/v1/admin/reviews")]
+[Authorize(Roles = "Admin")]
+public class AdminReviewsController : BaseApiController
+{
+    private readonly IProductReviewService _reviewService;
+
+    public AdminReviewsController(IProductReviewService reviewService)
+    {
+        _reviewService = reviewService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetReviews([FromQuery] string? status = null)
+    {
+        Entities.Enums.ProductReviewModerationStatus? moderationStatus = null;
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<Entities.Enums.ProductReviewModerationStatus>(status, true, out var parsedStatus))
+                return BadRequest(new { success = false, message = "Gecersiz yorum durumu." });
+
+            moderationStatus = parsedStatus;
+        }
+
+        var result = await _reviewService.GetAdminReviewsAsync(moderationStatus);
+        return HandleResult(result);
+    }
+
+    [HttpPut("{reviewId}/approve")]
+    public async Task<IActionResult> ApproveReview(int reviewId)
+    {
+        var result = await _reviewService.AdminApproveAsync(reviewId, GetUserId());
+        return HandleResult(result);
+    }
+
+    [HttpPut("{reviewId}/reject")]
+    public async Task<IActionResult> RejectReview(int reviewId, [FromBody] ReviewModerationRequest request)
+    {
+        var result = await _reviewService.AdminRejectAsync(reviewId, GetUserId(), request);
+        return HandleResult(result);
+    }
+
+    [HttpPut("bulk-approve")]
+    public async Task<IActionResult> BulkApprove([FromBody] BulkApproveReviewsRequest request)
+    {
+        var result = await _reviewService.AdminBulkApproveAsync(request.Ids, GetUserId());
+        return HandleResult(result);
+    }
+
+    private int GetUserId()
+    {
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdStr, out var userId) ? userId : 0;
+    }
+}
+
+[ApiController]
+[Route("api/v1/seller/reviews")]
+[Authorize(Roles = "Seller")]
+public class SellerReviewsController : SellerApiControllerBase
+{
+    private readonly IProductReviewService _reviewService;
+
+    public SellerReviewsController(IProductReviewService reviewService)
+    {
+        _reviewService = reviewService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetReviews([FromQuery] int? productId = null, [FromQuery] int? rating = null, [FromQuery] bool? replied = null)
+    {
+        var sellerUserId = GetCurrentUserId();
+        if (sellerUserId == null)
+        {
+            return InvalidSellerSession();
+        }
+
+        var result = await _reviewService.GetSellerReviewsAsync(
+            sellerUserId: sellerUserId.Value,
+            productId: productId,
+            rating: rating,
+            replied: replied);
+
+        return HandleResult(result);
+    }
+
+    [HttpPost("{reviewId}/reply")]
+    public async Task<IActionResult> ReplyToReview(int reviewId, [FromBody] SellerReviewReplyRequest request)
+    {
+        var sellerUserId = GetCurrentUserId();
+        if (sellerUserId == null)
+        {
+            return InvalidSellerSession();
+        }
+
+        var result = await _reviewService.SellerReplyAsync(reviewId: reviewId, sellerUserId: sellerUserId.Value, request: request);
+        return HandleResult(result);
+    }
+}

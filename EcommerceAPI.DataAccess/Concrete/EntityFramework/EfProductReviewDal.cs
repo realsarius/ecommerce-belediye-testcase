@@ -2,6 +2,7 @@ using EcommerceAPI.Core.DataAccess.EntityFramework;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceAPI.DataAccess.Concrete.EntityFramework;
@@ -19,11 +20,76 @@ public class EfProductReviewDal : EfEntityRepositoryBase<ProductReview, AppDbCon
             .FirstOrDefaultAsync(r => r.UserId == userId && r.ProductId == productId);
     }
 
-    public async Task<List<ProductReview>> GetByProductIdAsync(int productId)
+    public async Task<ProductReview?> GetByIdWithDetailsAsync(int reviewId)
     {
         return await _context.ProductReviews
             .Include(r => r.User)
-            .Where(r => r.ProductId == productId)
+            .Include(r => r.Product)
+            .FirstOrDefaultAsync(r => r.Id == reviewId);
+    }
+
+    public async Task<List<ProductReview>> GetByProductIdAsync(int productId, ProductReviewModerationStatus? moderationStatus = null)
+    {
+        var query = _context.ProductReviews
+            .Include(r => r.User)
+            .Include(r => r.Product)
+            .Where(r => r.ProductId == productId);
+
+        if (moderationStatus.HasValue)
+        {
+            query = query.Where(r => r.ModerationStatus == moderationStatus.Value);
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<ProductReview>> GetAdminListAsync(ProductReviewModerationStatus? moderationStatus = null)
+    {
+        var query = _context.ProductReviews
+            .Include(r => r.User)
+            .Include(r => r.Product)
+            .AsQueryable();
+
+        if (moderationStatus.HasValue)
+        {
+            query = query.Where(r => r.ModerationStatus == moderationStatus.Value);
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<ProductReview>> GetSellerListAsync(int sellerProfileId, int? productId = null, int? rating = null, bool? replied = null)
+    {
+        var query = _context.ProductReviews
+            .Include(r => r.User)
+            .Include(r => r.Product)
+            .Where(r => r.Product != null
+                        && r.Product.SellerId == sellerProfileId
+                        && r.ModerationStatus == ProductReviewModerationStatus.Approved)
+            .AsQueryable();
+
+        if (productId.HasValue)
+        {
+            query = query.Where(r => r.ProductId == productId.Value);
+        }
+
+        if (rating.HasValue)
+        {
+            query = query.Where(r => r.Rating == rating.Value);
+        }
+
+        if (replied.HasValue)
+        {
+            query = replied.Value
+                ? query.Where(r => !string.IsNullOrWhiteSpace(r.SellerReply))
+                : query.Where(r => string.IsNullOrWhiteSpace(r.SellerReply));
+        }
+
+        return await query
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
     }

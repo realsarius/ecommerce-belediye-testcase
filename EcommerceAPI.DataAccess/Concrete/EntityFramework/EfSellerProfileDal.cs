@@ -19,4 +19,39 @@ public class EfSellerProfileDal : EfEntityRepositoryBase<SellerProfile, AppDbCon
     {
         return await _dbSet.Include(sp => sp.User).FirstOrDefaultAsync(sp => sp.Id == id);
     }
+
+    public async Task<List<SellerProfile>> GetAdminListWithDetailsAsync()
+    {
+        return await BuildAdminSellerQuery()
+            .OrderBy(sp => sp.BrandName)
+            .ToListAsync();
+    }
+
+    public async Task<SellerProfile?> GetAdminDetailWithDetailsAsync(int id)
+    {
+        return await BuildAdminSellerQuery().FirstOrDefaultAsync(sp => sp.Id == id);
+    }
+
+    public Task<int> GetPendingApplicationCountAsync()
+    {
+        return _dbSet
+            .AsNoTracking()
+            .Where(profile => !profile.IsVerified && profile.User.AccountStatus == Entities.Enums.UserAccountStatus.Active)
+            .CountAsync();
+    }
+
+    private IQueryable<SellerProfile> BuildAdminSellerQuery()
+    {
+        return _dbSet
+            .Include(sp => sp.User)
+            .Include(sp => sp.Products)
+                .ThenInclude(product => product.Category)
+            .Include(sp => sp.Products)
+                .ThenInclude(product => product.Inventory)
+            .Include(sp => sp.Products)
+                .ThenInclude(product => product.Reviews)
+            .Include(sp => sp.Products)
+                .ThenInclude(product => product.OrderItems)
+                    .ThenInclude(orderItem => orderItem.Order);
+    }
 }

@@ -1,3 +1,5 @@
+import type { CursorPaginatedResponse } from '@/types/api';
+
 export interface WishlistItem {
     id: number;
     productId: number;
@@ -15,14 +17,10 @@ export interface WishlistItem {
     priceChangePercentage?: number;
 }
 
-export interface Wishlist {
+export interface Wishlist extends CursorPaginatedResponse<WishlistItem> {
     id: number;
     userId: number;
     activeCollectionId?: number | null;
-    limit?: number;
-    hasMore?: boolean;
-    nextCursor?: string | null;
-    items: WishlistItem[];
 }
 
 export interface WishlistShareSettings {
@@ -31,13 +29,9 @@ export interface WishlistShareSettings {
     sharePath?: string | null;
 }
 
-export interface SharedWishlist {
+export interface SharedWishlist extends CursorPaginatedResponse<WishlistItem> {
     id: number;
     ownerDisplayName: string;
-    limit?: number;
-    hasMore?: boolean;
-    nextCursor?: string | null;
-    items: WishlistItem[];
 }
 
 export interface AddWishlistItemRequest {

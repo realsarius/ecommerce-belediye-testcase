@@ -116,6 +116,19 @@ public class ProductManager : IProductService
         return new SuccessDataResult<ProductDto>(product.ToDto());
     }
 
+    public async Task<IDataResult<ProductDto>> GetProductForSellerAsync(int id, int sellerId)
+    {
+        var product = await _productDal.GetByIdWithDetailsAsync(id);
+
+        if (product == null)
+            return new ErrorDataResult<ProductDto>(Messages.ProductNotFound);
+
+        if (product.SellerId != sellerId)
+            return new ErrorDataResult<ProductDto>(Messages.AuthorizationDenied);
+
+        return new SuccessDataResult<ProductDto>(product.ToDto());
+    }
+
     [LogAspect]
     [CacheRemoveAspect("products:")]
     [TransactionScopeAspect]
@@ -127,11 +140,13 @@ public class ProductManager : IProductService
             Name = request.Name,
             Description = request.Description,
             Price = request.Price,
+            Currency = string.IsNullOrWhiteSpace(request.Currency) ? "TRY" : request.Currency.Trim().ToUpperInvariant(),
             SKU = request.SKU,
             CategoryId = request.CategoryId,
             SellerId = sellerId,
-            IsActive = true,
-            Currency = "TRY"
+            IsActive = request.IsActive,
+            Images = NormalizeImages(request.Images),
+            Variants = NormalizeVariants(request.Variants)
         };
 
         await _productDal.AddAsync(product);
@@ -169,7 +184,7 @@ public class ProductManager : IProductService
     [ValidationAspect(typeof(UpdateProductRequestValidator))]
     public async Task<IDataResult<ProductDto>> UpdateProductAsync(int id, UpdateProductRequest request, int? sellerId = null)
     {
-        var product = await _productDal.GetAsync(p => p.Id == id);
+        var product = await _productDal.GetByIdForUpdateAsync(id);
         
         if (product == null)
             return new ErrorDataResult<ProductDto>(Messages.ProductNotFound);
@@ -181,9 +196,13 @@ public class ProductManager : IProductService
         product.Name = request.Name;
         product.Description = request.Description;
         product.Price = request.Price;
+        product.Currency = string.IsNullOrWhiteSpace(request.Currency) ? "TRY" : request.Currency.Trim().ToUpperInvariant();
+        product.SKU = request.SKU;
         product.CategoryId = request.CategoryId;
         product.IsActive = request.IsActive;
         product.UpdatedAt = DateTime.UtcNow;
+        ReplaceImages(product, request.Images);
+        ReplaceVariants(product, request.Variants);
 
         _productDal.Update(product);
 
@@ -218,6 +237,158 @@ public class ProductManager : IProductService
         await _unitOfWork.SaveChangesAsync();
 
         return new SuccessDataResult<ProductDto>(updatedProduct!.ToDto(), Messages.ProductUpdated);
+    }
+
+    private static List<ProductImage> NormalizeImages(IEnumerable<ProductImageInputDto>? requestImages)
+    {
+        var normalized = (requestImages ?? [])
+            .Where(image => !string.IsNullOrWhiteSpace(image.ImageUrl))
+            .Select((image, index) => new ProductImage
+            {
+                ImageUrl = image.ImageUrl.Trim(),
+                SortOrder = image.SortOrder > 0 ? image.SortOrder : index,
+                IsPrimary = image.IsPrimary
+            })
+            .ToList();
+
+        if (normalized.Count == 0)
+        {
+            return normalized;
+        }
+
+        if (normalized.All(image => !image.IsPrimary))
+        {
+            normalized[0].IsPrimary = true;
+        }
+        else
+        {
+            var primaryIndex = normalized.FindIndex(image => image.IsPrimary);
+            for (var index = 0; index < normalized.Count; index++)
+            {
+                normalized[index].IsPrimary = index == primaryIndex;
+            }
+        }
+
+        for (var index = 0; index < normalized.Count; index++)
+        {
+            normalized[index].SortOrder = index;
+        }
+
+        return normalized;
+    }
+
+    private static List<ProductVariant> NormalizeVariants(IEnumerable<ProductVariantInputDto>? requestVariants)
+    {
+        return (requestVariants ?? [])
+            .Where(variant => !string.IsNullOrWhiteSpace(variant.Name) && !string.IsNullOrWhiteSpace(variant.Value))
+            .Select((variant, index) => new ProductVariant
+            {
+                Name = variant.Name.Trim(),
+                Value = variant.Value.Trim(),
+                SortOrder = variant.SortOrder > 0 ? variant.SortOrder : index
+            })
+            .OrderBy(variant => variant.SortOrder)
+            .ToList();
+    }
+
+    private static void ReplaceImages(Product product, IEnumerable<ProductImageInputDto>? requestImages)
+    {
+        product.Images.Clear();
+
+        foreach (var image in NormalizeImages(requestImages))
+        {
+            product.Images.Add(image);
+        }
+    }
+
+    private static void ReplaceVariants(Product product, IEnumerable<ProductVariantInputDto>? requestVariants)
+    {
+        product.Variants.Clear();
+
+        foreach (var variant in NormalizeVariants(requestVariants))
+        {
+            product.Variants.Add(variant);
+        }
+    }
+
+    [LogAspect]
+    [CacheRemoveAspect("products:")]
+    [TransactionScopeAspect]
+    public async Task<IResult> BulkUpdateProductsAsync(BulkUpdateProductsRequest request)
+    {
+        var productIds = request.Ids
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        if (productIds.Count == 0)
+        {
+            return new ErrorResult("Toplu işlem için en az bir ürün seçilmelidir.");
+        }
+
+        var normalizedAction = request.Action.Trim().ToLowerInvariant();
+        if (normalizedAction is not ("activate" or "deactivate" or "delete"))
+        {
+            return new ErrorResult("Geçersiz toplu ürün işlemi.");
+        }
+
+        var products = await _productDal.GetListAsync(product => productIds.Contains(product.Id));
+        var foundIds = products.Select(product => product.Id).ToHashSet();
+        var missingIds = productIds.Where(id => !foundIds.Contains(id)).ToList();
+
+        if (products.Count == 0)
+        {
+            return new ErrorResult(
+                "Seçili ürünlerin hiçbiri artık mevcut değil. Sayfayı yenileyip tekrar deneyin.",
+                details: new { MissingProductIds = missingIds });
+        }
+
+        var now = DateTime.UtcNow;
+        var shouldActivate = normalizedAction == "activate";
+
+        foreach (var product in products)
+        {
+            product.IsActive = shouldActivate;
+            product.UpdatedAt = now;
+            _productDal.Update(product);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            "Admin",
+            "BulkUpdateProducts",
+            "Product",
+            new
+            {
+                Action = normalizedAction,
+                ProductIds = products.Select(product => product.Id).ToList(),
+                Count = products.Count
+            });
+
+        if (missingIds.Count > 0)
+        {
+            _logger.LogWarning(
+                "Bulk product update skipped missing product ids. Action={Action}, MissingIds={MissingIds}",
+                normalizedAction,
+                missingIds);
+        }
+
+        var syncOperation = shouldActivate
+            ? ProductIndexOperations.Upsert
+            : ProductIndexOperations.Delete;
+
+        foreach (var product in products)
+        {
+            await QueueProductIndexSyncEventAsync(product.Id, syncOperation, "BulkUpdateProducts");
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return new SuccessResult(
+            missingIds.Count > 0
+                ? $"{products.Count} ürün için toplu işlem tamamlandı. {missingIds.Count} ürün artık mevcut olmadığı için atlandı."
+                : $"{products.Count} ürün için toplu işlem tamamlandı.");
     }
 
     [LogAspect]

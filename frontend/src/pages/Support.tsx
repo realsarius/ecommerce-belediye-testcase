@@ -8,6 +8,13 @@ import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/common/select';
 import { Skeleton } from '@/components/common/skeleton';
 import { Textarea } from '@/components/common/textarea';
 
@@ -30,6 +37,19 @@ import {
 } from '@/features/support/supportHub';
 
 import type { SupportConversation, SupportConversationStatus } from '@/features/support/types';
+import { Tabs, TabsList, TabsTrigger } from '@/components/common/tabs';
+import { supportAssignableUsers } from '@/lib/testUsers';
+
+type SupportConversationFilter = 'All' | SupportConversationStatus;
+
+interface SupportPageProps {
+    embedded?: boolean;
+    title?: string;
+    description?: string;
+    showRoleBadge?: boolean;
+    conversationFilter?: SupportConversationFilter;
+    onConversationFilterChange?: (value: SupportConversationFilter) => void;
+}
 
 const statusMap: Record<SupportConversationStatus, { label: string; className: string }> = {
     Open: { label: 'Açık', className: 'bg-emerald-100 text-emerald-800' },
@@ -68,7 +88,14 @@ function isHubRateLimitError(error: unknown): boolean {
     return message.includes('RATE_LIMIT_EXCEEDED');
 }
 
-export default function Support() {
+export default function Support({
+    embedded = false,
+    title = 'Canlı Destek',
+    description,
+    showRoleBadge = true,
+    conversationFilter = 'All',
+    onConversationFilterChange,
+}: SupportPageProps) {
     const { user, token, isAuthenticated } = useAppSelector((state) => state.auth);
 
     const normalizedRole = (user?.role ?? '').trim().toLowerCase();
@@ -78,6 +105,9 @@ export default function Support() {
     const isSupportOrAdmin = isSupport || isAdmin;
 
     const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
+    const [selectedSupportUserId, setSelectedSupportUserId] = useState<string>(
+        supportAssignableUsers[0] ? String(supportAssignableUsers[0].id) : ''
+    );
     const [subject, setSubject] = useState('Canlı Destek');
     const [initialMessage, setInitialMessage] = useState('');
     const [messageText, setMessageText] = useState('');
@@ -133,19 +163,27 @@ export default function Support() {
         return [];
     }, [isAdmin, isCustomer, isSupport, myConversations, queueData]);
 
-    const effectiveSelectedConversationId = useMemo<number | null>(() => {
-        if (!conversations.length) return null;
+    const visibleConversations = useMemo(() => {
+        if (conversationFilter === 'All') {
+            return conversations;
+        }
 
-        if (selectedConversationId && conversations.some((x) => x.id === selectedConversationId)) {
+        return conversations.filter((conversation) => conversation.status === conversationFilter);
+    }, [conversationFilter, conversations]);
+
+    const effectiveSelectedConversationId = useMemo<number | null>(() => {
+        if (!visibleConversations.length) return null;
+
+        if (selectedConversationId && visibleConversations.some((x) => x.id === selectedConversationId)) {
             return selectedConversationId;
         }
 
-        return conversations[0].id;
-    }, [conversations, selectedConversationId]);
+        return visibleConversations[0].id;
+    }, [visibleConversations, selectedConversationId]);
 
     const selectedConversation = useMemo(
-        () => conversations.find((x) => x.id === effectiveSelectedConversationId) ?? null,
-        [conversations, effectiveSelectedConversationId]
+        () => visibleConversations.find((x) => x.id === effectiveSelectedConversationId) ?? null,
+        [visibleConversations, effectiveSelectedConversationId]
     );
 
     const {
@@ -183,6 +221,21 @@ export default function Support() {
     useEffect(() => {
         selectedConversationIdRef.current = effectiveSelectedConversationId;
     }, [effectiveSelectedConversationId]);
+
+    useEffect(() => {
+        if (!selectedConversation) {
+            return;
+        }
+
+        if (selectedConversation.supportUserId) {
+            setSelectedSupportUserId(String(selectedConversation.supportUserId));
+            return;
+        }
+
+        if (supportAssignableUsers[0]) {
+            setSelectedSupportUserId(String(supportAssignableUsers[0].id));
+        }
+    }, [selectedConversation]);
 
     useEffect(() => {
         if (!isAuthenticated || !token) return;
@@ -312,6 +365,33 @@ export default function Support() {
         }
     };
 
+    const handleAssignToSupportUser = async () => {
+        if (!isAdmin || !effectiveSelectedConversationId) return;
+
+        const supportUserId = Number(selectedSupportUserId);
+        if (!supportUserId) {
+            toast.error('Önce bir temsilci seçin');
+            return;
+        }
+
+        try {
+            if (hubRef.current) {
+                await assignConversationRealtime(hubRef.current, effectiveSelectedConversationId, supportUserId);
+            } else {
+                await assignSupportConversation({
+                    conversationId: effectiveSelectedConversationId,
+                    body: { supportUserId },
+                }).unwrap();
+            }
+
+            await refreshConversations();
+            await refetchMessages();
+            toast.success('Görüşme seçilen temsilciye atandı');
+        } catch {
+            toast.error('Temsilci ataması yapılamadı');
+        }
+    };
+
     const handleCloseConversation = async () => {
         if (!effectiveSelectedConversationId) return;
 
@@ -336,21 +416,50 @@ export default function Support() {
             ? isMyConversationsLoading || isQueueLoading
             : isQueueLoading;
     const canAssignToMe =
-        isSupportOrAdmin &&
+        isSupport &&
         !!selectedConversation &&
         selectedConversation.status !== 'Closed' &&
         !selectedConversation.supportUserId &&
         !!user?.id;
+    const canAssignSelectedSupportUser =
+        isAdmin &&
+        !!selectedConversation &&
+        selectedConversation.status !== 'Closed' &&
+        !!selectedSupportUserId &&
+        selectedConversation.supportUserId !== Number(selectedSupportUserId);
 
     const isConversationClosed = selectedConversation?.status === 'Closed';
     const myUserId = user?.id ?? 0;
 
     return (
-        <div className="container mx-auto px-4 py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Canlı Destek</h1>
-                <Badge variant="secondary">{user?.role ?? 'Guest'}</Badge>
-            </div>
+        <div className={embedded ? 'space-y-6' : 'container mx-auto space-y-6 px-4 py-8'}>
+            {!embedded ? (
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <h1 className="text-2xl font-bold">{title}</h1>
+                        {showRoleBadge ? (
+                            <Badge variant="secondary">{user?.role ?? 'Guest'}</Badge>
+                        ) : null}
+                    </div>
+                    {description ? (
+                        <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+                    ) : null}
+                    {isSupportOrAdmin && onConversationFilterChange ? (
+                        <Tabs
+                            value={conversationFilter}
+                            onValueChange={(value) => onConversationFilterChange(value as SupportConversationFilter)}
+                            className="w-full"
+                        >
+                            <TabsList className="w-full justify-start overflow-x-auto">
+                                <TabsTrigger value="All">Tümü</TabsTrigger>
+                                <TabsTrigger value="Open">Açık</TabsTrigger>
+                                <TabsTrigger value="Assigned">Atanmış</TabsTrigger>
+                                <TabsTrigger value="Closed">Kapalı</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    ) : null}
+                </div>
+            ) : null}
 
             {isCustomer && (
                 <Card>
@@ -393,11 +502,11 @@ export default function Support() {
                                 <Skeleton className="h-14 w-full" />
                                 <Skeleton className="h-14 w-full" />
                             </div>
-                        ) : conversations.length === 0 ? (
+                        ) : visibleConversations.length === 0 ? (
                             <p className="text-sm text-muted-foreground">Henüz görüşme bulunmuyor.</p>
                         ) : (
                             <div className="space-y-2 max-h-[520px] overflow-y-auto">
-                                {conversations.map((conversation) => {
+                                {visibleConversations.map((conversation) => {
                                     const status = getStatusMeta(conversation.status);
                                     const isActive = conversation.id === selectedConversationId;
 
@@ -437,6 +546,31 @@ export default function Support() {
                             </CardTitle>
                             {selectedConversation && (
                                 <div className="flex items-center gap-2">
+                                    {isAdmin ? (
+                                        <>
+                                            <Select value={selectedSupportUserId} onValueChange={setSelectedSupportUserId}>
+                                                <SelectTrigger className="h-9 w-[220px]">
+                                                    <SelectValue placeholder="Temsilci seçin" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {supportAssignableUsers.map((supportUser) => (
+                                                        <SelectItem key={supportUser.id} value={String(supportUser.id)}>
+                                                            {supportUser.email}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleAssignToSupportUser}
+                                                disabled={!canAssignSelectedSupportUser || isAssigning}
+                                            >
+                                                <UserCheck className="h-4 w-4 mr-1" />
+                                                Temsilci Ata
+                                            </Button>
+                                        </>
+                                    ) : null}
                                     {canAssignToMe && (
                                         <Button size="sm" variant="outline" onClick={handleAssignToMe} disabled={isAssigning}>
                                             <UserCheck className="h-4 w-4 mr-1" />
@@ -469,6 +603,13 @@ export default function Support() {
                             </div>
                         ) : (
                             <div className="space-y-3">
+                                {isSupportOrAdmin ? (
+                                    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                                        {selectedConversation.supportName
+                                            ? `Atanan temsilci: ${selectedConversation.supportName}`
+                                            : 'Henüz temsilci atanmadı.'}
+                                    </div>
+                                ) : null}
                                 <div className="h-[380px] overflow-y-auto rounded-md border p-3 space-y-3 bg-muted/20">
                                     {isMessagesLoading ? (
                                         <div className="space-y-2">

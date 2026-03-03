@@ -7,7 +7,6 @@ import {
 import type { CreateGiftCardRequest, GiftCard, UpdateGiftCardRequest } from '@/features/giftCards/types';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
-import { Badge } from '@/components/common/badge';
 import { Label } from '@/components/common/label';
 import { Checkbox } from '@/components/common/checkbox';
 import {
@@ -25,7 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/common/table';
-import { Skeleton } from '@/components/common/skeleton';
+import { EmptyState } from '@/components/admin/EmptyState';
+import { StatusBadge } from '@/components/admin/StatusBadge';
+import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { Gift, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -75,7 +76,7 @@ export default function GiftCardsAdmin() {
   const handleSubmit = async () => {
     if (dialog.mode === 'create') {
       if ((formData.initialBalance ?? 0) <= 0) {
-        toast.error("Gift card bakiyesi 0'dan büyük olmalıdır");
+        toast.error("Gift card bakiyesi 0'dan büyük olmalıdır.");
         return;
       }
 
@@ -86,10 +87,10 @@ export default function GiftCardsAdmin() {
           validDays: formData.validDays,
           description: formData.description,
         }).unwrap();
-        toast.success('Gift card oluşturuldu');
+        toast.success('Gift card oluşturuldu.');
         setDialog({ open: false, mode: 'create' });
       } catch {
-        toast.error('Gift card oluşturulamadı');
+        toast.error('Gift card oluşturulamadı.');
       }
 
       return;
@@ -106,10 +107,10 @@ export default function GiftCardsAdmin() {
         description: formData.description,
       };
       await updateGiftCard({ id: dialog.giftCard.id, data: payload }).unwrap();
-      toast.success('Gift card güncellendi');
+      toast.success('Gift card güncellendi.');
       setDialog({ open: false, mode: 'create' });
     } catch {
-      toast.error('Gift card güncellenemedi');
+      toast.error('Gift card güncellenemedi.');
     }
   };
 
@@ -124,11 +125,7 @@ export default function GiftCardsAdmin() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16" />
-          ))}
-        </div>
+        <TableLoadingState rowCount={5} rowClassName="h-16" />
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <Table>
@@ -169,11 +166,7 @@ export default function GiftCardsAdmin() {
                     {giftCard.expiresAt ? new Date(giftCard.expiresAt).toLocaleDateString('tr-TR') : 'Süresiz'}
                   </TableCell>
                   <TableCell>
-                    {giftCard.isActive ? (
-                      <Badge variant="default">Aktif</Badge>
-                    ) : (
-                      <Badge variant="secondary">Pasif</Badge>
-                    )}
+                    <StatusBadge label={giftCard.isActive ? 'Aktif' : 'Pasif'} tone={giftCard.isActive ? 'success' : 'neutral'} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(giftCard)}>
@@ -184,8 +177,13 @@ export default function GiftCardsAdmin() {
               ))}
               {giftCards?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Henüz gift card oluşturulmadı.
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={Gift}
+                      title="Henüz gift card oluşturulmadı"
+                      description="İlk gift card kaydını oluşturduğunuzda bakiye ve atama bilgileri bu tabloda görünecek."
+                      className="border-0 shadow-none"
+                    />
                   </TableCell>
                 </TableRow>
               ) : null}

@@ -39,6 +39,8 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<Inventory> Inventories => Set<Inventory>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
     public DbSet<Cart> Carts => Set<Cart>();
@@ -65,6 +67,7 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<NotificationTemplateSetting> NotificationTemplateSettings => Set<NotificationTemplateSetting>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
     public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
     public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
@@ -80,6 +83,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RoleConfiguration());
         modelBuilder.ApplyConfiguration(new CategoryConfiguration());
         modelBuilder.ApplyConfiguration(new ProductConfiguration());
+        modelBuilder.ApplyConfiguration(new ProductImageConfiguration());
+        modelBuilder.ApplyConfiguration(new ProductVariantConfiguration());
         modelBuilder.ApplyConfiguration(new InventoryConfiguration());
         modelBuilder.ApplyConfiguration(new InventoryMovementConfiguration());
         modelBuilder.ApplyConfiguration(new CartConfiguration());
@@ -103,6 +108,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new NotificationConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationPreferenceConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationTemplateSettingConfiguration());
+        modelBuilder.ApplyConfiguration(new AnnouncementConfiguration());
         modelBuilder.ApplyConfiguration(new ContactMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ReturnRequestConfiguration());
         modelBuilder.ApplyConfiguration(new RefundRequestConfiguration());

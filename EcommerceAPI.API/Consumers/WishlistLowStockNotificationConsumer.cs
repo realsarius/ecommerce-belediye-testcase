@@ -110,7 +110,7 @@ public sealed class WishlistLowStockNotificationConsumer : IConsumer<WishlistPro
             var productName = string.IsNullOrWhiteSpace(product?.Name)
                 ? $"Ürün #{message.ProductId}"
                 : product.Name;
-            var channelSettingsByUserId = await _notificationPreferenceService.GetChannelSettingsAsync(
+            var channelSettingsByUserId = await _notificationPreferenceService.GetChannelSettingsByUsersAsync(
                 userIds,
                 Entities.Enums.NotificationType.Wishlist);
 

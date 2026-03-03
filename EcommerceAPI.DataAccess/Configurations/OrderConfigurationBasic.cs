@@ -41,6 +41,12 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.GiftCardCode)
             .HasMaxLength(64);
+
+        builder.Property(o => o.CargoCompany)
+            .HasMaxLength(120);
+
+        builder.Property(o => o.TrackingCode)
+            .HasMaxLength(120);
         
         builder.Property(o => o.ShippingAddress)
             .HasMaxLength(2000);

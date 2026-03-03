@@ -106,7 +106,7 @@ public class CampaignConsumerTests
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
         var notificationPreferenceService = new Mock<INotificationPreferenceService>();
         notificationPreferenceService
-            .Setup(x => x.GetChannelSettingsAsync(
+            .Setup(x => x.GetChannelSettingsByUsersAsync(
                 It.IsAny<IEnumerable<int>>(),
                 NotificationType.Campaign))
             .ReturnsAsync((IEnumerable<int> userIds, NotificationType _) => userIds

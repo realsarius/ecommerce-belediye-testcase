@@ -76,6 +76,19 @@ public class NotificationPreferenceManager : INotificationPreferenceService
             SupportsPush: true,
             DefaultInApp: true,
             DefaultEmail: true,
+            DefaultPush: false),
+        new(
+            NotificationType.Announcement,
+            "Announcement",
+            "Duyuru Bildirimleri",
+            "Yönetim ekibinden gelen genel bilgilendirme ve sistem duyuruları.",
+            "Platformdan yeni bir duyuru var",
+            "Yönetim ekibinden sizin için yeni bir duyuru paylaşıldı.",
+            SupportsInApp: true,
+            SupportsEmail: true,
+            SupportsPush: false,
+            DefaultInApp: true,
+            DefaultEmail: true,
             DefaultPush: false)
     ];
 
@@ -209,13 +222,13 @@ public class NotificationPreferenceManager : INotificationPreferenceService
 
     public async Task<NotificationChannelSettingsDto> GetChannelSettingsAsync(int userId, NotificationType type)
     {
-        var preferences = await GetChannelSettingsAsync([userId], type);
+        var preferences = await GetChannelSettingsByUsersAsync([userId], type);
         return preferences.TryGetValue(userId, out var settings)
             ? settings
             : BuildDefaultChannelSettings(type);
     }
 
-    public async Task<Dictionary<int, NotificationChannelSettingsDto>> GetChannelSettingsAsync(IEnumerable<int> userIds, NotificationType type)
+    public async Task<Dictionary<int, NotificationChannelSettingsDto>> GetChannelSettingsByUsersAsync(IEnumerable<int> userIds, NotificationType type)
     {
         var ids = userIds.Where(id => id > 0).Distinct().ToList();
         if (ids.Count == 0)

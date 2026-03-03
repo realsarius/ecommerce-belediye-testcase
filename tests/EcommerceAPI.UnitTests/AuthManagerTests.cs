@@ -7,6 +7,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Enums;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Moq;
@@ -186,5 +187,80 @@ public class AuthManagerTests
         result.Success.Should().BeFalse();
         result.Data.Should().NotBeNull();
         result.Data!.Message.Should().Be(Messages.SocialAccountPasswordLoginNotAllowed);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenAccountIsSuspended_ShouldReturnStatusError()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("suspended@example.com"))
+            .Returns("hash-suspended");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([
+                new User
+                {
+                    Id = 19,
+                    Email = "suspended@example.com",
+                    EmailHash = "hash-suspended",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test123!"),
+                    RoleId = 2,
+                    AccountStatus = UserAccountStatus.Suspended
+                }
+            ]);
+
+        var result = await _manager.LoginAsync(new LoginRequest
+        {
+            Email = "suspended@example.com",
+            Password = "Test123!"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Data.Should().NotBeNull();
+        result.Data!.Message.Should().Be("Hesabınız geçici olarak askıya alınmıştır.");
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_WhenAccountIsBanned_ShouldReturnStatusError()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("refresh-token"))
+            .Returns("hashed-refresh-token");
+
+        _refreshTokenDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>()))
+            .ReturnsAsync([
+                new RefreshToken
+                {
+                    Id = 1,
+                    UserId = 29,
+                    Token = "hashed-refresh-token",
+                    ExpiresAt = DateTime.UtcNow.AddDays(3),
+                    IsRevoked = false,
+                    IsUsed = false
+                }
+            ]);
+
+        _userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync(new User
+            {
+                Id = 29,
+                Email = "banned@example.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test123!"),
+                FirstName = "Banned",
+                LastName = "User",
+                RoleId = 2,
+                AccountStatus = UserAccountStatus.Banned
+            });
+
+        var result = await _manager.RefreshTokenAsync(new RefreshTokenRequest
+        {
+            RefreshToken = "refresh-token"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Data.Should().NotBeNull();
+        result.Data!.Message.Should().Be("Hesabınız kullanım dışı bırakılmıştır.");
     }
 }

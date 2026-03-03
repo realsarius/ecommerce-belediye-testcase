@@ -4,6 +4,7 @@ import type {
   ProductListRequest,
   CreateProductRequest,
   UpdateProductRequest,
+  BulkUpdateProductsRequest,
   UpdateStockRequest,
   ProductReviewDto,
   ReviewSummaryDto,
@@ -90,6 +91,14 @@ export const productsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Products'],
     }),
+    bulkUpdateProducts: builder.mutation<void, BulkUpdateProductsRequest>({
+      query: (data) => ({
+        url: '/admin/products/bulk',
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Products'],
+    }),
     updateStock: builder.mutation<void, { id: number; data: UpdateStockRequest }>({
       query: ({ id, data }) => ({
         url: `/admin/products/${id}/stock`,
@@ -130,12 +139,18 @@ export const productsApi = baseApi.injectEndpoints({
     getProductReviews: builder.query<ProductReviewDto[], number>({
       query: (productId) => `/products/${productId}/reviews`,
       transformResponse: (response: { data: ProductReviewDto[] }) => response.data,
-      providesTags: (_result, _error, productId) => [{ type: 'Product', id: `reviews-${productId}` }],
+      providesTags: (_result, _error, productId) => [
+        'Reviews',
+        { type: 'Product', id: `reviews-${productId}` },
+      ],
     }),
     getReviewSummary: builder.query<ReviewSummaryDto, number>({
       query: (productId) => `/products/${productId}/reviews/summary`,
       transformResponse: (response: { data: ReviewSummaryDto }) => response.data,
-      providesTags: (_result, _error, productId) => [{ type: 'Product', id: `summary-${productId}` }],
+      providesTags: (_result, _error, productId) => [
+        'Reviews',
+        { type: 'Product', id: `summary-${productId}` },
+      ],
     }),
     createReview: builder.mutation<ProductReviewDto, { productId: number; data: CreateReviewRequest }>({
       query: ({ productId, data }) => ({
@@ -188,6 +203,7 @@ export const {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useBulkUpdateProductsMutation,
   useUpdateStockMutation,
   useSearchProductsQuery,
   useSearchSuggestionsQuery,

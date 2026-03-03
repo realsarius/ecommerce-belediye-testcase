@@ -23,7 +23,7 @@
     },
     {
       "key": "orderId",
-      "value": "",
+      "value": "1",
       "type": "string"
     },
     {
@@ -39,6 +39,16 @@
     {
       "key": "supportUserId",
       "value": "4",
+      "type": "string"
+    },
+    {
+      "key": "returnRequestId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "reviewId",
+      "value": "1",
       "type": "string"
     }
   ],
@@ -1040,10 +1050,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"brandName\": \"Demo Mağaza\",\n  \"description\": \"Kaliteli ürünler, uygun fiyatlar\",\n  \"logoUrl\": \"https://example.com/logo.png\",\n  \"contactEmail\": \"info@demostore.com\",\n  \"contactPhone\": \"5551234567\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/seller/profile",
               "host": [
@@ -1054,7 +1060,11 @@
                 "profile"
               ]
             },
-            "description": "Satıcı profili oluşturur."
+            "description": "Satıcı profili oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brandName\": \"Demo Mağaza\",\n  \"brandDescription\": \"Kaliteli ürünler, uygun fiyatlar\",\n  \"logoUrl\": \"https://example.com/logo.png\",\n  \"bannerImageUrl\": \"https://example.com/banner.png\",\n  \"contactEmail\": \"info@demostore.com\",\n  \"contactPhone\": \"5551234567\",\n  \"websiteUrl\": \"https://demostore.com\",\n  \"instagramUrl\": \"https://instagram.com/demostore\",\n  \"facebookUrl\": \"https://facebook.com/demostore\",\n  \"xUrl\": \"https://x.com/demostore\"\n}"
+            }
           }
         },
         {
@@ -1067,10 +1077,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"brandName\": \"Demo Mağaza v2\",\n  \"description\": \"Güncellenmiş açıklama\",\n  \"logoUrl\": \"https://example.com/new-logo.png\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/seller/profile",
               "host": [
@@ -1081,7 +1087,11 @@
                 "profile"
               ]
             },
-            "description": "Satıcı profilini günceller."
+            "description": "Satıcı profilini günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brandName\": \"Demo Mağaza v2\",\n  \"brandDescription\": \"Güncellenmiş açıklama\",\n  \"logoUrl\": \"https://example.com/new-logo.png\",\n  \"bannerImageUrl\": \"https://example.com/new-banner.png\",\n  \"contactEmail\": \"hello@demostore.com\",\n  \"websiteUrl\": \"https://new.demostore.com\"\n}"
+            }
           }
         },
         {
@@ -1107,7 +1117,7 @@
     },
     {
       "name": "Admin - Products",
-      "description": "Admin/Seller ürün yönetimi",
+      "description": "Admin ürün yönetimi",
       "item": [
         {
           "name": "Get Products (Admin)",
@@ -1115,7 +1125,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/admin/products?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/admin/products?page=1&pageSize=20&search=&categoryId=&minPrice=&maxPrice=",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1131,10 +1141,26 @@
                 {
                   "key": "pageSize",
                   "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "categoryId",
+                  "value": ""
+                },
+                {
+                  "key": "minPrice",
+                  "value": ""
+                },
+                {
+                  "key": "maxPrice",
+                  "value": ""
                 }
               ]
             },
-            "description": "Admin: Tüm ürünler, Seller: Kendi ürünleri."
+            "description": "Admin ürün listesini filtrelerle birlikte döner."
           }
         },
         {
@@ -1147,10 +1173,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Test Ürün\",\n  \"description\": \"Bu bir test ürünüdür\",\n  \"price\": 999.99,\n  \"currency\": \"TRY\",\n  \"categoryId\": 1,\n  \"initialStock\": 100\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/admin/products",
               "host": [
@@ -1161,7 +1183,11 @@
                 "products"
               ]
             },
-            "description": "Yeni ürün oluşturur."
+            "description": "Yeni ürün oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Ürün\",\n  \"description\": \"Bu bir test ürünüdür\",\n  \"price\": 999.99,\n  \"currency\": \"TRY\",\n  \"categoryId\": 1,\n  \"sku\": \"TEST-001\",\n  \"isActive\": true,\n  \"initialStock\": 100,\n  \"imageUrls\": [\n    \"https://example.com/product-1.png\"\n  ],\n  \"variants\": [\n    {\n      \"name\": \"Renk\",\n      \"value\": \"Siyah\"\n    }\n  ]\n}"
+            }
           }
         },
         {
@@ -1174,10 +1200,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Güncellenmiş Ürün\",\n  \"description\": \"Güncellenmiş açıklama\",\n  \"price\": 1199.99,\n  \"isActive\": true\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/admin/products/{{productId}}",
               "host": [
@@ -1189,7 +1211,39 @@
                 "{{productId}}"
               ]
             },
-            "description": "Ürünü günceller."
+            "description": "Ürünü günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Güncellenmiş Ürün\",\n  \"description\": \"Güncellenmiş açıklama\",\n  \"price\": 1199.99,\n  \"isActive\": true,\n  \"imageUrls\": [\n    \"https://example.com/product-updated.png\"\n  ],\n  \"variants\": [\n    {\n      \"name\": \"Renk\",\n      \"value\": \"Beyaz\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Bulk Update Products",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "products",
+                "bulk"
+              ]
+            },
+            "description": "Seçili ürünlerde toplu aktif/pasif veya silme işlemi yapar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    101,\n    102\n  ],\n  \"action\": \"deactivate\"\n}"
+            }
           }
         },
         {
@@ -1202,10 +1256,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"delta\": 10,\n  \"reason\": \"Yeni stok girisi\",\n  \"notes\": \"Postman test\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/admin/products/{{productId}}/stock",
               "host": [
@@ -1218,7 +1268,11 @@
                 "stock"
               ]
             },
-            "description": "Stok miktarını artırır/azaltır. Negatif değer stok düşürür."
+            "description": "Stok miktarını artırır/azaltır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityChange\": 10,\n  \"reason\": \"Yeni stok girişi\"\n}"
+            }
           }
         },
         {
@@ -1261,7 +1315,7 @@
                 "categories"
               ]
             },
-            "description": "Tüm kategorileri listeler (inaktifler dahil)."
+            "description": "Tüm kategorileri listeler."
           }
         },
         {
@@ -1274,10 +1328,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Yeni Kategori\",\n  \"description\": \"Kategori açıklaması\",\n  \"isActive\": true\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/admin/categories",
               "host": [
@@ -1288,7 +1338,11 @@
                 "categories"
               ]
             },
-            "description": "Yeni kategori oluşturur."
+            "description": "Yeni kategori oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yeni Kategori\",\n  \"description\": \"Kategori açıklaması\",\n  \"isActive\": true,\n  \"parentCategoryId\": null\n}"
+            }
           }
         },
         {
@@ -1301,10 +1355,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Güncellenmiş Kategori\",\n  \"description\": \"Yeni açıklama\",\n  \"isActive\": true\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/admin/categories/1",
               "host": [
@@ -1316,7 +1366,39 @@
                 "1"
               ]
             },
-            "description": "Kategoriyi günceller."
+            "description": "Kategoriyi günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Güncellenmiş Kategori\",\n  \"description\": \"Yeni açıklama\",\n  \"isActive\": true,\n  \"parentCategoryId\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "Reorder Categories",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories/reorder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "categories",
+                "reorder"
+              ]
+            },
+            "description": "Aynı seviye kategorileri yeniden sıralar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"id\": 1,\n      \"parentCategoryId\": null,\n      \"sortOrder\": 0\n    },\n    {\n      \"id\": 2,\n      \"parentCategoryId\": null,\n      \"sortOrder\": 1\n    }\n  ]\n}"
+            }
           }
         },
         {
@@ -1335,14 +1417,14 @@
                 "1"
               ]
             },
-            "description": "Kategoriyi siler."
+            "description": "Kategoriyi siler veya pasife alır."
           }
         }
       ]
     },
     {
       "name": "Admin - Orders",
-      "description": "Admin/Seller sipariş yönetimi",
+      "description": "Admin sipariş yönetimi",
       "item": [
         {
           "name": "Get All Orders",
@@ -1350,16 +1432,53 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/admin/orders",
+              "raw": "{{baseUrl}}/admin/orders?status=&minAmount=&from=&to=",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "admin",
                 "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "minAmount",
+                  "value": ""
+                },
+                {
+                  "key": "from",
+                  "value": ""
+                },
+                {
+                  "key": "to",
+                  "value": ""
+                }
               ]
             },
-            "description": "Admin: Tüm siparişler, Seller: Kendi ürünlerini içeren siparişler."
+            "description": "Admin sipariş listesini filtrelerle döner."
+          }
+        },
+        {
+          "name": "Get Order Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": "Belirli bir siparişin detayını getirir."
           }
         },
         {
@@ -1372,10 +1491,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"Shipped\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/admin/orders/{{orderId}}/status",
               "host": [
@@ -1388,7 +1503,11 @@
                 "status"
               ]
             },
-            "description": "Sipariş durumunu günceller. Geçerli durumlar: PendingPayment, Paid, Processing, Shipped, Delivered, Cancelled"
+            "description": "Sipariş durumunu günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Shipped\"\n}"
+            }
           }
         }
       ]
@@ -1397,6 +1516,30 @@
       "name": "Admin - Sellers",
       "description": "Admin satıcı yönetimi",
       "item": [
+        {
+          "name": "Get Sellers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sellers?status=active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sellers"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            },
+            "description": "Satıcı listesini statü filtresiyle getirir."
+          }
+        },
         {
           "name": "Get Seller by ID",
           "request": {
@@ -1413,7 +1556,125 @@
                 "1"
               ]
             },
-            "description": "Belirli bir satıcının profil bilgilerini getirir (Admin rolü gerekli)."
+            "description": "Belirli bir satıcının profil bilgilerini getirir."
+          }
+        },
+        {
+          "name": "Update Seller Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sellers/1/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sellers",
+                "1",
+                "status"
+              ]
+            },
+            "description": "Satıcı durumunu günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Suspended\",\n  \"reviewNote\": \"Geçici askıya alma notu\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Seller Commission",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sellers/1/commission",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sellers",
+                "1",
+                "commission"
+              ]
+            },
+            "description": "Satıcı komisyon oranını override eder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rate\": 12.5\n}"
+            }
+          }
+        },
+        {
+          "name": "Approve Seller Application",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sellers/applications/1/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sellers",
+                "applications",
+                "1",
+                "approve"
+              ]
+            },
+            "description": "Satıcı başvurusunu onaylar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNote\": \"Belgeler doğrulandı.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject Seller Application",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sellers/applications/1/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sellers",
+                "applications",
+                "1",
+                "reject"
+              ]
+            },
+            "description": "Satıcı başvurusunu reddeder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNote\": \"Eksik belge nedeniyle reddedildi.\"\n}"
+            }
           }
         }
       ]
@@ -1899,6 +2160,929 @@
               ]
             },
             "description": "Konusmayi kapatir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Dashboard",
+      "description": "Admin dashboard metrik ve grafik endpointleri",
+      "item": [
+        {
+          "name": "Get KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/kpi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "kpi"
+              ]
+            },
+            "description": "Bugünkü gelir, sipariş, yeni üye ve aktif seller KPI özetini döner."
+          }
+        },
+        {
+          "name": "Get Revenue Trend",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/revenue-trend?period=daily",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "revenue-trend"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "daily"
+                }
+              ]
+            },
+            "description": "Gelir trendini günlük, haftalık veya aylık olarak döner."
+          }
+        },
+        {
+          "name": "Get Category Sales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/category-sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "category-sales"
+              ]
+            },
+            "description": "Kategori bazlı satış adetlerini döner."
+          }
+        },
+        {
+          "name": "Get User Registrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/user-registrations?days=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "user-registrations"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Kullanıcı kayıt trendini döner."
+          }
+        },
+        {
+          "name": "Get Order Status Distribution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/order-status-distribution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "order-status-distribution"
+              ]
+            },
+            "description": "Sipariş durum dağılımını döner."
+          }
+        },
+        {
+          "name": "Get Low Stock",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/low-stock?threshold=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "low-stock"
+              ],
+              "query": [
+                {
+                  "key": "threshold",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Düşük stoklu ürünleri döner."
+          }
+        },
+        {
+          "name": "Get Recent Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/recent-orders?limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "recent-orders"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Son siparişleri döner."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Returns",
+      "description": "Admin iade talepleri yönetimi",
+      "item": [
+        {
+          "name": "Get Returns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/returns?status=Pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "returns"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Pending"
+                }
+              ]
+            },
+            "description": "İade taleplerini duruma göre listeler."
+          }
+        },
+        {
+          "name": "Approve Return",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/returns/{{returnRequestId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "returns",
+                "{{returnRequestId}}",
+                "approve"
+              ]
+            },
+            "description": "İade talebini onaylar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNote\": \"İade onaylandı.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject Return",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/returns/{{returnRequestId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "returns",
+                "{{returnRequestId}}",
+                "reject"
+              ]
+            },
+            "description": "İade talebini reddeder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNote\": \"Kullanım izleri nedeniyle reddedildi.\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Finance",
+      "description": "Admin gelir raporu ve export endpointleri",
+      "item": [
+        {
+          "name": "Get Finance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/finance?from=2026-03-01&to=2026-03-03",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "finance"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-03-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-03-03"
+                }
+              ]
+            },
+            "description": "Gelir özeti ve seller bazlı finans raporunu getirir."
+          }
+        },
+        {
+          "name": "Export Finance CSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/finance/export?from=2026-03-01&to=2026-03-03",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "finance",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-03-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-03-03"
+                }
+              ]
+            },
+            "description": "Finans raporunu CSV olarak indirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Announcements",
+      "description": "Admin duyuru yönetimi",
+      "item": [
+        {
+          "name": "Get Announcements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/announcements?take=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "announcements"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Son duyuruları listeler."
+          }
+        },
+        {
+          "name": "Create Announcement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "announcements"
+              ]
+            },
+            "description": "Yeni duyuru oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bakım Bildirimi\",\n  \"message\": \"Planlı bakım bu gece 23:00'te başlayacaktır.\",\n  \"audienceType\": \"AllUsers\",\n  \"targetRole\": null,\n  \"targetUserIds\": [],\n  \"channels\": [\n    \"InApp\",\n    \"Email\"\n  ],\n  \"scheduledAt\": \"2026-03-03T23:00:00Z\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - System",
+      "description": "Admin sistem sağlığı ve hata logları",
+      "item": [
+        {
+          "name": "Get System Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "health"
+              ]
+            },
+            "description": "PostgreSQL, Redis, RabbitMQ ve Elasticsearch durumlarını getirir."
+          }
+        },
+        {
+          "name": "Get Error Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/logs/errors?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "logs",
+                "errors"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Son hata loglarını getirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller - Dashboard",
+      "description": "Seller dashboard metrik ve grafik endpointleri",
+      "item": [
+        {
+          "name": "Get KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/dashboard/kpi?days=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "dashboard",
+                "kpi"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Seller KPI özetini getirir."
+          }
+        },
+        {
+          "name": "Get Revenue Trend",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/dashboard/revenue-trend?period=daily",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "dashboard",
+                "revenue-trend"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "daily"
+                }
+              ]
+            },
+            "description": "Seller gelir trendini getirir."
+          }
+        },
+        {
+          "name": "Get Order Status Distribution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/dashboard/order-status-distribution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "dashboard",
+                "order-status-distribution"
+              ]
+            },
+            "description": "Seller sipariş durum dağılımını getirir."
+          }
+        },
+        {
+          "name": "Get Product Performance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/dashboard/product-performance?take=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "dashboard",
+                "product-performance"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "En çok satan ürün performansını getirir."
+          }
+        },
+        {
+          "name": "Get Recent Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/dashboard/recent-orders?take=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "dashboard",
+                "recent-orders"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Son siparişleri getirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller - Products",
+      "description": "Seller ürün yönetimi",
+      "item": [
+        {
+          "name": "Get My Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products?page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Seller kendi ürünlerini listeler."
+          }
+        },
+        {
+          "name": "Get My Product Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Seller kendi ürün detayını getirir."
+          }
+        },
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "products"
+              ]
+            },
+            "description": "Seller için yeni ürün oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Seller Test Ürün\",\n  \"description\": \"Seller panelinden oluşturulan ürün\",\n  \"price\": 499.99,\n  \"currency\": \"TRY\",\n  \"categoryId\": 1,\n  \"sku\": \"SELLER-001\",\n  \"isActive\": true,\n  \"initialStock\": 12,\n  \"imageUrls\": [\n    \"https://example.com/seller-product.png\"\n  ],\n  \"variants\": [\n    {\n      \"name\": \"Beden\",\n      \"value\": \"M\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Seller kendi ürününü günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Seller Güncel Ürün\",\n  \"price\": 549.99,\n  \"imageUrls\": [\n    \"https://example.com/seller-product-updated.png\"\n  ],\n  \"variants\": [\n    {\n      \"name\": \"Beden\",\n      \"value\": \"L\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Stock",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{productId}}/stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "products",
+                "{{productId}}",
+                "stock"
+              ]
+            },
+            "description": "Seller kendi ürün stoğunu günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityChange\": 5,\n  \"reason\": \"Depo girişi\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Seller kendi ürününü siler."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller - Orders",
+      "description": "Seller sipariş yönetimi",
+      "item": [
+        {
+          "name": "Get Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "orders"
+              ]
+            },
+            "description": "Seller sipariş listesini getirir."
+          }
+        },
+        {
+          "name": "Get Order Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": "Seller sipariş detayını getirir."
+          }
+        },
+        {
+          "name": "Ship Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/orders/{{orderId}}/ship",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "orders",
+                "{{orderId}}",
+                "ship"
+              ]
+            },
+            "description": "Siparişi kargoya verir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackingCode\": \"TRK123456789\",\n  \"cargoCompany\": \"Yurtiçi Kargo\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller - Finance",
+      "description": "Seller analytics ve finans endpointleri",
+      "item": [
+        {
+          "name": "Get Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/analytics/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "analytics",
+                "summary"
+              ]
+            },
+            "description": "Seller genel özet verisini getirir."
+          }
+        },
+        {
+          "name": "Get Trends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/analytics/trends?days=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "analytics",
+                "trends"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Seller trend verisini getirir."
+          }
+        },
+        {
+          "name": "Get Finance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/analytics/finance?days=30&from=2026-03-01&to=2026-03-03",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "analytics",
+                "finance"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-03-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-03-03"
+                }
+              ]
+            },
+            "description": "Seller finans özetini tarih aralığı ile getirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller - Reviews",
+      "description": "Seller yorum yönetimi",
+      "item": [
+        {
+          "name": "Get Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/reviews?productId=&rating=&replied=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "productId",
+                  "value": ""
+                },
+                {
+                  "key": "rating",
+                  "value": ""
+                },
+                {
+                  "key": "replied",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Seller ürünlerine ait onaylı yorumları filtrelerle getirir."
+          }
+        },
+        {
+          "name": "Reply To Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/reviews/{{reviewId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "reviews",
+                "{{reviewId}}",
+                "reply"
+              ]
+            },
+            "description": "Yoruma seller cevabı ekler veya günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"replyText\": \"Geri bildiriminiz için teşekkür ederiz.\"\n}"
+            }
           }
         }
       ]

@@ -62,9 +62,21 @@ public class ReturnRequestManager : IReturnRequestService
     }
 
     [LogAspect]
-    public async Task<IDataResult<List<ReturnRequestDto>>> GetPendingReturnRequestsAsync(int? sellerId = null)
+    public async Task<IDataResult<List<ReturnRequestDto>>> GetReturnRequestsAsync(string? status = null, int? sellerId = null)
     {
-        var requests = await _returnRequestDal.GetPendingRequestsAsync(sellerId);
+        ReturnRequestStatus? parsedStatus = null;
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<ReturnRequestStatus>(status, true, out var parsed))
+            {
+                return new ErrorDataResult<List<ReturnRequestDto>>("Geçersiz iade talebi durumu.");
+            }
+
+            parsedStatus = parsed;
+        }
+
+        var requests = await _returnRequestDal.GetListWithDetailsAsync(parsedStatus, sellerId);
         return new SuccessDataResult<List<ReturnRequestDto>>(requests.Select(MapToDto).ToList());
     }
 
@@ -261,6 +273,20 @@ public class ReturnRequestManager : IReturnRequestService
 
             await _unitOfWork.SaveChangesAsync();
         }
+
+        await _publishEndpoint.Publish(new ReturnRequestReviewedEvent
+        {
+            ReturnRequestId = returnRequest.Id,
+            OrderId = returnRequest.OrderId,
+            UserId = returnRequest.UserId,
+            UserEmail = returnRequest.User.Email,
+            CustomerName = $"{returnRequest.User.FirstName} {returnRequest.User.LastName}".Trim(),
+            OrderNumber = returnRequest.Order.OrderNumber,
+            Decision = targetStatus.ToString(),
+            CurrentStatus = returnRequest.Status.ToString(),
+            ReviewNote = returnRequest.ReviewNote,
+            ReviewedAt = returnRequest.ReviewedAt ?? DateTime.UtcNow
+        });
 
         await _auditService.LogActionAsync(
             reviewerUserId.ToString(),

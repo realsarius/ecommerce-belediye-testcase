@@ -19,6 +19,8 @@ public class Product : BaseEntity
     public Category Category { get; set; } = null!;
     public SellerProfile? Seller { get; set; }
     public Inventory? Inventory { get; set; }
+    public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
+    public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
     public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<InventoryMovement> InventoryMovements { get; set; } = new List<InventoryMovement>();

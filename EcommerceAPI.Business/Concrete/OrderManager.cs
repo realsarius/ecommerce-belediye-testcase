@@ -391,10 +391,54 @@ public class OrderManager : IOrderService
     }
 
     [LogAspect]
-    public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync()
+    public async Task<IDataResult<List<OrderDto>>> GetAllOrdersAsync(string? status = null, decimal? minAmount = null, DateTime? from = null, DateTime? to = null)
     {
         var orders = await _orderDal.GetAllOrdersWithDetailsAsync();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<OrderStatus>(status, true, out var parsedStatus))
+            {
+                return new ErrorDataResult<List<OrderDto>>($"{Messages.InvalidOrderStatus}: {status}");
+            }
+
+            orders = orders.Where(order => order.Status == parsedStatus).ToList();
+        }
+
+        if (minAmount.HasValue)
+        {
+            orders = orders.Where(order => order.TotalAmount >= minAmount.Value).ToList();
+        }
+
+        if (from.HasValue)
+        {
+            var fromBoundary = from.Value.TimeOfDay == TimeSpan.Zero
+                ? from.Value.Date
+                : from.Value;
+            orders = orders.Where(order => order.CreatedAt >= fromBoundary).ToList();
+        }
+
+        if (to.HasValue)
+        {
+            var toBoundary = to.Value.TimeOfDay == TimeSpan.Zero
+                ? to.Value.Date.AddDays(1).AddTicks(-1)
+                : to.Value;
+            orders = orders.Where(order => order.CreatedAt <= toBoundary).ToList();
+        }
+
         return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
+    }
+
+    [LogAspect]
+    public async Task<IDataResult<OrderDto>> GetAdminOrderAsync(int orderId)
+    {
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        if (order == null)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
+        }
+
+        return new SuccessDataResult<OrderDto>(order.ToDto());
     }
 
     [LogAspect]
@@ -402,6 +446,24 @@ public class OrderManager : IOrderService
     {
         var orders = await _orderDal.GetOrdersBySellerIdAsync(sellerId);
         return new SuccessDataResult<List<OrderDto>>(orders.Select(x => x.ToDto()).ToList());
+    }
+
+    [LogAspect]
+    public async Task<IDataResult<OrderDto>> GetSellerOrderAsync(int sellerId, int orderId)
+    {
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        if (order == null)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
+        }
+
+        var isSellerOrder = order.OrderItems.Any(oi => oi.Product.SellerId == sellerId);
+        if (!isSellerOrder)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotBelongToUser);
+        }
+
+        return new SuccessDataResult<OrderDto>(order.ToDto());
     }
 
     [LogAspect]
@@ -423,9 +485,41 @@ public class OrderManager : IOrderService
         }
 
         var previousStatus = order.Status;
+        if (previousStatus == orderStatus)
+        {
+            return new SuccessDataResult<OrderDto>(order.ToDto(), Messages.OrderStatusUpdated);
+        }
+
         order.Status = orderStatus;
-        _orderDal.Update(order);
-        await _unitOfWork.SaveChangesAsync(); 
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _unitOfWork.BeginTransactionAsync();
+
+        try
+        {
+            _orderDal.Update(order);
+
+            await _publishEndpoint.Publish(new OrderStatusChangedEvent
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                UserId = order.UserId,
+                CustomerEmail = order.User?.Email ?? string.Empty,
+                CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}".Trim() : string.Empty,
+                PreviousStatus = previousStatus.ToString(),
+                NewStatus = orderStatus.ToString(),
+                ChangedAt = DateTime.UtcNow
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            _logger.LogError(ex, "Sipariş durumu güncellenemedi. OrderId={OrderId}", orderId);
+            return new ErrorDataResult<OrderDto>($"Sipariş durumu güncellenemedi: {ex.Message}");
+        }
 
         await _auditService.LogActionAsync(
             sellerId?.ToString() ?? "Admin",
@@ -434,6 +528,83 @@ public class OrderManager : IOrderService
             new { OrderId = order.Id, OrderNumber = order.OrderNumber, PreviousStatus = previousStatus.ToString(), NewStatus = orderStatus.ToString() });
 
         return new SuccessDataResult<OrderDto>(order.ToDto(), Messages.OrderStatusUpdated);
+    }
+
+    [LogAspect]
+    public async Task<IDataResult<OrderDto>> ShipOrderAsync(int sellerId, int orderId, ShipOrderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.TrackingCode) || string.IsNullOrWhiteSpace(request.CargoCompany))
+        {
+            return new ErrorDataResult<OrderDto>("Kargo firması ve takip kodu zorunludur.");
+        }
+
+        var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
+        if (order == null)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotFound);
+        }
+
+        var isSellerOrder = order.OrderItems.Any(oi => oi.Product.SellerId == sellerId);
+        if (!isSellerOrder)
+        {
+            return new ErrorDataResult<OrderDto>(Messages.OrderNotBelongToUser);
+        }
+
+        if (order.Status is not OrderStatus.Paid and not OrderStatus.Processing)
+        {
+            return new ErrorDataResult<OrderDto>("Sadece ödenmiş veya hazırlanmakta olan siparişler kargoya verilebilir.");
+        }
+
+        var previousStatus = order.Status;
+        var shippedAt = DateTime.UtcNow;
+
+        order.Status = OrderStatus.Shipped;
+        order.CargoCompany = request.CargoCompany.Trim();
+        order.TrackingCode = request.TrackingCode.Trim();
+        order.ShippedAt = shippedAt;
+
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            _orderDal.Update(order);
+
+            await _publishEndpoint.Publish(new OrderShippedEvent
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                UserId = order.UserId,
+                CustomerEmail = order.User?.Email ?? string.Empty,
+                CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}".Trim() : string.Empty,
+                CargoCompany = order.CargoCompany,
+                TrackingCode = order.TrackingCode,
+                ShippedAt = shippedAt
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            _logger.LogError(ex, "Sipariş kargoya verilemedi. OrderId={OrderId}, SellerId={SellerId}", orderId, sellerId);
+            return new ErrorDataResult<OrderDto>($"Sipariş kargoya verilemedi: {ex.Message}");
+        }
+
+        await _auditService.LogActionAsync(
+            sellerId.ToString(),
+            "ShipOrder",
+            "Order",
+            new
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                PreviousStatus = previousStatus.ToString(),
+                NewStatus = order.Status.ToString(),
+                order.CargoCompany,
+                order.TrackingCode
+            });
+
+        return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş kargoya verildi.");
     }
 
     [LogAspect]

@@ -27,10 +27,10 @@ using EcommerceAPI.Core.Utilities.IoC;
 using MassTransit;
 using EcommerceAPI.API.Consumers;
 using EcommerceAPI.API.HealthChecks;
+using EcommerceAPI.API.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
-using EcommerceAPI.API.Services;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
@@ -70,6 +70,7 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHostedService<OutboxPublisherBackgroundService>();
 
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
                             ?? builder.Configuration["Redis:ConnectionString"]
@@ -273,6 +274,11 @@ builder.Services.AddMassTransit(configurator =>
         options.UseBusOutbox();
     });
     configurator.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+    configurator.AddConsumer<AnnouncementCreatedConsumer, AnnouncementCreatedConsumerDefinition>();
+    configurator.AddConsumer<OrderStatusChangedConsumer, OrderStatusChangedConsumerDefinition>();
+    configurator.AddConsumer<OrderShippedConsumer, OrderShippedConsumerDefinition>();
+    configurator.AddConsumer<SellerApplicationReviewedConsumer, SellerApplicationReviewedConsumerDefinition>();
+    configurator.AddConsumer<ReturnRequestReviewedConsumer, ReturnRequestReviewedConsumerDefinition>();
     configurator.AddConsumer<ProductIndexSyncConsumer, ProductIndexSyncConsumerDefinition>();
     configurator.AddConsumer<WishlistAnalyticsConsumer, WishlistAnalyticsConsumerDefinition>();
     configurator.AddConsumer<WishlistProductIndexSyncConsumer, WishlistProductIndexSyncConsumerDefinition>();

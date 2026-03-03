@@ -18,7 +18,7 @@ public sealed class OutboxService : IOutboxService
         _logger = logger;
     }
 
-    public Task EnqueueAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+    public async Task EnqueueAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : class
     {
         var eventType = typeof(TEvent).FullName ?? typeof(TEvent).Name;
@@ -36,8 +36,8 @@ public sealed class OutboxService : IOutboxService
             "Outbox message queued. EventType={EventType}, EventId={EventId}",
             eventType,
             eventId);
-
-        return Task.CompletedTask;
+        
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static Guid ResolveEventId<TEvent>(TEvent @event) where TEvent : class

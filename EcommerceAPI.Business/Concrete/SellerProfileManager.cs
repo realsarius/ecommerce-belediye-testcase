@@ -78,6 +78,13 @@ public class SellerProfileManager : ISellerProfileService
             BrandName = request.BrandName,
             BrandDescription = request.BrandDescription,
             LogoUrl = request.LogoUrl,
+            BannerImageUrl = request.BannerImageUrl,
+            ContactEmail = request.ContactEmail,
+            ContactPhone = request.ContactPhone,
+            WebsiteUrl = request.WebsiteUrl,
+            InstagramUrl = request.InstagramUrl,
+            FacebookUrl = request.FacebookUrl,
+            XUrl = request.XUrl,
             IsVerified = false
         };
 
@@ -108,6 +115,27 @@ public class SellerProfileManager : ISellerProfileService
 
         if (request.LogoUrl != null)
             profile.LogoUrl = request.LogoUrl;
+
+        if (request.BannerImageUrl != null)
+            profile.BannerImageUrl = request.BannerImageUrl;
+
+        if (request.ContactEmail != null)
+            profile.ContactEmail = request.ContactEmail;
+
+        if (request.ContactPhone != null)
+            profile.ContactPhone = request.ContactPhone;
+
+        if (request.WebsiteUrl != null)
+            profile.WebsiteUrl = request.WebsiteUrl;
+
+        if (request.InstagramUrl != null)
+            profile.InstagramUrl = request.InstagramUrl;
+
+        if (request.FacebookUrl != null)
+            profile.FacebookUrl = request.FacebookUrl;
+
+        if (request.XUrl != null)
+            profile.XUrl = request.XUrl;
 
         profile.UpdatedAt = DateTime.UtcNow;
 
@@ -152,7 +180,17 @@ public class SellerProfileManager : ISellerProfileService
             BrandName = profile.BrandName,
             BrandDescription = profile.BrandDescription,
             LogoUrl = profile.LogoUrl,
+            BannerImageUrl = profile.BannerImageUrl,
+            ContactEmail = profile.ContactEmail,
+            ContactPhone = profile.ContactPhone,
+            WebsiteUrl = profile.WebsiteUrl,
+            InstagramUrl = profile.InstagramUrl,
+            FacebookUrl = profile.FacebookUrl,
+            XUrl = profile.XUrl,
             IsVerified = profile.IsVerified,
+            CommissionRateOverride = profile.CommissionRateOverride,
+            ApplicationReviewNote = profile.ApplicationReviewNote,
+            ApplicationReviewedAt = profile.ApplicationReviewedAt,
             CreatedAt = profile.CreatedAt,
             SellerFirstName = profile.User?.FirstName ?? string.Empty,
             SellerLastName = profile.User?.LastName ?? string.Empty
