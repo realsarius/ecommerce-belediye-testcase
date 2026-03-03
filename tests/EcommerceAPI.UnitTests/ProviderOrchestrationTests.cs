@@ -28,6 +28,60 @@ public class ProviderOrchestrationTests
     }
 
     [Fact]
+    public void PaymentProviderFactory_GetProvider_ShouldReturnRegisteredProvider()
+    {
+        var paymentProvider = new Mock<IPaymentProvider>();
+        paymentProvider.SetupGet(x => x.ProviderType).Returns(PaymentProviderType.Iyzico);
+
+        var factory = new PaymentProviderFactory([paymentProvider.Object]);
+
+        var provider = factory.GetProvider(PaymentProviderType.Iyzico);
+
+        provider.Should().BeSameAs(paymentProvider.Object);
+    }
+
+    [Fact]
+    public void PaymentProviderFactory_GetProvider_WhenProviderMissing_ShouldThrow()
+    {
+        var paymentProvider = new Mock<IPaymentProvider>();
+        paymentProvider.SetupGet(x => x.ProviderType).Returns(PaymentProviderType.Iyzico);
+
+        var factory = new PaymentProviderFactory([paymentProvider.Object]);
+
+        var act = () => factory.GetProvider(PaymentProviderType.Stripe);
+
+        act.Should().Throw<NotSupportedException>()
+            .WithMessage("*Stripe*");
+    }
+
+    [Fact]
+    public void RefundProviderFactory_GetProvider_ShouldReturnRegisteredProvider()
+    {
+        var refundProvider = new Mock<IRefundProvider>();
+        refundProvider.SetupGet(x => x.ProviderType).Returns(PaymentProviderType.Iyzico);
+
+        var factory = new RefundProviderFactory([refundProvider.Object]);
+
+        var provider = factory.GetProvider(PaymentProviderType.Iyzico);
+
+        provider.Should().BeSameAs(refundProvider.Object);
+    }
+
+    [Fact]
+    public void RefundProviderFactory_GetProvider_WhenProviderMissing_ShouldThrow()
+    {
+        var refundProvider = new Mock<IRefundProvider>();
+        refundProvider.SetupGet(x => x.ProviderType).Returns(PaymentProviderType.Iyzico);
+
+        var factory = new RefundProviderFactory([refundProvider.Object]);
+
+        var act = () => factory.GetProvider(PaymentProviderType.Stripe);
+
+        act.Should().Throw<NotSupportedException>()
+            .WithMessage("*Stripe*");
+    }
+
+    [Fact]
     public async Task PaymentService_ProcessPaymentAsync_ShouldDelegateToRequestedProvider()
     {
         var providerFactoryMock = new Mock<IPaymentProviderFactory>();

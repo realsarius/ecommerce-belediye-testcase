@@ -32,6 +32,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
     private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
+    private readonly PaymentSettings _paymentSettings;
     private readonly IyzicoPaymentService _paymentService;
 
     public IyzicoPaymentServiceTests()
@@ -55,14 +56,15 @@ public class IyzicoPaymentServiceTests
             SecretKey = "test", 
             BaseUrl = "https://sandbox-api.iyzipay.com" 
         });
-        _paymentSettingsOptionsMock.Setup(o => o.Value).Returns(new PaymentSettings
+        _paymentSettings = new PaymentSettings
         {
             ActiveProviders = [PaymentProviderType.Iyzico],
             DefaultProvider = PaymentProviderType.Iyzico,
             Force3DSecure = false,
             Force3DSecureAbove = 5000m,
             PublicApiBaseUrl = "http://localhost:5294"
-        });
+        };
+        _paymentSettingsOptionsMock.Setup(o => o.Value).Returns(_paymentSettings);
 
         _lockServiceMock.Setup(x => x.TryAcquireLockAsync(It.IsAny<string>(), It.IsAny<int>()))
             .ReturnsAsync("lock-token");
@@ -225,6 +227,58 @@ public class IyzicoPaymentServiceTests
     }
 
     [Fact]
+    public async Task ProcessPaymentAsync_WhenForce3DSecureEnabled_ShouldInitializeThreeDS()
+    {
+        _paymentSettings.Force3DSecure = true;
+        var order = CreatePendingOrder(id: 17, orderNumber: "ORD-17", totalAmount: 100m);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            CardHolderName = "Test User",
+            CardNumber = "5406670000000009",
+            ExpiryDate = "12/30",
+            CVV = "123",
+            IdempotencyKey = "force-3ds-test"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.RequiresThreeDS.Should().BeTrue();
+        _paymentGatewayMock.Verify(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+        _paymentGatewayMock.Verify(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        _paymentSettings.Force3DSecure = false;
+    }
+
+    [Fact]
+    public async Task ProcessPaymentAsync_WhenAmountExceedsThreshold_ShouldInitializeThreeDS()
+    {
+        _paymentSettings.Force3DSecure = false;
+        _paymentSettings.Force3DSecureAbove = 5000m;
+        var order = CreatePendingOrder(id: 18, orderNumber: "ORD-18", totalAmount: 6000m);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            CardHolderName = "Test User",
+            CardNumber = "5406670000000009",
+            ExpiryDate = "12/30",
+            CVV = "123",
+            IdempotencyKey = "threshold-3ds-test"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.RequiresThreeDS.Should().BeTrue();
+        _paymentGatewayMock.Verify(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+        _paymentGatewayMock.Verify(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ProcessPaymentAsync_WhenSaveCardRequested_ShouldPersistProviderTokenMetadata()
     {
         var order = CreatePendingOrder();
@@ -372,7 +426,7 @@ public class IyzicoPaymentServiceTests
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    private static Order CreatePendingOrder(int id = 15, string orderNumber = "ORD-15")
+    private static Order CreatePendingOrder(int id = 15, string orderNumber = "ORD-15", decimal totalAmount = 100m)
     {
         return new Order
         {
@@ -380,7 +434,7 @@ public class IyzicoPaymentServiceTests
             UserId = 1,
             OrderNumber = orderNumber,
             Status = OrderStatus.PendingPayment,
-            TotalAmount = 100,
+            TotalAmount = totalAmount,
             Currency = "TRY",
             ShippingAddress = "Test Address",
             OrderItems =
@@ -389,7 +443,7 @@ public class IyzicoPaymentServiceTests
                 {
                     ProductId = 1,
                     Quantity = 1,
-                    PriceSnapshot = 100,
+                    PriceSnapshot = totalAmount,
                     Product = new Product
                     {
                         Id = 1,
@@ -401,7 +455,7 @@ public class IyzicoPaymentServiceTests
             Payment = new Payment
             {
                 Status = PaymentStatus.Pending,
-                Amount = 100,
+                Amount = totalAmount,
                 Currency = "TRY",
                 PaymentMethod = "CreditCard"
             }
