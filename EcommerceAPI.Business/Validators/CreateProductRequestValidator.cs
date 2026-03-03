@@ -26,5 +26,28 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
 
         RuleFor(x => x.InitialStock)
             .GreaterThanOrEqualTo(0).WithMessage("Stok negatif olamaz");
+
+        RuleForEach(x => x.Images).ChildRules(image =>
+        {
+            image.RuleFor(x => x.ImageUrl)
+                .NotEmpty().WithMessage("Görsel URL zorunludur")
+                .Must(BeValidUrl).WithMessage("Geçerli bir görsel URL girin");
+        });
+
+        RuleForEach(x => x.Variants).ChildRules(variant =>
+        {
+            variant.RuleFor(x => x.Name)
+                .NotEmpty().WithMessage("Varyant adı zorunludur")
+                .MaximumLength(100);
+
+            variant.RuleFor(x => x.Value)
+                .NotEmpty().WithMessage("Varyant değeri zorunludur")
+                .MaximumLength(200);
+        });
+    }
+
+    private static bool BeValidUrl(string? value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out _);
     }
 }

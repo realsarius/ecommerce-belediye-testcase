@@ -76,7 +76,34 @@ public static class MappingExtensions
             CampaignName = activeCampaign?.Campaign?.Name,
             CampaignBadgeText = activeCampaign?.Campaign?.BadgeText,
             CampaignEndsAt = activeCampaign?.Campaign?.EndsAt,
-            IsCampaignFeatured = activeCampaign?.IsFeatured ?? false
+            IsCampaignFeatured = activeCampaign?.IsFeatured ?? false,
+            PrimaryImageUrl = p.Images
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.SortOrder)
+                .Select(image => image.ImageUrl)
+                .FirstOrDefault(),
+            Images = p.Images
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.SortOrder)
+                .Select(image => new ProductImageDto
+                {
+                    Id = image.Id,
+                    ImageUrl = image.ImageUrl,
+                    SortOrder = image.SortOrder,
+                    IsPrimary = image.IsPrimary
+                })
+                .ToList(),
+            Variants = p.Variants
+                .OrderBy(variant => variant.SortOrder)
+                .ThenBy(variant => variant.Name)
+                .Select(variant => new ProductVariantDto
+                {
+                    Id = variant.Id,
+                    Name = variant.Name,
+                    Value = variant.Value,
+                    SortOrder = variant.SortOrder
+                })
+                .ToList()
         };
     }
 }
