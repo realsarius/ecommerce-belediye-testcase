@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.Settings;
 using Microsoft.Extensions.Options;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -34,6 +35,7 @@ public class OrderManagerTests
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<OrderManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
     private readonly IOptions<FrontendFeatureSettings> _frontendFeatureSettings;
     private readonly OrderManager _orderManager;
 
@@ -51,7 +53,9 @@ public class OrderManagerTests
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<OrderManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _correlationIdProviderMock = new Mock<ICorrelationIdProvider>();
         _frontendFeatureSettings = CreateFrontendFeatureSettings();
+        _correlationIdProviderMock.Setup(x => x.GetCorrelationId()).Returns("test-correlation-id");
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -100,7 +104,8 @@ public class OrderManagerTests
             _auditServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object,
-            _frontendFeatureSettings
+            _frontendFeatureSettings,
+            _correlationIdProviderMock.Object
         );
     }
 
@@ -419,7 +424,8 @@ public class OrderManagerTests
             _auditServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object,
-            CreateFrontendFeatureSettings(enableCheckoutLegalConsents: false, enableCheckoutInvoiceInfo: false));
+            CreateFrontendFeatureSettings(enableCheckoutLegalConsents: false, enableCheckoutInvoiceInfo: false),
+            _correlationIdProviderMock.Object);
 
         const int userId = 100;
         var checkoutRequest = new CheckoutRequest

@@ -12,6 +12,7 @@ using FluentAssertions;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Moq;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -28,6 +29,7 @@ public class ReturnRequestManagerTests
     private readonly Mock<IReturnAttachmentStorageService> _returnAttachmentStorageServiceMock;
     private readonly Mock<ILogger<ReturnRequestManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
     private readonly ReturnRequestManager _manager;
 
     public ReturnRequestManagerTests()
@@ -43,6 +45,8 @@ public class ReturnRequestManagerTests
         _returnAttachmentStorageServiceMock = new Mock<IReturnAttachmentStorageService>();
         _loggerMock = new Mock<ILogger<ReturnRequestManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _correlationIdProviderMock = new Mock<ICorrelationIdProvider>();
+        _correlationIdProviderMock.Setup(x => x.GetCorrelationId()).Returns("test-correlation-id");
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -76,7 +80,8 @@ public class ReturnRequestManagerTests
             _auditServiceMock.Object,
             _returnAttachmentStorageServiceMock.Object,
             _loggerMock.Object,
-            _publishEndpointMock.Object);
+            _publishEndpointMock.Object,
+            _correlationIdProviderMock.Object);
     }
 
     [Fact]
