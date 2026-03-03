@@ -31,7 +31,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
-import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, CreditCard, FileText, XCircle, RefreshCw, Loader2, Edit, Plus, Minus, Trash2, Search, RotateCcw, ShoppingBag, CalendarDays, Hash, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Order, OrderItem } from '@/features/orders/types';
 import type { ReturnRequest } from '@/features/returns/types';
@@ -110,6 +110,15 @@ const getLatestReturnRequest = (requests: ReturnRequest[] | undefined, orderId: 
 
 const hasActiveReturnRequest = (request: ReturnRequest | undefined) =>
   request?.status === 'Pending' || request?.status === 'Approved' || request?.status === 'RefundPending';
+
+const formatOrderDate = (value: string) =>
+  new Date(value).toLocaleDateString('tr-TR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -360,6 +369,21 @@ export default function OrderDetail() {
   const canEdit = order.status === 'PendingPayment';
   const latestReturnRequest = getLatestReturnRequest(returnRequests, order.id);
   const returnActionLabel = hasActiveReturnRequest(latestReturnRequest) ? null : getReturnActionLabel(order);
+  const paymentStatusBadge = getPaymentStatusBadge(order.payment?.status);
+  const paymentSummaryLabel = order.payment?.status === 'Success'
+    ? 'Ödeme alındı'
+    : getOrderStatusLabel(order.status);
+  const pricingRows = [
+    order.discountAmount
+      ? { label: 'Kupon İndirimi', value: `-${order.discountAmount.toLocaleString('tr-TR')} ₺`, className: 'text-green-600' }
+      : null,
+    order.loyaltyDiscountAmount
+      ? { label: 'Sadakat Puanı', value: `-${order.loyaltyDiscountAmount.toLocaleString('tr-TR')} ₺`, className: 'text-amber-600' }
+      : null,
+    order.giftCardAmount
+      ? { label: `Gift Card${order.giftCardCode ? ` (${order.giftCardCode})` : ''}`, value: `-${order.giftCardAmount.toLocaleString('tr-TR')} ₺`, className: 'text-emerald-600' }
+      : null,
+  ].filter(Boolean) as { label: string; value: string; className: string }[];
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -370,32 +394,66 @@ export default function OrderDetail() {
         </Link>
       </Button>
 
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Sipariş #{order.id}</h1>
-          <p className="text-muted-foreground">
-            {new Date(order.createdAt).toLocaleDateString('tr-TR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </p>
-        </div>
-        <StatusBadge
-          label={getOrderStatusLabel(order.status)}
-          tone={getOrderStatusTone(order.status)}
-        />
-      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="gap-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <CardTitle className="text-3xl">Sipariş #{order.id}</CardTitle>
+                    <StatusBadge
+                      label={getOrderStatusLabel(order.status)}
+                      tone={getOrderStatusTone(order.status)}
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{formatOrderDate(order.createdAt)}</p>
+                </div>
+                <div className="grid min-w-full gap-3 sm:min-w-[22rem] sm:grid-cols-3">
+                  <div className="rounded-2xl border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <Hash className="h-4 w-4" />
+                      Sipariş Özeti
+                    </div>
+                    <p className="mt-2 text-lg font-semibold">{order.items.length} ürün</p>
+                    <p className="text-xs text-muted-foreground">Sepet satırları dahil</p>
+                  </div>
+                  <div className="rounded-2xl border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <CalendarDays className="h-4 w-4" />
+                      Teslimat
+                    </div>
+                    <p className="mt-2 text-lg font-semibold">
+                      {order.deliveredAt ? 'Teslim Edildi' : order.estimatedDeliveryDate ? 'Planlandı' : 'Bekleniyor'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.deliveredAt
+                        ? formatOrderDate(order.deliveredAt)
+                        : order.estimatedDeliveryDate
+                          ? formatOrderDate(order.estimatedDeliveryDate)
+                          : 'Kargo planı bekleniyor'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <Wallet className="h-4 w-4" />
+                      Toplam
+                    </div>
+                    <p className="mt-2 text-lg font-semibold">{order.totalAmount.toLocaleString('tr-TR')} ₺</p>
+                    <p className="text-xs text-muted-foreground">{paymentSummaryLabel}</p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Order Items */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Ürünler</CardTitle>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Ürünler</CardTitle>
+                  <p className="text-sm text-muted-foreground">Siparişinizdeki ürünler ve fiyat özeti</p>
+                </div>
                 {canEdit && (
                   <Button variant="outline" size="sm" onClick={() => handleEditDialogOpenChange(true)}>
                     <Edit className="mr-2 h-4 w-4" />
@@ -406,8 +464,8 @@ export default function OrderDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               {order.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                <div key={index} className="flex items-center gap-4 rounded-2xl border p-4">
+                  <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-muted">
                     <Package className="h-8 w-8 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -421,62 +479,23 @@ export default function OrderDetail() {
                   </p>
                 </div>
               ))}
-              <Separator />
-              {order.discountAmount ? (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Kupon İndirimi</span>
-                  <span>-{order.discountAmount.toLocaleString('tr-TR')} ₺</span>
+              <div className="rounded-2xl border bg-muted/20 p-4">
+                <div className="space-y-3">
+                  {pricingRows.map((row) => (
+                    <div key={row.label} className={`flex justify-between text-sm ${row.className}`}>
+                      <span>{row.label}</span>
+                      <span>{row.value}</span>
+                    </div>
+                  ))}
+                  {pricingRows.length > 0 ? <Separator /> : null}
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Toplam</span>
+                    <span>{order.totalAmount.toLocaleString('tr-TR')} ₺</span>
+                  </div>
                 </div>
-              ) : null}
-              {order.loyaltyDiscountAmount ? (
-                <div className="flex justify-between text-sm text-amber-600">
-                  <span>Sadakat Puanı</span>
-                  <span>-{order.loyaltyDiscountAmount.toLocaleString('tr-TR')} ₺</span>
-                </div>
-              ) : null}
-              {order.giftCardAmount ? (
-                <div className="flex justify-between text-sm text-emerald-600">
-                  <span>Gift Card {order.giftCardCode ? `(${order.giftCardCode})` : ''}</span>
-                  <span>-{order.giftCardAmount.toLocaleString('tr-TR')} ₺</span>
-                </div>
-              ) : null}
-              {(order.discountAmount || order.loyaltyDiscountAmount || order.giftCardAmount) ? <Separator /> : null}
-              <div className="flex justify-between text-lg font-bold">
-                <span>Toplam</span>
-                <span>{order.totalAmount.toLocaleString('tr-TR')} ₺</span>
               </div>
             </CardContent>
           </Card>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            {returnActionLabel && (
-              <Button variant="outline" asChild>
-                <Link to={`/returns?orderId=${order.id}`}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  {returnActionLabel}
-                </Link>
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              onClick={handleReorder}
-              disabled={isReorderingCart}
-            >
-              {isReorderingCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingBag className="mr-2 h-4 w-4" />}
-              Tekrar Satın Al
-            </Button>
-            {canCancel && (
-              <Button
-                variant="destructive"
-                onClick={() => setShowCancelConfirm(true)}
-                disabled={isCancelling}
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Siparişi İptal Et
-              </Button>
-            )}
-          </div>
 
           <Card>
             <CardHeader>
@@ -497,11 +516,43 @@ export default function OrderDetail() {
               </CardContent>
             </Card>
           ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sipariş İşlemleri</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {returnActionLabel && (
+                <Button variant="outline" asChild>
+                  <Link to={`/returns?orderId=${order.id}`}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    {returnActionLabel}
+                  </Link>
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                onClick={handleReorder}
+                disabled={isReorderingCart}
+              >
+                {isReorderingCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingBag className="mr-2 h-4 w-4" />}
+                Tekrar Satın Al
+              </Button>
+              {canCancel && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowCancelConfirm(true)}
+                  disabled={isCancelling}
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Siparişi İptal Et
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Shipping Address */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -509,14 +560,22 @@ export default function OrderDetail() {
                 <CardTitle className="text-base">Teslimat Adresi</CardTitle>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">
-                {order.shippingAddress}
-              </p>
+            <CardContent className="space-y-3">
+              <div className="rounded-2xl border bg-muted/20 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Teslimat Metni</p>
+                <p className="mt-2 text-sm leading-6 text-foreground">{order.shippingAddress}</p>
+              </div>
+              {order.estimatedDeliveryDate ? (
+                <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-900 dark:bg-sky-950/20">
+                  <p className="text-xs font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">Tahmini Teslimat</p>
+                  <p className="mt-2 text-sm font-medium text-sky-900 dark:text-sky-100">
+                    {formatOrderDate(order.estimatedDeliveryDate)}
+                  </p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
-          {/* Payment Info */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -525,24 +584,25 @@ export default function OrderDetail() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-muted-foreground text-sm">
-                Durum: {order.status === 'Paid' ? 'Ödeme alındı' : getOrderStatusLabel(order.status)}
-              </p>
-              {order.payment?.paymentMethod ? (
-                <p className="text-muted-foreground text-sm">
-                  Yöntem: {order.payment.paymentMethod}
-                </p>
-              ) : null}
-              {getPaymentStatusBadge(order.payment?.status) ? (
+              <div className="rounded-2xl border bg-muted/20 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ödeme Özeti</p>
+                <p className="mt-2 text-sm text-foreground">{paymentSummaryLabel}</p>
+                {order.payment?.paymentMethod ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Yöntem: {order.payment.paymentMethod}
+                  </p>
+                ) : null}
+              </div>
+              {paymentStatusBadge ? (
                 <Badge
                   variant="outline"
-                  className={getPaymentStatusBadge(order.payment?.status)?.className}
+                  className={paymentStatusBadge.className}
                 >
-                  {getPaymentStatusBadge(order.payment?.status)?.label}
+                  {paymentStatusBadge.label}
                 </Badge>
               ) : null}
               {order.payment?.provider ? (
-                <div className="rounded-lg border p-3">
+                <div className="rounded-2xl border p-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Sağlayıcı
                   </p>
@@ -586,9 +646,12 @@ export default function OrderDetail() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-muted-foreground text-sm">
-                  Tür: {order.invoiceInfo.type === 'Corporate' ? 'Kurumsal' : 'Bireysel'}
-                </p>
+                <div className="rounded-2xl border bg-muted/20 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fatura Türü</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    {order.invoiceInfo.type === 'Corporate' ? 'Kurumsal' : 'Bireysel'}
+                  </p>
+                </div>
                 <p className="text-muted-foreground text-sm">
                   {order.invoiceInfo.type === 'Corporate'
                     ? `Şirket: ${order.invoiceInfo.companyName || '-'}`
