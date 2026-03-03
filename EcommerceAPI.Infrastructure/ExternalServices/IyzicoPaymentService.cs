@@ -108,6 +108,7 @@ public class IyzicoPaymentService : IPaymentService
             if (iyzicoPayment.Status == "success")
             {
                 order.Payment.Status = PaymentStatus.Success;
+                order.Payment.Provider = PaymentProviderType.Iyzico;
                 order.Payment.PaymentProviderId = iyzicoPayment.PaymentId;
                 order.Status = OrderStatus.Paid;
                 order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
@@ -122,6 +123,11 @@ public class IyzicoPaymentService : IPaymentService
                 if (!referralResult.Success)
                 {
                     return new ErrorDataResult<PaymentDto>(referralResult.Message);
+                }
+
+                if (request.SaveCard && !request.SavedCardId.HasValue)
+                {
+                    await TryPersistTokenizedCardAsync(userId, request, iyzicoPayment);
                 }
             }
             else
@@ -180,13 +186,33 @@ public class IyzicoPaymentService : IPaymentService
         if (request.SavedCardId.HasValue)
         {
             // Kayıtlı kart kullan
-            var savedCardResult = await _creditCardService.GetDecryptedCardForPaymentAsync(order.UserId, request.SavedCardId.Value);
+            var savedCardResult = await _creditCardService.GetStoredCardForPaymentAsync(order.UserId, request.SavedCardId.Value);
             if (!savedCardResult.Success || savedCardResult.Data == null)
             {
                 throw new InvalidOperationException("Kayıtlı kart bulunamadı veya yetkisiz erişim.");
             }
             
             var savedCard = savedCardResult.Data;
+            if (savedCard.IsTokenized &&
+                savedCard.TokenProvider == PaymentProviderType.Iyzico &&
+                !string.IsNullOrWhiteSpace(savedCard.IyzicoCardToken) &&
+                !string.IsNullOrWhiteSpace(savedCard.IyzicoUserKey))
+            {
+                paymentRequest.PaymentCard = new PaymentCard
+                {
+                    CardToken = savedCard.IyzicoCardToken,
+                    CardUserKey = savedCard.IyzicoUserKey,
+                    RegisterCard = 0
+                };
+
+                goto BuildBuyerAndBasket;
+            }
+
+            if (!IsValidCvv(request.CVV))
+            {
+                throw new InvalidOperationException("Guvenlik kodu (CVV) 3 veya 4 haneli olmalidir.");
+            }
+
             cardHolderName = savedCard.CardHolderName;
             cardNumber = savedCard.CardNumber?.Replace(" ", "") ?? "";
             expireMonth = savedCard.ExpireMonth;
@@ -217,9 +243,10 @@ public class IyzicoPaymentService : IPaymentService
             ExpireMonth = expireMonth,
             ExpireYear = expireYear,
             Cvc = request.CVV ?? "",
-            RegisterCard = 0
+            RegisterCard = request.SaveCard && !request.SavedCardId.HasValue ? 1 : 0
         };
 
+BuildBuyerAndBasket:
         // Alıcı bilgileri
         paymentRequest.Buyer = new Buyer
         {
@@ -300,14 +327,14 @@ public class IyzicoPaymentService : IPaymentService
 
     private static string? ValidatePaymentRequest(ProcessPaymentRequest request)
     {
-        if (!IsValidCvv(request.CVV))
-        {
-            return "Guvenlik kodu (CVV) 3 veya 4 haneli olmalidir.";
-        }
-
         if (request.SavedCardId.HasValue)
         {
             return null;
+        }
+
+        if (!IsValidCvv(request.CVV))
+        {
+            return "Guvenlik kodu (CVV) 3 veya 4 haneli olmalidir.";
         }
 
         if (string.IsNullOrWhiteSpace(request.CardHolderName) ||
@@ -329,6 +356,46 @@ public class IyzicoPaymentService : IPaymentService
         }
 
         return null;
+    }
+
+    private async Task TryPersistTokenizedCardAsync(int userId, ProcessPaymentRequest request, Iyzipay.Model.Payment iyzicoPayment)
+    {
+        if (string.IsNullOrWhiteSpace(iyzicoPayment.CardToken) ||
+            string.IsNullOrWhiteSpace(iyzicoPayment.CardUserKey) ||
+            string.IsNullOrWhiteSpace(iyzicoPayment.LastFourDigits))
+        {
+            _logger.LogWarning(
+                "Save card requested but provider token metadata was missing. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}",
+                userId,
+                request.OrderId,
+                iyzicoPayment.PaymentId);
+            return;
+        }
+
+        var saveResult = await _creditCardService.SaveTokenizedCardAsync(userId, new SaveTokenizedCreditCardRequest
+        {
+            CardAlias = string.IsNullOrWhiteSpace(request.SaveCardAlias)
+                ? (string.IsNullOrWhiteSpace(request.CardHolderName) ? "Kayitli Kartim" : request.CardHolderName)
+                : request.SaveCardAlias,
+            CardHolderName = request.CardHolderName ?? "Card Holder",
+            Last4Digits = iyzicoPayment.LastFourDigits,
+            ExpireMonth = GetExpireMonth(request.ExpiryDate),
+            ExpireYear = GetExpireYear(request.ExpiryDate),
+            TokenProvider = PaymentProviderType.Iyzico,
+            IyzicoCardToken = iyzicoPayment.CardToken,
+            IyzicoUserKey = iyzicoPayment.CardUserKey,
+            IsDefault = false
+        });
+
+        if (!saveResult.Success)
+        {
+            _logger.LogWarning(
+                "Provider token received but local card save failed. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, Reason={Reason}",
+                userId,
+                request.OrderId,
+                iyzicoPayment.PaymentId,
+                saveResult.Message);
+        }
     }
 
     private static bool IsValidCvv(string? cvv)
@@ -376,6 +443,7 @@ public class IyzicoPaymentService : IPaymentService
             Currency = payment.Currency,
             Status = payment.Status.ToString(),
             PaymentMethod = payment.PaymentMethod,
+            Provider = payment.Provider,
             ErrorMessage = payment.ErrorMessage,
             CreatedAt = payment.CreatedAt
         };
