@@ -15,6 +15,7 @@ using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -31,6 +32,7 @@ public class ReturnRequestManager : IReturnRequestService
     private readonly IReturnAttachmentStorageService _returnAttachmentStorageService;
     private readonly ILogger<ReturnRequestManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     public ReturnRequestManager(
         IReturnRequestDal returnRequestDal,
@@ -43,7 +45,8 @@ public class ReturnRequestManager : IReturnRequestService
         IAuditService auditService,
         IReturnAttachmentStorageService returnAttachmentStorageService,
         ILogger<ReturnRequestManager> logger,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _returnRequestDal = returnRequestDal;
         _refundRequestDal = refundRequestDal;
@@ -56,6 +59,7 @@ public class ReturnRequestManager : IReturnRequestService
         _returnAttachmentStorageService = returnAttachmentStorageService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     [LogAspect]
@@ -167,13 +171,14 @@ public class ReturnRequestManager : IReturnRequestService
             });
 
         _logger.LogInformation(
-            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, ReasonCategory={ReasonCategory}, AttachmentCount={AttachmentCount}, RequestedRefundAmount={RequestedRefundAmount}",
+            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, ReasonCategory={ReasonCategory}, AttachmentCount={AttachmentCount}, RequestedRefundAmount={RequestedRefundAmount}, CorrelationId={CorrelationId}",
             orderId,
             userId,
             returnRequest.Type,
             returnRequest.ReasonCategory,
             returnRequest.Attachments.Count,
-            returnRequest.RequestedRefundAmount);
+            returnRequest.RequestedRefundAmount,
+            _correlationIdProvider.GetCorrelationId());
 
         var createdRequest = await _returnRequestDal.GetByIdWithDetailsAsync(returnRequest.Id) ?? returnRequest;
         return new SuccessDataResult<ReturnRequestDto>(MapToDto(createdRequest), "İade / iptal talebi oluşturuldu.");
@@ -299,6 +304,7 @@ public class ReturnRequestManager : IReturnRequestService
         {
             await _publishEndpoint.Publish(new RefundRequestedEvent
             {
+                CorrelationId = _correlationIdProvider.GetCorrelationId(),
                 RefundRequestId = createdRefundRequest.Id,
                 ReturnRequestId = returnRequest.Id,
                 OrderId = returnRequest.OrderId,
@@ -312,6 +318,7 @@ public class ReturnRequestManager : IReturnRequestService
 
         await _publishEndpoint.Publish(new ReturnRequestReviewedEvent
         {
+            CorrelationId = _correlationIdProvider.GetCorrelationId(),
             ReturnRequestId = returnRequest.Id,
             OrderId = returnRequest.OrderId,
             UserId = returnRequest.UserId,

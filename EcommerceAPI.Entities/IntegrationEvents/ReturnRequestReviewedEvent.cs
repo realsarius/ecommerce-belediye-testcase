@@ -3,6 +3,7 @@ namespace EcommerceAPI.Entities.IntegrationEvents;
 public sealed class ReturnRequestReviewedEvent
 {
     public Guid EventId { get; init; } = Guid.NewGuid();
+    public string? CorrelationId { get; init; }
     public int ReturnRequestId { get; init; }
     public int OrderId { get; init; }
     public int UserId { get; init; }

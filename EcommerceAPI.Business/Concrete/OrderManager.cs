@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
 using InvoiceType = EcommerceAPI.Entities.Enums.InvoiceType;
 using EcommerceAPI.Entities.Settings;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -37,6 +38,7 @@ public class OrderManager : IOrderService
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly FrontendFeatureSettings _frontendFeatureSettings;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
@@ -56,7 +58,8 @@ public class OrderManager : IOrderService
         IAuditService auditService,
         ILogger<OrderManager> logger,
         IPublishEndpoint publishEndpoint,
-        IOptions<FrontendFeatureSettings> frontendFeatureSettings)
+        IOptions<FrontendFeatureSettings> frontendFeatureSettings,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _orderDal = orderDal;
         _productDal = productDal;
@@ -71,6 +74,7 @@ public class OrderManager : IOrderService
         _logger = logger;
         _publishEndpoint = publishEndpoint;
         _frontendFeatureSettings = frontendFeatureSettings.Value;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     [LogAspect]
@@ -609,6 +613,7 @@ public class OrderManager : IOrderService
 
             await _publishEndpoint.Publish(new OrderShippedEvent
             {
+                CorrelationId = _correlationIdProvider.GetCorrelationId(),
                 OrderId = order.Id,
                 OrderNumber = order.OrderNumber,
                 UserId = order.UserId,
@@ -622,6 +627,13 @@ public class OrderManager : IOrderService
 
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
+
+            _logger.LogInformation(
+                "Order shipped and event published. OrderId={OrderId}, SellerId={SellerId}, CargoCompany={CargoCompany}, CorrelationId={CorrelationId}",
+                order.Id,
+                sellerId,
+                order.CargoCompany,
+                _correlationIdProvider.GetCorrelationId());
         }
         catch (Exception ex)
         {
