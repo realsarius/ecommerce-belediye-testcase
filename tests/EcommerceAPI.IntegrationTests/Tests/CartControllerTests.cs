@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -148,5 +151,65 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory>
             HttpStatusCode.NoContent, 
             HttpStatusCode.BadRequest
         );
+    }
+
+    [Fact]
+    public async Task Reorder_WhenStockIsLimited_ShouldAddAvailableQuantityAndReportSkippedReason()
+    {
+        var userId = Random.Shared.Next(880_001, 890_000);
+        var categoryId = Random.Shared.Next(890_001, 900_000);
+        var productId = Random.Shared.Next(900_001, 910_000);
+        var orderId = Random.Shared.Next(910_001, 920_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, userId);
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"Reorder Category {categoryId}");
+            await TestDataSeeder.EnsureProductWithStockAsync(db, productId, categoryId, 3);
+
+            var order = await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                userId,
+                productId,
+                categoryId,
+                $"ORD-REORDER-{orderId}",
+                $"integration-reorder-{orderId}",
+                orderStatus: OrderStatus.Delivered,
+                paymentStatus: PaymentStatus.Success);
+
+            var orderItem = order.OrderItems.Single();
+            orderItem.Quantity = 2;
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+
+        var addToCartResponse = await client.PostAsJsonAsync("/api/v1/cart/items", new AddToCartRequest
+        {
+            ProductId = productId,
+            Quantity = 2
+        });
+
+        addToCartResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await client.PostAsJsonAsync("/api/v1/cart/reorder", new ReorderCartRequest
+        {
+            OrderId = orderId
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ReorderCartResultDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.Should().NotBeNull();
+        apiResult.Data.RequestedCount.Should().Be(1);
+        apiResult.Data.AddedCount.Should().Be(1);
+        apiResult.Data.SkippedCount.Should().Be(1);
+        apiResult.Data.SkippedProducts.Should().ContainSingle(item =>
+            item.ProductId == productId &&
+            item.Reason.Contains("yalnızca 1 adedi"));
     }
 }
