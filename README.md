@@ -64,6 +64,12 @@ docker compose down
 
 **Gift Card Akışı**: Admin tarafından gift card üretimi, checkout'ta kod ile bakiye kullanımı, tam tutarı kapatan siparişlerde kartsız tamamlama ve iptal/refund durumunda bakiyeyi otomatik geri yükleme akışları mevcut.
 
+**Referral & Loyalty**: Referral code ile kayıt, ilk sipariş ödülü, loyalty puan hareketleri ve reward geri alma senaryoları aktif durumda.
+
+**SEO & Keşif**: `sitemap.xml`, `robots.txt`, canonical yönetimi, public sayfalarda meta/OG alanları ve JSON-LD structured data üretimi mevcut.
+
+**Admin / Seller Dashboard**: Admin ve seller panelleri; dashboard KPI'ları, sipariş/ürün/finans/iade/duyuru/sistem sağlığı yüzeyleri ve role-based operasyon akışlarıyla birlikte çalışıyor.
+
 ## 2. Teknoloji Yığını (Technology Stack)
 
 | Kategori | Teknoloji / Kütüphane | Kullanım Amacı |
@@ -425,6 +431,16 @@ Kod ile oluşturulan: 4 rol, 4 test kullanıcısı ([SeedRunner](EcommerceAPI.Se
 | `customer@test.com` | `Test123!` |
 | `support@test.com` | `Test123!` |
 
+### 7.5.1 Frontend Container Notu
+
+Frontend dev container'ı `package-lock.json` değiştiğinde bağımlılıkları otomatik senkronize eder. Yeni paket eklendiğinde veya Vite import hatası görülürse aşağıdaki komut yeterlidir:
+
+```bash
+docker compose --profile dev --profile logging up -d --build frontend-dev
+```
+
+Özellikle `recharts`, `@dnd-kit/*` gibi sonradan eklenen paketlerde container içi `node_modules` geride kaldığında bu komutla senkron tekrar sağlanır.
+
 ### 7.6 Ödeme Sağlayıcısı (Iyzico Sandbox)
 
 Projede Iyzico Sandbox entegrasyonu yapılmıştır. Gerçek para akışı bulunmaz.
@@ -486,25 +502,19 @@ Postman collection dosyası: `postman/EcommerceAPI.postman_collection.json`
 
 **Collection İçeriği:**
 
-| Klasör | Endpoint Sayısı | Açıklama |
-|--------|-----------------|----------|
-| Auth | 5 | Register, Login, Refresh, Revoke, Me |
-| Products (Public) | 2 | Ürün listeleme ve detay |
-| Categories (Public) | 2 | Kategori listeleme |
-| Cart | 5 | Sepet işlemleri |
-| Orders | 5 | Sipariş işlemleri |
-| Payments | 3 | Ödeme (farklı test kartları) |
-| Shipping Addresses | 4 | Adres yönetimi |
-| Credit Cards | 4 | Kayıtlı kart işlemleri |
-| Coupons | 5 | Kupon işlemleri |
-| Seller Profile | 4 | Satıcı profil yönetimi |
-| Admin - Products | 5 | Admin/Seller ürün yönetimi |
-| Admin - Categories | 4 | Admin kategori yönetimi |
-| Admin - Orders | 2 | Admin sipariş yönetimi |
-| Admin - Sellers | 1 | Admin satıcı görüntüleme |
-| Search | 1 | Elasticsearch ürün arama |
-| Support (Live Chat) | 7 | Canlı destek konuşma/mesaj endpointleri |
-| Full E-Commerce Flow | 8 | Uçtan uca test senaryosu |
+| Klasör | Açıklama |
+|--------|----------|
+| Auth | Register, Login, Refresh, Revoke, Me |
+| Products / Categories / Cart / Orders / Payments | Public ve customer yüzeyi |
+| Shipping Addresses / Credit Cards / Coupons | Kullanıcı checkout yardımcı akışları |
+| Seller Profile | Satıcı profil oluşturma ve güncelleme |
+| Admin - Dashboard / Products / Categories / Orders | Yönetim paneli temel operasyonları |
+| Admin - Returns / Sellers / Finance | İade, satıcı ve gelir raporu akışları |
+| Admin - Announcements / System | Duyuru yönetimi ve sistem sağlığı endpoint'leri |
+| Seller - Dashboard / Products / Orders | Seller panel ana operasyon yüzeyi |
+| Seller - Finance / Reviews | Seller analytics, finans ve yorum yönetimi |
+| Search / Support (Live Chat) | Arama ve canlı destek uçları |
+| Full E-Commerce Flow | Uçtan uca test senaryosu |
 
 ## 8. Frontend
 
@@ -519,11 +529,11 @@ frontend/src/
 └── types/         # TypeScript tipleri
 ```
 
-**Sayfalar:** Home, Login, Register, Cart, Checkout, Orders, ProductDetail, Account, Addresses, CreditCards, Loyalty, GiftCards
+**Sayfalar:** Home, Login, Register, Cart, Checkout, Orders, ProductDetail, Account, Addresses, CreditCards, Loyalty, GiftCards, Referrals, Notifications, Wishlist
 
-**Admin Panel:** Ürün/Kategori/Sipariş/Kupon/Gift Card yönetimi
+**Admin Panel:** Dashboard, kullanıcı yönetimi, ürün/kategori/sipariş/iade yönetimi, seller operasyonları, finans, kupon/kampanya, gift card, yorum moderasyonu, duyurular, destek ve sistem sağlığı
 
-**Seller Panel:** Ürün ekleme/düzenleme, stok güncelleme
+**Seller Panel:** Dashboard, ürün ekleme/düzenleme, çoklu görsel/varyant yönetimi, stok güncelleme, sipariş kargolama, finans, yorum cevaplama ve mağaza profili
 
 ## 9. Production Notes
 
