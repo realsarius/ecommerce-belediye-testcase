@@ -41,7 +41,9 @@ import {
 } from '@/features/campaigns/campaignsApi';
 import { useGetProductsQuery } from '@/features/products/productsApi';
 import { useDevTools } from '@/components/common/DevToolsProvider';
-import { Badge } from '@/components/common/badge';
+import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { EmptyState } from '@/components/admin/EmptyState';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Checkbox } from '@/components/common/checkbox';
@@ -109,6 +111,10 @@ type CouponFormData = CreateCouponRequest & {
   expiresAt: string;
 };
 
+type PendingDelete =
+  | { kind: 'coupon'; id: number; label: string }
+  | { kind: 'campaign'; id: number; label: string };
+
 const campaignTypeLabels: Record<CampaignType, string> = {
   [CampaignType.FlashSale]: 'Flash Sale',
   [CampaignType.Seasonal]: 'Sezonluk',
@@ -120,13 +126,6 @@ const campaignStatusLabels: Record<CampaignStatus, string> = {
   [CampaignStatus.Scheduled]: 'Planlandı',
   [CampaignStatus.Active]: 'Aktif',
   [CampaignStatus.Ended]: 'Bitti',
-};
-
-const campaignStatusBadgeClasses: Record<CampaignStatus, string> = {
-  [CampaignStatus.Draft]: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',
-  [CampaignStatus.Scheduled]: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  [CampaignStatus.Active]: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  [CampaignStatus.Ended]: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
 };
 
 function formatDate(dateStr: string) {
@@ -226,6 +225,19 @@ function normalizeCampaignStatus(value: Campaign['status']): CampaignStatus {
   return CampaignStatus.Draft;
 }
 
+function getCampaignStatusTone(status: CampaignStatus) {
+  switch (status) {
+    case CampaignStatus.Active:
+      return 'success' as const;
+    case CampaignStatus.Scheduled:
+      return 'warning' as const;
+    case CampaignStatus.Ended:
+      return 'danger' as const;
+    default:
+      return 'neutral' as const;
+  }
+}
+
 function createEmptyCampaignForm(): CampaignFormData {
   return {
     name: '',
@@ -243,6 +255,7 @@ export default function CouponsAdmin() {
   const [activeTab, setActiveTab] = useState<CouponsTab>('coupons');
   const [couponDialog, setCouponDialog] = useState<CouponDialogState>({ open: false, mode: 'create' });
   const [campaignDialog, setCampaignDialog] = useState<CampaignDialogState>({ open: false, mode: 'create' });
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [couponFormData, setCouponFormData] = useState<CouponFormData>({
     code: '',
     type: CouponType.Percentage,
@@ -431,31 +444,38 @@ export default function CouponsAdmin() {
     }
   };
 
-  const handleDeleteCoupon = async (id: number, code: string) => {
-    if (!confirm(`"${code}" kuponunu silmek istediğinize emin misiniz?`)) {
-      return;
-    }
-
+  const handleDeleteCoupon = async (id: number) => {
     try {
       await deleteCoupon(id).unwrap();
+      setPendingDelete(null);
       toast.success('Kupon silindi');
     } catch {
       toast.error('Kupon silinemedi');
     }
   };
 
-  const handleDeleteCampaign = async (campaign: Campaign) => {
-    if (!confirm(`"${campaign.name}" kampanyasını silmek istediğinize emin misiniz?`)) {
-      return;
-    }
-
+  const handleDeleteCampaign = async (campaignId: number) => {
     try {
-      await deleteCampaign(campaign.id).unwrap();
+      await deleteCampaign(campaignId).unwrap();
+      setPendingDelete(null);
       toast.success('Kampanya silindi');
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       toast.error(err.data?.message || 'Kampanya silinemedi');
     }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) {
+      return;
+    }
+
+    if (pendingDelete.kind === 'coupon') {
+      await handleDeleteCoupon(pendingDelete.id);
+      return;
+    }
+
+    await handleDeleteCampaign(pendingDelete.id);
   };
 
   const toggleCampaignProduct = (productId: number, checked: boolean) => {
@@ -661,13 +681,13 @@ export default function CouponsAdmin() {
                       </TableCell>
                       <TableCell>
                         {!coupon.isActive ? (
-                          <Badge variant="secondary">Pasif</Badge>
+                          <StatusBadge label="Pasif" tone="neutral" />
                         ) : isExpired(coupon.expiresAt) ? (
-                          <Badge variant="destructive">Süresi Dolmuş</Badge>
+                          <StatusBadge label="Süresi Dolmuş" tone="danger" />
                         ) : coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit ? (
-                          <Badge variant="outline">Limit Dolmuş</Badge>
+                          <StatusBadge label="Limit Dolmuş" tone="warning" />
                         ) : (
-                          <Badge variant="default">Aktif</Badge>
+                          <StatusBadge label="Aktif" tone="success" />
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -678,7 +698,7 @@ export default function CouponsAdmin() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteCoupon(coupon.id, coupon.code)}
+                            onClick={() => setPendingDelete({ kind: 'coupon', id: coupon.id, label: coupon.code })}
                             disabled={isDeletingCoupon}
                             className="text-destructive hover:text-destructive"
                           >
@@ -690,8 +710,13 @@ export default function CouponsAdmin() {
                   ))}
                   {coupons?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                        Henüz kupon eklenmemiş.
+                      <TableCell colSpan={9} className="p-0">
+                        <EmptyState
+                          icon={Ticket}
+                          title="Henüz kupon eklenmemiş"
+                          description="İlk kuponu oluşturarak bu ekrandan kullanım, limit ve son tarih takibini başlatabilirsiniz."
+                          className="border-0 shadow-none"
+                        />
                       </TableCell>
                     </TableRow>
                   ) : null}
@@ -791,9 +816,10 @@ export default function CouponsAdmin() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={campaignStatusBadgeClasses[normalizedStatus]}>
-                            {campaignStatusLabels[normalizedStatus]}
-                          </Badge>
+                          <StatusBadge
+                            label={campaignStatusLabels[normalizedStatus]}
+                            tone={getCampaignStatusTone(normalizedStatus)}
+                          />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -803,7 +829,7 @@ export default function CouponsAdmin() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeleteCampaign(campaign)}
+                              onClick={() => setPendingDelete({ kind: 'campaign', id: campaign.id, label: campaign.name })}
                               disabled={isDeletingCampaign}
                               className="text-destructive hover:text-destructive"
                             >
@@ -816,8 +842,13 @@ export default function CouponsAdmin() {
                   })}
                   {campaigns?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                        Henüz kampanya eklenmemiş.
+                      <TableCell colSpan={6} className="p-0">
+                        <EmptyState
+                          icon={Sparkles}
+                          title="Henüz kampanya eklenmemiş"
+                          description="Katalog ürünlerini seçerek zamanlı fiyat kampanyaları oluşturduğunuzda liste burada görünecek."
+                          className="border-0 shadow-none"
+                        />
                       </TableCell>
                     </TableRow>
                   ) : null}
@@ -1155,9 +1186,12 @@ export default function CouponsAdmin() {
                   })}
 
                   {products.length === 0 ? (
-                    <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                      Kampanya için seçilebilir ürün bulunamadı.
-                    </div>
+                    <EmptyState
+                      icon={Tag}
+                      title="Kampanya için seçilebilir ürün bulunamadı"
+                      description="Önce katalogda aktif ürün oluşturun, ardından kampanya ürün listesine ekleyin."
+                      className="border-dashed shadow-none"
+                    />
                   ) : null}
                 </div>
               )}
@@ -1174,6 +1208,25 @@ export default function CouponsAdmin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+          }
+        }}
+        title={pendingDelete?.kind === 'coupon' ? 'Kuponu sil' : 'Kampanyayı sil'}
+        description={
+          pendingDelete
+            ? `"${pendingDelete.label}" kaydını kalıcı olarak silmek istediğinize emin misiniz?`
+            : ''
+        }
+        confirmLabel={pendingDelete?.kind === 'coupon' ? 'Kuponu Sil' : 'Kampanyayı Sil'}
+        confirmVariant="destructive"
+        isLoading={isDeletingCoupon || isDeletingCampaign}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

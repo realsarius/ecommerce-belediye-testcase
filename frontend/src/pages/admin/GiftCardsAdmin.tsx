@@ -7,7 +7,6 @@ import {
 import type { CreateGiftCardRequest, GiftCard, UpdateGiftCardRequest } from '@/features/giftCards/types';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
-import { Badge } from '@/components/common/badge';
 import { Label } from '@/components/common/label';
 import { Checkbox } from '@/components/common/checkbox';
 import {
@@ -26,6 +25,8 @@ import {
   TableRow,
 } from '@/components/common/table';
 import { Skeleton } from '@/components/common/skeleton';
+import { EmptyState } from '@/components/admin/EmptyState';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Gift, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -169,11 +170,7 @@ export default function GiftCardsAdmin() {
                     {giftCard.expiresAt ? new Date(giftCard.expiresAt).toLocaleDateString('tr-TR') : 'Süresiz'}
                   </TableCell>
                   <TableCell>
-                    {giftCard.isActive ? (
-                      <Badge variant="default">Aktif</Badge>
-                    ) : (
-                      <Badge variant="secondary">Pasif</Badge>
-                    )}
+                    <StatusBadge label={giftCard.isActive ? 'Aktif' : 'Pasif'} tone={giftCard.isActive ? 'success' : 'neutral'} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(giftCard)}>
@@ -184,8 +181,13 @@ export default function GiftCardsAdmin() {
               ))}
               {giftCards?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Henüz gift card oluşturulmadı.
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={Gift}
+                      title="Henüz gift card oluşturulmadı"
+                      description="İlk gift card kaydını oluşturduğunuzda bakiye ve atama bilgileri bu tabloda görünecek."
+                      className="border-0 shadow-none"
+                    />
                   </TableCell>
                 </TableRow>
               ) : null}

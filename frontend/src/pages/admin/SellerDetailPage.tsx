@@ -16,6 +16,7 @@ import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Skeleton } from '@/components/common/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/common/table';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useGetAdminSellerDetailQuery } from '@/features/admin/adminApi';
@@ -314,8 +315,13 @@ export default function SellerDetailPage() {
                 ))}
                 {seller.products.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                      Bu seller için katalogda ürün görünmüyor.
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={Package}
+                        title="Bu seller için ürün görünmüyor"
+                        description="Satıcı ilk aktif ürününü eklediğinde katalog özeti bu tabloda listelenecek."
+                        className="border-0 shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}

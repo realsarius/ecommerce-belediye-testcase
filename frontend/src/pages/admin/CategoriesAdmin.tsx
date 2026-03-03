@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
+import { EmptyState } from '@/components/admin/EmptyState';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
@@ -200,7 +202,7 @@ function SortableCategoryTreeItem({
             <div className="flex items-center gap-2">
               <FolderTree className="h-4 w-4 text-muted-foreground" />
               <span className="truncate font-medium">{node.name}</span>
-              {node.isActive ? <Badge>Aktif</Badge> : <Badge variant="secondary">Pasif</Badge>}
+              <StatusBadge label={node.isActive ? 'Aktif' : 'Pasif'} tone={node.isActive ? 'success' : 'neutral'} />
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
               <span>{node.productCount} ürün</span>
@@ -476,9 +478,12 @@ export default function AdminCategories() {
 
             <ScrollArea className="h-[560px] pr-4">
               {categoryTree.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-                  Henüz kategori yok. İlk ana kategoriyi oluşturarak başlayabilirsiniz.
-                </div>
+                <EmptyState
+                  icon={FolderTree}
+                  title="Henüz kategori yok"
+                  description="İlk ana kategoriyi oluşturduğunuzda hiyerarşi ve sıralama ağacı bu alanda görünecek."
+                  className="border-dashed shadow-none"
+                />
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => void handleDragEnd(event)}>
                   <CategoryTreeBranch
@@ -564,7 +569,10 @@ export default function AdminCategories() {
                   <Badge variant="secondary">{selectedCategory.productCount} ürün</Badge>
                   <Badge variant="secondary">{selectedCategory.childCount} alt kategori</Badge>
                   <Badge variant="secondary">Sıra #{selectedCategory.sortOrder}</Badge>
-                  {selectedCategory.isActive ? <Badge>Aktif</Badge> : <Badge variant="secondary">Pasif</Badge>}
+                  <StatusBadge
+                    label={selectedCategory.isActive ? 'Aktif' : 'Pasif'}
+                    tone={selectedCategory.isActive ? 'success' : 'neutral'}
+                  />
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
                   Ürün bağlı kategori silinemez. Alt kategori varsa önce onları taşımanız veya pasife almanız gerekir.

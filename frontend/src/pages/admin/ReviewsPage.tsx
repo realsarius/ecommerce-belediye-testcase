@@ -9,6 +9,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Badge } from '@/components/common/badge';
@@ -411,8 +412,13 @@ export default function ReviewsPage() {
                         ))}
                         {tabReviews.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={8} className="py-14 text-center text-muted-foreground">
-                              Bu sekmede gosterilecek yorum bulunmuyor.
+                            <TableCell colSpan={8} className="p-0">
+                              <EmptyState
+                                icon={ShieldAlert}
+                                title="Bu sekmede yorum bulunmuyor"
+                                description="Filtrelenen moderasyon durumuna uyan yorumlar oluştuğunda bu tablo otomatik dolacak."
+                                className="border-0 shadow-none"
+                              />
                             </TableCell>
                           </TableRow>
                         ) : null}

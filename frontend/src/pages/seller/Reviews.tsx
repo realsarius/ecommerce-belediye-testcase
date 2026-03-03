@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/common/table';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
 import {
   useGetReviewSummaryQuery,
@@ -295,8 +296,13 @@ export default function SellerReviewsPage() {
                 ))}
                 {reviewedProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
-                      Henüz yorum alan ürün bulunmuyor.
+                    <TableCell colSpan={4} className="p-0">
+                      <EmptyState
+                        icon={MessageSquareQuote}
+                        title="Henüz yorum alan ürün bulunmuyor"
+                        description="Onaylı yorum geldikçe ürün bazlı performans tablosu bu alanda oluşacak."
+                        className="border-0 shadow-none"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : null}
@@ -316,9 +322,12 @@ export default function SellerReviewsPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             {!selectedProduct ? (
-              <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-                Görüntülemek için yorum alan bir ürün seçin.
-              </div>
+              <EmptyState
+                icon={Store}
+                title="Görüntülemek için bir ürün seçin"
+                description="Sol taraftaki listeden yorum alan bir ürünü seçtiğinizde detay ve yanıt alanı burada açılacak."
+                className="border-dashed shadow-none"
+              />
             ) : productSummaryLoading || productReviewsLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-20 rounded-xl" />
@@ -406,9 +415,12 @@ export default function SellerReviewsPage() {
                     </div>
                   </div>
                   {productReviews.length === 0 ? (
-                    <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-                      Seçili filtrelerle eşleşen yorum bulunmuyor.
-                    </div>
+                    <EmptyState
+                      icon={Search}
+                      title="Seçili filtrelerle eşleşen yorum bulunmuyor"
+                      description="Puan veya yanıt filtresini değiştirerek farklı yorum gruplarını görüntüleyebilirsiniz."
+                      className="border-dashed shadow-none"
+                    />
                   ) : (
                     <div className="space-y-3">
                       {productReviews.map((review) => (

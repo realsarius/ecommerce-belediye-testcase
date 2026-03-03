@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/ta
 import { Textarea } from '@/components/common/textarea';
 import { EmptyState } from '@/components/admin/EmptyState';
 import { KpiCard } from '@/components/admin/KpiCard';
+import { StatusBadge } from '@/components/admin/StatusBadge';
 import {
   useApproveAdminReturnMutation,
   useGetAdminReturnsQuery,
@@ -48,18 +49,25 @@ const returnStatusLabels: Record<ReturnRequestStatus, string> = {
   Refunded: 'İade Tamamlandı',
 };
 
-const returnStatusClasses: Record<ReturnRequestStatus, string> = {
-  Pending: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  Approved: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  Rejected: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  RefundPending: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  Refunded: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',
-};
-
 const returnTypeLabels: Record<ReturnRequestType, string> = {
   Return: 'İade',
   Cancellation: 'İptal',
 };
+
+function getReturnStatusTone(status: ReturnRequestStatus) {
+  switch (status) {
+    case 'Approved':
+      return 'success' as const;
+    case 'Rejected':
+      return 'danger' as const;
+    case 'Pending':
+      return 'warning' as const;
+    case 'RefundPending':
+      return 'info' as const;
+    default:
+      return 'neutral' as const;
+  }
+}
 
 type ReturnsTab = 'Pending' | 'Approved' | 'Rejected';
 
@@ -242,8 +250,13 @@ export default function ReturnsPage() {
                   ))}
                   {tabData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                        Bekleyen iade talebi bulunmuyor.
+                      <TableCell colSpan={7} className="p-0">
+                        <EmptyState
+                          icon={RotateCcw}
+                          title="Bekleyen iade talebi bulunmuyor"
+                          description="Yeni iade veya iptal talepleri geldiğinde inceleme kuyruğu burada listelenecek."
+                          className="border-0 shadow-none"
+                        />
                       </TableCell>
                     </TableRow>
                   ) : null}
@@ -285,9 +298,10 @@ export default function ReturnsPage() {
                         <Badge variant="outline">{returnTypeLabels[request.type]}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={returnStatusClasses[request.status]} variant="secondary">
-                          {returnStatusLabels[request.status]}
-                        </Badge>
+                        <StatusBadge
+                          label={returnStatusLabels[request.status]}
+                          tone={getReturnStatusTone(request.status)}
+                        />
                       </TableCell>
                       <TableCell>{formatCurrency(request.requestedRefundAmount)}</TableCell>
                       <TableCell>{request.reviewerName || 'Sistem'}</TableCell>
@@ -394,9 +408,10 @@ export default function ReturnsPage() {
                   <CardHeader className="pb-2">
                     <CardDescription>Durum</CardDescription>
                     <CardTitle className="text-lg">
-                      <Badge className={returnStatusClasses[selectedRequest.status]} variant="secondary">
-                        {returnStatusLabels[selectedRequest.status]}
-                      </Badge>
+                    <StatusBadge
+                      label={returnStatusLabels[selectedRequest.status]}
+                      tone={getReturnStatusTone(selectedRequest.status)}
+                    />
                     </CardTitle>
                   </CardHeader>
                 </Card>
