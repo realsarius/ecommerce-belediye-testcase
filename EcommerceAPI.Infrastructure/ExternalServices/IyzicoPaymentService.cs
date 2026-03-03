@@ -51,8 +51,11 @@ public class IyzicoPaymentService : IPaymentService
 
     public async Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request)
     {
-        _logger.LogInformation("RAW PAYMENT REQUEST: User={UserId}, OrderId={OrderId}, SavedCardId={SavedCardId}, CardNoLen={CardLen}", 
-            userId, request.OrderId, request.SavedCardId, request.CardNumber?.Length ?? 0);
+        _logger.LogInformation(
+            "Processing payment request. UserId={UserId}, OrderId={OrderId}, UsesSavedCard={UsesSavedCard}",
+            userId,
+            request.OrderId,
+            request.SavedCardId.HasValue);
         var lockKey = RedisKeys.PaymentLock(request.OrderId);
         var lockToken = await _lockService.TryAcquireLockAsync(lockKey);
 
@@ -93,6 +96,12 @@ public class IyzicoPaymentService : IPaymentService
                 return new ErrorDataResult<PaymentDto>(
                     Constants.InfrastructureConstants.Payment.AlreadyPaidCode,
                     "Bu sipariş için ödeme zaten alınmış.");
+
+            var validationError = ValidatePaymentRequest(request);
+            if (validationError != null)
+            {
+                return new ErrorDataResult<PaymentDto>(validationError);
+            }
 
             var iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
 
@@ -183,16 +192,13 @@ public class IyzicoPaymentService : IPaymentService
             expireMonth = savedCard.ExpireMonth;
             expireYear = savedCard.ExpireYear;
 
-            _logger.LogInformation("Kayıtlı kart kullanılıyor ID: {SavedCardId}", request.SavedCardId);
-            _logger.LogInformation("Kart No Length: {Length}, IsNumeric: {IsNumeric}", 
-                cardNumber.Length, 
-                cardNumber.All(char.IsDigit));
-            _logger.LogInformation("Expire: {Month}/{Year}", expireMonth, expireYear);
-
             if (!cardNumber.All(char.IsDigit))
             {
-                _logger.LogError("DECRYPTION HATASI: Kart numarası sadece rakamlardan oluşmuyor! Decrypted: {Decrypted}", 
-                    cardNumber.Length > 4 ? cardNumber.Substring(0, 4) + "***" : "INVALID");
+                _logger.LogError(
+                    "Saved card data is invalid after decryption. OrderId={OrderId}, SavedCardId={SavedCardId}",
+                    order.Id,
+                    request.SavedCardId);
+                throw new InvalidOperationException("Kayitli kart verisi gecersiz.");
             }
         }
         else
@@ -290,6 +296,50 @@ public class IyzicoPaymentService : IPaymentService
         paymentRequest.BasketItems = basketItems;
 
         return await Iyzipay.Model.Payment.Create(paymentRequest, options);
+    }
+
+    private static string? ValidatePaymentRequest(ProcessPaymentRequest request)
+    {
+        if (!IsValidCvv(request.CVV))
+        {
+            return "Guvenlik kodu (CVV) 3 veya 4 haneli olmalidir.";
+        }
+
+        if (request.SavedCardId.HasValue)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CardHolderName) ||
+            string.IsNullOrWhiteSpace(request.CardNumber) ||
+            string.IsNullOrWhiteSpace(request.ExpiryDate))
+        {
+            return "Yeni kart ile odeme icin kart bilgileri eksiksiz girilmelidir.";
+        }
+
+        var digitsOnly = new string(request.CardNumber.Where(char.IsDigit).ToArray());
+        if (digitsOnly.Length < 13 || digitsOnly.Length > 19)
+        {
+            return "Kart numarasi gecersizdir.";
+        }
+
+        if (!request.ExpiryDate.Contains('/'))
+        {
+            return "Son kullanma tarihi MM/YY veya MM/YYYY formatinda olmali.";
+        }
+
+        return null;
+    }
+
+    private static bool IsValidCvv(string? cvv)
+    {
+        if (string.IsNullOrWhiteSpace(cvv))
+        {
+            return false;
+        }
+
+        var digitsOnly = new string(cvv.Where(char.IsDigit).ToArray());
+        return digitsOnly.Length is >= 3 and <= 4;
     }
 
     private static string GetExpireMonth(string? expiryDate)
