@@ -13,6 +13,7 @@ export interface SellerProfile {
   facebookUrl?: string;
   xUrl?: string;
   isVerified: boolean;
+  commissionRateOverride?: number | null;
   createdAt: string;
   sellerFirstName: string;
   sellerLastName: string;

@@ -4,6 +4,7 @@ import type {
   ProductListRequest,
   CreateProductRequest,
   UpdateProductRequest,
+  BulkUpdateProductsRequest,
   UpdateStockRequest,
   ProductReviewDto,
   ReviewSummaryDto,
@@ -87,6 +88,14 @@ export const productsApi = baseApi.injectEndpoints({
       query: (id) => ({
         url: `/admin/products/${id}`,
         method: 'DELETE',
+      }),
+      invalidatesTags: ['Products'],
+    }),
+    bulkUpdateProducts: builder.mutation<void, BulkUpdateProductsRequest>({
+      query: (data) => ({
+        url: '/admin/products/bulk',
+        method: 'PUT',
+        body: data,
       }),
       invalidatesTags: ['Products'],
     }),
@@ -194,6 +203,7 @@ export const {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useBulkUpdateProductsMutation,
   useUpdateStockMutation,
   useSearchProductsQuery,
   useSearchSuggestionsQuery,

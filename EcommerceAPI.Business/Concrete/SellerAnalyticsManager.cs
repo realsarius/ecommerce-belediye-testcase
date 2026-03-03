@@ -17,6 +17,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
     private readonly IOrderDal _orderDal;
     private readonly IReturnRequestDal _returnRequestDal;
     private readonly IProductReviewDal _productReviewDal;
+    private readonly ISellerProfileDal _sellerProfileDal;
     private readonly IWishlistItemDal _wishlistItemDal;
     private readonly IRecommendationCacheService _recommendationCacheService;
 
@@ -25,6 +26,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         IOrderDal orderDal,
         IReturnRequestDal returnRequestDal,
         IProductReviewDal productReviewDal,
+        ISellerProfileDal sellerProfileDal,
         IWishlistItemDal wishlistItemDal,
         IRecommendationCacheService recommendationCacheService)
     {
@@ -32,6 +34,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         _orderDal = orderDal;
         _returnRequestDal = returnRequestDal;
         _productReviewDal = productReviewDal;
+        _sellerProfileDal = sellerProfileDal;
         _wishlistItemDal = wishlistItemDal;
         _recommendationCacheService = recommendationCacheService;
     }
@@ -163,6 +166,8 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
     {
         var normalizedDays = Math.Clamp(days, 7, 90);
         var fromDate = DateTime.UtcNow.Date.AddDays(-(normalizedDays - 1));
+        var commissionRatePercent = await GetCommissionRatePercentAsync(sellerId);
+        var commissionRate = commissionRatePercent / 100m;
 
         var products = await _productDal.GetListAsync(product => product.SellerId == sellerId);
         var productList = products.ToList();
@@ -177,7 +182,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
             return new SuccessDataResult<SellerFinanceSummaryDto>(new SellerFinanceSummaryDto
             {
                 PeriodDays = normalizedDays,
-                CommissionRate = DefaultCommissionRate * 100m,
+                CommissionRate = commissionRatePercent,
                 Currency = currency
             });
         }
@@ -208,7 +213,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
                 var grossSales = sellerItems.Sum(item => item.PriceSnapshot * item.Quantity);
                 var refundedAmount = refundedItems.Sum(item => item.PriceSnapshot * item.Quantity);
                 var netSales = Math.Max(0, grossSales - refundedAmount);
-                var commissionAmount = Math.Round(netSales * DefaultCommissionRate, 2);
+                var commissionAmount = Math.Round(netSales * commissionRate, 2);
 
                 return new SellerFinanceTrendPointDto
                 {
@@ -257,7 +262,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
             GrossSales = Math.Round(grossSalesTotal, 2),
             RefundedAmount = refundedAmountTotal,
             NetSales = Math.Round(netSalesTotal, 2),
-            CommissionRate = DefaultCommissionRate * 100m,
+            CommissionRate = commissionRatePercent,
             CommissionAmount = Math.Round(commissionAmountTotal, 2),
             NetEarnings = Math.Round(netSalesTotal - commissionAmountTotal, 2),
             AverageOrderValue = totalOrders == 0 ? 0 : Math.Round(grossSalesTotal / totalOrders, 2),
@@ -276,6 +281,8 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         var normalizedDays = Math.Clamp(days, 7, 90);
         var currentPeriodStart = DateTime.UtcNow.Date.AddDays(-(normalizedDays - 1));
         var previousPeriodStart = currentPeriodStart.AddDays(-normalizedDays);
+        var commissionRatePercent = await GetCommissionRatePercentAsync(sellerId);
+        var commissionRate = commissionRatePercent / 100m;
 
         var products = (await _productDal.GetListAsync(product => product.SellerId == sellerId)).ToList();
         var currency = products.FirstOrDefault()?.Currency ?? "TRY";
@@ -305,8 +312,8 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
             CompletedOrdersInPeriod = completedOrdersInPeriod,
             AverageRating = reviews.Count == 0 ? 0 : Math.Round((decimal)reviews.Average(review => review.Rating), 2),
             ReviewCount = reviews.Count,
-            NetEarnings = Math.Round(currentRevenue - currentRevenue * DefaultCommissionRate, 2),
-            CommissionRate = DefaultCommissionRate * 100m,
+            NetEarnings = Math.Round(currentRevenue - currentRevenue * commissionRate, 2),
+            CommissionRate = commissionRatePercent,
             Currency = currency
         };
 
@@ -530,6 +537,17 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
         }
 
         return Math.Round((current - previous) / previous * 100m, 2);
+    }
+
+    private async Task<decimal> GetCommissionRatePercentAsync(int sellerId)
+    {
+        var sellerProfile = await _sellerProfileDal.GetAsync(profile => profile.Id == sellerId);
+        if (sellerProfile?.CommissionRateOverride is >= 0 and <= 100)
+        {
+            return sellerProfile.CommissionRateOverride.Value;
+        }
+
+        return DefaultCommissionRate * 100m;
     }
 
     private static DateTime StartOfWeek(DateTime date)

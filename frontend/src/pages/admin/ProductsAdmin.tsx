@@ -47,6 +47,7 @@ import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useGetAdminCategoriesQuery } from '@/features/admin/adminApi';
 import {
+  useBulkUpdateProductsMutation,
   useDeleteProductMutation,
   useSearchProductsQuery,
   useUpdateProductMutation,
@@ -99,6 +100,7 @@ export default function AdminProducts() {
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
   });
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
+  const [bulkUpdateProducts, { isLoading: isBulkUpdating }] = useBulkUpdateProductsMutation();
   const [updateProduct, { isLoading: isUpdatingProduct }] = useUpdateProductMutation();
   const [updateStock, { isLoading: isUpdatingStock }] = useUpdateStockMutation();
 
@@ -189,7 +191,7 @@ export default function AdminProducts() {
 
   const handleBulkDelete = async () => {
     try {
-      await Promise.all(selectedIds.map((id) => deleteProduct(id).unwrap()));
+      await bulkUpdateProducts({ ids: selectedIds, action: 'delete' }).unwrap();
       toast.success(`${selectedIds.length} ürün silindi`);
       setBulkDeleteOpen(false);
       resetBulkSelection();
@@ -215,9 +217,8 @@ export default function AdminProducts() {
     }
 
     try {
-      const isActive = bulkAction === 'activate';
-      await Promise.all(selectedIds.map((id) => updateProduct({ id, data: { isActive } }).unwrap()));
-      toast.success(isActive ? 'Seçili ürünler aktifleştirildi' : 'Seçili ürünler pasife alındı');
+      await bulkUpdateProducts({ ids: selectedIds, action: bulkAction }).unwrap();
+      toast.success(bulkAction === 'activate' ? 'Seçili ürünler aktifleştirildi' : 'Seçili ürünler pasife alındı');
       resetBulkSelection();
     } catch {
       toast.error('Toplu işlem sırasında hata oluştu');
@@ -442,7 +443,7 @@ export default function AdminProducts() {
                 <SelectItem value="delete">Sil</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => void handleBulkAction()} disabled={isUpdatingProduct || isDeleting}>
+            <Button onClick={() => void handleBulkAction()} disabled={isUpdatingProduct || isDeleting || isBulkUpdating}>
               Uygula
             </Button>
           </div>
@@ -661,7 +662,7 @@ export default function AdminProducts() {
         title="Seçili ürünler silinsin mi?"
         description={`${selectedIds.length} ürün kalıcı olarak silinecek. Bu işlem geri alınamaz.`}
         confirmLabel="Toplu Sil"
-        isLoading={isDeleting}
+        isLoading={isBulkUpdating}
         onConfirm={handleBulkDelete}
       />
 

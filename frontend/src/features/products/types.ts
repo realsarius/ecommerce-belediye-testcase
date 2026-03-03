@@ -100,6 +100,11 @@ export interface UpdateProductRequest {
   stockQuantity?: number;
 }
 
+export interface BulkUpdateProductsRequest {
+  ids: number[];
+  action: 'activate' | 'deactivate' | 'delete';
+}
+
 export interface UpdateStockRequest {
   quantityChange: number;
   reason: string;
