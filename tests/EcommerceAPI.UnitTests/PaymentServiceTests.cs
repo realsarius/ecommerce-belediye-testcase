@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Text;
 using Iyzipay.Request;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -30,6 +31,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<IIyzicoPaymentGateway> _paymentGatewayMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
+    private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
     private readonly IyzicoPaymentService _paymentService;
 
     public IyzicoPaymentServiceTests()
@@ -44,6 +46,8 @@ public class IyzicoPaymentServiceTests
         _paymentGatewayMock = new Mock<IIyzicoPaymentGateway>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
+        _correlationIdProviderMock = new Mock<ICorrelationIdProvider>();
+        _correlationIdProviderMock.Setup(x => x.GetCorrelationId()).Returns("test-correlation-id");
         
         _optionsMock.Setup(o => o.Value).Returns(new IyzicoSettings 
         { 
@@ -87,7 +91,8 @@ public class IyzicoPaymentServiceTests
             _referralServiceMock.Object,
             _paymentGatewayMock.Object,
             _lockServiceMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            _correlationIdProviderMock.Object
         );
     }
 

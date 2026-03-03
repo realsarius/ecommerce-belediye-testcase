@@ -13,6 +13,7 @@ using Iyzipay.Model;
 using Iyzipay.Request;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
@@ -41,6 +42,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     private readonly IIyzicoPaymentGateway _paymentGateway;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     public IyzicoPaymentService(
         IOrderDal orderDal,
@@ -52,7 +54,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         IReferralService referralService,
         IIyzicoPaymentGateway paymentGateway,
         IDistributedLockService lockService,
-        Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
+        Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _orderDal = orderDal;
         _unitOfWork = unitOfWork;
@@ -64,6 +67,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         _paymentGateway = paymentGateway;
         _lockService = lockService;
         _logger = logger;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     public async Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request)
@@ -78,11 +82,12 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         request.PaymentProvider = requestedProvider;
 
         _logger.LogInformation(
-            "Processing payment request. UserId={UserId}, OrderId={OrderId}, UsesSavedCard={UsesSavedCard}, Provider={Provider}",
+            "Processing payment request. UserId={UserId}, OrderId={OrderId}, UsesSavedCard={UsesSavedCard}, Provider={Provider}, CorrelationId={CorrelationId}",
             userId,
             request.OrderId,
             request.SavedCardId.HasValue,
-            requestedProvider);
+            requestedProvider,
+            _correlationIdProvider.GetCorrelationId());
         var lockKey = RedisKeys.PaymentLock(request.OrderId);
         var lockToken = await _lockService.TryAcquireLockAsync(lockKey);
 
@@ -312,9 +317,10 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             if (!cardNumber.All(char.IsDigit))
             {
                 _logger.LogError(
-                    "Saved card data is invalid after decryption. OrderId={OrderId}, SavedCardId={SavedCardId}",
+                    "Saved card data is invalid after decryption. OrderId={OrderId}, SavedCardId={SavedCardId}, CorrelationId={CorrelationId}",
                     order.Id,
-                    request.SavedCardId);
+                    request.SavedCardId,
+                    _correlationIdProvider.GetCorrelationId());
                 throw new InvalidOperationException("Kayitli kart verisi gecersiz.");
             }
         }
@@ -476,10 +482,11 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             string.IsNullOrWhiteSpace(iyzicoPayment.LastFourDigits))
         {
             _logger.LogWarning(
-                "Save card requested but provider token metadata was missing. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}",
+                "Save card requested but provider token metadata was missing. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, CorrelationId={CorrelationId}",
                 userId,
                 request.OrderId,
-                iyzicoPayment.PaymentId);
+                iyzicoPayment.PaymentId,
+                _correlationIdProvider.GetCorrelationId());
             return;
         }
 
@@ -502,11 +509,12 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         if (!saveResult.Success)
         {
             _logger.LogWarning(
-                "Provider token received but local card save failed. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, Reason={Reason}",
+                "Provider token received but local card save failed. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, Reason={Reason}, CorrelationId={CorrelationId}",
                 userId,
                 request.OrderId,
                 iyzicoPayment.PaymentId,
-                saveResult.Message);
+                saveResult.Message,
+                _correlationIdProvider.GetCorrelationId());
         }
     }
 

@@ -9,6 +9,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -22,6 +23,7 @@ public class RefundServiceTests
     private readonly Mock<IReferralService> _referralServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<IyzicoRefundService>> _loggerMock;
+    private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
     private readonly IRefundService _refundService;
 
     public RefundServiceTests()
@@ -34,6 +36,8 @@ public class RefundServiceTests
         _referralServiceMock = new Mock<IReferralService>();
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<IyzicoRefundService>>();
+        _correlationIdProviderMock = new Mock<ICorrelationIdProvider>();
+        _correlationIdProviderMock.Setup(x => x.GetCorrelationId()).Returns("test-correlation-id");
         _loyaltyServiceMock.Setup(x => x.RestoreRedeemedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
         _loyaltyServiceMock.Setup(x => x.ReverseEarnedPointsAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
@@ -51,7 +55,8 @@ public class RefundServiceTests
             _giftCardServiceMock.Object,
             _referralServiceMock.Object,
             _auditServiceMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _correlationIdProviderMock.Object);
     }
 
     [Fact]
