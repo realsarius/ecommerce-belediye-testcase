@@ -1,3 +1,8 @@
+import type {
+  RevenueTrendChartPoint,
+  StatusDistributionChartPoint,
+} from '@/types/chart';
+
 // Seller types
 export interface SellerProfile {
   id: number;
@@ -78,17 +83,9 @@ export interface SellerDashboardKpi {
   currency: string;
 }
 
-export interface SellerDashboardRevenueTrendPoint {
-  label: string;
-  date: string;
-  revenue: number;
-  orders: number;
-}
+export interface SellerDashboardRevenueTrendPoint extends RevenueTrendChartPoint {}
 
-export interface SellerDashboardOrderStatusDistributionItem {
-  status: string;
-  count: number;
-}
+export interface SellerDashboardOrderStatusDistributionItem extends StatusDistributionChartPoint<string> {}
 
 export interface SellerDashboardProductPerformanceItem {
   productId: number;

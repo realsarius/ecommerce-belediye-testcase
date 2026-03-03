@@ -27,20 +27,7 @@ import {
   useGetAdminSystemHealthQuery,
 } from '@/features/admin/adminApi';
 import type { AdminServiceHealth, AdminServiceStatus } from '@/features/admin/types';
-
-function formatDate(value?: string | null) {
-  if (!value) {
-    return '-';
-  }
-
-  return new Date(value).toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+import { formatDateTime } from '@/lib/format';
 
 function getStatusTone(status: AdminServiceStatus) {
   switch (status) {
@@ -171,7 +158,7 @@ export default function SystemHealthPage() {
           <CardHeader>
             <CardTitle>Servis Durumları</CardTitle>
             <CardDescription>
-              Son kontrol zamanı: {formatDate(health?.generatedAt)}
+              Son kontrol zamanı: {formatDateTime(health?.generatedAt)}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -264,7 +251,7 @@ export default function SystemHealthPage() {
                 <TableCell className="font-medium">{job.id}</TableCell>
                 <TableCell>{job.exceptionType ?? '-'}</TableCell>
                 <TableCell className="max-w-[28rem] truncate">{job.reason ?? job.exceptionMessage ?? '-'}</TableCell>
-                <TableCell>{formatDate(job.failedAt)}</TableCell>
+                <TableCell>{formatDateTime(job.failedAt)}</TableCell>
               </TableRow>
             ))}
             {(!hangfire || hangfire.failedJobs.length === 0) ? (
@@ -299,7 +286,7 @@ export default function SystemHealthPage() {
           <TableBody>
             {errorLogs.map((log, index) => (
               <TableRow key={`${log.timestamp ?? 'no-ts'}-${index}`}>
-                <TableCell>{formatDate(log.timestamp)}</TableCell>
+                <TableCell>{formatDateTime(log.timestamp)}</TableCell>
                 <TableCell>
                   <StatusBadge
                     label={log.level}

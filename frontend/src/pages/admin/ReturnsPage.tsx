@@ -38,6 +38,7 @@ import {
   useRejectAdminReturnMutation,
 } from '@/features/admin/adminApi';
 import type { ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format';
 
 const returnStatusLabels: Record<ReturnRequestStatus, string> = {
   Pending: 'İnceleniyor',
@@ -61,24 +62,6 @@ const returnTypeLabels: Record<ReturnRequestType, string> = {
 };
 
 type ReturnsTab = 'Pending' | 'Approved' | 'Rejected';
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('tr-TR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export default function ReturnsPage() {
   const [activeTab, setActiveTab] = useState<ReturnsTab>('Pending');
@@ -175,7 +158,7 @@ export default function ReturnsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Bekleyen Talep"
-          value={summary.pendingCount.toLocaleString('tr-TR')}
+          value={formatNumber(summary.pendingCount)}
           helperText="İnceleme bekleyen toplam talep."
           icon={Clock3}
           accentClass="text-amber-600 dark:text-amber-300"
@@ -183,7 +166,7 @@ export default function ReturnsPage() {
         />
         <KpiCard
           title="İptal Talebi"
-          value={summary.cancellationCount.toLocaleString('tr-TR')}
+          value={formatNumber(summary.cancellationCount)}
           helperText="Ödeme veya hazırlık aşamasındaki siparişler."
           icon={ShieldX}
           accentClass="text-rose-600 dark:text-rose-300"
@@ -191,7 +174,7 @@ export default function ReturnsPage() {
         />
         <KpiCard
           title="İade Talebi"
-          value={summary.returnCount.toLocaleString('tr-TR')}
+          value={formatNumber(summary.returnCount)}
           helperText="Teslim edilmiş siparişler için açılan talepler."
           icon={RotateCcw}
           accentClass="text-sky-600 dark:text-sky-300"
@@ -248,7 +231,7 @@ export default function ReturnsPage() {
                       <TableCell className="max-w-[22rem] truncate">{request.reason}</TableCell>
                       <TableCell>{formatCurrency(request.requestedRefundAmount)}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {new Date(request.createdAt).toLocaleDateString('tr-TR')}
+                        {formatDate(request.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => handleOpenRequest(request)}>

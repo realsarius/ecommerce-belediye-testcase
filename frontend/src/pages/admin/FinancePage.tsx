@@ -32,26 +32,7 @@ import {
 } from '@/components/common/table';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { useGetAdminFinanceSummaryQuery } from '@/features/admin/adminApi';
-
-function formatCurrency(value: number, currency = 'TRY') {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCompactTick(value?: number) {
-  if (typeof value !== 'number') {
-    return '';
-  }
-
-  return `${Math.round(value / 1000)}k`;
-}
-
-function toDateInputValue(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
+import { formatCompactNumber, formatCurrency, formatDateInput, formatNumber } from '@/lib/format';
 
 function buildApiUrl(path: string) {
   const configuredBase = import.meta.env.VITE_API_URL || '/api/v1';
@@ -68,8 +49,8 @@ export default function AdminFinancePage() {
   const defaultFromDate = new Date();
   defaultFromDate.setDate(defaultToDate.getDate() - 29);
 
-  const [fromDate, setFromDate] = useState(toDateInputValue(defaultFromDate));
-  const [toDate, setToDate] = useState(toDateInputValue(defaultToDate));
+  const [fromDate, setFromDate] = useState(formatDateInput(defaultFromDate));
+  const [toDate, setToDate] = useState(formatDateInput(defaultToDate));
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: financeData, isLoading } = useGetAdminFinanceSummaryQuery({
@@ -206,7 +187,7 @@ export default function AdminFinancePage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} layout="vertical" margin={{ left: 12, right: 16 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.25} />
-                <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
+                <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
                 <YAxis type="category" dataKey="sellerName" tickLine={false} axisLine={false} width={110} />
                 <Tooltip
                   formatter={(value, name) => [
@@ -253,7 +234,7 @@ export default function AdminFinancePage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{row.successfulOrders.toLocaleString('tr-TR')}</TableCell>
+                    <TableCell>{formatNumber(row.successfulOrders)}</TableCell>
                     <TableCell>{formatCurrency(row.grossSales, financeData.currency)}</TableCell>
                     <TableCell>
                       <div>
@@ -281,7 +262,7 @@ export default function AdminFinancePage() {
                 <TableFooter>
                   <TableRow>
                     <TableCell className="font-semibold">Toplam</TableCell>
-                    <TableCell>{financeData.successfulOrderCount.toLocaleString('tr-TR')}</TableCell>
+                    <TableCell>{formatNumber(financeData.successfulOrderCount)}</TableCell>
                     <TableCell>{formatCurrency(financeData.totalRevenue, financeData.currency)}</TableCell>
                     <TableCell>{formatCurrency(financeData.totalCommission, financeData.currency)}</TableCell>
                     <TableCell>

@@ -1,5 +1,6 @@
 import { baseApi } from '@/app/api';
 import type { PaginatedResponse } from '@/types/api';
+import type { DashboardPeriod } from '@/types/chart';
 import type {
   Category,
   CreateCategoryRequest,
@@ -78,7 +79,7 @@ export const adminApi = baseApi.injectEndpoints({
       transformResponse: (response: { data: AdminDashboardKpi }) => response.data,
       providesTags: ['Orders', 'Users', 'Products', 'Categories'],
     }),
-    getAdminDashboardRevenueTrend: builder.query<AdminDashboardRevenueTrendPoint[], { period?: 'daily' | 'weekly' | 'monthly' } | void>({
+    getAdminDashboardRevenueTrend: builder.query<AdminDashboardRevenueTrendPoint[], { period?: DashboardPeriod } | void>({
       query: (params) => ({
         url: '/admin/dashboard/revenue-trend',
         params: params ?? undefined,

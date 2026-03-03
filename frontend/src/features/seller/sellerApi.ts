@@ -1,4 +1,5 @@
 import { baseApi } from '@/app/api';
+import type { DashboardPeriod } from '@/types/chart';
 import type {
   Product,
   ProductListRequest,
@@ -102,7 +103,7 @@ export const sellerApi = baseApi.injectEndpoints({
       providesTags: [{ type: 'SellerAnalytics', id: 'DASHBOARD_KPI' }],
     }),
 
-    getSellerDashboardRevenueTrend: builder.query<SellerDashboardRevenueTrendPoint[], { period?: 'daily' | 'weekly' | 'monthly' } | void>({
+    getSellerDashboardRevenueTrend: builder.query<SellerDashboardRevenueTrendPoint[], { period?: DashboardPeriod } | void>({
       query: (params) => ({
         url: '/seller/dashboard/revenue-trend',
         params: params ?? undefined,

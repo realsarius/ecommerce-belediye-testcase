@@ -46,22 +46,13 @@ import {
   useGetSellerProfileQuery,
 } from '@/features/seller/sellerApi';
 import { formatShortDate } from '@/lib/dashboardLayout';
-
-function formatCurrency(value: number, currency = 'TRY') {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCompactTick(value?: number) {
-  if (typeof value !== 'number') {
-    return '';
-  }
-
-  return `${Math.round(value / 1000)}k`;
-}
+import {
+  formatCompactNumber,
+  formatCurrency,
+  formatDateInput,
+  formatNumber,
+  formatPercent,
+} from '@/lib/format';
 
 function downloadCsv(filename: string, rows: string[][]) {
   const csvContent = rows
@@ -84,13 +75,6 @@ const periodOptions = [
   { value: 30, label: 'Son 30 Gün' },
   { value: 90, label: 'Son 90 Gün' },
 ] as const;
-
-function formatDateInput(value: Date) {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, '0');
-  const day = `${value.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 function buildPresetDateRange(days: number) {
   const end = new Date();
@@ -170,8 +154,8 @@ export default function SellerFinancePage() {
       ['Brüt Satış', formatCurrency(financeData.grossSales, financeData.currency)],
       ['İade Tutarı', formatCurrency(financeData.refundedAmount, financeData.currency)],
       ['Net Satış', formatCurrency(financeData.netSales, financeData.currency)],
-      ['Siparis Sayisi', financeData.orders.toLocaleString('tr-TR')],
-      ['Komisyon Orani', `%${financeData.commissionRate.toLocaleString('tr-TR')}`],
+      ['Siparis Sayisi', formatNumber(financeData.orders)],
+      ['Komisyon Orani', formatPercent(financeData.commissionRate)],
       ['Komisyon Tutari', formatCurrency(financeData.commissionAmount, financeData.currency)],
       ['Net Kazanc', formatCurrency(financeData.netEarnings, financeData.currency)],
       ['Ortalama Siparis Degeri', formatCurrency(financeData.avgOrderValue, financeData.currency)],
@@ -181,7 +165,7 @@ export default function SellerFinancePage() {
       ['Gun', 'Siparis', 'Brut Satis', 'Net Satis', 'Komisyon', 'Net Kazanc'],
       ...financeData.trendSeries.map((point) => [
         point.label,
-        point.orders.toLocaleString('tr-TR'),
+        formatNumber(point.orders),
         formatCurrency(point.grossSales, financeData.currency),
         formatCurrency(point.netSales, financeData.currency),
         formatCurrency(point.commissionAmount, financeData.currency),
@@ -191,7 +175,7 @@ export default function SellerFinancePage() {
       ['Ay', 'Siparis', 'Brut Satis', 'Net Satis', 'Komisyon', 'Net Kazanc'],
       ...financeData.monthlyRows.map((row) => [
         row.monthLabel,
-        row.orders.toLocaleString('tr-TR'),
+        formatNumber(row.orders),
         formatCurrency(row.grossSales, financeData.currency),
         formatCurrency(row.netSales, financeData.currency),
         formatCurrency(row.commissionAmount, financeData.currency),
@@ -327,7 +311,7 @@ export default function SellerFinancePage() {
         />
         <KpiCard
           title="Platform Komisyonu"
-          value={`%${financeData.commissionRate.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}`}
+          value={formatPercent(financeData.commissionRate)}
           helperText="Varsayılan platform oranı gerçek finans özetinden gösterilir."
           icon={ShoppingBag}
           accentClass="text-sky-600 dark:text-sky-300"
@@ -344,7 +328,7 @@ export default function SellerFinancePage() {
         <KpiCard
           title="Net Kazanç"
           value={formatCurrency(financeData.netEarnings, financeData.currency)}
-          helperText={`${financeData.orders.toLocaleString('tr-TR')} siparişten sonra satıcıya kalan tutar.`}
+          helperText={`${formatNumber(financeData.orders)} siparişten sonra satıcıya kalan tutar.`}
           icon={CircleDollarSign}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"
@@ -374,7 +358,7 @@ export default function SellerFinancePage() {
               <LineChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
-                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
                 <Tooltip
                   formatter={(value) => [
                     formatCurrency(typeof value === 'number' ? value : 0, financeData.currency),
@@ -397,7 +381,7 @@ export default function SellerFinancePage() {
               <BarChart data={financeData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
-                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
                 <Tooltip
                   formatter={(value) => [
                     formatCurrency(typeof value === 'number' ? value : 0, financeData.currency),
@@ -436,7 +420,7 @@ export default function SellerFinancePage() {
               {financeData.monthlyRows.map((row) => (
                 <TableRow key={row.monthKey}>
                   <TableCell className="font-medium">{row.monthLabel}</TableCell>
-                  <TableCell>{row.orders.toLocaleString('tr-TR')}</TableCell>
+                  <TableCell>{formatNumber(row.orders)}</TableCell>
                   <TableCell>{formatCurrency(row.grossSales, financeData.currency)}</TableCell>
                   <TableCell>{formatCurrency(row.netSales, financeData.currency)}</TableCell>
                   <TableCell>{formatCurrency(row.commissionAmount, financeData.currency)}</TableCell>

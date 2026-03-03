@@ -52,9 +52,10 @@ import {
   useGetAdminDashboardUserRegistrationsQuery,
 } from '@/features/admin/adminApi';
 import type { OrderStatus } from '@/features/orders/types';
+import type { DashboardPeriod } from '@/types/chart';
+import { formatCompactNumber, formatCurrency, formatNumber } from '@/lib/format';
 
 const chartColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
-type RevenuePeriod = 'daily' | 'weekly' | 'monthly';
 
 const orderStatusLabels: Record<OrderStatus, string> = {
   PendingPayment: 'Beklemede',
@@ -66,28 +67,12 @@ const orderStatusLabels: Record<OrderStatus, string> = {
   Refunded: 'İade',
 };
 
-function formatCurrency(value: number, currency = 'TRY') {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCompactTick(value?: number) {
-  if (typeof value !== 'number') {
-    return '';
-  }
-
-  return `${Math.round(value / 1000)}k`;
-}
-
 function formatCountTooltip(value?: number, suffix?: string) {
   if (typeof value !== 'number') {
     return '';
   }
 
-  return suffix ? `${value.toLocaleString('tr-TR')} ${suffix}` : value.toLocaleString('tr-TR');
+  return suffix ? `${formatNumber(value)} ${suffix}` : formatNumber(value);
 }
 
 function formatDelta(current: number, previous: number) {
@@ -106,7 +91,7 @@ function getOrderStatusTone(status: OrderStatus) {
 }
 
 export default function AdminDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState<RevenuePeriod>('daily');
+  const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>('daily');
   const pollingOptions = { pollingInterval: 60000 } as const;
 
   const { data: kpi, isLoading: kpiLoading } = useGetAdminDashboardKpiQuery(undefined, pollingOptions);
@@ -147,7 +132,7 @@ export default function AdminDashboard() {
     };
   }, [lowStockProducts, recentOrders, statusDistribution]);
 
-  const revenueDescriptions: Record<RevenuePeriod, string> = {
+  const revenueDescriptions: Record<DashboardPeriod, string> = {
     daily: 'Son 7 gün ile bir önceki 7 günlük dönemin günlük gelir karşılaştırması.',
     weekly: 'Son 8 hafta ile önceki 8 haftanın haftalık gelir karşılaştırması.',
     monthly: 'Son 6 ay ile önceki 6 ayın aylık gelir karşılaştırması.',
@@ -214,7 +199,7 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Bugünkü Sipariş"
-          value={(kpi?.todayOrders ?? 0).toLocaleString('tr-TR')}
+          value={formatNumber(kpi?.todayOrders ?? 0)}
           delta={formatDelta(kpi?.todayOrders ?? 0, kpi?.yesterdayOrders ?? 0)}
           deltaLabel="düne göre"
           helperText="Yeni oluşturulan sipariş adedi."
@@ -224,7 +209,7 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Yeni Üye"
-          value={(kpi?.todayNewUsers ?? 0).toLocaleString('tr-TR')}
+          value={formatNumber(kpi?.todayNewUsers ?? 0)}
           delta={formatDelta(kpi?.todayNewUsers ?? 0, kpi?.yesterdayNewUsers ?? 0)}
           deltaLabel="düne göre"
           helperText="Bugün kayıt olan kullanıcı sayısı."
@@ -234,8 +219,8 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Aktif Seller"
-          value={(kpi?.activeSellers ?? 0).toLocaleString('tr-TR')}
-          helperText={`${(kpi?.activeProducts ?? 0).toLocaleString('tr-TR')} aktif ürün ve ${(kpi?.categoryCount ?? 0).toLocaleString('tr-TR')} kategori içinde hesaplandı.`}
+          value={formatNumber(kpi?.activeSellers ?? 0)}
+          helperText={`${formatNumber(kpi?.activeProducts ?? 0)} aktif ürün ve ${formatNumber(kpi?.categoryCount ?? 0)} kategori içinde hesaplandı.`}
           badge={`${kpi?.pendingSellerApplications ?? 0} bekleyen`}
           icon={Store}
           accentClass="text-amber-600 dark:text-amber-300"
@@ -254,7 +239,7 @@ export default function AdminDashboard() {
                 </CardTitle>
                 <CardDescription>{revenueDescriptions[selectedPeriod]}</CardDescription>
               </div>
-              <Tabs value={selectedPeriod} onValueChange={(value) => setSelectedPeriod(value as RevenuePeriod)}>
+              <Tabs value={selectedPeriod} onValueChange={(value) => setSelectedPeriod(value as DashboardPeriod)}>
                 <TabsList>
                   <TabsTrigger value="daily">Günlük</TabsTrigger>
                   <TabsTrigger value="weekly">Haftalık</TabsTrigger>
@@ -268,7 +253,7 @@ export default function AdminDashboard() {
               <LineChart data={revenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
                 <Tooltip
                   formatter={(value, name) => [
                     formatCurrency(typeof value === 'number' ? value : 0, kpi?.currency),
@@ -301,7 +286,7 @@ export default function AdminDashboard() {
         <Card className="border-border/70">
           <CardHeader>
             <CardTitle>Sipariş Durum Dağılımı</CardTitle>
-            <CardDescription>Toplam {dashboardData.totalOrders.toLocaleString('tr-TR')} siparişin güncel dağılımı.</CardDescription>
+            <CardDescription>Toplam {formatNumber(dashboardData.totalOrders)} siparişin güncel dağılımı.</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">

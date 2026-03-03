@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { formatShortDate } from '@/lib/format';
 
 export type DashboardNavItem = {
   label: string;
@@ -108,9 +109,4 @@ export function getUserInitials(
   return (email?.trim()?.charAt(0) ?? 'U').toUpperCase();
 }
 
-export function formatShortDate(value: string) {
-  return new Date(value).toLocaleDateString('tr-TR', {
-    day: '2-digit',
-    month: 'short',
-  });
-}
+export { formatShortDate };

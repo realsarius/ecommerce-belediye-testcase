@@ -26,28 +26,7 @@ import {
 import { useGetAdminUsersQuery } from '@/features/admin/adminApi';
 import type { AdminUserListItem, AdminUserStatus } from '@/features/admin/types';
 import { useDebounce } from '@/hooks/useDebounce';
-
-function formatDate(value?: string | null) {
-  if (!value) {
-    return '-';
-  }
-
-  return new Date(value).toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { formatCurrency, formatDateTime, formatNumber } from '@/lib/format';
 
 function getStatusTone(status: string) {
   switch (status) {
@@ -122,7 +101,7 @@ export default function UsersPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Toplam Kullanıcı"
-          value={stats.total.toLocaleString('tr-TR')}
+          value={formatNumber(stats.total)}
           helperText="Mevcut filtrelerle eşleşen kayıtlar."
           icon={Users}
           accentClass="text-sky-600 dark:text-sky-300"
@@ -130,7 +109,7 @@ export default function UsersPage() {
         />
         <KpiCard
           title="Aktif Hesap"
-          value={stats.active.toLocaleString('tr-TR')}
+          value={formatNumber(stats.active)}
           helperText="Girişe açık kullanıcılar."
           icon={UserCheck}
           accentClass="text-emerald-600 dark:text-emerald-300"
@@ -138,7 +117,7 @@ export default function UsersPage() {
         />
         <KpiCard
           title="Askıdaki Hesap"
-          value={stats.suspended.toLocaleString('tr-TR')}
+          value={formatNumber(stats.suspended)}
           helperText="Geçici olarak durdurulan hesaplar."
           icon={ShieldCheck}
           accentClass="text-amber-600 dark:text-amber-300"
@@ -146,7 +125,7 @@ export default function UsersPage() {
         />
         <KpiCard
           title="Banlı Hesap"
-          value={stats.banned.toLocaleString('tr-TR')}
+          value={formatNumber(stats.banned)}
           helperText="Kalıcı olarak kapatılan hesaplar."
           icon={UserX}
           accentClass="text-rose-600 dark:text-rose-300"
@@ -259,8 +238,8 @@ export default function UsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>{user.role}</TableCell>
-                      <TableCell>{formatDate(user.createdAt)}</TableCell>
-                      <TableCell>{formatDate(user.lastLoginAt)}</TableCell>
+                      <TableCell>{formatDateTime(user.createdAt)}</TableCell>
+                      <TableCell>{formatDateTime(user.lastLoginAt)}</TableCell>
                       <TableCell>{formatCurrency(user.totalSpent)}</TableCell>
                       <TableCell>
                         <StatusBadge

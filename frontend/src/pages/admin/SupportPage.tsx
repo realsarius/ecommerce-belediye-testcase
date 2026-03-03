@@ -6,18 +6,14 @@ import { KpiCard } from '@/components/admin/KpiCard';
 import Support from '@/pages/Support';
 import type { SupportConversationStatus } from '@/features/support/types';
 import { useGetSupportQueueQuery } from '@/features/support/supportApi';
+import { formatDateTime, formatNumber } from '@/lib/format';
 
 function formatRelativeDate(value?: string | null) {
   if (!value) {
     return 'Henüz aktivite yok';
   }
 
-  return new Date(value).toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(value, 'DD MMMM HH:mm');
 }
 
 export default function AdminSupportPage() {
@@ -55,7 +51,7 @@ export default function AdminSupportPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <KpiCard
             title="Açık Kuyruk"
-            value={openCount.toLocaleString('tr-TR')}
+            value={formatNumber(openCount)}
             helperText="Henüz çözülmemiş ve işlem bekleyen görüşmeler."
             icon={MessageSquareText}
             accentClass="text-sky-600 dark:text-sky-300"
@@ -63,7 +59,7 @@ export default function AdminSupportPage() {
           />
           <KpiCard
             title="Üstlenilen"
-            value={assignedCount.toLocaleString('tr-TR')}
+            value={formatNumber(assignedCount)}
             helperText="Bir support kullanıcısına atanmış aktif görüşmeler."
             icon={UserCheck}
             accentClass="text-emerald-600 dark:text-emerald-300"
@@ -71,7 +67,7 @@ export default function AdminSupportPage() {
           />
           <KpiCard
             title="Atama Bekleyen"
-            value={unassignedCount.toLocaleString('tr-TR')}
+            value={formatNumber(unassignedCount)}
             helperText="Henüz kimse tarafından sahiplenilmemiş talepler."
             icon={Users}
             accentClass="text-amber-600 dark:text-amber-300"

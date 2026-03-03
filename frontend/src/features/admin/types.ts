@@ -1,4 +1,9 @@
 import type { Order, OrderStatus, ShippingAddress } from '@/features/orders/types';
+import type {
+  ComparativeRevenueTrendChartPoint,
+  RegistrationChartPoint,
+  StatusDistributionChartPoint,
+} from '@/types/chart';
 
 export type AdminUserStatus = 'Active' | 'Suspended' | 'Banned';
 export type AdminSellerStatus = 'Active' | 'Pending' | 'Suspended' | 'Closed';
@@ -140,29 +145,16 @@ export interface AdminDashboardKpi {
   currency: string;
 }
 
-export interface AdminDashboardRevenueTrendPoint {
-  label: string;
-  date: string;
-  revenue: number;
-  previousRevenue: number;
-  orders: number;
-}
+export interface AdminDashboardRevenueTrendPoint extends ComparativeRevenueTrendChartPoint {}
 
 export interface AdminDashboardCategorySalesItem {
   categoryName: string;
   salesCount: number;
 }
 
-export interface AdminDashboardUserRegistrationPoint {
-  label: string;
-  date: string;
-  count: number;
-}
+export interface AdminDashboardUserRegistrationPoint extends RegistrationChartPoint {}
 
-export interface AdminDashboardOrderStatusDistributionItem {
-  status: OrderStatus;
-  count: number;
-}
+export interface AdminDashboardOrderStatusDistributionItem extends StatusDistributionChartPoint<OrderStatus> {}
 
 export interface AdminDashboardLowStockItem {
   productId: number;

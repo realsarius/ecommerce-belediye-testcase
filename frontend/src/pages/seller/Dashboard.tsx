@@ -46,6 +46,7 @@ import {
   useGetSellerProfileQuery,
 } from '@/features/seller/sellerApi';
 import type { OrderStatus } from '@/features/orders/types';
+import { formatCompactNumber, formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 
 const chartColors = ['#f59e0b', '#10b981', '#6366f1', '#8b5cf6', '#ef4444', '#06b6d4'];
 
@@ -59,28 +60,12 @@ const orderStatusLabels: Record<OrderStatus, string> = {
   Refunded: 'İade',
 };
 
-function formatCurrency(value: number, currency = 'TRY') {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCompactTick(value?: number) {
-  if (typeof value !== 'number') {
-    return '';
-  }
-
-  return `${Math.round(value / 1000)}k`;
-}
-
 function formatCountTooltip(value?: number) {
   if (typeof value !== 'number') {
     return '';
   }
 
-  return value.toLocaleString('tr-TR');
+  return formatNumber(value);
 }
 
 function maskCustomerName(value?: string) {
@@ -238,8 +223,8 @@ export default function SellerDashboard() {
         />
         <KpiCard
           title="Toplam Sipariş"
-          value={dashboardData.totalOrders.toLocaleString('tr-TR')}
-          helperText={`Son ${dashboardKpi?.periodDays ?? 30} günde ${dashboardData.completedOrders.toLocaleString('tr-TR')} sipariş teslim edildi.`}
+          value={formatNumber(dashboardData.totalOrders)}
+          helperText={`Son ${dashboardKpi?.periodDays ?? 30} günde ${formatNumber(dashboardData.completedOrders)} sipariş teslim edildi.`}
           icon={ShoppingBag}
           accentClass="text-sky-600 dark:text-sky-300"
           surfaceClass="bg-sky-500/10"
@@ -247,7 +232,7 @@ export default function SellerDashboard() {
         <KpiCard
           title="Ortalama Ürün Puanı"
           value={`${dashboardData.averageRating.toFixed(1)} / 5`}
-          helperText={`${dashboardData.reviewCount.toLocaleString('tr-TR')} değerlendirme üzerinden hesaplandı.`}
+          helperText={`${formatNumber(dashboardData.reviewCount)} değerlendirme üzerinden hesaplandı.`}
           icon={Star}
           accentClass="text-violet-600 dark:text-violet-300"
           surfaceClass="bg-violet-500/10"
@@ -255,7 +240,7 @@ export default function SellerDashboard() {
         <KpiCard
           title="Net Kazanç"
           value={formatCurrency(dashboardData.netRevenue, dashboardData.currency)}
-          helperText={`Son 30 günde %${dashboardData.commissionRate.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} platform komisyonu düşülerek hesaplandı.`}
+          helperText={`Son 30 günde ${formatPercent(dashboardData.commissionRate)} platform komisyonu düşülerek hesaplandı.`}
           icon={CircleDollarSign}
           accentClass="text-amber-600 dark:text-amber-300"
           surfaceClass="bg-amber-500/10"
@@ -273,7 +258,7 @@ export default function SellerDashboard() {
               <LineChart data={dashboardData.trendSeries}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
-                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactTick} />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
                 <Tooltip
                   formatter={(value) => [
                     formatCurrency(typeof value === 'number' ? value : 0, dashboardData.currency),
@@ -361,7 +346,7 @@ export default function SellerDashboard() {
                       </div>
                     </TableCell>
                     <TableCell>{formatCurrency(product.revenue, product.currency)}</TableCell>
-                    <TableCell>{product.unitsSold.toLocaleString('tr-TR')}</TableCell>
+                    <TableCell>{formatNumber(product.unitsSold)}</TableCell>
                     <TableCell>{product.averageRating > 0 ? `${product.averageRating.toFixed(1)} / 5` : 'Henüz yok'}</TableCell>
                     <TableCell>
                       <StatusBadge
