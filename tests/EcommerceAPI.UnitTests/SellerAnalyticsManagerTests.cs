@@ -270,4 +270,69 @@ public class SellerAnalyticsManagerTests
         result.Data.Single(item => item.Status == OrderStatus.Delivered).Count.Should().Be(1);
         result.Data.Single(item => item.Status == OrderStatus.Cancelled).Count.Should().Be(1);
     }
+
+    [Fact]
+    public async Task GetFinanceSummaryAsync_WithCustomDateRange_ShouldOnlyIncludeOrdersInsideRange()
+    {
+        const int sellerId = 14;
+        var inRangeDate = DateTime.UtcNow.Date.AddDays(-2);
+        var outOfRangeDate = DateTime.UtcNow.Date.AddDays(-20);
+        var customFrom = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-3));
+        var customTo = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1));
+
+        _productDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Product, bool>>>()))
+            .ReturnsAsync([
+                new Product { Id = 41, Name = "Defter", Description = "d", Price = 120, SKU = "D1", SellerId = sellerId, IsActive = true, Currency = "TRY" }
+            ]);
+
+        _orderDalMock
+            .Setup(x => x.GetOrdersBySellerIdAsync(sellerId))
+            .ReturnsAsync([
+                new Order
+                {
+                    Id = 810,
+                    CreatedAt = inRangeDate,
+                    Status = OrderStatus.Delivered,
+                    Payment = new Payment { Status = PaymentStatus.Success },
+                    OrderItems =
+                    [
+                        new OrderItem
+                        {
+                            ProductId = 41,
+                            Product = new Product { Id = 41, Name = "Defter", Description = "d", Price = 120, SKU = "D1", SellerId = sellerId, IsActive = true },
+                            Quantity = 1,
+                            PriceSnapshot = 120
+                        }
+                    ]
+                },
+                new Order
+                {
+                    Id = 811,
+                    CreatedAt = outOfRangeDate,
+                    Status = OrderStatus.Delivered,
+                    Payment = new Payment { Status = PaymentStatus.Success },
+                    OrderItems =
+                    [
+                        new OrderItem
+                        {
+                            ProductId = 41,
+                            Product = new Product { Id = 41, Name = "Defter", Description = "d", Price = 90, SKU = "D1", SellerId = sellerId, IsActive = true },
+                            Quantity = 1,
+                            PriceSnapshot = 90
+                        }
+                    ]
+                }
+            ]);
+
+        var result = await CreateManager().GetFinanceSummaryAsync(sellerId, days: 30, from: customFrom, to: customTo);
+
+        result.Success.Should().BeTrue();
+        result.Data.PeriodDays.Should().Be(3);
+        result.Data.FromDate.Should().Be(customFrom);
+        result.Data.ToDate.Should().Be(customTo);
+        result.Data.TotalOrders.Should().Be(1);
+        result.Data.GrossSales.Should().Be(120m);
+        result.Data.DailyTrend.Should().HaveCount(3);
+    }
 }
