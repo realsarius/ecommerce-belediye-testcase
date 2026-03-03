@@ -48,9 +48,10 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
         if (alreadyProcessed)
         {
             _logger.LogInformation(
-                "OrderShippedEvent duplicate skipped. OrderId={OrderId}, MessageId={MessageId}",
+                "OrderShippedEvent duplicate skipped. OrderId={OrderId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.OrderId,
-                messageId);
+                messageId,
+                message.CorrelationId);
             return;
         }
 
@@ -98,9 +99,10 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {
             _logger.LogInformation(
-                "OrderShippedEvent duplicate detected during inbox save. OrderId={OrderId}, MessageId={MessageId}",
+                "OrderShippedEvent duplicate detected during inbox save. OrderId={OrderId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.OrderId,
-                messageId);
+                messageId,
+                message.CorrelationId);
         }
     }
 
@@ -116,6 +118,7 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
         activity.SetTag("ecommerce.message.type", nameof(OrderShippedEvent));
         activity.SetTag("ecommerce.order.id", message.OrderId);
         activity.SetTag("ecommerce.order.number", message.OrderNumber);
+        activity.SetTag("ecommerce.correlation_id", message.CorrelationId);
     }
 
     private static bool IsDuplicateKeyException(DbUpdateException ex)

@@ -52,9 +52,10 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         if (alreadyProcessed)
         {
             _logger.LogInformation(
-                "RefundRequestedEvent duplicate skipped. RefundRequestId={RefundRequestId}, MessageId={MessageId}",
+                "RefundRequestedEvent duplicate skipped. RefundRequestId={RefundRequestId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.RefundRequestId,
-                messageId);
+                messageId,
+                message.CorrelationId);
             return;
         }
 
@@ -87,7 +88,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
             }
 
             _logger.LogInformation(
-                "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, MessageId={MessageId}, ProcessedAt={ProcessedAt}",
+                "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, MessageId={MessageId}, ProcessedAt={ProcessedAt}, CorrelationId={CorrelationId}",
                 "Refund",
                 "RefundProcessed",
                 result.Data.Id,
@@ -98,7 +99,8 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
                 result.Data.Currency,
                 result.Data.Status,
                 messageId,
-                result.Data.ProcessedAt);
+                result.Data.ProcessedAt,
+                message.CorrelationId);
         }
         else
         {
@@ -136,7 +138,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
             }
 
             _logger.LogWarning(
-                "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, FailureReason={FailureReason}, MessageId={MessageId}, RetryAttempt={RetryAttempt}, RetryScheduled={RetryScheduled}",
+                "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, FailureReason={FailureReason}, MessageId={MessageId}, RetryAttempt={RetryAttempt}, RetryScheduled={RetryScheduled}, CorrelationId={CorrelationId}",
                 "Refund",
                 "RefundFailed",
                 result.Data?.Id ?? message.RefundRequestId,
@@ -149,7 +151,8 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
                 result.Data?.FailureReason ?? result.Message,
                 messageId,
                 message.RetryAttempt,
-                retryScheduled);
+                retryScheduled,
+                message.CorrelationId);
         }
 
         _dbContext.InboxMessages.Add(new InboxMessage
@@ -167,9 +170,10 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {
             _logger.LogInformation(
-                "RefundRequestedEvent duplicate detected during inbox save. RefundRequestId={RefundRequestId}, MessageId={MessageId}",
+                "RefundRequestedEvent duplicate detected during inbox save. RefundRequestId={RefundRequestId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.RefundRequestId,
-                messageId);
+                messageId,
+                message.CorrelationId);
         }
     }
 
@@ -186,6 +190,7 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
         activity.SetTag("ecommerce.refund_request.id", message.RefundRequestId);
         activity.SetTag("ecommerce.order.id", message.OrderId);
         activity.SetTag("ecommerce.refund.retry_attempt", message.RetryAttempt);
+        activity.SetTag("ecommerce.correlation_id", message.CorrelationId);
     }
 
     private static bool IsDuplicateKeyException(DbUpdateException ex)

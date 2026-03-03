@@ -41,6 +41,7 @@ public class HangfireRefundRetryScheduler : IRefundRetryScheduler
         var delay = CalculateDelay(nextAttempt);
         var retryEvent = new RefundRequestedEvent
         {
+            CorrelationId = failedMessage.CorrelationId,
             RefundRequestId = failedMessage.RefundRequestId,
             ReturnRequestId = failedMessage.ReturnRequestId,
             OrderId = failedMessage.OrderId,
