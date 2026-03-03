@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import {
   BarChart3,
+  CalendarDays,
   CircleDollarSign,
   Download,
   Info,
@@ -83,12 +84,51 @@ const periodOptions = [
   { value: 90, label: 'Son 90 Gün' },
 ] as const;
 
+function formatDateInput(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildPresetDateRange(days: number) {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - (days - 1));
+
+  return {
+    from: formatDateInput(start),
+    to: formatDateInput(end),
+  };
+}
+
+function getInclusiveDayCount(from: string, to: string) {
+  if (!from || !to) {
+    return 0;
+  }
+
+  const fromDate = new Date(`${from}T00:00:00`);
+  const toDate = new Date(`${to}T00:00:00`);
+  const diff = toDate.getTime() - fromDate.getTime();
+  return diff >= 0 ? Math.floor(diff / (1000 * 60 * 60 * 24)) + 1 : 0;
+}
+
 export default function SellerFinancePage() {
-  const [selectedDays, setSelectedDays] = useState<number>(30);
+  const [selectedPreset, setSelectedPreset] = useState<string>('30');
+  const [dateRange, setDateRange] = useState(() => buildPresetDateRange(30));
   const { data: profile, isLoading: profileLoading } = useGetSellerProfileQuery();
   const shouldSkipProtectedQueries = profileLoading || !profile;
-  const { data: financeSummary, isLoading: financeLoading } = useGetSellerFinanceSummaryQuery(selectedDays, {
-    skip: shouldSkipProtectedQueries,
+  const selectedDays = useMemo(
+    () => getInclusiveDayCount(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to]
+  );
+  const hasInvalidDateRange = selectedDays === 0;
+  const { data: financeSummary, isLoading: financeLoading } = useGetSellerFinanceSummaryQuery({
+    from: dateRange.from,
+    to: dateRange.to,
+    days: selectedDays || 30,
+  }, {
+    skip: shouldSkipProtectedQueries || hasInvalidDateRange,
   });
 
   const isLoading = profileLoading || financeLoading;
@@ -122,10 +162,10 @@ export default function SellerFinancePage() {
   }, [financeSummary]);
 
   const handleExportCsv = () => {
-    const filename = `seller-finance-${selectedDays}-gun.csv`;
+    const filename = `seller-finance-${dateRange.from || 'baslangic'}-${dateRange.to || 'bitis'}.csv`;
     const rows: string[][] = [
       ['Rapor', 'Deger'],
-      ['Secili Donem', `${selectedDays} gün`],
+      ['Secili Donem', `${dateRange.from} - ${dateRange.to}`],
       ['Brüt Satış', formatCurrency(financeData.grossSales, financeData.currency)],
       ['İade Tutarı', formatCurrency(financeData.refundedAmount, financeData.currency)],
       ['Net Satış', formatCurrency(financeData.netSales, financeData.currency)],
@@ -159,6 +199,22 @@ export default function SellerFinancePage() {
     ];
 
     downloadCsv(filename, rows);
+  };
+
+  const handlePresetChange = (value: string) => {
+    setSelectedPreset(value);
+    const days = Number(value);
+    if (!Number.isNaN(days) && days > 0) {
+      setDateRange(buildPresetDateRange(days));
+    }
+  };
+
+  const handleDateChange = (field: 'from' | 'to', value: string) => {
+    setSelectedPreset('custom');
+    setDateRange((current) => ({
+      ...current,
+      [field]: value,
+    }));
   };
 
   if (isLoading) {
@@ -209,33 +265,61 @@ export default function SellerFinancePage() {
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:max-w-md">
-          <div className="w-full sm:max-w-xs">
-            <Select value={String(selectedDays)} onValueChange={(value) => setSelectedDays(Number(value))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Dönem seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                {periodOptions.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex w-full flex-col gap-3 sm:justify-end xl:max-w-xl">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-3">
+              <Select value={selectedPreset} onValueChange={handlePresetChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Dönem seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Özel Aralık</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <input
+              type="date"
+              value={dateRange.from}
+              onChange={(event) => handleDateChange('from', event.target.value)}
+              className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+            />
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={(event) => handleDateChange('to', event.target.value)}
+              className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+            />
+            <div className="flex items-center gap-2 rounded-md border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              {hasInvalidDateRange ? 'Geçersiz tarih aralığı' : `${selectedDays} gün`}
+            </div>
           </div>
-          <Button variant="outline" onClick={handleExportCsv} disabled={financeData.trendSeries.length === 0}>
+          <Button variant="outline" onClick={handleExportCsv} disabled={financeData.trendSeries.length === 0 || hasInvalidDateRange}>
             <Download className="mr-2 h-4 w-4" />
             CSV Dışa Aktar
           </Button>
         </div>
       </div>
 
+      {hasInvalidDateRange ? (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-4 text-sm text-destructive">
+            <Info className="h-4 w-4" />
+            Başlangıç tarihi bitiş tarihinden büyük olamaz.
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Brüt Satış"
           value={formatCurrency(financeData.grossSales, financeData.currency)}
-          helperText={`Seçili ${selectedDays} günlük dönem için toplam satış.`}
+          helperText={`${dateRange.from} - ${dateRange.to} aralığı için toplam satış.`}
           icon={Wallet}
           accentClass="text-emerald-600 dark:text-emerald-300"
           surfaceClass="bg-emerald-500/10"

@@ -141,6 +141,8 @@ export interface SellerFinanceMonthlySummary {
 
 export interface SellerFinanceSummary {
   periodDays: number;
+  fromDate: string;
+  toDate: string;
   totalOrders: number;
   grossSales: number;
   refundedAmount: number;

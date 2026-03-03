@@ -28,6 +28,12 @@ function unwrapApiData<T>(response: T | { data: T }) {
   return (response as { data?: T }).data ?? (response as T);
 }
 
+export interface SellerFinanceSummaryQuery {
+  days?: number;
+  from?: string;
+  to?: string;
+}
+
 export const sellerApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Seller Profile endpoints
@@ -118,10 +124,10 @@ export const sellerApi = baseApi.injectEndpoints({
       providesTags: ['SellerAnalytics'],
     }),
 
-    getSellerFinanceSummary: builder.query<SellerFinanceSummary, number | void>({
-      query: (days = 30) => ({
+    getSellerFinanceSummary: builder.query<SellerFinanceSummary, SellerFinanceSummaryQuery | void>({
+      query: (params) => ({
         url: '/seller/analytics/finance',
-        params: { days },
+        params: params ?? { days: 30 },
       }),
       transformResponse: (response: { data: SellerFinanceSummary }) => response.data,
       providesTags: ['SellerAnalytics'],
