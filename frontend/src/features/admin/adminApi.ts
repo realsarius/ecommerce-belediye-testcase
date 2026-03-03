@@ -21,6 +21,7 @@ import type {
   AdminDashboardUserRegistrationPoint,
   AdminSellerDetail,
   AdminSellerListItem,
+  AdminOrdersQueryParams,
   AdminUserDetail,
   AdminUserListItem,
   CreateAdminAnnouncementRequest,
@@ -40,6 +41,34 @@ import type {
 
 function unwrapApiData<T>(response: T | { data: T }) {
   return (response as { data?: T }).data ?? (response as T);
+}
+
+type AdminGranularTag =
+  | 'Categories'
+  | 'Addresses'
+  | 'Orders'
+  | 'Returns'
+  | 'SellerProfile'
+  | 'Users'
+  | 'Reviews'
+  | 'Announcements';
+
+function createListTags<T extends { id: number | string }, TTag extends AdminGranularTag>(type: TTag, items?: T[]) {
+  if (!items?.length) {
+    return [{ type, id: 'LIST' }] as const;
+  }
+
+  return [
+    { type, id: 'LIST' },
+    ...items.map((item) => ({ type, id: item.id })),
+  ] as const;
+}
+
+function createPaginatedListTags<T extends { id: number | string }, TTag extends AdminGranularTag>(
+  type: TTag,
+  result?: PaginatedResponse<T>
+) {
+  return createListTags(type, result?.items);
 }
 
 export const adminApi = baseApi.injectEndpoints({
@@ -94,12 +123,12 @@ export const adminApi = baseApi.injectEndpoints({
     getCategories: builder.query<Category[], void>({
       query: () => '/categories',
       transformResponse: (response: { data: Category[] }) => response.data,
-      providesTags: ['Categories'],
+      providesTags: (result) => createListTags('Categories', result),
     }),
     getAdminCategories: builder.query<Category[], void>({
       query: () => '/admin/categories',
       transformResponse: (response: { data: Category[] }) => response.data,
-      providesTags: ['Categories'],
+      providesTags: (result) => createListTags('Categories', result),
     }),
     createCategory: builder.mutation<Category, CreateCategoryRequest>({
       query: (data) => ({
@@ -108,7 +137,9 @@ export const adminApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: Category }) => response.data,
-      invalidatesTags: ['Categories'],
+      invalidatesTags: (result) => result
+        ? [{ type: 'Categories', id: result.id }, { type: 'Categories', id: 'LIST' }]
+        : [{ type: 'Categories', id: 'LIST' }],
     }),
     updateCategory: builder.mutation<Category, { id: number; data: UpdateCategoryRequest }>({
       query: ({ id, data }) => ({
@@ -132,11 +163,11 @@ export const adminApi = baseApi.injectEndpoints({
         url: `/admin/categories/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Categories'],
+      invalidatesTags: (_result, _error, id) => [{ type: 'Categories', id }, { type: 'Categories', id: 'LIST' }],
     }),
     getAddresses: builder.query<ShippingAddress[], void>({
       query: () => '/shippingaddress',
-      providesTags: ['Addresses'],
+      providesTags: (result) => createListTags('Addresses', result),
     }),
     createAddress: builder.mutation<ShippingAddress, CreateShippingAddressRequest>({
       query: (data) => ({
@@ -144,14 +175,14 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Addresses'],
+      invalidatesTags: [{ type: 'Addresses', id: 'LIST' }],
     }),
     deleteAddress: builder.mutation<void, number>({
       query: (id) => ({
         url: `/shippingaddress/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Addresses'],
+      invalidatesTags: (_result, _error, id) => [{ type: 'Addresses', id }, { type: 'Addresses', id: 'LIST' }],
     }),
     updateAddress: builder.mutation<ShippingAddress, { id: number; data: CreateShippingAddressRequest }>({
       query: ({ id, data }) => ({
@@ -159,12 +190,25 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
-      invalidatesTags: ['Addresses'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Addresses', id }, { type: 'Addresses', id: 'LIST' }],
     }),
-    getAdminOrders: builder.query<Order[], void>({
-      query: () => '/admin/orders',
+    getAdminOrders: builder.query<Order[], AdminOrdersQueryParams | void>({
+      query: (params) => ({
+        url: '/admin/orders',
+        params: {
+          status: params?.status || undefined,
+          minAmount: params?.minAmount,
+          from: params?.from || undefined,
+          to: params?.to || undefined,
+        },
+      }),
       transformResponse: (response: Order[] | { data: Order[] }) => unwrapApiData(response),
-      providesTags: ['Orders'],
+      providesTags: (result) => createListTags('Orders', result),
+    }),
+    getAdminOrderDetail: builder.query<Order, number>({
+      query: (id) => `/admin/orders/${id}`,
+      transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
+      providesTags: (_result, _error, id) => [{ type: 'Orders', id }],
     }),
     updateOrderStatus: builder.mutation<Order, { id: number; status: string }>({
       query: ({ id, status }) => ({
@@ -173,7 +217,7 @@ export const adminApi = baseApi.injectEndpoints({
         body: { status },
       }),
       transformResponse: (response: Order | { data: Order }) => unwrapApiData(response),
-      invalidatesTags: ['Orders'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Orders', id }, { type: 'Orders', id: 'LIST' }],
     }),
     getAdminReturns: builder.query<ReturnRequest[], { status?: string } | void>({
       query: (params) => ({
@@ -181,7 +225,7 @@ export const adminApi = baseApi.injectEndpoints({
         params: params?.status ? { status: params.status } : undefined,
       }),
       transformResponse: (response: { data: ReturnRequest[] }) => response.data,
-      providesTags: ['Returns'],
+      providesTags: (result) => createListTags('Returns', result),
     }),
     approveAdminReturn: builder.mutation<
       ReturnRequest,
@@ -193,7 +237,14 @@ export const adminApi = baseApi.injectEndpoints({
         body: { reviewNote },
       }),
       transformResponse: (response: { data: ReturnRequest }) => response.data,
-      invalidatesTags: ['Returns', 'Orders', 'Loyalty', 'GiftCards', 'Referrals'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Returns', id },
+        { type: 'Returns', id: 'LIST' },
+        { type: 'Orders', id: 'LIST' },
+        'Loyalty',
+        'GiftCards',
+        'Referrals',
+      ],
     }),
     rejectAdminReturn: builder.mutation<
       ReturnRequest,
@@ -205,7 +256,14 @@ export const adminApi = baseApi.injectEndpoints({
         body: { reviewNote },
       }),
       transformResponse: (response: { data: ReturnRequest }) => response.data,
-      invalidatesTags: ['Returns', 'Orders', 'Loyalty', 'GiftCards', 'Referrals'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Returns', id },
+        { type: 'Returns', id: 'LIST' },
+        { type: 'Orders', id: 'LIST' },
+        'Loyalty',
+        'GiftCards',
+        'Referrals',
+      ],
     }),
     getAdminSellers: builder.query<AdminSellerListItem[], { status?: string } | void>({
       query: (params) => ({
@@ -213,7 +271,7 @@ export const adminApi = baseApi.injectEndpoints({
         params: params?.status ? { status: params.status } : undefined,
       }),
       transformResponse: (response: { data: AdminSellerListItem[] }) => response.data,
-      providesTags: ['SellerProfile'],
+      providesTags: (result) => createListTags('SellerProfile', result),
     }),
     getAdminSellerDetail: builder.query<AdminSellerDetail, number>({
       query: (id) => `/admin/sellers/${id}`,
@@ -235,7 +293,11 @@ export const adminApi = baseApi.injectEndpoints({
         body: { status, reviewNote },
       }),
       transformResponse: (response: { data: AdminSellerDetail }) => response.data,
-      invalidatesTags: ['SellerProfile', 'Users'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'SellerProfile', id },
+        { type: 'SellerProfile', id: 'LIST' },
+        { type: 'Users', id: 'LIST' },
+      ],
     }),
     updateAdminSellerCommission: builder.mutation<AdminSellerDetail, { id: number; rate?: number | null }>({
       query: ({ id, rate }) => ({
@@ -244,7 +306,7 @@ export const adminApi = baseApi.injectEndpoints({
         body: { rate },
       }),
       transformResponse: (response: { data: AdminSellerDetail }) => response.data,
-      invalidatesTags: ['SellerProfile'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'SellerProfile', id }, { type: 'SellerProfile', id: 'LIST' }],
     }),
     approveAdminSellerApplication: builder.mutation<AdminSellerDetail, { id: number; reviewNote?: string }>({
       query: ({ id, reviewNote }) => ({
@@ -253,7 +315,11 @@ export const adminApi = baseApi.injectEndpoints({
         body: { reviewNote },
       }),
       transformResponse: (response: { data: AdminSellerDetail }) => response.data,
-      invalidatesTags: ['SellerProfile', 'Users'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'SellerProfile', id },
+        { type: 'SellerProfile', id: 'LIST' },
+        { type: 'Users', id: 'LIST' },
+      ],
     }),
     rejectAdminSellerApplication: builder.mutation<AdminSellerDetail, { id: number; reviewNote?: string }>({
       query: ({ id, reviewNote }) => ({
@@ -262,7 +328,11 @@ export const adminApi = baseApi.injectEndpoints({
         body: { reviewNote },
       }),
       transformResponse: (response: { data: AdminSellerDetail }) => response.data,
-      invalidatesTags: ['SellerProfile', 'Users'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'SellerProfile', id },
+        { type: 'SellerProfile', id: 'LIST' },
+        { type: 'Users', id: 'LIST' },
+      ],
     }),
     getAdminUsers: builder.query<PaginatedResponse<AdminUserListItem>, AdminUsersQueryParams | void>({
       query: (params) => ({
@@ -270,7 +340,7 @@ export const adminApi = baseApi.injectEndpoints({
         params: params ?? undefined,
       }),
       transformResponse: (response: { data: PaginatedResponse<AdminUserListItem> }) => response.data,
-      providesTags: ['Users'],
+      providesTags: (result) => createPaginatedListTags('Users', result),
     }),
     getAdminUserDetail: builder.query<AdminUserDetail, number>({
       query: (id) => `/admin/users/${id}`,
@@ -295,7 +365,7 @@ export const adminApi = baseApi.injectEndpoints({
         body: { role },
       }),
       transformResponse: (response: { data: AdminUserDetail }) => response.data,
-      invalidatesTags: ['Users'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Users', id }, { type: 'Users', id: 'LIST' }],
     }),
     updateAdminUserStatus: builder.mutation<AdminUserDetail, { id: number; status: string }>({
       query: ({ id, status }) => ({
@@ -304,7 +374,7 @@ export const adminApi = baseApi.injectEndpoints({
         body: { status },
       }),
       transformResponse: (response: { data: AdminUserDetail }) => response.data,
-      invalidatesTags: ['Users'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Users', id }, { type: 'Users', id: 'LIST' }],
     }),
     getAdminReviews: builder.query<ProductReviewDto[], { status?: string } | void>({
       query: (params) => ({
@@ -312,7 +382,7 @@ export const adminApi = baseApi.injectEndpoints({
         params: params?.status ? { status: params.status } : undefined,
       }),
       transformResponse: (response: { data: ProductReviewDto[] }) => response.data,
-      providesTags: ['Reviews'],
+      providesTags: (result) => createListTags('Reviews', result),
     }),
     approveAdminReview: builder.mutation<ProductReviewDto, number>({
       query: (id) => ({
@@ -320,7 +390,7 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'PUT',
       }),
       transformResponse: (response: { data: ProductReviewDto }) => response.data,
-      invalidatesTags: ['Reviews', 'Product'],
+      invalidatesTags: (_result, _error, id) => [{ type: 'Reviews', id }, { type: 'Reviews', id: 'LIST' }, 'Product'],
     }),
     rejectAdminReview: builder.mutation<ProductReviewDto, { id: number; data: ReviewModerationRequest }>({
       query: ({ id, data }) => ({
@@ -329,7 +399,7 @@ export const adminApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: ProductReviewDto }) => response.data,
-      invalidatesTags: ['Reviews', 'Product'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Reviews', id }, { type: 'Reviews', id: 'LIST' }, 'Product'],
     }),
     bulkApproveAdminReviews: builder.mutation<void, number[]>({
       query: (ids) => ({
@@ -337,7 +407,7 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: { ids },
       }),
-      invalidatesTags: ['Reviews', 'Product'],
+      invalidatesTags: [{ type: 'Reviews', id: 'LIST' }, 'Product'],
     }),
     getAdminNotificationTemplates: builder.query<NotificationTemplate[], void>({
       query: () => '/admin/notifications/templates',
@@ -362,7 +432,7 @@ export const adminApi = baseApi.injectEndpoints({
         params: { take },
       }),
       transformResponse: (response: { data: AdminAnnouncement[] }) => response.data,
-      providesTags: ['Announcements'],
+      providesTags: (result) => createListTags('Announcements', result),
     }),
     createAdminAnnouncement: builder.mutation<AdminAnnouncement, CreateAdminAnnouncementRequest>({
       query: (data) => ({
@@ -371,7 +441,7 @@ export const adminApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: AdminAnnouncement }) => response.data,
-      invalidatesTags: ['Announcements', 'Notifications'],
+      invalidatesTags: [{ type: 'Announcements', id: 'LIST' }, { type: 'Notifications', id: 'LIST' }],
     }),
   }),
 });
@@ -395,6 +465,7 @@ export const {
   useDeleteAddressMutation,
   useUpdateAddressMutation,
   useGetAdminOrdersQuery,
+  useGetAdminOrderDetailQuery,
   useUpdateOrderStatusMutation,
   useGetAdminReturnsQuery,
   useApproveAdminReturnMutation,

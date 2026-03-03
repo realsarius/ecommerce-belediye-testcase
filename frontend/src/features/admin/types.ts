@@ -44,6 +44,13 @@ export interface AdminUsersQueryParams {
   pageSize?: number;
 }
 
+export interface AdminOrdersQueryParams {
+  status?: OrderStatus | '';
+  minAmount?: number;
+  from?: string;
+  to?: string;
+}
+
 export type AdminServiceStatus = 'Healthy' | 'Degraded' | 'Unhealthy';
 
 export interface AdminServiceHealth {

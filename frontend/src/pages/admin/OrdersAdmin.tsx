@@ -9,6 +9,7 @@ import {
   Truck,
   Wallet,
 } from 'lucide-react';
+import { EmptyState } from '@/components/admin/EmptyState';
 import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
@@ -31,6 +32,7 @@ import {
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useGetAdminOrdersQuery, useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
+import type { AdminOrdersQueryParams } from '@/features/admin/types';
 import type { OrderStatus } from '@/features/orders/types';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 
@@ -68,7 +70,20 @@ export default function OrdersAdmin() {
   const [toDate, setToDate] = useState('');
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
 
-  const { data: orders = [], isLoading } = useGetAdminOrdersQuery();
+  const orderQueryParams = useMemo<AdminOrdersQueryParams | void>(() => {
+    if (statusFilter === 'all' && !minAmount && !fromDate && !toDate) {
+      return undefined;
+    }
+
+    return {
+      status: statusFilter === 'all' ? '' : statusFilter,
+      minAmount: minAmount ? Number(minAmount) : undefined,
+      from: fromDate || undefined,
+      to: toDate || undefined,
+    };
+  }, [fromDate, minAmount, statusFilter, toDate]);
+
+  const { data: orders = [], isLoading } = useGetAdminOrdersQuery(orderQueryParams);
   const { data: productsData } = useSearchProductsQuery({ page: 1, pageSize: 500 });
   const [updateStatus] = useUpdateOrderStatusMutation();
 
@@ -354,8 +369,13 @@ export default function OrdersAdmin() {
             ))}
             {filteredOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
-                  Filtrelere uygun sipariş bulunamadı.
+                <TableCell colSpan={8} className="p-4">
+                  <EmptyState
+                    icon={ShoppingBag}
+                    title="Sipariş bulunamadı"
+                    description="Seçili filtrelere uyan sipariş kaydı bulunamadı. Durum, tarih veya minimum tutar filtresini değiştirerek tekrar deneyin."
+                    className="border-none bg-transparent shadow-none"
+                  />
                 </TableCell>
               </TableRow>
             ) : null}

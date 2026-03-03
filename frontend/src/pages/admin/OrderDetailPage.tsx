@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/common/table';
-import { useGetAdminOrdersQuery, useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
+import { useGetAdminOrderDetailQuery, useUpdateOrderStatusMutation } from '@/features/admin/adminApi';
 import type { OrderStatus } from '@/features/orders/types';
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -78,11 +78,11 @@ export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const orderId = Number(id);
 
-  const { data: orders = [], isLoading } = useGetAdminOrdersQuery();
+  const { data: order, isLoading } = useGetAdminOrderDetailQuery(orderId, {
+    skip: !Number.isFinite(orderId) || orderId <= 0,
+  });
   const [updateStatus, { isLoading: isUpdating }] = useUpdateOrderStatusMutation();
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('PendingPayment');
-
-  const order = useMemo(() => orders.find((item) => item.id === orderId), [orderId, orders]);
 
   useEffect(() => {
     if (order) {
@@ -374,7 +374,7 @@ export default function AdminOrderDetailPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <p>Bu detay sayfası mevcut admin sipariş listesi endpoint’inden besleniyor.</p>
-              <p>Ayrı `GET /api/admin/orders/:id` endpoint’i geldiğinde veri kaynağını o yöne taşıyacağız.</p>
+              <p>Sipariş detay verisi artık ayrı admin detail endpoint’i üzerinden yükleniyor.</p>
             </CardContent>
           </Card>
         </div>
