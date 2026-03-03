@@ -116,6 +116,19 @@ public class ProductManager : IProductService
         return new SuccessDataResult<ProductDto>(product.ToDto());
     }
 
+    public async Task<IDataResult<ProductDto>> GetProductForSellerAsync(int id, int sellerId)
+    {
+        var product = await _productDal.GetByIdWithDetailsAsync(id);
+
+        if (product == null)
+            return new ErrorDataResult<ProductDto>(Messages.ProductNotFound);
+
+        if (product.SellerId != sellerId)
+            return new ErrorDataResult<ProductDto>(Messages.AuthorizationDenied);
+
+        return new SuccessDataResult<ProductDto>(product.ToDto());
+    }
+
     [LogAspect]
     [CacheRemoveAspect("products:")]
     [TransactionScopeAspect]
