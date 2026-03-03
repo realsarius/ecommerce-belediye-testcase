@@ -166,4 +166,108 @@ public class SellerAnalyticsManagerTests
         point.Revenue.Should().Be(110);
         point.AverageRating.Should().Be(4.00m);
     }
+
+    [Fact]
+    public async Task GetDashboardKpiAsync_ShouldUseCommissionOverrideAndCalculateRevenueDelta()
+    {
+        const int sellerId = 9;
+        var currentOrderDate = DateTime.UtcNow.Date.AddDays(-3);
+        var previousOrderDate = DateTime.UtcNow.Date.AddDays(-33);
+
+        _productDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Product, bool>>>()))
+            .ReturnsAsync([
+                new Product { Id = 31, Name = "Saat", Description = "d", Price = 300, SKU = "S1", SellerId = sellerId, IsActive = true, Currency = "TRY" }
+            ]);
+
+        _orderDalMock
+            .Setup(x => x.GetOrdersBySellerIdAsync(sellerId))
+            .ReturnsAsync([
+                new Order
+                {
+                    Id = 700,
+                    CreatedAt = currentOrderDate,
+                    Status = OrderStatus.Delivered,
+                    Payment = new Payment { Status = PaymentStatus.Success },
+                    OrderItems =
+                    [
+                        new OrderItem
+                        {
+                            ProductId = 31,
+                            Product = new Product { Id = 31, Name = "Saat", Description = "d", Price = 300, SKU = "S1", SellerId = sellerId, IsActive = true },
+                            Quantity = 1,
+                            PriceSnapshot = 300
+                        }
+                    ]
+                },
+                new Order
+                {
+                    Id = 701,
+                    CreatedAt = previousOrderDate,
+                    Status = OrderStatus.Delivered,
+                    Payment = new Payment { Status = PaymentStatus.Success },
+                    OrderItems =
+                    [
+                        new OrderItem
+                        {
+                            ProductId = 31,
+                            Product = new Product { Id = 31, Name = "Saat", Description = "d", Price = 200, SKU = "S1", SellerId = sellerId, IsActive = true },
+                            Quantity = 1,
+                            PriceSnapshot = 200
+                        }
+                    ]
+                }
+            ]);
+
+        _productReviewDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<ProductReview, bool>>>()))
+            .ReturnsAsync([
+                new ProductReview { Id = 11, ProductId = 31, Rating = 5, Comment = "harika" },
+                new ProductReview { Id = 12, ProductId = 31, Rating = 4, Comment = "iyi" }
+            ]);
+
+        _sellerProfileDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<SellerProfile, bool>>>()))
+            .ReturnsAsync(new SellerProfile
+            {
+                Id = sellerId,
+                BrandName = "Saatci",
+                CommissionRateOverride = 15m
+            });
+
+        var result = await CreateManager().GetDashboardKpiAsync(sellerId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Revenue.Should().Be(300m);
+        result.Data.RevenueDelta.Should().Be(50m);
+        result.Data.TotalOrders.Should().Be(2);
+        result.Data.CompletedOrdersInPeriod.Should().Be(1);
+        result.Data.AverageRating.Should().Be(4.50m);
+        result.Data.ReviewCount.Should().Be(2);
+        result.Data.NetEarnings.Should().Be(255m);
+        result.Data.CommissionRate.Should().Be(15m);
+        result.Data.Currency.Should().Be("TRY");
+    }
+
+    [Fact]
+    public async Task GetDashboardOrderStatusDistributionAsync_ShouldCountStatusesAcrossSellerOrders()
+    {
+        const int sellerId = 4;
+
+        _orderDalMock
+            .Setup(x => x.GetOrdersBySellerIdAsync(sellerId))
+            .ReturnsAsync([
+                new Order { Id = 1, Status = OrderStatus.Paid },
+                new Order { Id = 2, Status = OrderStatus.Paid },
+                new Order { Id = 3, Status = OrderStatus.Delivered },
+                new Order { Id = 4, Status = OrderStatus.Cancelled }
+            ]);
+
+        var result = await CreateManager().GetDashboardOrderStatusDistributionAsync(sellerId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Single(item => item.Status == OrderStatus.Paid).Count.Should().Be(2);
+        result.Data.Single(item => item.Status == OrderStatus.Delivered).Count.Should().Be(1);
+        result.Data.Single(item => item.Status == OrderStatus.Cancelled).Count.Should().Be(1);
+    }
 }
