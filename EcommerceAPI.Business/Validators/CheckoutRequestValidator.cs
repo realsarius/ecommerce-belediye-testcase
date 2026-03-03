@@ -1,13 +1,17 @@
 using FluentValidation;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Settings;
+using Microsoft.Extensions.Options;
 
 namespace EcommerceAPI.Business.Validators;
 
 public class CheckoutRequestValidator : AbstractValidator<CheckoutRequest>
 {
-    public CheckoutRequestValidator()
+    public CheckoutRequestValidator(IOptions<FrontendFeatureSettings> frontendFeatureSettings)
     {
+        var features = frontendFeatureSettings.Value;
+
         RuleFor(x => x.ShippingAddress)
             .NotEmpty().WithMessage("Teslimat adresi zorunludur")
             .Length(10, 500).WithMessage("Teslimat adresi 10-500 karakter arasında olmalıdır");
@@ -32,13 +36,21 @@ public class CheckoutRequestValidator : AbstractValidator<CheckoutRequest>
         RuleFor(x => x.GiftCardCode)
             .MaximumLength(64);
 
-        RuleFor(x => x.PreliminaryInfoAccepted)
-            .Equal(true)
-            .WithMessage("Ön bilgilendirme formunu onaylamalısınız");
+        if (features.EnableCheckoutLegalConsents)
+        {
+            RuleFor(x => x.PreliminaryInfoAccepted)
+                .Equal(true)
+                .WithMessage("Ön bilgilendirme formunu onaylamalısınız");
 
-        RuleFor(x => x.DistanceSalesContractAccepted)
-            .Equal(true)
-            .WithMessage("Mesafeli satış sözleşmesini onaylamalısınız");
+            RuleFor(x => x.DistanceSalesContractAccepted)
+                .Equal(true)
+                .WithMessage("Mesafeli satış sözleşmesini onaylamalısınız");
+        }
+
+        if (!features.EnableCheckoutInvoiceInfo)
+        {
+            return;
+        }
 
         RuleFor(x => x.InvoiceInfo)
             .NotNull()

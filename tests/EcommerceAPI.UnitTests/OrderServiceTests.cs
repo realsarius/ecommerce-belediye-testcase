@@ -15,6 +15,8 @@ using MassTransit;
 using EcommerceAPI.Entities.IntegrationEvents;
 using Microsoft.EntityFrameworkCore;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Settings;
+using Microsoft.Extensions.Options;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -32,6 +34,7 @@ public class OrderManagerTests
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<OrderManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly IOptions<FrontendFeatureSettings> _frontendFeatureSettings;
     private readonly OrderManager _orderManager;
 
     public OrderManagerTests()
@@ -48,6 +51,7 @@ public class OrderManagerTests
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<OrderManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _frontendFeatureSettings = CreateFrontendFeatureSettings();
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -95,8 +99,20 @@ public class OrderManagerTests
             _referralServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
-            _publishEndpointMock.Object
+            _publishEndpointMock.Object,
+            _frontendFeatureSettings
         );
+    }
+
+    private static IOptions<FrontendFeatureSettings> CreateFrontendFeatureSettings(
+        bool enableCheckoutLegalConsents = true,
+        bool enableCheckoutInvoiceInfo = true)
+    {
+        return Options.Create(new FrontendFeatureSettings
+        {
+            EnableCheckoutLegalConsents = enableCheckoutLegalConsents,
+            EnableCheckoutInvoiceInfo = enableCheckoutInvoiceInfo,
+        });
     }
 
     private static CheckoutInvoiceInfoRequest CreateInvoiceInfo(string address = "Test Invoice Address 123")
@@ -385,6 +401,64 @@ public class OrderManagerTests
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("vergi numarası");
         _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenCheckoutFeatureFlagsDisabled_ShouldProceedWithoutLegalConsentsOrInvoice()
+    {
+        var orderManager = new OrderManager(
+            _orderDalMock.Object,
+            _productDalMock.Object,
+            _inventoryServiceMock.Object,
+            _cartServiceMock.Object,
+            _uowMock.Object,
+            _couponServiceMock.Object,
+            _loyaltyServiceMock.Object,
+            _giftCardServiceMock.Object,
+            _referralServiceMock.Object,
+            _auditServiceMock.Object,
+            _loggerMock.Object,
+            _publishEndpointMock.Object,
+            CreateFrontendFeatureSettings(enableCheckoutLegalConsents: false, enableCheckoutInvoiceInfo: false));
+
+        const int userId = 100;
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+        };
+        var cartDto = new CartDto
+        {
+            Id = 1,
+            TotalAmount = 125m,
+            Items = new List<CartItemDto>
+            {
+                new() { ProductId = 1, ProductName = "P1", Quantity = 1, UnitPrice = 125, AvailableStock = 10 }
+            }
+        };
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId))
+            .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true, DiscountAmount = 0 }));
+        _cartServiceMock.Setup(x => x.ClearCartAsync(userId)).ReturnsAsync(new SuccessResult());
+
+        Order capturedOrder = null!;
+        _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
+            .Callback<Order>(o => { o.Id = 88; capturedOrder = o; })
+            .ReturnsAsync((Order o) => o);
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()))
+            .ReturnsAsync(() => capturedOrder);
+
+        var result = await orderManager.CheckoutAsync(userId, checkoutRequest);
+
+        result.Success.Should().BeTrue();
+        capturedOrder.InvoiceInfo.Should().BeNull();
+        capturedOrder.PreliminaryInfoAcceptedAt.Should().BeNull();
+        capturedOrder.DistanceSalesContractAcceptedAt.Should().BeNull();
+        capturedOrder.AcceptedFromIp.Should().BeNull();
     }
 
     [Fact]

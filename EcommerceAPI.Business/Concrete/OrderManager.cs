@@ -15,8 +15,10 @@ using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
 using InvoiceType = EcommerceAPI.Entities.Enums.InvoiceType;
+using EcommerceAPI.Entities.Settings;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -34,6 +36,7 @@ public class OrderManager : IOrderService
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly FrontendFeatureSettings _frontendFeatureSettings;
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
@@ -52,7 +55,8 @@ public class OrderManager : IOrderService
         IReferralService referralService,
         IAuditService auditService,
         ILogger<OrderManager> logger,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        IOptions<FrontendFeatureSettings> frontendFeatureSettings)
     {
         _orderDal = orderDal;
         _productDal = productDal;
@@ -66,19 +70,23 @@ public class OrderManager : IOrderService
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
+        _frontendFeatureSettings = frontendFeatureSettings.Value;
     }
 
     [LogAspect]
     [ValidationAspect(typeof(CheckoutRequestValidator))]
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
-        if (!request.PreliminaryInfoAccepted || !request.DistanceSalesContractAccepted)
+        if (_frontendFeatureSettings.EnableCheckoutLegalConsents
+            && (!request.PreliminaryInfoAccepted || !request.DistanceSalesContractAccepted))
         {
             return new ErrorDataResult<OrderDto>("Yasal onaylar tamamlanmadan sipariş oluşturulamaz.");
         }
 
-        var invoiceValidationError = ValidateInvoiceInfo(request.InvoiceInfo);
-        if (invoiceValidationError != null)
+        var invoiceValidationError = _frontendFeatureSettings.EnableCheckoutInvoiceInfo
+            ? ValidateInvoiceInfo(request.InvoiceInfo)
+            : null;
+        if (!string.IsNullOrWhiteSpace(invoiceValidationError))
         {
             return new ErrorDataResult<OrderDto>(invoiceValidationError);
         }
@@ -913,9 +921,11 @@ public class OrderManager : IOrderService
             Status = giftCardRedemption.FinalTotal <= 0 ? OrderStatus.Paid : OrderStatus.PendingPayment,
             ShippingAddress = request.ShippingAddress,
             Notes = request.Notes ?? string.Empty,
-            PreliminaryInfoAcceptedAt = request.PreliminaryInfoAccepted ? acceptedAt : null,
-            DistanceSalesContractAcceptedAt = request.DistanceSalesContractAccepted ? acceptedAt : null,
-            AcceptedFromIp = string.IsNullOrWhiteSpace(request.AcceptedFromIp) ? null : request.AcceptedFromIp,
+            PreliminaryInfoAcceptedAt = _frontendFeatureSettings.EnableCheckoutLegalConsents && request.PreliminaryInfoAccepted ? acceptedAt : null,
+            DistanceSalesContractAcceptedAt = _frontendFeatureSettings.EnableCheckoutLegalConsents && request.DistanceSalesContractAccepted ? acceptedAt : null,
+            AcceptedFromIp = _frontendFeatureSettings.EnableCheckoutLegalConsents && !string.IsNullOrWhiteSpace(request.AcceptedFromIp)
+                ? request.AcceptedFromIp
+                : null,
             SubtotalAmount = subtotal,
             TotalAmount = subtotal - couponData.Amount + shippingCost - loyaltyRedemption.DiscountAmount - giftCardRedemption.AppliedAmount,
             CouponId = couponData.Id,
@@ -926,7 +936,9 @@ public class OrderManager : IOrderService
             GiftCardId = giftCardRedemption.GiftCardId > 0 ? giftCardRedemption.GiftCardId : null,
             GiftCardCode = string.IsNullOrWhiteSpace(giftCardRedemption.Code) ? null : giftCardRedemption.Code,
             GiftCardAmount = giftCardRedemption.AppliedAmount,
-            InvoiceInfo = CreateInvoiceInfo(request.InvoiceInfo!)
+            InvoiceInfo = _frontendFeatureSettings.EnableCheckoutInvoiceInfo && request.InvoiceInfo != null
+                ? CreateInvoiceInfo(request.InvoiceInfo)
+                : null
         };
 
         foreach (var cartItem in cartDto.Items)
