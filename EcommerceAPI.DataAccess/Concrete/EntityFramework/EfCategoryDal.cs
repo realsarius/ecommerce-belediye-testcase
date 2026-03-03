@@ -61,4 +61,9 @@ public class EfCategoryDal : EfEntityRepositoryBase<Category, AppDbContext>, ICa
             .AsNoTracking()
             .ToListAsync();
     }
+
+    public Task<int> GetDashboardCategoryCountAsync()
+    {
+        return _dbSet.AsNoTracking().CountAsync();
+    }
 }

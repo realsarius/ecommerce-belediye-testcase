@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using EcommerceAPI.Core.DataAccess;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.DTOs;
 
 namespace EcommerceAPI.DataAccess.Abstract;
 
@@ -19,4 +20,6 @@ public interface IProductDal : IEntityRepository<Product>
         int page, int pageSize, int sellerId, int? categoryId = null, decimal? minPrice = null,
         decimal? maxPrice = null, string? search = null, string? sortBy = null, bool sortDescending = false);
     Task<List<Product>> GetAllActiveWithDetailsAsync();
+    Task<(int ActiveProducts, int ActiveSellers, string Currency)> GetAdminDashboardProductSummaryAsync();
+    Task<IReadOnlyList<AdminDashboardLowStockItemDto>> GetAdminDashboardLowStockAsync(int threshold, int limit = 5);
 }

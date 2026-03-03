@@ -2,7 +2,6 @@ using System.Globalization;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
-using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 
@@ -32,19 +31,19 @@ public class AdminDashboardManager : IAdminDashboardService
 
     public async Task<IDataResult<AdminDashboardKpiDto>> GetKpiAsync()
     {
-        var orders = (await _orderDal.GetAllOrdersWithDetailsAsync()).ToList();
-        var users = await _userDal.GetAdminUsersWithDetailsAsync();
-        var products = await _productDal.GetAllActiveWithDetailsAsync();
-        var categories = await _categoryDal.GetAllWithProductsAsync();
-        var sellerProfiles = await _sellerProfileDal.GetAdminListWithDetailsAsync();
+        var orders = await _orderDal.GetAdminDashboardOrderProjectionsAsync();
+        var userCreatedDates = await _userDal.GetAdminDashboardUserCreatedDatesAsync();
+        var productSummary = await _productDal.GetAdminDashboardProductSummaryAsync();
+        var categoryCount = await _categoryDal.GetDashboardCategoryCountAsync();
+        var pendingSellerApplications = await _sellerProfileDal.GetPendingApplicationCountAsync();
 
         var today = DateTime.UtcNow.Date;
         var yesterday = today.AddDays(-1);
 
         var todayOrders = orders.Where(order => order.CreatedAt.Date == today).ToList();
         var yesterdayOrders = orders.Where(order => order.CreatedAt.Date == yesterday).ToList();
-        var todayUsers = users.Where(user => user.CreatedAt.Date == today).ToList();
-        var yesterdayUsers = users.Where(user => user.CreatedAt.Date == yesterday).ToList();
+        var todayUsers = userCreatedDates.Count(createdAt => createdAt.Date == today);
+        var yesterdayUsers = userCreatedDates.Count(createdAt => createdAt.Date == yesterday);
 
         var kpi = new AdminDashboardKpiDto
         {
@@ -52,17 +51,13 @@ public class AdminDashboardManager : IAdminDashboardService
             YesterdayRevenue = Math.Round(CalculateRevenue(yesterdayOrders), 2),
             TodayOrders = todayOrders.Count,
             YesterdayOrders = yesterdayOrders.Count,
-            TodayNewUsers = todayUsers.Count,
-            YesterdayNewUsers = yesterdayUsers.Count,
-            ActiveSellers = products
-                .Where(product => product.IsActive && product.SellerId.HasValue)
-                .Select(product => product.SellerId!.Value)
-                .Distinct()
-                .Count(),
-            ActiveProducts = products.Count(product => product.IsActive),
-            CategoryCount = categories.Count,
-            PendingSellerApplications = sellerProfiles.Count(profile => !profile.IsVerified && profile.User.AccountStatus == UserAccountStatus.Active),
-            Currency = products.FirstOrDefault()?.Currency ?? "TRY"
+            TodayNewUsers = todayUsers,
+            YesterdayNewUsers = yesterdayUsers,
+            ActiveSellers = productSummary.ActiveSellers,
+            ActiveProducts = productSummary.ActiveProducts,
+            CategoryCount = categoryCount,
+            PendingSellerApplications = pendingSellerApplications,
+            Currency = productSummary.Currency
         };
 
         return new SuccessDataResult<AdminDashboardKpiDto>(kpi);
@@ -79,7 +74,7 @@ public class AdminDashboardManager : IAdminDashboardService
             return new ErrorDataResult<List<AdminDashboardRevenueTrendPointDto>>("Geçersiz trend periyodu.");
         }
 
-        var orders = (await _orderDal.GetAllOrdersWithDetailsAsync()).ToList();
+        var orders = await _orderDal.GetAdminDashboardOrderProjectionsAsync();
         var trend = normalizedPeriod switch
         {
             "weekly" => BuildWeeklyTrend(orders),
@@ -92,20 +87,7 @@ public class AdminDashboardManager : IAdminDashboardService
 
     public async Task<IDataResult<List<AdminDashboardCategorySalesItemDto>>> GetCategorySalesAsync()
     {
-        var orders = (await _orderDal.GetAllOrdersWithDetailsAsync()).ToList();
-        var categorySales = orders
-            .Where(IsRevenueOrder)
-            .SelectMany(order => order.OrderItems)
-            .Where(item => item.Product?.Category != null)
-            .GroupBy(item => item.Product.Category.Name)
-            .Select(group => new AdminDashboardCategorySalesItemDto
-            {
-                CategoryName = group.Key,
-                SalesCount = group.Sum(item => item.Quantity)
-            })
-            .OrderByDescending(item => item.SalesCount)
-            .Take(6)
-            .ToList();
+        var categorySales = (await _orderDal.GetAdminDashboardCategorySalesAsync()).ToList();
 
         return new SuccessDataResult<List<AdminDashboardCategorySalesItemDto>>(categorySales);
     }
@@ -113,7 +95,7 @@ public class AdminDashboardManager : IAdminDashboardService
     public async Task<IDataResult<List<AdminDashboardUserRegistrationPointDto>>> GetUserRegistrationsAsync(int days = 30)
     {
         var normalizedDays = Math.Clamp(days, 7, 90);
-        var users = await _userDal.GetAdminUsersWithDetailsAsync();
+        var userCreatedDates = await _userDal.GetAdminDashboardUserCreatedDatesAsync();
         var today = DateTime.UtcNow.Date;
         var culture = CultureInfo.GetCultureInfo("tr-TR");
 
@@ -123,7 +105,7 @@ public class AdminDashboardManager : IAdminDashboardService
             {
                 Date = DateOnly.FromDateTime(date),
                 Label = date.ToString("dd MMM", culture),
-                Count = users.Count(user => user.CreatedAt.Date == date)
+                Count = userCreatedDates.Count(createdAt => createdAt.Date == date)
             })
             .ToList();
 
@@ -132,7 +114,7 @@ public class AdminDashboardManager : IAdminDashboardService
 
     public async Task<IDataResult<List<AdminDashboardOrderStatusDistributionItemDto>>> GetOrderStatusDistributionAsync()
     {
-        var orders = await _orderDal.GetAllOrdersWithDetailsAsync();
+        var orders = await _orderDal.GetAdminDashboardOrderProjectionsAsync();
         var distribution = Enum.GetValues<OrderStatus>()
             .Select(status => new AdminDashboardOrderStatusDistributionItemDto
             {
@@ -147,21 +129,7 @@ public class AdminDashboardManager : IAdminDashboardService
     public async Task<IDataResult<List<AdminDashboardLowStockItemDto>>> GetLowStockAsync(int threshold = 5)
     {
         var normalizedThreshold = Math.Clamp(threshold, 0, 50);
-        var products = await _productDal.GetAllActiveWithDetailsAsync();
-
-        var result = products
-            .Where(product => (product.Inventory?.QuantityAvailable ?? 0) <= normalizedThreshold)
-            .OrderBy(product => product.Inventory?.QuantityAvailable ?? 0)
-            .ThenBy(product => product.Name)
-            .Take(5)
-            .Select(product => new AdminDashboardLowStockItemDto
-            {
-                ProductId = product.Id,
-                Name = product.Name,
-                Stock = product.Inventory?.QuantityAvailable ?? 0,
-                SellerName = product.Seller?.BrandName ?? "Satıcı bilgisi yok"
-            })
-            .ToList();
+        var result = (await _productDal.GetAdminDashboardLowStockAsync(normalizedThreshold)).ToList();
 
         return new SuccessDataResult<List<AdminDashboardLowStockItemDto>>(result);
     }
@@ -169,16 +137,14 @@ public class AdminDashboardManager : IAdminDashboardService
     public async Task<IDataResult<List<AdminDashboardRecentOrderDto>>> GetRecentOrdersAsync(int limit = 5)
     {
         var normalizedLimit = Math.Clamp(limit, 3, 20);
-        var orders = (await _orderDal.GetAllOrdersWithDetailsAsync())
+        var orders = (await _orderDal.GetAdminDashboardOrderProjectionsAsync())
             .OrderByDescending(order => order.CreatedAt)
             .Take(normalizedLimit)
             .Select(order => new AdminDashboardRecentOrderDto
             {
-                OrderId = order.Id,
+                OrderId = order.OrderId,
                 OrderNumber = order.OrderNumber,
-                CustomerName = order.User == null
-                    ? string.Empty
-                    : $"{order.User.FirstName} {order.User.LastName}".Trim(),
+                CustomerName = order.CustomerName,
                 TotalAmount = Math.Round(order.TotalAmount, 2),
                 Currency = order.Currency,
                 Status = order.Status,
@@ -189,7 +155,7 @@ public class AdminDashboardManager : IAdminDashboardService
         return new SuccessDataResult<List<AdminDashboardRecentOrderDto>>(orders);
     }
 
-    private static List<AdminDashboardRevenueTrendPointDto> BuildDailyTrend(IEnumerable<Order> orders)
+    private static List<AdminDashboardRevenueTrendPointDto> BuildDailyTrend(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
         var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
@@ -214,7 +180,7 @@ public class AdminDashboardManager : IAdminDashboardService
             .ToList();
     }
 
-    private static List<AdminDashboardRevenueTrendPointDto> BuildWeeklyTrend(IEnumerable<Order> orders)
+    private static List<AdminDashboardRevenueTrendPointDto> BuildWeeklyTrend(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
         var culture = CultureInfo.GetCultureInfo("tr-TR");
         var currentWeekStart = StartOfWeek(DateTime.UtcNow.Date);
@@ -242,7 +208,7 @@ public class AdminDashboardManager : IAdminDashboardService
             .ToList();
     }
 
-    private static List<AdminDashboardRevenueTrendPointDto> BuildMonthlyTrend(IEnumerable<Order> orders)
+    private static List<AdminDashboardRevenueTrendPointDto> BuildMonthlyTrend(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
         var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
@@ -271,14 +237,14 @@ public class AdminDashboardManager : IAdminDashboardService
             .ToList();
     }
 
-    private static decimal CalculateRevenue(IEnumerable<Order> orders)
+    private static decimal CalculateRevenue(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
         return orders
             .Where(IsRevenueOrder)
             .Sum(order => order.TotalAmount);
     }
 
-    private static bool IsRevenueOrder(Order order)
+    private static bool IsRevenueOrder(AdminDashboardOrderProjectionDto order)
     {
         return order.Status is OrderStatus.Paid or OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Delivered;
     }

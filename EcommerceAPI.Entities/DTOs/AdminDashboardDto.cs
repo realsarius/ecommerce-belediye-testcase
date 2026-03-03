@@ -64,3 +64,14 @@ public class AdminDashboardRecentOrderDto : IDto
     public OrderStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+public class AdminDashboardOrderProjectionDto : IDto
+{
+    public int OrderId { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public string Currency { get; set; } = "TRY";
+    public OrderStatus Status { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

@@ -1,6 +1,7 @@
 using EcommerceAPI.Core.DataAccess.EntityFramework;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -87,6 +88,46 @@ public class EfOrderDal : EfEntityRepositoryBase<Order, AppDbContext>, IOrderDal
             .Where(o => o.OrderItems.Any(oi => oi.Product.SellerId == sellerId))
             .OrderByDescending(o => o.CreatedAt)
             .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<AdminDashboardOrderProjectionDto>> GetAdminDashboardOrderProjectionsAsync()
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Select(order => new AdminDashboardOrderProjectionDto
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                CustomerName = order.User == null
+                    ? string.Empty
+                    : ((order.User.FirstName ?? string.Empty) + " " + (order.User.LastName ?? string.Empty)).Trim(),
+                TotalAmount = order.TotalAmount,
+                Currency = order.Currency,
+                Status = order.Status,
+                CreatedAt = order.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<AdminDashboardCategorySalesItemDto>> GetAdminDashboardCategorySalesAsync(int take = 6)
+    {
+        return await _context.OrderItems
+            .AsNoTracking()
+            .Where(item =>
+                item.Product != null &&
+                item.Product.Category != null &&
+                item.Order.Status != OrderStatus.Cancelled &&
+                item.Order.Status != OrderStatus.PendingPayment)
+            .GroupBy(item => item.Product.Category.Name)
+            .Select(group => new AdminDashboardCategorySalesItemDto
+            {
+                CategoryName = group.Key,
+                SalesCount = group.Sum(item => item.Quantity)
+            })
+            .OrderByDescending(item => item.SalesCount)
+            .ThenBy(item => item.CategoryName)
+            .Take(Math.Clamp(take, 1, 20))
             .ToListAsync();
     }
 

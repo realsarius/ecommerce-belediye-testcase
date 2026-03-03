@@ -9,4 +9,5 @@ public interface IUserDal : IEntityRepository<User>
     Task<User?> GetAdminUserDetailAsync(int id);
     Task<List<User>> GetAdminUsersWithDetailsAsync();
     Task<List<User>> GetUsersWithRolesAsync();
+    Task<IReadOnlyList<DateTime>> GetAdminDashboardUserCreatedDatesAsync();
 }

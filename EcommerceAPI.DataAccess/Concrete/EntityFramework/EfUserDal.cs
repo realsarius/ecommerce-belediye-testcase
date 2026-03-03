@@ -42,4 +42,12 @@ public class EfUserDal : EfEntityRepositoryBase<User, AppDbContext>, IUserDal
             .Include(u => u.Role)
             .ToListAsync();
     }
+
+    public async Task<IReadOnlyList<DateTime>> GetAdminDashboardUserCreatedDatesAsync()
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Select(user => user.CreatedAt)
+            .ToListAsync();
+    }
 }

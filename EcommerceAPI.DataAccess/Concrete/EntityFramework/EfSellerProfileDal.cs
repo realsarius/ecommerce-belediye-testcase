@@ -32,6 +32,14 @@ public class EfSellerProfileDal : EfEntityRepositoryBase<SellerProfile, AppDbCon
         return await BuildAdminSellerQuery().FirstOrDefaultAsync(sp => sp.Id == id);
     }
 
+    public Task<int> GetPendingApplicationCountAsync()
+    {
+        return _dbSet
+            .AsNoTracking()
+            .Where(profile => !profile.IsVerified && profile.User.AccountStatus == Entities.Enums.UserAccountStatus.Active)
+            .CountAsync();
+    }
+
     private IQueryable<SellerProfile> BuildAdminSellerQuery()
     {
         return _dbSet
