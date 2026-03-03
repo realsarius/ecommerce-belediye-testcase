@@ -139,6 +139,7 @@ function createReturnRequest(overrides: Record<string, unknown> = {}) {
     reasonCategory: 'ChangedMind',
     status: 'Pending',
     reason: 'Ürünü iade etmek istiyorum.',
+    attachments: [],
     selectedItems: [
       {
         orderItemId: 501,

@@ -481,6 +481,21 @@ export default function ReturnsPage() {
                 </div>
               ) : null}
 
+              {selectedRequest.attachments.length > 0 ? (
+                <div className="space-y-2">
+                  <Label>Eklenen Fotoğraflar</Label>
+                  <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRequest.attachments.map((attachment) => (
+                        <Badge key={attachment.id} variant="secondary">
+                          {attachment.fileName}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="space-y-2">
                 <Label htmlFor="review-note">İnceleme Notu</Label>
                 <Textarea

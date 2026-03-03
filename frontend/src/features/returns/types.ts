@@ -27,6 +27,7 @@ export interface ReturnRequest {
   reason: string;
   requestNote?: string | null;
   selectedItems: ReturnRequestItem[];
+  attachments: ReturnRequestAttachment[];
   requestedRefundAmount: number;
   paymentStatus?: string | null;
   reviewedByUserId?: number | null;
@@ -43,6 +44,7 @@ export interface CreateReturnRequestPayload {
   type: ReturnRequestType;
   reasonCategory: ReturnReasonCategory;
   selectedOrderItemIds?: number[];
+  uploadedPhotoKeys?: string[];
   reason: string;
   requestNote?: string;
 }
@@ -53,4 +55,19 @@ export interface ReturnRequestItem {
   productName: string;
   quantity: number;
   lineTotal: number;
+}
+
+export interface ReturnRequestAttachment {
+  id: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface UploadedReturnPhoto {
+  uploadKey: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
 }

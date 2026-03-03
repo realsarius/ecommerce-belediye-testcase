@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowRight, ClipboardList, PackageSearch, RotateCcw, ShieldX } from 'lucide-react';
+import { AlertCircle, ArrowRight, ClipboardList, ImagePlus, PackageSearch, RotateCcw, ShieldX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetOrdersQuery } from '@/features/orders/ordersApi';
-import { useCreateReturnRequestMutation, useGetMyReturnRequestsQuery } from '@/features/returns/returnsApi';
+import { useCreateReturnRequestMutation, useGetMyReturnRequestsQuery, useUploadReturnPhotosMutation } from '@/features/returns/returnsApi';
 import type { OrderStatus } from '@/features/orders/types';
-import type { ReturnReasonCategory, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
+import type { ReturnReasonCategory, ReturnRequestStatus, ReturnRequestType, UploadedReturnPhoto } from '@/features/returns/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
@@ -96,11 +96,13 @@ export default function Returns() {
   const { data: orders, isLoading: isOrdersLoading } = useGetOrdersQuery();
   const { data: returnRequests, isLoading: isRequestsLoading } = useGetMyReturnRequestsQuery();
   const [createReturnRequest, { isLoading: isSubmitting }] = useCreateReturnRequestMutation();
+  const [uploadReturnPhotos, { isLoading: isUploadingPhotos }] = useUploadReturnPhotosMutation();
 
   const [reasonCategory, setReasonCategory] = useState<ReturnReasonCategory | ''>('');
   const [selectedOrderItemIds, setSelectedOrderItemIds] = useState<number[]>([]);
   const [reason, setReason] = useState('');
   const [requestNote, setRequestNote] = useState('');
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedReturnPhoto[]>([]);
 
   const eligibleOrders = (orders ?? []).filter((order) => {
     const requestType = getEligibleRequestType(order.status);
@@ -121,12 +123,44 @@ export default function Returns() {
     setSearchParams(orderId ? { orderId } : {});
     setReasonCategory('');
     setSelectedOrderItemIds([]);
+    setUploadedPhotos([]);
   };
 
   const toggleSelectedOrderItem = (orderItemId: number, checked: boolean) => {
     setSelectedOrderItemIds((current) =>
       checked ? [...new Set([...current, orderItemId])] : current.filter((id) => id !== orderItemId)
     );
+  };
+
+  const handlePhotoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
+
+    const remainingSlots = Math.max(0, 5 - uploadedPhotos.length);
+    if (remainingSlots === 0) {
+      toast.error('En fazla 5 fotoğraf ekleyebilirsiniz.');
+      event.target.value = '';
+      return;
+    }
+
+    const filesToUpload = files.slice(0, remainingSlots);
+
+    try {
+      const uploaded = await uploadReturnPhotos(filesToUpload).unwrap();
+      setUploadedPhotos((current) => [...current, ...uploaded]);
+      toast.success(`${uploaded.length} fotoğraf yüklendi.`);
+    } catch (err: unknown) {
+      const error = err as { data?: { message?: string } };
+      toast.error(error.data?.message || 'Fotoğraflar yüklenemedi.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const removeUploadedPhoto = (uploadKey: string) => {
+    setUploadedPhotos((current) => current.filter((photo) => photo.uploadKey !== uploadKey));
   };
 
   const handleSubmit = async () => {
@@ -153,6 +187,7 @@ export default function Returns() {
         type: requestType,
         reasonCategory,
         selectedOrderItemIds: payloadSelectedItemIds,
+        uploadedPhotoKeys: uploadedPhotos.map((photo) => photo.uploadKey),
         reason: reason.trim(),
         requestNote: requestNote.trim() || undefined,
       }).unwrap();
@@ -162,6 +197,7 @@ export default function Returns() {
       setSelectedOrderItemIds([]);
       setReason('');
       setRequestNote('');
+      setUploadedPhotos([]);
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
       toast.error(error.data?.message || 'Talep oluşturulamadı.');
@@ -333,6 +369,49 @@ export default function Returns() {
                   />
                 </div>
 
+                {requestType === 'Return' ? (
+                  <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="return-photos">Ürün Fotoğrafları</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Opsiyonel olarak en fazla 5 görsel yükleyebilirsiniz. Desteklenen tipler: JPG, PNG, WEBP, HEIC.
+                      </p>
+                    </div>
+                    <Input
+                      id="return-photos"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/heic"
+                      multiple
+                      onChange={(event) => void handlePhotoUpload(event)}
+                      disabled={isUploadingPhotos || uploadedPhotos.length >= 5}
+                    />
+                    {isUploadingPhotos ? (
+                      <p className="text-sm text-muted-foreground">Fotoğraflar yükleniyor...</p>
+                    ) : null}
+                    {uploadedPhotos.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {uploadedPhotos.map((photo) => (
+                          <div
+                            key={photo.uploadKey}
+                            className="flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-2 text-xs"
+                          >
+                            <ImagePlus className="h-3.5 w-3.5 text-primary" />
+                            <span className="max-w-[13rem] truncate">{photo.fileName}</span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground transition hover:text-foreground"
+                              onClick={() => removeUploadedPhoto(photo.uploadKey)}
+                              aria-label={`${photo.fileName} yüklemesini kaldır`}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {requestType === 'Return' && daysRemaining !== null ? (
                   <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
                     Yasal cayma hakkı süresi: <strong>{daysRemaining} gün</strong>
@@ -443,6 +522,19 @@ export default function Returns() {
                           {request.selectedItems.map((item) => (
                             <Badge key={item.orderItemId} variant="secondary">
                               {item.productName} x {item.quantity}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {request.attachments.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Eklenen Fotoğraflar</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {request.attachments.map((attachment) => (
+                            <Badge key={attachment.id} variant="outline">
+                              {attachment.fileName}
                             </Badge>
                           ))}
                         </div>
