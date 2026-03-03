@@ -58,7 +58,7 @@ public sealed class CampaignStatusChangedConsumer : IConsumer<CampaignStatusChan
                 .Select(x => x.Wishlist.UserId)
                 .Distinct()
                 .ToListAsync(context.CancellationToken);
-            var channelSettingsByUserId = await _notificationPreferenceService.GetChannelSettingsAsync(
+            var channelSettingsByUserId = await _notificationPreferenceService.GetChannelSettingsByUsersAsync(
                 userIds,
                 NotificationType.Campaign);
 

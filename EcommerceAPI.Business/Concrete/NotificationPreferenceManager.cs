@@ -222,13 +222,13 @@ public class NotificationPreferenceManager : INotificationPreferenceService
 
     public async Task<NotificationChannelSettingsDto> GetChannelSettingsAsync(int userId, NotificationType type)
     {
-        var preferences = await GetChannelSettingsAsync([userId], type);
+        var preferences = await GetChannelSettingsByUsersAsync([userId], type);
         return preferences.TryGetValue(userId, out var settings)
             ? settings
             : BuildDefaultChannelSettings(type);
     }
 
-    public async Task<Dictionary<int, NotificationChannelSettingsDto>> GetChannelSettingsAsync(IEnumerable<int> userIds, NotificationType type)
+    public async Task<Dictionary<int, NotificationChannelSettingsDto>> GetChannelSettingsByUsersAsync(IEnumerable<int> userIds, NotificationType type)
     {
         var ids = userIds.Where(id => id > 0).Distinct().ToList();
         if (ids.Count == 0)
