@@ -67,5 +67,5 @@ export interface CheckoutRequest {
   giftCardCode?: string;
   preliminaryInfoAccepted: boolean;
   distanceSalesContractAccepted: boolean;
-  invoiceInfo: CheckoutInvoiceInfo;
+  invoiceInfo?: CheckoutInvoiceInfo;
 }

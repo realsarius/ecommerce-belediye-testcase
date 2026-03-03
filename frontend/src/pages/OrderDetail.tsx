@@ -4,6 +4,7 @@ import { useGetOrderQuery, useCancelOrderMutation, useProcessPaymentMutation, us
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { useGetMyReturnRequestsQuery } from '@/features/returns/returnsApi';
 import { useReorderCartMutation } from '@/features/cart/cartApi';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import { ConfirmModal } from '@/components/admin/ConfirmModal';
 import { PaymentProviderLogo, getPaymentProviderLabel } from '@/components/order/PaymentProviderLogo';
 import { ReturnTimeline } from '@/components/order/ReturnTimeline';
@@ -127,6 +128,7 @@ export default function OrderDetail() {
 
   const { data: order, isLoading, error } = useGetOrderQuery(orderId);
   const { data: returnRequests, isLoading: isReturnRequestsLoading } = useGetMyReturnRequestsQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const [updateOrderItems, { isLoading: isUpdatingOrder }] = useUpdateOrderItemsMutation();
@@ -368,6 +370,12 @@ export default function OrderDetail() {
   const canCancel = order.status === 'PendingPayment';
   const canEdit = order.status === 'PendingPayment';
   const latestReturnRequest = getLatestReturnRequest(returnRequests, order.id);
+  const effectiveFrontendFeatures = frontendFeatures ?? {
+    enableCheckoutLegalConsents: true,
+    enableCheckoutInvoiceInfo: true,
+    enableShipmentTimeline: true,
+    enableReturnAttachments: true,
+  };
   const returnActionLabel = hasActiveReturnRequest(latestReturnRequest) ? null : getReturnActionLabel(order);
   const paymentStatusBadge = getPaymentStatusBadge(order.payment?.status);
   const paymentSummaryLabel = order.payment?.status === 'Success'
@@ -497,14 +505,16 @@ export default function OrderDetail() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Kargo Takibi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ShipmentTimeline order={order} />
-            </CardContent>
-          </Card>
+          {effectiveFrontendFeatures.enableShipmentTimeline ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Kargo Takibi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ShipmentTimeline order={order} />
+              </CardContent>
+            </Card>
+          ) : null}
 
           {latestReturnRequest && !isReturnRequestsLoading ? (
             <Card>

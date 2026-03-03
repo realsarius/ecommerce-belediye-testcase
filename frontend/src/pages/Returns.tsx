@@ -4,6 +4,7 @@ import { AlertCircle, ArrowRight, ClipboardList, ImagePlus, PackageSearch, Rotat
 import { toast } from 'sonner';
 import { useGetOrdersQuery } from '@/features/orders/ordersApi';
 import { useCreateReturnRequestMutation, useGetMyReturnRequestsQuery, useLazyGetReturnAttachmentAccessUrlQuery, useUploadReturnPhotosMutation } from '@/features/returns/returnsApi';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import type { OrderStatus } from '@/features/orders/types';
 import type { ReturnReasonCategory, ReturnRequestStatus, ReturnRequestType, UploadedReturnPhoto } from '@/features/returns/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
@@ -95,6 +96,7 @@ export default function Returns() {
 
   const { data: orders, isLoading: isOrdersLoading } = useGetOrdersQuery();
   const { data: returnRequests, isLoading: isRequestsLoading } = useGetMyReturnRequestsQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const [createReturnRequest, { isLoading: isSubmitting }] = useCreateReturnRequestMutation();
   const [uploadReturnPhotos, { isLoading: isUploadingPhotos }] = useUploadReturnPhotosMutation();
   const [getAttachmentAccessUrl] = useLazyGetReturnAttachmentAccessUrlQuery();
@@ -117,6 +119,12 @@ export default function Returns() {
   const selectedOrderId = selectedOrderParam ?? '';
   const selectedOrder = eligibleOrders.find((order) => order.id.toString() === selectedOrderId);
   const requestType = selectedOrder ? getEligibleRequestType(selectedOrder.status) ?? '' : '';
+  const effectiveFrontendFeatures = frontendFeatures ?? {
+    enableCheckoutLegalConsents: true,
+    enableCheckoutInvoiceInfo: true,
+    enableShipmentTimeline: true,
+    enableReturnAttachments: true,
+  };
   const availableCategories = requestType === 'Cancellation' ? cancellationCategories : requestType === 'Return' ? returnCategories : [];
   const daysRemaining = selectedOrder?.status === 'Delivered' ? getReturnDaysRemaining(selectedOrder.deliveredAt) : null;
 
@@ -198,7 +206,9 @@ export default function Returns() {
         type: requestType,
         reasonCategory,
         selectedOrderItemIds: payloadSelectedItemIds,
-        uploadedPhotoKeys: uploadedPhotos.map((photo) => photo.uploadKey),
+        uploadedPhotoKeys: effectiveFrontendFeatures.enableReturnAttachments
+          ? uploadedPhotos.map((photo) => photo.uploadKey)
+          : undefined,
         reason: reason.trim(),
         requestNote: requestNote.trim() || undefined,
       }).unwrap();
@@ -380,7 +390,7 @@ export default function Returns() {
                   />
                 </div>
 
-                {requestType === 'Return' ? (
+                {requestType === 'Return' && effectiveFrontendFeatures.enableReturnAttachments ? (
                   <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
                     <div className="space-y-1">
                       <Label htmlFor="return-photos">Ürün Fotoğrafları</Label>
@@ -539,7 +549,7 @@ export default function Returns() {
                       </div>
                     )}
 
-                    {request.attachments.length > 0 && (
+                    {effectiveFrontendFeatures.enableReturnAttachments && request.attachments.length > 0 && (
                       <div className="mt-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Eklenen Fotoğraflar</p>
                         <div className="mt-2 flex flex-wrap gap-2">

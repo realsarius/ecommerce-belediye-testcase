@@ -24,6 +24,10 @@ const mockCartApi = vi.hoisted(() => ({
   useReorderCartMutation: vi.fn(),
 }));
 
+const mockSettingsApi = vi.hoisted(() => ({
+  useGetFrontendFeaturesQuery: vi.fn(),
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
@@ -62,6 +66,14 @@ vi.mock('@/features/cart/cartApi', async () => {
   return {
     ...actual,
     ...mockCartApi,
+  };
+});
+
+vi.mock('@/features/settings/settingsApi', async () => {
+  const actual = await vi.importActual<typeof import('@/features/settings/settingsApi')>('@/features/settings/settingsApi');
+  return {
+    ...actual,
+    ...mockSettingsApi,
   };
 });
 
@@ -165,6 +177,14 @@ describe('OrderDetail sayfası', () => {
     mockReturnsApi.useGetMyReturnRequestsQuery.mockReturnValue({ data: [], isLoading: false });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({ data: undefined });
     mockCartApi.useReorderCartMutation.mockReturnValue([vi.fn(), { isLoading: false }]);
+    mockSettingsApi.useGetFrontendFeaturesQuery.mockReturnValue({
+      data: {
+        enableCheckoutLegalConsents: true,
+        enableCheckoutInvoiceInfo: true,
+        enableShipmentTimeline: true,
+        enableReturnAttachments: true,
+      },
+    });
   });
 
   it('aktif iade talebi varsa timeline gösterip yeni iade CTAsını gizlemeli', () => {

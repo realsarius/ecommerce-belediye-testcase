@@ -6,6 +6,7 @@ import { useCheckoutMutation, useGetPaymentSettingsQuery, useProcessPaymentMutat
 import { useGetCreditCardsQuery } from '@/features/creditCards/creditCardsApi';
 import { useClearCartMutation } from '@/features/cart/cartApi';
 import type { CheckoutInvoiceInfo } from '@/features/cart/types';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
@@ -60,6 +61,7 @@ export default function Checkout() {
   const [checkout, { isLoading: isCheckingOut }] = useCheckoutMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
   const { data: paymentSettings } = useGetPaymentSettingsQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const { data: savedCards } = useGetCreditCardsQuery();
   const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary } = useGetGiftCardSummaryQuery();
@@ -224,13 +226,20 @@ export default function Checkout() {
     force3DSecure: false,
     force3DSecureAbove: 5000,
   };
+  const effectiveFrontendFeatures = frontendFeatures ?? {
+    enableCheckoutLegalConsents: true,
+    enableCheckoutInvoiceInfo: true,
+    enableShipmentTimeline: true,
+    enableReturnAttachments: true,
+  };
   const configuredActivePaymentProviders = effectivePaymentSettings.activeProviders.length > 0
     ? effectivePaymentSettings.activeProviders
     : ['Iyzico' as PaymentProviderType];
   const activePaymentProviders = effectivePaymentSettings.enableMultiProviderSelection
     ? configuredActivePaymentProviders
     : [effectivePaymentSettings.defaultProvider];
-  const hasAcceptedLegalConsents = preliminaryInfoAccepted && distanceSalesAccepted;
+  const hasAcceptedLegalConsents = !effectiveFrontendFeatures.enableCheckoutLegalConsents
+    || (preliminaryInfoAccepted && distanceSalesAccepted);
   const willRequireThreeDS = requiresPayment && (
     effectivePaymentSettings.force3DSecure ||
     grandTotal >= effectivePaymentSettings.force3DSecureAbove
@@ -453,7 +462,7 @@ export default function Checkout() {
       return;
     }
 
-    if (!hasAcceptedLegalConsents) {
+    if (effectiveFrontendFeatures.enableCheckoutLegalConsents && !hasAcceptedLegalConsents) {
       toast.error('Siparişi tamamlamak için yasal onayları kabul etmelisiniz');
       return;
     }
@@ -500,10 +509,12 @@ export default function Checkout() {
       if (!orderIdToUse) {
         if (!selectedAddress) throw new Error('Adres bulunamadı');
         const addressString = selectedAddressText;
-        const invoiceValidationError = validateInvoiceForm(addressString);
-        if (invoiceValidationError) {
-          toast.error(invoiceValidationError);
-          return;
+        if (effectiveFrontendFeatures.enableCheckoutInvoiceInfo) {
+          const invoiceValidationError = validateInvoiceForm(addressString);
+          if (invoiceValidationError) {
+            toast.error(invoiceValidationError);
+            return;
+          }
         }
 
         const order = await checkout({
@@ -516,7 +527,9 @@ export default function Checkout() {
           giftCardCode: appliedGiftCard?.isValid ? appliedGiftCard.code : undefined,
           preliminaryInfoAccepted,
           distanceSalesContractAccepted: distanceSalesAccepted,
-          invoiceInfo: buildInvoicePayload(addressString),
+          invoiceInfo: effectiveFrontendFeatures.enableCheckoutInvoiceInfo
+            ? buildInvoicePayload(addressString)
+            : undefined,
         }).unwrap();
 
         orderIdToUse = order.id;
@@ -657,41 +670,43 @@ export default function Checkout() {
           </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                <CardTitle>Fatura Bilgisi</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <InvoiceInfo
-                value={invoiceInfo}
-                useShippingAddress={useShippingAddressForInvoice}
-                selectedAddress={selectedAddress ? {
-                  fullName: selectedAddress.fullName,
-                  fullAddress: selectedAddressText,
-                } : undefined}
-                onTypeChange={(type) => {
-                  setInvoiceInfo((current) => ({
-                    ...current,
-                    type,
-                    fullName: type === 'Individual' ? (selectedAddress?.fullName || current.fullName) : current.fullName,
-                  }));
-                }}
-                onChange={setInvoiceInfo}
-                onUseShippingAddressChange={(checked) => {
-                  setUseShippingAddressForInvoice(checked);
-                  if (checked && selectedAddressText) {
+          {effectiveFrontendFeatures.enableCheckoutInvoiceInfo ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  <CardTitle>Fatura Bilgisi</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <InvoiceInfo
+                  value={invoiceInfo}
+                  useShippingAddress={useShippingAddressForInvoice}
+                  selectedAddress={selectedAddress ? {
+                    fullName: selectedAddress.fullName,
+                    fullAddress: selectedAddressText,
+                  } : undefined}
+                  onTypeChange={(type) => {
                     setInvoiceInfo((current) => ({
                       ...current,
-                      invoiceAddress: selectedAddressText,
+                      type,
+                      fullName: type === 'Individual' ? (selectedAddress?.fullName || current.fullName) : current.fullName,
                     }));
-                  }
-                }}
-              />
-            </CardContent>
-          </Card>
+                  }}
+                  onChange={setInvoiceInfo}
+                  onUseShippingAddressChange={(checked) => {
+                    setUseShippingAddressForInvoice(checked);
+                    if (checked && selectedAddressText) {
+                      setInvoiceInfo((current) => ({
+                        ...current,
+                        invoiceAddress: selectedAddressText,
+                      }));
+                    }
+                  }}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
 
 
           <Card>
@@ -1255,12 +1270,14 @@ export default function Checkout() {
                 <span>Toplam</span>
                 <span>{grandTotal.toLocaleString('tr-TR')} ₺</span>
               </div>
-              <LegalConsents
-                preliminaryInfoAccepted={preliminaryInfoAccepted}
-                distanceSalesAccepted={distanceSalesAccepted}
-                onPreliminaryInfoAcceptedChange={setPreliminaryInfoAccepted}
-                onDistanceSalesAcceptedChange={setDistanceSalesAccepted}
-              />
+              {effectiveFrontendFeatures.enableCheckoutLegalConsents ? (
+                <LegalConsents
+                  preliminaryInfoAccepted={preliminaryInfoAccepted}
+                  distanceSalesAccepted={distanceSalesAccepted}
+                  onPreliminaryInfoAcceptedChange={setPreliminaryInfoAccepted}
+                  onDistanceSalesAcceptedChange={setDistanceSalesAccepted}
+                />
+              ) : null}
               <Button
                 className={`w-full ${!hasAcceptedLegalConsents ? 'opacity-50' : ''}`}
                 size="lg"

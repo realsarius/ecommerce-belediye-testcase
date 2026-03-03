@@ -23,6 +23,7 @@ import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { TableLoadingState } from '@/components/admin/TableLoadingState';
 import { useLazyGetReturnAttachmentAccessUrlQuery } from '@/features/returns/returnsApi';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import type { ReturnReasonCategory, ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
 import {
   useApproveSellerReturnMutation,
@@ -75,9 +76,16 @@ export default function SellerReturnsPage() {
   const [selectedRequest, setSelectedRequest] = useState<ReturnRequest | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const { data: requests = [], isLoading } = useGetSellerReturnsQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const [approveReturn, { isLoading: isApproving }] = useApproveSellerReturnMutation();
   const [rejectReturn, { isLoading: isRejecting }] = useRejectSellerReturnMutation();
   const [getAttachmentAccessUrl] = useLazyGetReturnAttachmentAccessUrlQuery();
+  const effectiveFrontendFeatures = frontendFeatures ?? {
+    enableCheckoutLegalConsents: true,
+    enableCheckoutInvoiceInfo: true,
+    enableShipmentTimeline: true,
+    enableReturnAttachments: true,
+  };
   const isReviewing = isApproving || isRejecting;
 
   const summary = useMemo(() => ({
@@ -300,7 +308,7 @@ export default function SellerReturnsPage() {
                 </div>
               ) : null}
 
-              {selectedRequest.attachments.length > 0 ? (
+              {effectiveFrontendFeatures.enableReturnAttachments && selectedRequest.attachments.length > 0 ? (
                 <div className="space-y-2">
                   <Label>Eklenen Fotoğraflar</Label>
                   <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
