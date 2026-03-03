@@ -78,6 +78,12 @@ public static class DependencyInjection
         {
             configuration.GetSection("PaymentSettings").Bind(options);
 
+            var publicApiBaseUrl = Environment.GetEnvironmentVariable("PUBLIC_API_BASE_URL");
+            if (!string.IsNullOrWhiteSpace(publicApiBaseUrl))
+            {
+                options.PublicApiBaseUrl = publicApiBaseUrl.Trim();
+            }
+
             if (options.ActiveProviders == null || options.ActiveProviders.Count == 0)
             {
                 options.ActiveProviders = new List<Entities.Enums.PaymentProviderType>
@@ -122,12 +128,20 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IyzicoPaymentService>();
+        services.AddScoped<StripePaymentProvider>();
+        services.AddScoped<PayTrPaymentProvider>();
         services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<IyzicoPaymentService>());
+        services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<StripePaymentProvider>());
+        services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<PayTrPaymentProvider>());
         services.AddScoped<IPaymentProviderFactory, PaymentProviderFactory>();
         services.AddScoped<IPaymentService, PaymentService>();
 
         services.AddScoped<IyzicoRefundService>();
+        services.AddScoped<StripeRefundProvider>();
+        services.AddScoped<PayTrRefundProvider>();
         services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<IyzicoRefundService>());
+        services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<StripeRefundProvider>());
+        services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<PayTrRefundProvider>());
         services.AddScoped<IRefundProviderFactory, RefundProviderFactory>();
         services.AddScoped<IRefundService, RefundService>();
         services.AddScoped<IIyzicoRefundGateway, IyzicoRefundGateway>();

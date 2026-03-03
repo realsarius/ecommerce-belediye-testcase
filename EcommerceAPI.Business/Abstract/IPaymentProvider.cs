@@ -11,5 +11,5 @@ public interface IPaymentProvider
     Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request);
     Task<IDataResult<PaymentDto>> GetPaymentByOrderIdAsync(int orderId);
     Task<IResult> ProcessWebhookAsync(IyzicoWebhookRequest request, string signatureHeader);
-    Task<IResult> VerifyAndFinalizePaymentAsync(string token, string conversationId);
+    Task<IResult> VerifyAndFinalizePaymentAsync(string paymentId, string conversationId, string conversationData);
 }
