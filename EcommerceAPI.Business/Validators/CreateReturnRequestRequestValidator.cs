@@ -24,6 +24,9 @@ public class CreateReturnRequestRequestValidator : AbstractValidator<CreateRetur
 
         RuleFor(x => x.RequestNote)
             .MaximumLength(1000).WithMessage("Talep notu en fazla 1000 karakter olabilir.");
+
+        RuleForEach(x => x.SelectedOrderItemIds)
+            .GreaterThan(0).WithMessage("Seçilen ürün kimlikleri geçerli olmalıdır.");
     }
 
     private static bool BeValidReasonCategory(string category)

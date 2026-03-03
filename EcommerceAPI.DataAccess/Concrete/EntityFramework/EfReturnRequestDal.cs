@@ -32,6 +32,9 @@ public class EfReturnRequestDal : EfEntityRepositoryBase<ReturnRequest, AppDbCon
         return await _context.ReturnRequests
             .Include(rr => rr.Order)
                 .ThenInclude(order => order.Payment)
+            .Include(rr => rr.Order)
+                .ThenInclude(order => order.OrderItems)
+                    .ThenInclude(item => item.Product)
             .Include(rr => rr.User)
             .Include(rr => rr.ReviewedByUser)
             .Include(rr => rr.RefundRequest)

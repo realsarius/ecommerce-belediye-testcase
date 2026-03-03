@@ -14,6 +14,7 @@ using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -111,16 +112,28 @@ public class ReturnRequestManager : IReturnRequestService
             return new ErrorDataResult<ReturnRequestDto>(GetInvalidStateMessage(order, requestType));
         }
 
+        var selectedOrderItemsResult = ResolveSelectedOrderItems(order, requestType, request.SelectedOrderItemIds);
+        if (!selectedOrderItemsResult.Success)
+        {
+            return new ErrorDataResult<ReturnRequestDto>(selectedOrderItemsResult.Message);
+        }
+
+        var selectedOrderItems = selectedOrderItemsResult.Data;
+
         var returnRequest = new ReturnRequest
         {
             OrderId = orderId,
             UserId = userId,
+            Order = order,
             Type = requestType,
             ReasonCategory = reasonCategory,
+            SelectedOrderItemIdsJson = SerializeSelectedOrderItemIds(selectedOrderItems.Select(item => item.Id)),
             Status = ReturnRequestStatus.Pending,
             Reason = request.Reason.Trim(),
             RequestNote = string.IsNullOrWhiteSpace(request.RequestNote) ? null : request.RequestNote.Trim(),
-            RequestedRefundAmount = order.Payment?.Status == PaymentStatus.Success ? order.TotalAmount : 0m
+            RequestedRefundAmount = order.Payment?.Status == PaymentStatus.Success
+                ? selectedOrderItems.Sum(item => item.PriceSnapshot * item.Quantity)
+                : 0m
         };
 
         await _returnRequestDal.AddAsync(returnRequest);
@@ -135,6 +148,7 @@ public class ReturnRequestManager : IReturnRequestService
                 OrderId = orderId,
                 returnRequest.Type,
                 returnRequest.ReasonCategory,
+                SelectedOrderItemIds = selectedOrderItems.Select(item => item.Id).ToList(),
                 returnRequest.Reason,
                 returnRequest.RequestedRefundAmount
             });
@@ -363,8 +377,87 @@ public class ReturnRequestManager : IReturnRequestService
         };
     }
 
+    private static IDataResult<List<OrderItem>> ResolveSelectedOrderItems(
+        Order order,
+        ReturnRequestType requestType,
+        List<int>? selectedOrderItemIds)
+    {
+        var orderItems = order.OrderItems.ToList();
+        if (orderItems.Count == 0)
+        {
+            return new ErrorDataResult<List<OrderItem>>("Siparişte iade edilebilir ürün bulunamadı.");
+        }
+
+        if (requestType == ReturnRequestType.Cancellation)
+        {
+            return new SuccessDataResult<List<OrderItem>>(orderItems);
+        }
+
+        if (orderItems.Count == 1 && (selectedOrderItemIds == null || selectedOrderItemIds.Count == 0))
+        {
+            return new SuccessDataResult<List<OrderItem>>(orderItems);
+        }
+
+        if (selectedOrderItemIds == null || selectedOrderItemIds.Count == 0)
+        {
+            return new ErrorDataResult<List<OrderItem>>("Çoklu ürün siparişlerinde iade edilecek en az bir ürün seçmelisiniz.");
+        }
+
+        var normalizedIds = selectedOrderItemIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToHashSet();
+
+        var selectedItems = orderItems
+            .Where(item => normalizedIds.Contains(item.Id))
+            .ToList();
+
+        if (selectedItems.Count != normalizedIds.Count)
+        {
+            return new ErrorDataResult<List<OrderItem>>("Seçilen ürünlerden bazıları siparişte bulunamadı.");
+        }
+
+        return new SuccessDataResult<List<OrderItem>>(selectedItems);
+    }
+
+    private static string SerializeSelectedOrderItemIds(IEnumerable<int> selectedOrderItemIds)
+    {
+        return JsonSerializer.Serialize(selectedOrderItemIds.Distinct().ToList());
+    }
+
+    private static HashSet<int> DeserializeSelectedOrderItemIds(string? selectedOrderItemIdsJson)
+    {
+        if (string.IsNullOrWhiteSpace(selectedOrderItemIdsJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            var ids = JsonSerializer.Deserialize<List<int>>(selectedOrderItemIdsJson) ?? [];
+            return ids.Where(id => id > 0).ToHashSet();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     private static ReturnRequestDto MapToDto(ReturnRequest request)
     {
+        var selectedOrderItemIds = DeserializeSelectedOrderItemIds(request.SelectedOrderItemIdsJson);
+        var selectedItems = request.Order?.OrderItems
+            .Where(item => selectedOrderItemIds.Count == 0 || selectedOrderItemIds.Contains(item.Id))
+            .Select(item => new ReturnRequestItemDto
+            {
+                OrderItemId = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.Product?.Name ?? string.Empty,
+                Quantity = item.Quantity,
+                LineTotal = item.PriceSnapshot * item.Quantity
+            })
+            .ToList() ?? new List<ReturnRequestItemDto>();
+
         return new ReturnRequestDto
         {
             Id = request.Id,
@@ -377,6 +470,7 @@ public class ReturnRequestManager : IReturnRequestService
             Status = request.Status.ToString(),
             Reason = request.Reason,
             RequestNote = request.RequestNote,
+            SelectedItems = selectedItems,
             RequestedRefundAmount = request.RequestedRefundAmount,
             PaymentStatus = request.Order?.Payment?.Status.ToString(),
             ReviewedByUserId = request.ReviewedByUserId,

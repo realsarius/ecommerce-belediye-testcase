@@ -92,6 +92,7 @@ public class ReturnRequestManagerTests
         {
             Type = "Return",
             ReasonCategory = "NotAsDescribed",
+            SelectedOrderItemIds = [order.OrderItems.First().Id],
             Reason = "Ürün beklentimi karşılamadı",
             RequestNote = "Kutusu açıldı ama hasarsız."
         });
@@ -101,6 +102,7 @@ public class ReturnRequestManagerTests
         result.Data.Type.Should().Be(ReturnRequestType.Return.ToString());
         result.Data.ReasonCategory.Should().Be(ReturnReasonCategory.NotAsDescribed.ToString());
         result.Data.RequestedRefundAmount.Should().Be(order.TotalAmount);
+        result.Data.SelectedItems.Should().ContainSingle();
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
 
@@ -169,6 +171,61 @@ public class ReturnRequestManagerTests
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("14 gün");
         _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WhenMultipleItemsAndNoSelection_ShouldFail()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success, includeSecondItem: true);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "Other",
+            Reason = "Bir urun iade etmek istiyorum"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("en az bir ürün");
+        _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WithSelectedItems_ShouldCalculateRefundAmountFromSelectedItems()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success, includeSecondItem: true);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+        _returnRequestDalMock.Setup(x => x.AddAsync(It.IsAny<ReturnRequest>()))
+            .Callback<ReturnRequest>(request => request.Id = 1002)
+            .ReturnsAsync((ReturnRequest request) => request);
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(1002))
+            .ReturnsAsync((ReturnRequest?)null);
+
+        var selectedItem = order.OrderItems.Last();
+        var expectedRefundAmount = selectedItem.PriceSnapshot * selectedItem.Quantity;
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "DefectiveDamaged",
+            SelectedOrderItemIds = [selectedItem.Id],
+            Reason = "Ikinci urun hasarli geldi"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.RequestedRefundAmount.Should().Be(expectedRefundAmount);
+        result.Data.SelectedItems.Should().ContainSingle();
+        result.Data.SelectedItems[0].OrderItemId.Should().Be(selectedItem.Id);
+        result.Data.SelectedItems[0].ProductId.Should().Be(selectedItem.ProductId);
     }
 
     [Fact]
@@ -314,9 +371,9 @@ public class ReturnRequestManagerTests
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<ReturnRequestReviewedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus)
+    private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus, bool includeSecondItem = false)
     {
-        return new Order
+        var order = new Order
         {
             Id = 501,
             UserId = 42,
@@ -338,6 +395,7 @@ public class ReturnRequestManagerTests
             [
                 new OrderItem
                 {
+                    Id = 9101,
                     ProductId = 91,
                     Quantity = 1,
                     PriceSnapshot = 249.90m,
@@ -354,5 +412,35 @@ public class ReturnRequestManagerTests
                 }
             ]
         };
+
+        if (includeSecondItem)
+        {
+            order.OrderItems.Add(new OrderItem
+            {
+                Id = 9102,
+                OrderId = order.Id,
+                ProductId = 92,
+                Quantity = 2,
+                PriceSnapshot = 75m,
+                Product = new Product
+                {
+                    Id = 92,
+                    Name = "Second Test Product",
+                    Description = "desc",
+                    Price = 75m,
+                    SKU = "SKU-2",
+                    CategoryId = 1,
+                    SellerId = 5
+                }
+            });
+
+            order.TotalAmount = order.OrderItems.Sum(item => item.PriceSnapshot * item.Quantity);
+            if (order.Payment != null)
+            {
+                order.Payment.Amount = order.TotalAmount;
+            }
+        }
+
+        return order;
     }
 }

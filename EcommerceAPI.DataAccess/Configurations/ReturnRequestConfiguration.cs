@@ -19,6 +19,9 @@ public class ReturnRequestConfiguration : IEntityTypeConfiguration<ReturnRequest
         builder.Property(rr => rr.ReasonCategory)
             .IsRequired();
 
+        builder.Property(rr => rr.SelectedOrderItemIdsJson)
+            .HasColumnType("text");
+
         builder.Property(rr => rr.RequestNote)
             .HasMaxLength(1000);
 
