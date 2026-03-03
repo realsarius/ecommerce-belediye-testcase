@@ -42,6 +42,12 @@ public class SellerProfileConfiguration : IEntityTypeConfiguration<SellerProfile
 
         builder.Property(sp => sp.XUrl)
             .HasMaxLength(500);
+
+        builder.Property(sp => sp.CommissionRateOverride)
+            .HasPrecision(5, 2);
+
+        builder.Property(sp => sp.ApplicationReviewNote)
+            .HasMaxLength(1000);
         
         builder.Property(sp => sp.IsVerified)
             .HasDefaultValue(false);

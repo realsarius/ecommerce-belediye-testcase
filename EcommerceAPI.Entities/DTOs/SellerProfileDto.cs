@@ -17,6 +17,9 @@ public class SellerProfileDto : IDto
     public string? FacebookUrl { get; set; }
     public string? XUrl { get; set; }
     public bool IsVerified { get; set; }
+    public decimal? CommissionRateOverride { get; set; }
+    public string? ApplicationReviewNote { get; set; }
+    public DateTime? ApplicationReviewedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     
 
