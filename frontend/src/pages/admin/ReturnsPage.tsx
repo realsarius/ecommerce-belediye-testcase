@@ -39,7 +39,7 @@ import {
   useGetAdminReturnsQuery,
   useRejectAdminReturnMutation,
 } from '@/features/admin/adminApi';
-import type { ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
+import type { ReturnReasonCategory, ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format';
 
 const returnStatusLabels: Record<ReturnRequestStatus, string> = {
@@ -53,6 +53,15 @@ const returnStatusLabels: Record<ReturnRequestStatus, string> = {
 const returnTypeLabels: Record<ReturnRequestType, string> = {
   Return: 'İade',
   Cancellation: 'İptal',
+};
+
+const reasonCategoryLabels: Record<ReturnReasonCategory, string> = {
+  WrongProduct: 'Yanlış ürün',
+  DefectiveDamaged: 'Hasarlı / arızalı',
+  NotAsDescribed: 'Açıklamaya uymuyor',
+  ChangedMind: 'Fikrini değiştirdi',
+  LateDelivery: 'Geç teslimat',
+  Other: 'Diğer',
 };
 
 function getReturnStatusTone(status: ReturnRequestStatus) {
@@ -221,6 +230,7 @@ export default function ReturnsPage() {
                     <TableHead>Sipariş</TableHead>
                     <TableHead>Müşteri</TableHead>
                     <TableHead>Tip</TableHead>
+                    <TableHead>Kategori</TableHead>
                     <TableHead>Neden</TableHead>
                     <TableHead>Tutar</TableHead>
                     <TableHead>Tarih</TableHead>
@@ -237,6 +247,7 @@ export default function ReturnsPage() {
                       <TableCell>
                         <Badge variant="outline">{returnTypeLabels[request.type]}</Badge>
                       </TableCell>
+                      <TableCell>{reasonCategoryLabels[request.reasonCategory]}</TableCell>
                       <TableCell className="max-w-[22rem] truncate">{request.reason}</TableCell>
                       <TableCell>{formatCurrency(request.requestedRefundAmount)}</TableCell>
                       <TableCell className="text-muted-foreground">
@@ -251,7 +262,7 @@ export default function ReturnsPage() {
                   ))}
                   {tabData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="p-0">
+                      <TableCell colSpan={8} className="p-0">
                         <EmptyState
                           icon={RotateCcw}
                           title="Bekleyen iade talebi bulunmuyor"
@@ -431,6 +442,11 @@ export default function ReturnsPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Kategori</Label>
+                  <Input value={reasonCategoryLabels[selectedRequest.reasonCategory]} readOnly />
+                </div>
+
                 <div className="space-y-2">
                   <Label>Talep Nedeni</Label>
                   <Input value={selectedRequest.reason} readOnly />

@@ -1,5 +1,13 @@
 export type ReturnRequestType = 'Return' | 'Cancellation';
 
+export type ReturnReasonCategory =
+  | 'WrongProduct'
+  | 'DefectiveDamaged'
+  | 'NotAsDescribed'
+  | 'ChangedMind'
+  | 'LateDelivery'
+  | 'Other';
+
 export type ReturnRequestStatus =
   | 'Pending'
   | 'Approved'
@@ -14,6 +22,7 @@ export interface ReturnRequest {
   userId: number;
   customerName: string;
   type: ReturnRequestType;
+  reasonCategory: ReturnReasonCategory;
   status: ReturnRequestStatus;
   reason: string;
   requestNote?: string | null;
@@ -31,6 +40,7 @@ export interface ReturnRequest {
 export interface CreateReturnRequestPayload {
   orderId: number;
   type: ReturnRequestType;
+  reasonCategory: ReturnReasonCategory;
   reason: string;
   requestNote?: string;
 }

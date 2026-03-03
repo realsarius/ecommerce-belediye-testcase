@@ -47,12 +47,26 @@ const mapOrderItemsToEditable = (items: OrderItem[]): EditableOrderItem[] =>
     priceSnapshot: item.priceSnapshot,
   }));
 
-const getReturnActionLabel = (orderStatus: OrderStatus) => {
-  if (orderStatus === 'Delivered') {
+const getReturnDaysRemaining = (deliveredAt?: string) => {
+  if (!deliveredAt) {
+    return null;
+  }
+
+  const diffInMs = new Date(deliveredAt).getTime() + (14 * 24 * 60 * 60 * 1000) - Date.now();
+  return Math.max(0, Math.ceil(diffInMs / (24 * 60 * 60 * 1000)));
+};
+
+const getReturnActionLabel = (order: Order) => {
+  if (order.status === 'Delivered') {
+    const daysRemaining = getReturnDaysRemaining(order.deliveredAt);
+    if (daysRemaining === 0) {
+      return null;
+    }
+
     return 'İade Talebi Oluştur';
   }
 
-  if (orderStatus === 'Paid' || orderStatus === 'Processing') {
+  if (order.status === 'Paid' || order.status === 'Processing') {
     return 'İptal Talebi Oluştur';
   }
 
@@ -275,7 +289,7 @@ export default function OrderDetail() {
 
   const canCancel = order.status === 'PendingPayment';
   const canEdit = order.status === 'PendingPayment';
-  const returnActionLabel = getReturnActionLabel(order.status);
+  const returnActionLabel = getReturnActionLabel(order);
 
   return (
     <div className="container mx-auto px-4 py-8">

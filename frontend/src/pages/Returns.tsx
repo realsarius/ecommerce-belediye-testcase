@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useGetOrdersQuery } from '@/features/orders/ordersApi';
 import { useCreateReturnRequestMutation, useGetMyReturnRequestsQuery } from '@/features/returns/returnsApi';
 import type { OrderStatus } from '@/features/orders/types';
-import type { ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
+import type { ReturnReasonCategory, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
@@ -43,6 +43,28 @@ const requestTypeLabels: Record<ReturnRequestType, string> = {
   Cancellation: 'İptal',
 };
 
+const reasonCategoryLabels: Record<ReturnReasonCategory, string> = {
+  WrongProduct: 'Yanlış ürün',
+  DefectiveDamaged: 'Hasarlı / arızalı',
+  NotAsDescribed: 'Açıklamaya uymuyor',
+  ChangedMind: 'Fikrimi değiştirdim',
+  LateDelivery: 'Geç teslimat',
+  Other: 'Diğer',
+};
+
+const cancellationCategories: ReturnReasonCategory[] = ['ChangedMind', 'WrongProduct', 'Other'];
+const returnCategories: ReturnReasonCategory[] = ['WrongProduct', 'DefectiveDamaged', 'NotAsDescribed', 'ChangedMind', 'LateDelivery', 'Other'];
+
+function getReturnDaysRemaining(deliveredAt?: string) {
+  if (!deliveredAt) {
+    return null;
+  }
+
+  const deliveredDate = new Date(deliveredAt);
+  const diffInMs = deliveredDate.getTime() + (14 * 24 * 60 * 60 * 1000) - Date.now();
+  return Math.max(0, Math.ceil(diffInMs / (24 * 60 * 60 * 1000)));
+}
+
 function getEligibleRequestType(orderStatus: OrderStatus): ReturnRequestType | null {
   if (orderStatus === 'Delivered') {
     return 'Return';
@@ -75,21 +97,33 @@ export default function Returns() {
   const { data: returnRequests, isLoading: isRequestsLoading } = useGetMyReturnRequestsQuery();
   const [createReturnRequest, { isLoading: isSubmitting }] = useCreateReturnRequestMutation();
 
+  const [reasonCategory, setReasonCategory] = useState<ReturnReasonCategory | ''>('');
   const [reason, setReason] = useState('');
   const [requestNote, setRequestNote] = useState('');
 
-  const eligibleOrders = (orders ?? []).filter((order) => getEligibleRequestType(order.status) !== null);
+  const eligibleOrders = (orders ?? []).filter((order) => {
+    const requestType = getEligibleRequestType(order.status);
+    if (requestType !== 'Return') {
+      return requestType !== null;
+    }
+
+    const daysRemaining = getReturnDaysRemaining(order.deliveredAt);
+    return daysRemaining === null || daysRemaining > 0;
+  });
   const selectedOrderId = selectedOrderParam ?? '';
   const selectedOrder = eligibleOrders.find((order) => order.id.toString() === selectedOrderId);
   const requestType = selectedOrder ? getEligibleRequestType(selectedOrder.status) ?? '' : '';
+  const availableCategories = requestType === 'Cancellation' ? cancellationCategories : requestType === 'Return' ? returnCategories : [];
+  const daysRemaining = selectedOrder?.status === 'Delivered' ? getReturnDaysRemaining(selectedOrder.deliveredAt) : null;
 
   const handleOrderChange = (orderId: string) => {
     setSearchParams(orderId ? { orderId } : {});
+    setReasonCategory('');
   };
 
   const handleSubmit = async () => {
-    if (!selectedOrder || !requestType || !reason.trim()) {
-      toast.error('Lütfen sipariş, talep tipi ve neden alanlarını doldurun.');
+    if (!selectedOrder || !requestType || !reasonCategory || !reason.trim()) {
+      toast.error('Lütfen sipariş, kategori ve neden alanlarını doldurun.');
       return;
     }
 
@@ -97,11 +131,13 @@ export default function Returns() {
       await createReturnRequest({
         orderId: selectedOrder.id,
         type: requestType,
+        reasonCategory,
         reason: reason.trim(),
         requestNote: requestNote.trim() || undefined,
       }).unwrap();
 
       toast.success('Talebiniz oluşturuldu.');
+      setReasonCategory('');
       setReason('');
       setRequestNote('');
     } catch (err: unknown) {
@@ -200,6 +236,25 @@ export default function Returns() {
                 )}
 
                 <div className="space-y-2">
+                  <Label htmlFor="return-category">Kategori</Label>
+                  <Select
+                    value={reasonCategory}
+                    onValueChange={(value) => setReasonCategory(value as ReturnReasonCategory)}
+                  >
+                    <SelectTrigger id="return-category">
+                      <SelectValue placeholder="Talep kategorisini seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {reasonCategoryLabels[category]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="return-reason">Talep Nedeni</Label>
                   <Input
                     id="return-reason"
@@ -220,7 +275,13 @@ export default function Returns() {
                   />
                 </div>
 
-                <Button onClick={handleSubmit} disabled={isSubmitting || !selectedOrder || !requestType} className="w-full">
+                {requestType === 'Return' && daysRemaining !== null ? (
+                  <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
+                    Yasal cayma hakkı süresi: <strong>{daysRemaining} gün</strong>
+                  </div>
+                ) : null}
+
+                <Button onClick={handleSubmit} disabled={isSubmitting || !selectedOrder || !requestType || !reasonCategory} className="w-full">
                   {isSubmitting ? 'Gönderiliyor...' : 'Talep Oluştur'}
                 </Button>
               </>
