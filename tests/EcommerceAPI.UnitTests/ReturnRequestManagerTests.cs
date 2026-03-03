@@ -25,6 +25,7 @@ public class ReturnRequestManagerTests
     private readonly Mock<IGiftCardService> _giftCardServiceMock;
     private readonly Mock<IReferralService> _referralServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
+    private readonly Mock<IReturnAttachmentStorageService> _returnAttachmentStorageServiceMock;
     private readonly Mock<ILogger<ReturnRequestManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly ReturnRequestManager _manager;
@@ -39,6 +40,7 @@ public class ReturnRequestManagerTests
         _giftCardServiceMock = new Mock<IGiftCardService>();
         _referralServiceMock = new Mock<IReferralService>();
         _auditServiceMock = new Mock<IAuditService>();
+        _returnAttachmentStorageServiceMock = new Mock<IReturnAttachmentStorageService>();
         _loggerMock = new Mock<ILogger<ReturnRequestManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
         _publishEndpointMock
@@ -59,6 +61,9 @@ public class ReturnRequestManagerTests
         _referralServiceMock
             .Setup(x => x.ReverseRewardsForOrderAsync(It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
+        _returnAttachmentStorageServiceMock
+            .Setup(x => x.FinalizeTemporaryPhotosAsync(It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SuccessDataResult<List<ReturnRequestAttachment>>([]));
 
         _manager = new ReturnRequestManager(
             _returnRequestDalMock.Object,
@@ -69,6 +74,7 @@ public class ReturnRequestManagerTests
             _giftCardServiceMock.Object,
             _referralServiceMock.Object,
             _auditServiceMock.Object,
+            _returnAttachmentStorageServiceMock.Object,
             _loggerMock.Object,
             _publishEndpointMock.Object);
     }
@@ -226,6 +232,48 @@ public class ReturnRequestManagerTests
         result.Data.SelectedItems.Should().ContainSingle();
         result.Data.SelectedItems[0].OrderItemId.Should().Be(selectedItem.Id);
         result.Data.SelectedItems[0].ProductId.Should().Be(selectedItem.ProductId);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WithUploadedPhotoKeys_ShouldAttachUploadedPhotos()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+        var uploadedAttachment = new ReturnRequestAttachment
+        {
+            Id = 77,
+            OriginalFileName = "hasar.jpg",
+            StoredFileName = "stored.jpg",
+            RelativePath = "final/2026/03/stored.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 42_000
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+        _returnRequestDalMock.Setup(x => x.AddAsync(It.IsAny<ReturnRequest>()))
+            .Callback<ReturnRequest>(request => request.Id = 1003)
+            .ReturnsAsync((ReturnRequest request) => request);
+        _returnAttachmentStorageServiceMock
+            .Setup(x => x.FinalizeTemporaryPhotosAsync(order.UserId, It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SuccessDataResult<List<ReturnRequestAttachment>>([uploadedAttachment]));
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(1003))
+            .ReturnsAsync((ReturnRequest?)null);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "DefectiveDamaged",
+            SelectedOrderItemIds = [order.OrderItems.First().Id],
+            UploadedPhotoKeys = ["upload-key-1"],
+            Reason = "Hasarlı ürün geldi"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Attachments.Should().ContainSingle();
+        result.Data.Attachments[0].FileName.Should().Be("hasar.jpg");
+        result.Data.Attachments[0].ContentType.Should().Be("image/jpeg");
     }
 
     [Fact]

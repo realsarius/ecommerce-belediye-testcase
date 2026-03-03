@@ -28,6 +28,7 @@ public class ReturnRequestManager : IReturnRequestService
     private readonly IGiftCardService _giftCardService;
     private readonly IReferralService _referralService;
     private readonly IAuditService _auditService;
+    private readonly IReturnAttachmentStorageService _returnAttachmentStorageService;
     private readonly ILogger<ReturnRequestManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
 
@@ -40,6 +41,7 @@ public class ReturnRequestManager : IReturnRequestService
         IGiftCardService giftCardService,
         IReferralService referralService,
         IAuditService auditService,
+        IReturnAttachmentStorageService returnAttachmentStorageService,
         ILogger<ReturnRequestManager> logger,
         IPublishEndpoint publishEndpoint)
     {
@@ -51,6 +53,7 @@ public class ReturnRequestManager : IReturnRequestService
         _giftCardService = giftCardService;
         _referralService = referralService;
         _auditService = auditService;
+        _returnAttachmentStorageService = returnAttachmentStorageService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
     }
@@ -119,6 +122,13 @@ public class ReturnRequestManager : IReturnRequestService
         }
 
         var selectedOrderItems = selectedOrderItemsResult.Data;
+        var finalizedAttachmentsResult = await _returnAttachmentStorageService.FinalizeTemporaryPhotosAsync(
+            userId,
+            request.UploadedPhotoKeys);
+        if (!finalizedAttachmentsResult.Success)
+        {
+            return new ErrorDataResult<ReturnRequestDto>(finalizedAttachmentsResult.Message);
+        }
 
         var returnRequest = new ReturnRequest
         {
@@ -131,6 +141,7 @@ public class ReturnRequestManager : IReturnRequestService
             Status = ReturnRequestStatus.Pending,
             Reason = request.Reason.Trim(),
             RequestNote = string.IsNullOrWhiteSpace(request.RequestNote) ? null : request.RequestNote.Trim(),
+            Attachments = finalizedAttachmentsResult.Data,
             RequestedRefundAmount = order.Payment?.Status == PaymentStatus.Success
                 ? selectedOrderItems.Sum(item => item.PriceSnapshot * item.Quantity)
                 : 0m
@@ -149,16 +160,18 @@ public class ReturnRequestManager : IReturnRequestService
                 returnRequest.Type,
                 returnRequest.ReasonCategory,
                 SelectedOrderItemIds = selectedOrderItems.Select(item => item.Id).ToList(),
+                AttachmentCount = returnRequest.Attachments.Count,
                 returnRequest.Reason,
                 returnRequest.RequestedRefundAmount
             });
 
         _logger.LogInformation(
-            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, ReasonCategory={ReasonCategory}, RequestedRefundAmount={RequestedRefundAmount}",
+            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, ReasonCategory={ReasonCategory}, AttachmentCount={AttachmentCount}, RequestedRefundAmount={RequestedRefundAmount}",
             orderId,
             userId,
             returnRequest.Type,
             returnRequest.ReasonCategory,
+            returnRequest.Attachments.Count,
             returnRequest.RequestedRefundAmount);
 
         var createdRequest = await _returnRequestDal.GetByIdWithDetailsAsync(returnRequest.Id) ?? returnRequest;
@@ -471,6 +484,16 @@ public class ReturnRequestManager : IReturnRequestService
             Reason = request.Reason,
             RequestNote = request.RequestNote,
             SelectedItems = selectedItems,
+            Attachments = request.Attachments
+                .Select(attachment => new ReturnRequestAttachmentDto
+                {
+                    Id = attachment.Id,
+                    FileName = attachment.OriginalFileName,
+                    ContentType = attachment.ContentType,
+                    SizeBytes = attachment.SizeBytes,
+                    CreatedAt = attachment.CreatedAt
+                })
+                .ToList(),
             RequestedRefundAmount = request.RequestedRefundAmount,
             PaymentStatus = request.Order?.Payment?.Status.ToString(),
             ReviewedByUserId = request.ReviewedByUserId,

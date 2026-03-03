@@ -98,6 +98,11 @@ public static class DependencyInjection
             }
         });
 
+        services.Configure<ReturnAttachmentSettings>(options =>
+        {
+            configuration.GetSection("ReturnAttachments").Bind(options);
+        });
+
         services.Configure<EmailNotificationSettings>(options =>
         {
             var config = configuration.GetSection("EmailNotifications");
@@ -156,6 +161,7 @@ public static class DependencyInjection
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
         services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        services.AddScoped<IReturnAttachmentStorageService, ReturnAttachmentStorageService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
 

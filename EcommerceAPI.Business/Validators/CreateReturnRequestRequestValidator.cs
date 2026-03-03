@@ -27,6 +27,13 @@ public class CreateReturnRequestRequestValidator : AbstractValidator<CreateRetur
 
         RuleForEach(x => x.SelectedOrderItemIds)
             .GreaterThan(0).WithMessage("Seçilen ürün kimlikleri geçerli olmalıdır.");
+
+        RuleFor(x => x.UploadedPhotoKeys)
+            .Must(keys => keys == null || keys.Count <= 5)
+            .WithMessage("En fazla 5 fotoğraf yükleyebilirsiniz.");
+
+        RuleForEach(x => x.UploadedPhotoKeys)
+            .NotEmpty().WithMessage("Yüklenen fotoğraf anahtarı boş olamaz.");
     }
 
     private static bool BeValidReasonCategory(string category)
