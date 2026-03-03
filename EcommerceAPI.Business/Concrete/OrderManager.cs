@@ -881,6 +881,7 @@ public class OrderManager : IOrderService
             Amount = order.TotalAmount,
             Status = order.TotalAmount <= 0 ? PaymentStatus.Success : PaymentStatus.Pending,
             PaymentMethod = order.TotalAmount <= 0 ? "GiftCard" : request.PaymentMethod,
+            Provider = order.TotalAmount <= 0 ? null : PaymentProviderType.Iyzico,
             IdempotencyKey = !string.IsNullOrEmpty(request.IdempotencyKey) ? request.IdempotencyKey : Guid.NewGuid().ToString()
         };
 

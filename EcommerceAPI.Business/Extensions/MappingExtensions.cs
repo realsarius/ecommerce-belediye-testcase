@@ -46,6 +46,7 @@ public static class MappingExtensions
                 Currency = order.Payment.Currency,
                 Status = order.Payment.Status.ToString(),
                 PaymentMethod = order.Payment.PaymentMethod,
+                Provider = order.Payment.Provider,
                 CreatedAt = order.Payment.CreatedAt
             } : null
         };

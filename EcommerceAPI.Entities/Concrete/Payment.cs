@@ -9,6 +9,7 @@ public class Payment : BaseEntity
     public string Currency { get; set; } = "TRY";
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
     public string PaymentMethod { get; set; } = string.Empty; 
+    public PaymentProviderType? Provider { get; set; }
     public string? PaymentProviderId { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }

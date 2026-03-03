@@ -23,6 +23,9 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.PaymentMethod)
             .IsRequired()
             .HasMaxLength(50);
+
+        builder.Property(p => p.Provider)
+            .HasConversion<int?>();
         
         builder.Property(p => p.IdempotencyKey)
             .IsRequired()
