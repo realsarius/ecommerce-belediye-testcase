@@ -176,6 +176,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
             .SingleAsync(rr => rr.ReturnRequestId == createResult.Data.Id);
 
         refundRequest.OrderId.Should().Be(orderId);
+        refundRequest.Provider.Should().Be(PaymentProviderType.Iyzico);
         refundRequest.Status.Should().Be(RefundRequestStatus.Pending);
         refundRequest.Amount.Should().BeGreaterThan(0);
     }

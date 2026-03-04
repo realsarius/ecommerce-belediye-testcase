@@ -27,7 +27,7 @@ public class RefundService : IRefundService
             return new ErrorDataResult<RefundRequestDto>("Refund talebi bulunamadi.");
         }
 
-        var providerType = refundRequest.Payment?.Provider ?? PaymentProviderType.Iyzico;
+        var providerType = refundRequest.Provider;
 
         try
         {

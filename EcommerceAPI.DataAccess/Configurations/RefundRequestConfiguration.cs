@@ -16,6 +16,9 @@ public class RefundRequestConfiguration : IEntityTypeConfiguration<RefundRequest
             .IsRequired()
             .HasPrecision(18, 2);
 
+        builder.Property(rr => rr.Provider)
+            .IsRequired();
+
         builder.Property(rr => rr.IdempotencyKey)
             .IsRequired()
             .HasMaxLength(255);

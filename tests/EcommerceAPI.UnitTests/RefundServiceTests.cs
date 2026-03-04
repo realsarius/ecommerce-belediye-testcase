@@ -189,6 +189,7 @@ public class RefundServiceTests
             Amount = 249.90m,
             Currency = "TRY",
             PaymentMethod = "CreditCard",
+            Provider = PaymentProviderType.Iyzico,
             PaymentProviderId = "PAYMENT-1",
             Status = PaymentStatus.Success,
             IdempotencyKey = "payment-key"
@@ -215,6 +216,7 @@ public class RefundServiceTests
             ReturnRequestId = returnRequest.Id,
             OrderId = order.Id,
             PaymentId = payment.Id,
+            Provider = PaymentProviderType.Iyzico,
             Amount = 249.90m,
             Status = RefundRequestStatus.Pending,
             IdempotencyKey = "refund-key",

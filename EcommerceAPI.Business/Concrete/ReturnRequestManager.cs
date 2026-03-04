@@ -154,6 +154,13 @@ public class ReturnRequestManager : IReturnRequestService
         await _returnRequestDal.AddAsync(returnRequest);
         await _unitOfWork.SaveChangesAsync();
 
+        // Requery basarisiz olursa cevap DTO'su secilen urunleri ve musteri bilgisini yine de tasiyabilsin.
+        returnRequest.Order = order;
+        if (order.User != null)
+        {
+            returnRequest.User = order.User;
+        }
+
         await _auditService.LogActionAsync(
             userId.ToString(),
             "CreateReturnRequest",
@@ -231,6 +238,7 @@ public class ReturnRequestManager : IReturnRequestService
                     ReturnRequestId = returnRequest.Id,
                     OrderId = returnRequest.OrderId,
                     PaymentId = returnRequest.Order.Payment.Id,
+                    Provider = returnRequest.Order.Payment.Provider ?? PaymentProviderType.Iyzico,
                     Amount = returnRequest.RequestedRefundAmount,
                     Status = RefundRequestStatus.Pending,
                     IdempotencyKey = $"refund:{returnRequest.Id}:{Guid.NewGuid():N}"
@@ -298,6 +306,11 @@ public class ReturnRequestManager : IReturnRequestService
 
         _returnRequestDal.Update(returnRequest);
         await _unitOfWork.SaveChangesAsync();
+
+        if (createdRefundRequest != null)
+        {
+            returnRequest.RefundRequest = createdRefundRequest;
+        }
 
         if (createdRefundRequest != null)
         {
@@ -509,6 +522,7 @@ public class ReturnRequestManager : IReturnRequestService
             ReviewNote = request.ReviewNote,
             ReviewedAt = request.ReviewedAt,
             RefundRequestId = request.RefundRequest?.Id,
+            RefundProvider = request.RefundRequest?.Provider,
             RefundStatus = request.RefundRequest?.Status.ToString(),
             CreatedAt = request.CreatedAt
         };

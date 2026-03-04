@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.Entities.DTOs;
 
@@ -13,6 +14,7 @@ public class RefundRequestDto : IDto
     public string CustomerName { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "TRY";
+    public PaymentProviderType Provider { get; set; } = PaymentProviderType.Iyzico;
     public string Status { get; set; } = string.Empty;
     public string? ProviderRefundId { get; set; }
     public string? FailureReason { get; set; }

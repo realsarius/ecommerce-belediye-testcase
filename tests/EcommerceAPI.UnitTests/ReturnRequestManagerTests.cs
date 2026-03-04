@@ -285,6 +285,7 @@ public class ReturnRequestManagerTests
     [Fact]
     public async Task ReviewReturnRequestAsync_ApprovedPaidOrder_ShouldCreateRefundRequest()
     {
+        RefundRequest? capturedRefundRequest = null;
         var returnRequest = new ReturnRequest
         {
             Id = 3001,
@@ -304,6 +305,7 @@ public class ReturnRequestManagerTests
         _refundRequestDalMock.Setup(x => x.GetByReturnRequestIdAsync(returnRequest.Id))
             .ReturnsAsync((RefundRequest?)null);
         _refundRequestDalMock.Setup(x => x.AddAsync(It.IsAny<RefundRequest>()))
+            .Callback<RefundRequest>(refundRequest => capturedRefundRequest = refundRequest)
             .ReturnsAsync((RefundRequest refundRequest) => refundRequest);
 
         var result = await _manager.ReviewReturnRequestAsync(returnRequest.Id, 7, new ReviewReturnRequestRequest
@@ -314,6 +316,9 @@ public class ReturnRequestManagerTests
 
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(ReturnRequestStatus.RefundPending.ToString());
+        result.Data.RefundProvider.Should().Be(PaymentProviderType.Iyzico);
+        capturedRefundRequest.Should().NotBeNull();
+        capturedRefundRequest!.Provider.Should().Be(PaymentProviderType.Iyzico);
         _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Once);
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
@@ -443,6 +448,7 @@ public class ReturnRequestManagerTests
                 Currency = "TRY",
                 Status = paymentStatus,
                 PaymentMethod = "CreditCard",
+                Provider = PaymentProviderType.Iyzico,
                 IdempotencyKey = "payment-key"
             },
             OrderItems =

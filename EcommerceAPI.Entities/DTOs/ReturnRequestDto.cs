@@ -1,4 +1,5 @@
 using EcommerceAPI.Core.Entities;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.Entities.DTOs;
 
@@ -24,6 +25,7 @@ public class ReturnRequestDto : IDto
     public string? ReviewNote { get; set; }
     public DateTime? ReviewedAt { get; set; }
     public int? RefundRequestId { get; set; }
+    public PaymentProviderType? RefundProvider { get; set; }
     public string? RefundStatus { get; set; }
     public DateTime CreatedAt { get; set; }
 }

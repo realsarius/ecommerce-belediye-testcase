@@ -274,6 +274,7 @@ public static class TestDataSeeder
             Currency = "TRY",
             Status = paymentStatus,
             PaymentMethod = "CreditCard",
+            Provider = PaymentProviderType.Iyzico,
             PaymentProviderId = paymentStatus == PaymentStatus.Success ? $"PAY-{orderNumber}" : null,
             IdempotencyKey = paymentIdempotencyKey
         };

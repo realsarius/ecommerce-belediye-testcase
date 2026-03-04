@@ -227,6 +227,7 @@ public class IyzicoRefundService : IRefundService, IRefundProvider
             CustomerName = $"{refundRequest.ReturnRequest.User.FirstName} {refundRequest.ReturnRequest.User.LastName}".Trim(),
             Amount = refundRequest.Amount,
             Currency = refundRequest.Payment?.Currency ?? refundRequest.Order.Currency,
+            Provider = refundRequest.Provider,
             Status = refundRequest.Status.ToString(),
             ProviderRefundId = refundRequest.ProviderRefundId,
             FailureReason = refundRequest.FailureReason,
