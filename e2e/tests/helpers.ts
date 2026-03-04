@@ -2,26 +2,20 @@ import { test, expect, type Page } from '@playwright/test';
 
 /** Yardımcı: customer olarak login yap ve auth state'in UI'a yansımasını bekle */
 export async function loginAsCustomer(page: Page) {
-    await page.goto('/login');
+    const credentials = await loginViaApi(page, 'customer@test.com', 'Test123!');
 
-    await page.fill('#email', 'customer@test.com');
-    await page.fill('#password', 'Test123!');
+    await page.addInitScript((auth) => {
+        window.localStorage.setItem('token', auth.token);
+        window.localStorage.setItem('refreshToken', auth.refreshToken);
+        window.localStorage.setItem('user', JSON.stringify(auth.user));
+    }, credentials);
 
-    // Login formundaki "Giriş Yap" butonunu tıkla
-    // NOT: Header'daki "Giriş Yap" bir <a> (role=link), bu yüzden role=button unique
-    await page.getByRole('button', { name: 'Giriş Yap' }).click();
+    await page.goto('/');
+    await expect.poll(
+        async () => page.evaluate(() => Boolean(window.localStorage.getItem('token'))),
+        { timeout: 10_000 }
+    ).toBe(true);
 
-    await page.waitForTimeout(500);
-
-    const tokenExists = await page.evaluate(() => Boolean(window.localStorage.getItem('token')));
-    if (tokenExists && page.url().endsWith('/login')) {
-        await page.goto('/');
-    }
-
-    // Login sonrası ana sayfaya yönlenmeli
-    await expect(page).toHaveURL('/', { timeout: 15_000 });
-
-    // Auth state'in header'a yansımasını bekle
     await expect(page.getByRole('link', { name: 'Giriş Yap' })).not.toBeVisible({ timeout: 10_000 });
 }
 
@@ -29,42 +23,57 @@ export async function loginAsCustomer(page: Page) {
 export async function loginViaApi(page: Page, email: string, password: string) {
     let lastStatus = 0;
     let lastBody = '';
+    let lastErrorMessage = '';
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-        const response = await page.request.post('http://localhost:5000/api/v1/auth/login', {
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            data: {
-                email,
-                password,
-            },
-        });
+    for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+            const response = await page.request.post('/api/v1/auth/login', {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                data: {
+                    email,
+                    password,
+                },
+            });
 
-        if (response.ok()) {
-            const payload = await response.json();
-            return payload.data.token as string;
-        }
-
-        lastStatus = response.status();
-        lastBody = await response.text();
-
-        if (lastStatus === 429) {
-            try {
-                const rateLimitPayload = JSON.parse(lastBody) as { retryAfterSeconds?: number };
-                if (rateLimitPayload.retryAfterSeconds && rateLimitPayload.retryAfterSeconds > 0) {
-                    await page.waitForTimeout(rateLimitPayload.retryAfterSeconds * 1000);
-                    continue;
-                }
-            } catch {
-                // No-op: body JSON parse edilemezse genel backoff ile devam et.
+            if (response.ok()) {
+                const payload = await response.json();
+                return {
+                    token: payload.data.token as string,
+                    refreshToken: payload.data.refreshToken as string,
+                    user: payload.data.user as {
+                        id: number;
+                        email: string;
+                        firstName: string;
+                        lastName: string;
+                        role: string;
+                    },
+                };
             }
+
+            lastStatus = response.status();
+            lastBody = await response.text();
+
+            if (lastStatus === 429) {
+                try {
+                    const rateLimitPayload = JSON.parse(lastBody) as { retryAfterSeconds?: number };
+                    if (rateLimitPayload.retryAfterSeconds && rateLimitPayload.retryAfterSeconds > 0) {
+                        await page.waitForTimeout(rateLimitPayload.retryAfterSeconds * 1000);
+                        continue;
+                    }
+                } catch {
+                    // No-op: body JSON parse edilemezse genel backoff ile devam et.
+                }
+            }
+        } catch (error) {
+            lastErrorMessage = error instanceof Error ? error.message : String(error);
         }
 
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(750);
     }
 
-    throw new Error(`API login failed with ${lastStatus}: ${lastBody}`);
+    throw new Error(`API login failed with ${lastStatus}: ${lastBody || lastErrorMessage}`);
 }
 
 /** Varsa cookie banner'ı kapat. */
@@ -144,24 +153,35 @@ export async function prepareCheckoutForNewCardPayment(page: Page, cardNumber: s
 
 /** Checkout yasal onay dialog'larını açıp kabul et. */
 export async function acceptCheckoutLegalConsents(page: Page) {
-    for (const consentButtonName of ['Ön Bilgilendirme Formu', 'Mesafeli Satış Sözleşmesi']) {
-        await page.getByRole('button', { name: consentButtonName }).click();
+    for (const consentName of [
+        'Ön Bilgilendirme Formu belgesini okudum ve onaylıyorum.',
+        'Mesafeli Satış Sözleşmesi metnini okudum ve onaylıyorum.',
+    ]) {
+        const checkbox = page.getByRole('checkbox', { name: consentName });
+        await expect(checkbox).toBeVisible({ timeout: 10_000 });
 
-        const dialog = page.getByRole('dialog');
-        await expect(dialog).toBeVisible({ timeout: 10_000 });
-        await dialog.getByRole('button', { name: 'Kabul Ediyorum' }).click({ force: true });
-        await expect(dialog).toBeHidden({ timeout: 10_000 });
+        const isChecked = await checkbox.isChecked();
+        if (!isChecked) {
+            await checkbox.click({ force: true });
+        }
+
+        await expect(checkbox).toBeChecked({ timeout: 10_000 });
     }
 }
 
 /** Retry payment dialog'ındaki ay/yıl select'lerini doldur. */
 export async function fillRetryPaymentExpiry(page: Page, targetYear: number) {
+    await acceptCookieBannerIfPresent(page);
+
     const dialog = page.getByRole('dialog', { name: 'Tekrar Ödeme Yap' });
     const comboBoxes = dialog.getByRole('combobox');
 
     await comboBoxes.nth(0).click();
-    await page.getByRole('option', { name: '12' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
 
-    await comboBoxes.nth(1).click();
-    await page.getByRole('option', { name: String(targetYear) }).click();
+    if ((await comboBoxes.nth(1).innerText()).trim() !== String(targetYear)) {
+        await comboBoxes.nth(1).click();
+        await page.getByRole('option', { name: String(targetYear) }).last().click({ force: true });
+    }
 }

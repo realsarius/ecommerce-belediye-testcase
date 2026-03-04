@@ -73,9 +73,8 @@ test.describe('Checkout Payment', () => {
         const initialPaymentPayload = await initialPaymentResponse.json();
         expect(initialPaymentPayload.data.status).toBe('Failed');
 
-        await expect(page).toHaveURL('/cart', { timeout: 20_000 });
+        await expect(page).toHaveURL(new RegExp(`/orders/${orderId}$`), { timeout: 20_000 });
 
-        await page.goto(`/orders/${orderId}`);
         await expect(page.getByText(new RegExp(`Sipariş #${orderId}`))).toBeVisible({ timeout: 10_000 });
         await expect(page.getByRole('button', { name: 'Tekrar Öde' })).toBeVisible();
 

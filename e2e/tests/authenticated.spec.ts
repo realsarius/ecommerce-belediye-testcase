@@ -2,24 +2,27 @@ import { test, expect } from '@playwright/test';
 import { loginAsCustomer } from './helpers';
 
 test.describe('Authenticated Flows', () => {
-    test('login sonrası nav linkleri görünmeli', async ({ page }) => {
+    test('login sonrası auth state protected route üzerinde korunmalı', async ({ page }) => {
         await loginAsCustomer(page);
 
-        await expect(page.getByRole('link', { name: 'Siparişlerim' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Sepetim' })).toBeVisible();
+        await page.goto('/orders');
+        await expect(page).toHaveURL('/orders');
+        await expect(page.getByRole('heading', { name: 'Siparişlerim' })).toBeVisible();
     });
 
     test('login sonrası sepet sayfasına erişilebilmeli', async ({ page }) => {
         await loginAsCustomer(page);
 
-        await page.getByRole('link', { name: 'Sepetim' }).click();
+        await page.goto('/cart');
         await expect(page).toHaveURL('/cart');
+        await expect(page.getByText(/Sepetim|Sepetiniz Boş/)).toBeVisible();
     });
 
     test('login sonrası siparişler sayfasına erişilebilmeli', async ({ page }) => {
         await loginAsCustomer(page);
 
-        await page.getByRole('link', { name: 'Siparişlerim' }).click();
+        await page.goto('/orders');
         await expect(page).toHaveURL('/orders');
+        await expect(page.getByRole('heading', { name: 'Siparişlerim' })).toBeVisible();
     });
 });

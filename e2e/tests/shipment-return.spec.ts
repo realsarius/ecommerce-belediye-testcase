@@ -17,12 +17,12 @@ test.describe('Shipment And Return', () => {
 
         await loginAsCustomer(page);
         await acceptCookieBannerIfPresent(page);
-        const sellerToken = await loginViaApi(page, 'testseller@test.com', 'Test123!');
-        const adminToken = await loginViaApi(page, 'testadmin@test.com', 'Test123!');
+        const sellerAuth = await loginViaApi(page, 'testseller@test.com', 'Test123!');
+        const adminAuth = await loginViaApi(page, 'testadmin@test.com', 'Test123!');
 
         const sellerProductsResponse = await page.request.get('http://localhost:5000/api/v1/seller/products', {
             headers: {
-                Authorization: `Bearer ${sellerToken}`,
+                Authorization: `Bearer ${sellerAuth.token}`,
             },
         });
         expect(sellerProductsResponse.ok()).toBeTruthy();
@@ -36,7 +36,7 @@ test.describe('Shipment And Return', () => {
         if (sellerProduct.stockQuantity < 1) {
             const stockPatchResponse = await page.request.patch(`http://localhost:5000/api/v1/seller/products/${sellerProductId}/stock`, {
                 headers: {
-                    Authorization: `Bearer ${sellerToken}`,
+                    Authorization: `Bearer ${sellerAuth.token}`,
                     'Content-Type': 'application/json',
                 },
                 data: {
@@ -104,11 +104,11 @@ test.describe('Shipment And Return', () => {
 
         const shipResponse = await page.request.put(`http://localhost:5000/api/v1/seller/orders/${orderId}/ship`, {
             headers: {
-                Authorization: `Bearer ${sellerToken}`,
+                Authorization: `Bearer ${sellerAuth.token}`,
                 'Content-Type': 'application/json',
             },
             data: JSON.stringify({
-                cargoCompany: 'Yurtiçi Kargo',
+                cargoProvider: 'YurticiKargo',
                 trackingCode: 'TRK123456',
                 estimatedDeliveryDate: '2026-03-10',
             }),
@@ -119,7 +119,7 @@ test.describe('Shipment And Return', () => {
 
         const deliverResponse = await page.request.patch(`http://localhost:5000/api/v1/admin/orders/${orderId}/status`, {
             headers: {
-                Authorization: `Bearer ${adminToken}`,
+                Authorization: `Bearer ${adminAuth.token}`,
                 'Content-Type': 'application/json',
             },
             data: {
@@ -132,7 +132,7 @@ test.describe('Shipment And Return', () => {
         await expect(page.getByText('Kargo Takibi')).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText('Takip Kodu:')).toBeVisible();
         await expect(page.getByText('TRK123456')).toBeVisible();
-        await expect(page.locator('p').filter({ hasText: 'Teslim Edildi' })).toBeVisible();
+        await expect(page.getByText('Teslim Edildi').first()).toBeVisible();
 
         await page.goto(`/returns?orderId=${orderId}`);
         await expect(page.getByRole('heading', { name: 'İade ve İptal Taleplerim' })).toBeVisible({ timeout: 10_000 });
