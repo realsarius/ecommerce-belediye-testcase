@@ -606,7 +606,12 @@ export default function Checkout() {
 
       if (paymentResult.status !== 'Success') {
         toast.error(paymentResult.errorMessage || 'Ödeme işlemi başarısız oldu. Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
-        navigate('/cart');
+        window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(orderIdToUse));
+        setPendingOrderId(null);
+        setCartSnapshot(null);
+        setIsCheckoutFlowActive(false);
+        isNavigatingRef.current = true;
+        navigate(`/orders/${orderIdToUse}`);
         return;
       }
 
@@ -648,6 +653,16 @@ export default function Checkout() {
     }
 
     if (!isLoading && !pendingOrderId && !isCheckoutFlowActive && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
+      const recentOrderId = window.localStorage.getItem(RECENT_CHECKOUT_ORDER_ID_KEY);
+      const pendingThreeDSOrderId = window.localStorage.getItem(PENDING_THREE_DS_ORDER_ID_KEY);
+      const redirectOrderId = recentOrderId || pendingThreeDSOrderId;
+
+      if (redirectOrderId) {
+        isNavigatingRef.current = true;
+        navigate(`/orders/${redirectOrderId}`);
+        return;
+      }
+
       navigate('/cart');
     }
   }, [cart, navigate, isCheckoutFlowActive, isLoading, pendingOrderId]);

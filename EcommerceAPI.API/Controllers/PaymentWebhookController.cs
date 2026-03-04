@@ -1,4 +1,5 @@
 using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,13 +11,16 @@ namespace EcommerceAPI.API.Controllers;
 public class PaymentWebhookController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
+    private readonly IOrderDal _orderDal;
     private readonly ILogger<PaymentWebhookController> _logger;
 
     public PaymentWebhookController(
         IPaymentService paymentService,
+        IOrderDal orderDal,
         ILogger<PaymentWebhookController> logger)
     {
         _paymentService = paymentService;
+        _orderDal = orderDal;
         _logger = logger;
     }
 
@@ -79,6 +83,7 @@ public class PaymentWebhookController : ControllerBase
         [FromForm] string? mdStatus)
     {
         var frontendBaseUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000";
+        var redirectOrderId = await ResolveOrderIdAsync(conversationId);
 
         if (string.IsNullOrEmpty(paymentId) ||
             string.IsNullOrEmpty(conversationId) ||
@@ -87,7 +92,7 @@ public class PaymentWebhookController : ControllerBase
             _logger.LogWarning(
                 "Callback rejected: Missing paymentId, conversationId or conversationData. ConversationId={ConversationId}",
                 conversationId);
-            return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
+            return Redirect(BuildFrontendRedirectUrl(frontendBaseUrl, redirectOrderId, "failed"));
         }
 
         _logger.LogInformation(
@@ -106,7 +111,7 @@ public class PaymentWebhookController : ControllerBase
                     conversationId,
                     status,
                     mdStatus);
-                return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
+                return Redirect(BuildFrontendRedirectUrl(frontendBaseUrl, redirectOrderId, "failed"));
             }
 
             var result = await _paymentService.VerifyAndFinalizePaymentAsync(paymentId, conversationId, conversationData);
@@ -114,18 +119,39 @@ public class PaymentWebhookController : ControllerBase
             if (result.Success)
             {
                 _logger.LogInformation("Payment verified successfully: ConversationId={ConversationId}", conversationId);
-                return Redirect($"{frontendBaseUrl}/checkout?threeDS=success");
+                return Redirect(BuildFrontendRedirectUrl(frontendBaseUrl, redirectOrderId, "success"));
             }
             else
             {
                 _logger.LogWarning("Payment verification failed: ConversationId={ConversationId}", conversationId);
-                return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
+                return Redirect(BuildFrontendRedirectUrl(frontendBaseUrl, redirectOrderId, "failed"));
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Callback error: ConversationId={ConversationId}", conversationId);
-            return Redirect($"{frontendBaseUrl}/checkout?threeDS=failed");
+            return Redirect(BuildFrontendRedirectUrl(frontendBaseUrl, redirectOrderId, "failed"));
         }
+    }
+
+    private async Task<int?> ResolveOrderIdAsync(string? conversationId)
+    {
+        if (string.IsNullOrWhiteSpace(conversationId))
+        {
+            return null;
+        }
+
+        var order = await _orderDal.GetByOrderNumberAsync(conversationId);
+        return order?.Id;
+    }
+
+    private static string BuildFrontendRedirectUrl(string frontendBaseUrl, int? orderId, string status)
+    {
+        if (orderId.HasValue)
+        {
+            return $"{frontendBaseUrl}/orders/{orderId.Value}?payment={status}";
+        }
+
+        return $"{frontendBaseUrl}/checkout?threeDS={status}";
     }
 }
