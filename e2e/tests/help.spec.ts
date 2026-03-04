@@ -4,33 +4,31 @@ test.describe('Help', () => {
     test('yardım sayfası yüklenmeli', async ({ page }) => {
         await page.goto('/help');
 
-        await expect(page.getByText('Yardım Merkezi')).toBeVisible();
-        await expect(page.getByText('Size nasıl yardımcı olabiliriz?')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Yardım Merkezi' })).toBeVisible();
+        await expect(page.getByText('En sık ihtiyaç duyulan destek konularını kategoriler halinde bir araya getirdik.')).toBeVisible();
     });
 
-    test('SSS kategorileri görünmeli', async ({ page }) => {
+    test('yardım kartları görünmeli', async ({ page }) => {
         await page.goto('/help');
 
-        await expect(page.getByText('Sıkça Sorulan Sorular')).toBeVisible();
-        await expect(page.getByText('Sipariş', { exact: true })).toBeVisible();
+        await expect(page.getByText('Siparişlerim')).toBeVisible();
         await expect(page.getByText('Ödeme', { exact: true })).toBeVisible();
-        await expect(page.getByText('Kargo & Teslimat')).toBeVisible();
-        await expect(page.getByText('İade & Değişim')).toBeVisible();
+        await expect(page.getByText('İade ve İptal')).toBeVisible();
+        await expect(page.getByText('Kargo', { exact: true })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Canlı Destek' })).toBeVisible();
     });
 
-    test('SSS arama çalışmalı', async ({ page }) => {
+    test('yardım kartlarından ilgili içeriğe gidilebilmeli', async ({ page }) => {
         await page.goto('/help');
 
-        await page.fill('input[placeholder="Soru veya konu ara..."]', 'kargo');
-
-        await expect(page.getByText('Kargo & Teslimat')).toBeVisible();
+        await page.getByRole('link', { name: 'İlgili içeriğe git' }).nth(4).click();
+        await expect(page).toHaveURL('/shipping');
     });
 
-    test('iletişim bilgileri görünmeli', async ({ page }) => {
+    test('ek destek kanalları bölümü görünmeli', async ({ page }) => {
         await page.goto('/help');
 
-        await expect(page.getByText('Bize Ulaşın')).toBeVisible();
-        await expect(page.getByText('İletişim Bilgileri')).toBeVisible();
-        await expect(page.getByText('destek@eticaret.com')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Ek destek kanalları' })).toBeVisible();
+        await expect(page.getByText('Genel sorular için SSS ve yardım merkezi içeriklerini')).toBeVisible();
     });
 });
