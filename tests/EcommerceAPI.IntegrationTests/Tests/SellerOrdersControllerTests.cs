@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Linq.Expressions;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
+using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.IntegrationEvents;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -80,6 +83,49 @@ public class SellerOrdersControllerTests : IClassFixture<CustomWebApplicationFac
     }
 
     [Fact]
+    public async Task ShipOrder_AsSeller_ShouldPublishOrderShippedEvent()
+    {
+        var customerUserId = Random.Shared.Next(907_001, 908_000);
+        var sellerUserId = Random.Shared.Next(908_001, 909_000);
+        var categoryId = Random.Shared.Next(909_001, 910_000);
+        var productId = Random.Shared.Next(910_001, 911_000);
+        var orderId = Random.Shared.Next(911_001, 912_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var sellerProfile = await TestDataSeeder.EnsureSellerProfileAsync(db, sellerUserId);
+
+            await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                customerUserId,
+                productId,
+                categoryId,
+                $"SHIP-EVENT-{orderId}",
+                $"payment-ship-event-{orderId}",
+                sellerId: sellerProfile.Id,
+                orderStatus: OrderStatus.Paid,
+                paymentStatus: PaymentStatus.Success);
+        }
+
+        var sellerClient = _factory.CreateClient().AsSeller(sellerUserId);
+        var response = await sellerClient.PutAsJsonAsync($"/api/v1/seller/orders/{orderId}/ship", new ShipOrderRequest
+        {
+            CargoProvider = CargoProvider.ArasCargo,
+            TrackingCode = "AR123456789"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var inboxMessage = await WaitForInboxMessageAsync(
+            inbox => inbox.ConsumerName == "OrderShippedConsumer" &&
+                     inbox.MessageType == typeof(OrderShippedEvent).FullName);
+
+        inboxMessage.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task ShipOrder_WhenOrderStatusIsNotShippable_ShouldReturnBadRequest()
     {
         var customerUserId = Random.Shared.Next(902_001, 903_000);
@@ -119,5 +165,27 @@ public class SellerOrdersControllerTests : IClassFixture<CustomWebApplicationFac
         result.Should().NotBeNull();
         result!.Success.Should().BeFalse();
         result.Message.Should().Contain("ödenmiş veya hazırlanmakta");
+    }
+
+    private async Task<InboxMessage?> WaitForInboxMessageAsync(Expression<Func<InboxMessage, bool>> predicate)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var inboxMessage = await db.InboxMessages
+                .AsNoTracking()
+                .OrderByDescending(message => message.Id)
+                .FirstOrDefaultAsync(predicate);
+
+            if (inboxMessage != null)
+            {
+                return inboxMessage;
+            }
+
+            await Task.Delay(250);
+        }
+
+        return null;
     }
 }
