@@ -5,6 +5,7 @@ using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.IntegrationEvents;
+using EcommerceAPI.Entities.Utilities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -86,8 +87,8 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
 
         _logger.LogInformation(
             "Shipment analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, OrderId={OrderId}, OrderNumber={OrderNumber}, UserId={UserId}, CargoCompany={CargoCompany}, TrackingCode={TrackingCode}, EstimatedDeliveryDate={EstimatedDeliveryDate}, MessageId={MessageId}, OccurredAt={OccurredAt}, CorrelationId={CorrelationId}",
-            "fulfillment",
-            "order_shipped",
+            AnalyticsLogSchema.Streams.Fulfillment,
+            AnalyticsLogSchema.Events.OrderShipped,
             message.OrderId,
             message.OrderNumber,
             message.UserId,

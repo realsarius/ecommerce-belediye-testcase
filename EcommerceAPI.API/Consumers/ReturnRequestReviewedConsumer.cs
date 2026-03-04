@@ -6,6 +6,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
+using EcommerceAPI.Entities.Utilities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -88,8 +89,8 @@ public sealed class ReturnRequestReviewedConsumer : IConsumer<ReturnRequestRevie
 
         _logger.LogInformation(
             "Return analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Decision={Decision}, Status={Status}, MessageId={MessageId}, OccurredAt={OccurredAt}, CorrelationId={CorrelationId}",
-            "returns",
-            "return_request_reviewed",
+            AnalyticsLogSchema.Streams.Returns,
+            AnalyticsLogSchema.Events.ReturnRequestReviewed,
             message.ReturnRequestId,
             message.OrderId,
             message.UserId,

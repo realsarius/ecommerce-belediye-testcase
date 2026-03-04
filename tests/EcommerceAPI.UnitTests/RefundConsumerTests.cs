@@ -11,6 +11,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using EcommerceAPI.Entities.Utilities;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -51,6 +52,7 @@ public class RefundConsumerTests
             .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
         var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        var loggerMock = new Mock<ILogger<RefundRequestedConsumer>>();
         notificationPreferenceService
             .Setup(x => x.GetChannelSettingsAsync(42, NotificationType.Refund))
             .ReturnsAsync(new NotificationChannelSettingsDto
@@ -70,7 +72,7 @@ public class RefundConsumerTests
             emailService.Object,
             notificationService.Object,
             notificationPreferenceService.Object,
-            Mock.Of<ILogger<RefundRequestedConsumer>>());
+            loggerMock.Object);
 
         var message = new RefundRequestedEvent
         {
@@ -98,6 +100,7 @@ public class RefundConsumerTests
         dbContext.InboxMessages.Should().ContainSingle(x =>
             x.ConsumerName == "RefundRequestedConsumer" &&
             x.MessageId == message.EventId);
+        VerifyRefundConsumerLogContains(loggerMock, LogLevel.Information, AnalyticsLogSchema.Events.RefundProcessed);
     }
 
     [Fact]
@@ -144,6 +147,7 @@ public class RefundConsumerTests
             .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
         var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        var loggerMock = new Mock<ILogger<RefundRequestedConsumer>>();
         notificationPreferenceService
             .Setup(x => x.GetChannelSettingsAsync(52, NotificationType.Refund))
             .ReturnsAsync(new NotificationChannelSettingsDto
@@ -163,7 +167,7 @@ public class RefundConsumerTests
             emailService.Object,
             notificationService.Object,
             notificationPreferenceService.Object,
-            Mock.Of<ILogger<RefundRequestedConsumer>>());
+            loggerMock.Object);
 
         var message = new RefundRequestedEvent
         {
@@ -194,6 +198,7 @@ public class RefundConsumerTests
                 request.UserId == 52 &&
                 request.Title.Contains("yeniden denenecek"))),
             Times.Once);
+        VerifyRefundConsumerLogContains(loggerMock, LogLevel.Warning, AnalyticsLogSchema.Events.RefundFailed);
     }
 
     private static AppDbContext CreateDbContext()
@@ -219,5 +224,17 @@ public class RefundConsumerTests
         });
         context.SetupGet(x => x.CancellationToken).Returns(CancellationToken.None);
         return context;
+    }
+
+    private static void VerifyRefundConsumerLogContains<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string expectedValue)
+    {
+        loggerMock.Verify(
+            logger => logger.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains(expectedValue, StringComparison.Ordinal)),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.AtLeastOnce);
     }
 }

@@ -5,6 +5,7 @@ using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.IntegrationEvents;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Utilities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -89,8 +90,8 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
 
             _logger.LogInformation(
                 "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, MessageId={MessageId}, ProcessedAt={ProcessedAt}, CorrelationId={CorrelationId}",
-                "Refund",
-                "RefundProcessed",
+                AnalyticsLogSchema.Streams.Refunds,
+                AnalyticsLogSchema.Events.RefundProcessed,
                 result.Data.Id,
                 result.Data.ReturnRequestId,
                 result.Data.OrderId,
@@ -139,8 +140,8 @@ public sealed class RefundRequestedConsumer : IConsumer<RefundRequestedEvent>
 
             _logger.LogWarning(
                 "Refund analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Amount={Amount}, Currency={Currency}, Status={Status}, FailureReason={FailureReason}, MessageId={MessageId}, RetryAttempt={RetryAttempt}, RetryScheduled={RetryScheduled}, CorrelationId={CorrelationId}",
-                "Refund",
-                "RefundFailed",
+                AnalyticsLogSchema.Streams.Refunds,
+                AnalyticsLogSchema.Events.RefundFailed,
                 result.Data?.Id ?? message.RefundRequestId,
                 result.Data?.ReturnRequestId ?? message.ReturnRequestId,
                 result.Data?.OrderId ?? message.OrderId,
