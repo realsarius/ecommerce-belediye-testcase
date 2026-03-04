@@ -64,6 +64,52 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetMyReturnRequests_ShouldReturnReasonCategoryAndNonNullCollections()
+    {
+        var userId = Random.Shared.Next(880_001, 881_000);
+        var categoryId = Random.Shared.Next(881_001, 882_000);
+        var productId = Random.Shared.Next(882_001, 883_000);
+        var orderId = Random.Shared.Next(883_001, 884_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                userId,
+                productId,
+                categoryId,
+                $"RET-LIST-{orderId}",
+                $"payment-return-list-{orderId}",
+                orderStatus: OrderStatus.Delivered,
+                paymentStatus: PaymentStatus.Success);
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "ChangedMind",
+            Reason = "Numara beklentimi karşılamadı"
+        });
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var listResponse = await client.GetAsync("/api/v1/returns/mine");
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var listResult = await listResponse.Content.ReadFromJsonAsync<ApiResult<List<ReturnRequestDto>>>();
+        listResult.Should().NotBeNull();
+        listResult!.Success.Should().BeTrue();
+
+        var request = listResult.Data.Single(item => item.OrderId == orderId);
+        request.ReasonCategory.Should().Be(ReturnReasonCategory.ChangedMind.ToString());
+        request.SelectedItems.Should().NotBeNull();
+        request.Attachments.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task ReviewReturnRequest_AsSellerForOwnOrder_ReturnsRefundPending()
     {
         var customerUserId = Random.Shared.Next(884_001, 885_000);

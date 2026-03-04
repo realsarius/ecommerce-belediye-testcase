@@ -10,7 +10,7 @@ import type {
 } from '@/features/products/types';
 import type { PaginatedResponse } from '@/types/api';
 import type { CargoProvider, Order } from '@/features/orders/types';
-import type { ReturnRequest } from '@/features/returns/types';
+import { normalizeReturnRequest, type ReturnRequest } from '@/features/returns/types';
 import type {
   SellerProfile,
   CreateSellerProfileRequest,
@@ -181,7 +181,7 @@ export const sellerApi = baseApi.injectEndpoints({
         url: '/seller/returns',
         params: params?.status ? { status: params.status } : undefined,
       }),
-      transformResponse: (response: { data: ReturnRequest[] }) => response.data,
+      transformResponse: (response: { data: ReturnRequest[] }) => response.data.map(normalizeReturnRequest),
       providesTags: (result) => createListTags('Returns', result),
     }),
     approveSellerReturn: builder.mutation<ReturnRequest, { id: number; reviewNote?: string }>({
@@ -190,7 +190,7 @@ export const sellerApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: { reviewNote },
       }),
-      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      transformResponse: (response: { data: ReturnRequest }) => normalizeReturnRequest(response.data),
       invalidatesTags: ['Orders', 'Returns'],
     }),
     rejectSellerReturn: builder.mutation<ReturnRequest, { id: number; reviewNote?: string }>({
@@ -199,7 +199,7 @@ export const sellerApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: { reviewNote },
       }),
-      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      transformResponse: (response: { data: ReturnRequest }) => normalizeReturnRequest(response.data),
       invalidatesTags: ['Orders', 'Returns'],
     }),
 

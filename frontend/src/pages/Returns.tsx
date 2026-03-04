@@ -545,11 +545,11 @@ export default function Returns() {
                       </div>
                     )}
 
-                    {request.selectedItems.length > 0 && (
+                    {(request.selectedItems ?? []).length > 0 && (
                       <div className="mt-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Seçilen Ürünler</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {request.selectedItems.map((item) => (
+                          {(request.selectedItems ?? []).map((item) => (
                             <Badge key={item.orderItemId} variant="secondary">
                               {item.productName} x {item.quantity}
                             </Badge>
@@ -558,11 +558,11 @@ export default function Returns() {
                       </div>
                     )}
 
-                    {effectiveFrontendFeatures.enableReturnAttachments && request.attachments.length > 0 && (
+                    {effectiveFrontendFeatures.enableReturnAttachments && (request.attachments ?? []).length > 0 && (
                       <div className="mt-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Eklenen Fotoğraflar</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {request.attachments.map((attachment) => (
+                          {(request.attachments ?? []).map((attachment) => (
                             <button
                               key={attachment.id}
                               type="button"

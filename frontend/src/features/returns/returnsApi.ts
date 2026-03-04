@@ -1,13 +1,13 @@
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { baseApi } from '@/app/api';
 import { getRuntimeApiBaseUrl } from '@/lib/runtimeApi';
-import type { CreateReturnRequestPayload, ReturnAttachmentAccessUrl, ReturnRequest, UploadedReturnPhoto } from '@/features/returns/types';
+import { normalizeReturnRequest, type CreateReturnRequestPayload, type ReturnAttachmentAccessUrl, type ReturnRequest, type UploadedReturnPhoto } from '@/features/returns/types';
 
 export const returnsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMyReturnRequests: builder.query<ReturnRequest[], void>({
       query: () => '/returns/mine',
-      transformResponse: (response: { data: ReturnRequest[] }) => response.data,
+      transformResponse: (response: { data: ReturnRequest[] }) => response.data.map(normalizeReturnRequest),
       providesTags: ['Returns'],
     }),
     createReturnRequest: builder.mutation<ReturnRequest, CreateReturnRequestPayload>({
@@ -16,7 +16,7 @@ export const returnsApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
-      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      transformResponse: (response: { data: ReturnRequest }) => normalizeReturnRequest(response.data),
       invalidatesTags: ['Returns', 'Orders'],
     }),
     uploadReturnPhotos: builder.mutation<UploadedReturnPhoto[], File[]>({

@@ -80,3 +80,31 @@ export interface UploadedReturnPhoto {
   contentType: string;
   sizeBytes: number;
 }
+
+export function normalizeReturnRequest(request: Partial<ReturnRequest>): ReturnRequest {
+  return {
+    id: request.id ?? 0,
+    orderId: request.orderId ?? 0,
+    orderNumber: request.orderNumber ?? '',
+    userId: request.userId ?? 0,
+    customerName: request.customerName ?? '',
+    type: request.type ?? 'Return',
+    reasonCategory: request.reasonCategory ?? 'Other',
+    status: request.status ?? 'Pending',
+    reason: request.reason ?? '',
+    requestNote: request.requestNote ?? null,
+    requestWindowEndsAt: request.requestWindowEndsAt ?? null,
+    selectedItems: request.selectedItems ?? [],
+    attachments: request.attachments ?? [],
+    requestedRefundAmount: request.requestedRefundAmount ?? 0,
+    paymentStatus: request.paymentStatus ?? null,
+    reviewedByUserId: request.reviewedByUserId ?? null,
+    reviewerName: request.reviewerName ?? null,
+    reviewNote: request.reviewNote ?? null,
+    reviewedAt: request.reviewedAt ?? null,
+    refundRequestId: request.refundRequestId ?? null,
+    refundProvider: request.refundProvider ?? null,
+    refundStatus: request.refundStatus ?? null,
+    createdAt: request.createdAt ?? new Date(0).toISOString(),
+  };
+}

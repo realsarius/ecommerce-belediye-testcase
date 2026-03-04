@@ -306,12 +306,12 @@ export default function SellerReturnsPage() {
                 <Textarea value={selectedRequest.requestNote || 'Ek not bırakılmamış'} readOnly rows={4} />
               </div>
 
-              {selectedRequest.selectedItems.length > 0 ? (
+              {(selectedRequest.selectedItems ?? []).length > 0 ? (
                 <div className="space-y-2">
                   <Label>Seçilen Ürünler</Label>
                   <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
                     <div className="flex flex-wrap gap-2">
-                      {selectedRequest.selectedItems.map((item) => (
+                      {(selectedRequest.selectedItems ?? []).map((item) => (
                         <Badge key={item.orderItemId} variant="outline">
                           {item.productName} x {item.quantity}
                         </Badge>
@@ -321,12 +321,12 @@ export default function SellerReturnsPage() {
                 </div>
               ) : null}
 
-              {effectiveFrontendFeatures.enableReturnAttachments && selectedRequest.attachments.length > 0 ? (
+              {effectiveFrontendFeatures.enableReturnAttachments && (selectedRequest.attachments ?? []).length > 0 ? (
                 <div className="space-y-2">
                   <Label>Eklenen Fotoğraflar</Label>
                   <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
                     <div className="flex flex-wrap gap-2">
-                      {selectedRequest.attachments.map((attachment) => (
+                      {(selectedRequest.attachments ?? []).map((attachment) => (
                         <button
                           key={attachment.id}
                           type="button"
