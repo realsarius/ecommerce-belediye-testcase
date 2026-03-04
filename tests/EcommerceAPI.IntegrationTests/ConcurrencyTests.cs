@@ -5,6 +5,7 @@ using EcommerceAPI.IntegrationTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
+using EcommerceAPI.Entities.Enums;
 using Xunit.Abstractions;
 
 namespace EcommerceAPI.IntegrationTests;
@@ -59,8 +60,16 @@ public class ConcurrencyTests : IClassFixture<CustomWebApplicationFactory>
 
                 return await client.PostAsJsonAsync("/api/v1/Orders", new 
                 { 
-                    shippingAddress = "Test Address",
+                    shippingAddress = "Test Address 123, Istanbul",
                     paymentMethod = "CreditCard",
+                    preliminaryInfoAccepted = true,
+                    distanceSalesContractAccepted = true,
+                    invoiceInfo = new
+                    {
+                        type = InvoiceType.Individual.ToString(),
+                        fullName = $"Concurrency User {userId}",
+                        invoiceAddress = "Test Invoice Address 123, Istanbul"
+                    },
                     notes = $"Concurrency Test {Guid.NewGuid()}"
                 });
             }));

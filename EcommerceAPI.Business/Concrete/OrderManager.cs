@@ -603,7 +603,9 @@ public class OrderManager : IOrderService
         order.CargoCompany = resolvedCargoCompany;
         order.TrackingCode = request.TrackingCode.Trim();
         order.ShippedAt = shippedAt;
-        order.EstimatedDeliveryDate = request.EstimatedDeliveryDate?.Date;
+        order.EstimatedDeliveryDate = request.EstimatedDeliveryDate.HasValue
+            ? DateTime.SpecifyKind(request.EstimatedDeliveryDate.Value.Date, DateTimeKind.Utc)
+            : null;
         order.DeliveredAt = null;
         order.ShipmentStatus = ShipmentStatus.HandedToCargo;
 
