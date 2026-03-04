@@ -86,6 +86,19 @@ public sealed class ReturnRequestReviewedConsumer : IConsumer<ReturnRequestRevie
                 context.CancellationToken);
         }
 
+        _logger.LogInformation(
+            "Return analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Decision={Decision}, Status={Status}, MessageId={MessageId}, OccurredAt={OccurredAt}, CorrelationId={CorrelationId}",
+            "returns",
+            "return_request_reviewed",
+            message.ReturnRequestId,
+            message.OrderId,
+            message.UserId,
+            message.Decision,
+            message.CurrentStatus,
+            messageId,
+            DateTime.UtcNow,
+            message.CorrelationId);
+
         _dbContext.InboxMessages.Add(new InboxMessage
         {
             MessageId = messageId,

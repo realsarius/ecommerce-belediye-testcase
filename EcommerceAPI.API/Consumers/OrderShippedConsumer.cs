@@ -84,6 +84,20 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
                 context.CancellationToken);
         }
 
+        _logger.LogInformation(
+            "Shipment analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, OrderId={OrderId}, OrderNumber={OrderNumber}, UserId={UserId}, CargoCompany={CargoCompany}, TrackingCode={TrackingCode}, EstimatedDeliveryDate={EstimatedDeliveryDate}, MessageId={MessageId}, OccurredAt={OccurredAt}, CorrelationId={CorrelationId}",
+            "fulfillment",
+            "order_shipped",
+            message.OrderId,
+            message.OrderNumber,
+            message.UserId,
+            message.CargoCompany,
+            message.TrackingCode,
+            message.EstimatedDeliveryDate,
+            messageId,
+            message.ShippedAt,
+            message.CorrelationId);
+
         _dbContext.InboxMessages.Add(new InboxMessage
         {
             MessageId = messageId,

@@ -8,6 +8,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.Utilities;
 using EcommerceAPI.Core.Utilities.Redis;
+using EcommerceAPI.Infrastructure.Utilities;
 using Iyzipay;
 using Iyzipay.Model;
 using Iyzipay.Request;
@@ -508,12 +509,13 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 
         if (!saveResult.Success)
         {
+            var sanitizedReason = SensitiveDataLogSanitizer.Sanitize(saveResult.Message);
             _logger.LogWarning(
                 "Provider token received but local card save failed. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, Reason={Reason}, CorrelationId={CorrelationId}",
                 userId,
                 request.OrderId,
                 iyzicoPayment.PaymentId,
-                saveResult.Message,
+                sanitizedReason,
                 _correlationIdProvider.GetCorrelationId());
         }
     }

@@ -5,6 +5,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Infrastructure.Utilities;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
 
@@ -90,6 +91,7 @@ public class IyzicoRefundService : IRefundService, IRefundProvider
                 refundRequest.Status = RefundRequestStatus.Failed;
                 refundRequest.FailureReason = gatewayResult.ErrorMessage ?? "Refund işlemi başarısız oldu.";
                 refundRequest.ProcessedAt = DateTime.UtcNow;
+                var sanitizedGatewayError = SensitiveDataLogSanitizer.Sanitize(gatewayResult.ErrorMessage);
 
                 _refundRequestDal.Update(refundRequest);
                 await _unitOfWork.SaveChangesAsync();
@@ -99,7 +101,7 @@ public class IyzicoRefundService : IRefundService, IRefundProvider
                     refundRequest.Id,
                     refundRequest.OrderId,
                     gatewayResult.ErrorCode,
-                    gatewayResult.ErrorMessage,
+                    sanitizedGatewayError,
                     _correlationIdProvider.GetCorrelationId());
 
                 return new ErrorDataResult<RefundRequestDto>(MapToDto(refundRequest), refundRequest.FailureReason, gatewayResult.ErrorCode);
@@ -195,15 +197,17 @@ public class IyzicoRefundService : IRefundService, IRefundProvider
             refundRequest.Status = RefundRequestStatus.Pending;
             refundRequest.FailureReason = ex.Message;
             refundRequest.ProcessedAt = null;
+            var sanitizedExceptionMessage = SensitiveDataLogSanitizer.Sanitize(ex.Message);
 
             _refundRequestDal.Update(refundRequest);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogError(
-                ex,
-                "Refund processing failed with transient error. RefundRequestId={RefundRequestId}, OrderId={OrderId}, CorrelationId={CorrelationId}",
+                "Refund processing failed with transient error. RefundRequestId={RefundRequestId}, OrderId={OrderId}, ErrorType={ErrorType}, ErrorMessage={ErrorMessage}, CorrelationId={CorrelationId}",
                 refundRequest.Id,
                 refundRequest.OrderId,
+                ex.GetType().Name,
+                sanitizedExceptionMessage,
                 _correlationIdProvider.GetCorrelationId());
 
             throw;
