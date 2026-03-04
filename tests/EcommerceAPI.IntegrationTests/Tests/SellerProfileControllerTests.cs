@@ -163,6 +163,7 @@ public class SellerProductsTests : IClassFixture<CustomWebApplicationFactory>
             Description = "Should not work",
             Price = 1.00m,
             CategoryId = categoryId,
+            SKU = $"SELL-UPD-{Guid.NewGuid():N}"[..12],
             IsActive = true
         };
 

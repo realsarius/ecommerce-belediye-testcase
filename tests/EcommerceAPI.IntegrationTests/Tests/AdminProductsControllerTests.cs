@@ -99,6 +99,7 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             Description = "Updated description",
             Price = 199.99m,
             CategoryId = categoryId,
+            SKU = $"UPD-{Guid.NewGuid():N}"[..12],
             IsActive = true
         };
 
