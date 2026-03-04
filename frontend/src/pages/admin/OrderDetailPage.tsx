@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -63,13 +63,13 @@ export default function AdminOrderDetailPage() {
     skip: !Number.isFinite(orderId) || orderId <= 0,
   });
   const [updateStatus, { isLoading: isUpdating }] = useUpdateOrderStatusMutation();
-  const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('PendingPayment');
-
-  useEffect(() => {
-    if (order) {
-      setSelectedStatus(order.status);
-    }
-  }, [order]);
+  const [statusDraft, setStatusDraft] = useState<{ orderId: number | null; status: OrderStatus }>({
+    orderId: null,
+    status: 'PendingPayment',
+  });
+  const selectedStatus = statusDraft.orderId === order?.id
+    ? statusDraft.status
+    : order?.status ?? 'PendingPayment';
 
   const timeline = useMemo(() => {
     if (!order) {
@@ -163,7 +163,10 @@ export default function AdminOrderDetailPage() {
             <CardDescription>Durum güncellemesi sonrası müşteri bildirim akışı otomatik tetiklenir.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row">
-            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus)}>
+            <Select
+              value={selectedStatus}
+              onValueChange={(value) => setStatusDraft({ orderId: order?.id ?? null, status: value as OrderStatus })}
+            >
               <SelectTrigger className="flex-1">
                 <SelectValue />
               </SelectTrigger>

@@ -62,6 +62,19 @@ function formatCurrency(value: number, currency = 'TRY') {
   }).format(value);
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'data' in error &&
+    typeof (error as { data?: { message?: string } }).data?.message === 'string'
+  ) {
+    return (error as { data?: { message?: string } }).data!.message!;
+  }
+
+  return fallback;
+}
+
 function getStatusTone(status: AdminSellerStatus) {
   switch (status) {
     case 'Active':
@@ -140,8 +153,8 @@ export default function SellersPage() {
     try {
       await updateStatus({ id: seller.id, status: nextStatus }).unwrap();
       toast.success(nextStatus === 'Active' ? 'Seller yeniden aktifleştirildi.' : 'Seller askıya alındı.');
-    } catch (err: any) {
-      toast.error(err?.data?.message || 'Seller durumu güncellenemedi.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Seller durumu güncellenemedi.'));
     }
   };
 
@@ -158,8 +171,8 @@ export default function SellersPage() {
       toast.success('Seller başvurusu onaylandı.');
       setApplicationDialogSeller(null);
       setApplicationNote('');
-    } catch (err: any) {
-      toast.error(err?.data?.message || 'Başvuru onaylanamadı.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Başvuru onaylanamadı.'));
     }
   };
 
@@ -176,8 +189,8 @@ export default function SellersPage() {
       toast.success('Seller başvurusu reddedildi.');
       setApplicationDialogSeller(null);
       setApplicationNote('');
-    } catch (err: any) {
-      toast.error(err?.data?.message || 'Başvuru reddedilemedi.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Başvuru reddedilemedi.'));
     }
   };
 
@@ -199,8 +212,8 @@ export default function SellersPage() {
       toast.success(parsed === null ? 'Komisyon override kaldırıldı.' : 'Komisyon oranı güncellendi.');
       setCommissionDialogSeller(null);
       setCommissionRateInput('');
-    } catch (err: any) {
-      toast.error(err?.data?.message || 'Komisyon oranı güncellenemedi.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Komisyon oranı güncellenemedi.'));
     }
   };
 

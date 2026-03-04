@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Loader2,
@@ -65,7 +65,7 @@ function renderStars(rating: number) {
 
 export default function SellerReviewsPage() {
   const [search, setSearch] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedProductIdState, setSelectedProductId] = useState<number | null>(null);
   const [ratingFilter, setRatingFilter] = useState<'all' | '5' | '4' | '3' | '2' | '1'>('all');
   const [replyStatusFilter, setReplyStatusFilter] = useState<'all' | 'answered' | 'unanswered'>('all');
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
@@ -106,15 +106,13 @@ export default function SellerReviewsPage() {
     return filtered;
   }, [products, search]);
 
-  useEffect(() => {
-    if (!selectedProductId && reviewedProducts.length > 0) {
-      setSelectedProductId(reviewedProducts[0].id);
+  const selectedProductId = useMemo(() => {
+    if (selectedProductIdState && reviewedProducts.some((product) => product.id === selectedProductIdState)) {
+      return selectedProductIdState;
     }
 
-    if (selectedProductId && reviewedProducts.every((product) => product.id !== selectedProductId)) {
-      setSelectedProductId(reviewedProducts[0]?.id ?? null);
-    }
-  }, [reviewedProducts, selectedProductId]);
+    return reviewedProducts[0]?.id ?? null;
+  }, [reviewedProducts, selectedProductIdState]);
 
   const selectedProduct = reviewedProducts.find((product) => product.id === selectedProductId) ?? null;
 

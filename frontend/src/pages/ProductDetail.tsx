@@ -29,7 +29,10 @@ import { buildCompareUrl, useProductCompare } from '@/features/compare';
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const productId = parseInt(id || '0');
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [imageSelection, setImageSelection] = useState<{ productId: number | null; index: number }>({
+    productId: null,
+    index: 0,
+  });
 
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const { data: product, isLoading, error } = useGetProductQuery(productId);
@@ -127,10 +130,6 @@ export default function ProductDetail() {
     const sessionId = getRecommendationSessionId();
     void trackProductView({ productId, sessionId }).unwrap().catch(() => undefined);
   }, [productId, trackProductView]);
-
-  useEffect(() => {
-    setSelectedImageIndex(0);
-  }, [product?.id]);
 
   const handleRecommendationClick = (targetProductId: number, source: 'also-viewed' | 'frequently-bought' | 'for-you') => {
     const sessionId = getRecommendationSessionId();
@@ -249,6 +248,9 @@ export default function ProductDetail() {
       ? [{ imageUrl: product.primaryImageUrl, isPrimary: true, sortOrder: 0 }]
       : [];
 
+  const selectedImageIndex = imageSelection.productId === product.id
+    ? Math.min(imageSelection.index, Math.max(productImages.length - 1, 0))
+    : 0;
   const activeImageUrl = productImages[selectedImageIndex]?.imageUrl;
   const groupedVariants = Object.entries(
     (product.variants ?? []).reduce<Record<string, string[]>>((acc, variant) => {
@@ -296,7 +298,7 @@ export default function ProductDetail() {
                       ? 'border-primary ring-2 ring-primary/20'
                       : 'border-border/60 hover:border-primary/40'
                   }`}
-                  onClick={() => setSelectedImageIndex(index)}
+                  onClick={() => setImageSelection({ productId: product.id, index })}
                 >
                   <img
                     src={image.imageUrl}

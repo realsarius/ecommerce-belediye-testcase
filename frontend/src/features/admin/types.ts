@@ -145,16 +145,16 @@ export interface AdminDashboardKpi {
   currency: string;
 }
 
-export interface AdminDashboardRevenueTrendPoint extends ComparativeRevenueTrendChartPoint {}
+export type AdminDashboardRevenueTrendPoint = ComparativeRevenueTrendChartPoint;
 
 export interface AdminDashboardCategorySalesItem {
   categoryName: string;
   salesCount: number;
 }
 
-export interface AdminDashboardUserRegistrationPoint extends RegistrationChartPoint {}
+export type AdminDashboardUserRegistrationPoint = RegistrationChartPoint;
 
-export interface AdminDashboardOrderStatusDistributionItem extends StatusDistributionChartPoint<OrderStatus> {}
+export type AdminDashboardOrderStatusDistributionItem = StatusDistributionChartPoint<OrderStatus>;
 
 export interface AdminDashboardLowStockItem {
   productId: number;

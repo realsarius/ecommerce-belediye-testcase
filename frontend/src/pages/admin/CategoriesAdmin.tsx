@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -97,15 +97,6 @@ function createFormState(category?: Category, forcedParentId?: number | null): C
     isActive: category?.isActive ?? true,
     parentCategoryId: getParentValue(forcedParentId ?? category?.parentCategoryId ?? null),
   };
-}
-
-function areFormStatesEqual(left: CategoryFormState, right: CategoryFormState) {
-  return (
-    left.name === right.name &&
-    left.description === right.description &&
-    left.isActive === right.isActive &&
-    left.parentCategoryId === right.parentCategoryId
-  );
 }
 
 function getParentCategoryId(value: ParentValue): number | null {
@@ -251,68 +242,67 @@ export default function AdminCategories() {
 
   const [mode, setMode] = useState<FormMode>('edit');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [formState, setFormState] = useState<CategoryFormState>(() => createFormState());
+  const [formDraft, setFormDraft] = useState<{ key: string; value: CategoryFormState }>({
+    key: 'create:root',
+    value: createFormState(),
+  });
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
 
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
-  const selectedCategory = useMemo(
+  const requestedSelectedCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId) ?? null,
     [categories, selectedCategoryId],
   );
+  const createParentId = mode === 'create' && requestedSelectedCategory ? requestedSelectedCategory.id : null;
+  const effectiveMode: FormMode = categories.length === 0
+    ? 'create'
+    : mode === 'create'
+      ? 'create'
+      : 'edit';
+  const selectedCategory = useMemo(() => {
+    if (effectiveMode === 'edit') {
+      return requestedSelectedCategory ?? categories[0] ?? null;
+    }
+
+    return requestedSelectedCategory;
+  }, [categories, effectiveMode, requestedSelectedCategory]);
+  const effectiveSelectedCategoryId = selectedCategory?.id ?? null;
+  const formKey = effectiveMode === 'edit'
+    ? `edit:${selectedCategory?.id ?? 'none'}`
+    : `create:${createParentId ?? 'root'}`;
+  const fallbackFormState = effectiveMode === 'edit' && selectedCategory
+    ? createFormState(selectedCategory)
+    : createFormState(undefined, createParentId);
+  const formState = formDraft.key === formKey ? formDraft.value : fallbackFormState;
+  const updateFormState = (updater: (current: CategoryFormState) => CategoryFormState) => {
+    setFormDraft({
+      key: formKey,
+      value: updater(formState),
+    });
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  useEffect(() => {
-    if (categories.length === 0) {
-      setMode('create');
-      setSelectedCategoryId(null);
-      setFormState(createFormState());
-      return;
-    }
-
-    if (mode === 'create') {
-      return;
-    }
-
-    if (!selectedCategoryId && categories.length > 0) {
-      setSelectedCategoryId(categories[0].id);
-      setMode('edit');
-      setFormState(createFormState(categories[0]));
-      return;
-    }
-
-    if (!selectedCategoryId) {
-      return;
-    }
-
-    const nextSelectedCategory = categories.find((category) => category.id === selectedCategoryId);
-    if (!nextSelectedCategory) {
-      setSelectedCategoryId(null);
-      setMode('create');
-      setFormState(createFormState());
-      return;
-    }
-
-    if (mode === 'edit') {
-      const nextFormState = createFormState(nextSelectedCategory);
-      setFormState((current) => (areFormStatesEqual(current, nextFormState) ? current : nextFormState));
-    }
-  }, [categories, mode, selectedCategoryId]);
-
   const openRootCreate = () => {
     setMode('create');
     setSelectedCategoryId(null);
-    setFormState(createFormState(undefined, null));
+    setFormDraft({
+      key: 'create:root',
+      value: createFormState(undefined, null),
+    });
   };
 
   const openChildCreate = (parentCategoryId: number) => {
     setMode('create');
     setSelectedCategoryId(parentCategoryId);
-    setFormState(createFormState(undefined, parentCategoryId));
+    setFormDraft({
+      key: `create:${parentCategoryId}`,
+      value: createFormState(undefined, parentCategoryId),
+    });
   };
 
   const openEdit = (categoryId: number) => {
@@ -323,7 +313,10 @@ export default function AdminCategories() {
 
     setMode('edit');
     setSelectedCategoryId(category.id);
-    setFormState(createFormState(category));
+    setFormDraft({
+      key: `edit:${category.id}`,
+      value: createFormState(category),
+    });
   };
 
   const handleToggleCollapse = (categoryId: number) => {
@@ -353,17 +346,21 @@ export default function AdminCategories() {
     };
 
     try {
-      if (mode === 'create') {
+      if (effectiveMode === 'create') {
         const created = await createCategory(payload as CreateCategoryRequest).unwrap();
         toast.success('Kategori oluşturuldu.');
         setMode('edit');
         setSelectedCategoryId(created.id);
-      } else if (selectedCategoryId) {
-        await updateCategory({ id: selectedCategoryId, data: payload as UpdateCategoryRequest }).unwrap();
+        setFormDraft({
+          key: `edit:${created.id}`,
+          value: createFormState(created),
+        });
+      } else if (selectedCategory) {
+        await updateCategory({ id: selectedCategory.id, data: payload as UpdateCategoryRequest }).unwrap();
         toast.success('Kategori güncellendi.');
       }
     } catch {
-      toast.error(mode === 'create' ? 'Kategori oluşturulamadı.' : 'Kategori güncellenemedi.');
+      toast.error(effectiveMode === 'create' ? 'Kategori oluşturulamadı.' : 'Kategori güncellenemedi.');
     }
   };
 
@@ -375,7 +372,7 @@ export default function AdminCategories() {
     try {
       await deleteCategory(deleteTarget.id).unwrap();
       toast.success('Kategori pasife alındı.');
-      if (selectedCategoryId === deleteTarget.id) {
+      if (selectedCategory?.id === deleteTarget.id) {
         openRootCreate();
       }
       setDeleteTarget(null);
@@ -431,12 +428,12 @@ export default function AdminCategories() {
     : false;
 
   const availableParents = useMemo(() => {
-    if (mode !== 'edit' || !selectedCategoryId) {
+    if (effectiveMode !== 'edit' || !selectedCategory) {
       return categories;
     }
 
-    return categories.filter((category) => category.id !== selectedCategoryId);
-  }, [categories, mode, selectedCategoryId]);
+    return categories.filter((category) => category.id !== selectedCategory.id);
+  }, [categories, effectiveMode, selectedCategory]);
 
   if (isLoading) {
     return (
@@ -498,7 +495,7 @@ export default function AdminCategories() {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => void handleDragEnd(event)}>
                   <CategoryTreeBranch
                     nodes={categoryTree}
-                    selectedCategoryId={selectedCategoryId}
+                    selectedCategoryId={effectiveSelectedCategoryId}
                     collapsedIds={collapsedIds}
                     onSelect={openEdit}
                     onToggleCollapse={handleToggleCollapse}
@@ -512,9 +509,9 @@ export default function AdminCategories() {
 
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>{mode === 'create' ? 'Yeni Kategori' : 'Kategori Düzenle'}</CardTitle>
+            <CardTitle>{effectiveMode === 'create' ? 'Yeni Kategori' : 'Kategori Düzenle'}</CardTitle>
             <CardDescription>
-              {mode === 'create'
+              {effectiveMode === 'create'
                 ? 'Yeni kategori oluşturabilir veya seçili kategori altında alt kategori ekleyebilirsiniz.'
                 : 'Seçili kategorinin adını, açıklamasını, üst kategorisini ve durumunu güncelleyin.'}
             </CardDescription>
@@ -527,14 +524,14 @@ export default function AdminCategories() {
                   id="category-name"
                   placeholder="Elektronik"
                   value={formState.name}
-                  onChange={(event) => setFormState((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) => updateFormState((current) => ({ ...current, name: event.target.value }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category-parent">Üst Kategori</Label>
                 <Select
                   value={formState.parentCategoryId}
-                  onValueChange={(value) => setFormState((current) => ({ ...current, parentCategoryId: value as ParentValue }))}
+                  onValueChange={(value) => updateFormState((current) => ({ ...current, parentCategoryId: value as ParentValue }))}
                 >
                   <SelectTrigger id="category-parent">
                     <SelectValue placeholder="Ana kategori" />
@@ -558,7 +555,7 @@ export default function AdminCategories() {
                 rows={5}
                 placeholder="Kategori hakkında kısa bir açıklama girin."
                 value={formState.description}
-                onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
+                onChange={(event) => updateFormState((current) => ({ ...current, description: event.target.value }))}
               />
             </div>
 
@@ -566,7 +563,7 @@ export default function AdminCategories() {
               <Checkbox
                 id="category-active"
                 checked={formState.isActive}
-                onCheckedChange={(checked) => setFormState((current) => ({ ...current, isActive: !!checked }))}
+                onCheckedChange={(checked) => updateFormState((current) => ({ ...current, isActive: !!checked }))}
               />
               <Label htmlFor="category-active" className="cursor-pointer">
                 Kategori aktif olarak listelensin
@@ -593,9 +590,9 @@ export default function AdminCategories() {
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => void handleSubmit()} disabled={isCreating || isUpdating || isReordering}>
                 <Save className="mr-2 h-4 w-4" />
-                {mode === 'create' ? 'Kategoriyi Oluştur' : 'Değişiklikleri Kaydet'}
+                {effectiveMode === 'create' ? 'Kategoriyi Oluştur' : 'Değişiklikleri Kaydet'}
               </Button>
-              {mode === 'edit' && selectedCategory ? (
+              {effectiveMode === 'edit' && selectedCategory ? (
                 <>
                   <Button variant="outline" onClick={() => openChildCreate(selectedCategory.id)}>
                     <Plus className="mr-2 h-4 w-4" />

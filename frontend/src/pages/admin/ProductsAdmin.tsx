@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -109,7 +109,7 @@ export default function AdminProducts() {
   const [updateProduct, { isLoading: isUpdatingProduct }] = useUpdateProductMutation();
   const [updateStock, { isLoading: isUpdatingStock }] = useUpdateStockMutation();
 
-  const items = products?.items ?? [];
+  const items = useMemo(() => products?.items ?? [], [products?.items]);
 
   const sellerOptions = useMemo(() => {
     const sellerMap = new Map<number, string>();
@@ -153,12 +153,11 @@ export default function AdminProducts() {
     });
   }, [items, sellerFilter, statusFilter, stockFilter]);
 
-  useEffect(() => {
-    setSelectedIds((current) => {
-      const next = current.filter((id) => filteredItems.some((product) => product.id === id));
-      return areNumberArraysEqual(current, next) ? current : next;
-    });
-  }, [filteredItems]);
+  const effectiveSelectedIds = useMemo(() => {
+    const visibleIds = new Set(filteredItems.map((product) => product.id));
+    const next = selectedIds.filter((id) => visibleIds.has(id));
+    return areNumberArraysEqual(selectedIds, next) ? selectedIds : next;
+  }, [filteredItems, selectedIds]);
 
   const summary = useMemo(() => {
     return {
@@ -169,7 +168,7 @@ export default function AdminProducts() {
     };
   }, [filteredItems]);
 
-  const allVisibleSelected = filteredItems.length > 0 && filteredItems.every((product) => selectedIds.includes(product.id));
+  const allVisibleSelected = filteredItems.length > 0 && filteredItems.every((product) => effectiveSelectedIds.includes(product.id));
 
   const resetBulkSelection = () => {
     setSelectedIds([]);
@@ -200,8 +199,8 @@ export default function AdminProducts() {
 
   const handleBulkDelete = async () => {
     try {
-      await bulkUpdateProducts({ ids: selectedIds, action: 'delete' }).unwrap();
-      toast.success(`${selectedIds.length} ürün silindi.`);
+      await bulkUpdateProducts({ ids: effectiveSelectedIds, action: 'delete' }).unwrap();
+      toast.success(`${effectiveSelectedIds.length} ürün silindi.`);
       setBulkDeleteOpen(false);
       resetBulkSelection();
     } catch {
@@ -215,7 +214,7 @@ export default function AdminProducts() {
       return;
     }
 
-    if (selectedIds.length === 0) {
+    if (effectiveSelectedIds.length === 0) {
       toast.error('Önce en az bir ürün seçin.');
       return;
     }
@@ -226,7 +225,7 @@ export default function AdminProducts() {
     }
 
     try {
-      await bulkUpdateProducts({ ids: selectedIds, action: bulkAction }).unwrap();
+      await bulkUpdateProducts({ ids: effectiveSelectedIds, action: bulkAction }).unwrap();
       toast.success(bulkAction === 'activate' ? 'Seçili ürünler aktifleştirildi.' : 'Seçili ürünler pasife alındı.');
       resetBulkSelection();
     } catch {
@@ -438,8 +437,8 @@ export default function AdminProducts() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <p className="text-sm text-muted-foreground">
-              {selectedIds.length > 0
-                ? `${selectedIds.length} ürün seçildi`
+              {effectiveSelectedIds.length > 0
+                ? `${effectiveSelectedIds.length} ürün seçildi`
                 : 'İşlem için ürün seçin'}
             </p>
             <Select key={bulkActionResetKey} onValueChange={(value) => setBulkAction(value as BulkAction)}>
@@ -493,7 +492,7 @@ export default function AdminProducts() {
                   >
                     <TableCell>
                       <Checkbox
-                        checked={selectedIds.includes(product.id)}
+                        checked={effectiveSelectedIds.includes(product.id)}
                         onCheckedChange={(checked) => handleSelectOne(product.id, Boolean(checked))}
                       />
                     </TableCell>
@@ -678,7 +677,7 @@ export default function AdminProducts() {
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}
         title="Seçili ürünler silinsin mi?"
-        description={`${selectedIds.length} ürün kalıcı olarak silinecek. Bu işlem geri alınamaz.`}
+        description={`${effectiveSelectedIds.length} ürün kalıcı olarak silinecek. Bu işlem geri alınamaz.`}
         confirmLabel="Toplu Sil"
         isLoading={isBulkUpdating}
         onConfirm={handleBulkDelete}

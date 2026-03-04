@@ -161,6 +161,19 @@ function formatDateInput(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function createDefaultCouponFormData(referenceDate = new Date()): CouponFormData {
+  return {
+    code: '',
+    type: CouponType.Percentage,
+    value: 10,
+    minOrderAmount: undefined,
+    usageLimit: 0,
+    validDays: 7,
+    expiresAt: formatDateInput(new Date(referenceDate.getTime() + 7 * 24 * 60 * 60 * 1000)),
+    description: '',
+  };
+}
+
 function buildCouponCodeCandidate() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const parts = Array.from({ length: 3 }, () =>
@@ -256,16 +269,7 @@ export default function CouponsAdmin() {
   const [couponDialog, setCouponDialog] = useState<CouponDialogState>({ open: false, mode: 'create' });
   const [campaignDialog, setCampaignDialog] = useState<CampaignDialogState>({ open: false, mode: 'create' });
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
-  const [couponFormData, setCouponFormData] = useState<CouponFormData>({
-    code: '',
-    type: CouponType.Percentage,
-    value: 10,
-    minOrderAmount: undefined,
-    usageLimit: 0,
-    validDays: 7,
-    expiresAt: formatDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
-    description: '',
-  });
+  const [couponFormData, setCouponFormData] = useState<CouponFormData>(createDefaultCouponFormData);
   const [campaignFormData, setCampaignFormData] = useState<CampaignFormData>(createEmptyCampaignForm);
 
   const { data: coupons, isLoading: isCouponsLoading } = useGetCouponsQuery();

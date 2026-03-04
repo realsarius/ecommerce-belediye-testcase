@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -86,14 +86,12 @@ export default function UserDetailPage() {
   const [updateRole, { isLoading: isUpdatingRole }] = useUpdateAdminUserRoleMutation();
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateAdminUserStatusMutation();
 
-  const [selectedRole, setSelectedRole] = useState('Customer');
+  const [roleDraft, setRoleDraft] = useState<{ userId: number | null; role: string }>({
+    userId: null,
+    role: 'Customer',
+  });
   const [pendingStatus, setPendingStatus] = useState<AdminUserStatus | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      setSelectedRole(user.role);
-    }
-  }, [user]);
+  const selectedRole = roleDraft.userId === user?.id ? roleDraft.role : user?.role ?? 'Customer';
 
   const summary = useMemo(() => {
     if (!user) {
@@ -182,7 +180,7 @@ export default function UserDetailPage() {
             <div className="space-y-2">
               <p className="text-sm font-medium">Rol Değiştir</p>
               <div className="flex gap-2">
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <Select value={selectedRole} onValueChange={(value) => setRoleDraft({ userId: user?.id ?? null, role: value })}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Rol seçin" />
                   </SelectTrigger>

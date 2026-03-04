@@ -83,9 +83,9 @@ export interface SellerDashboardKpi {
   currency: string;
 }
 
-export interface SellerDashboardRevenueTrendPoint extends RevenueTrendChartPoint {}
+export type SellerDashboardRevenueTrendPoint = RevenueTrendChartPoint;
 
-export interface SellerDashboardOrderStatusDistributionItem extends StatusDistributionChartPoint<string> {}
+export type SellerDashboardOrderStatusDistributionItem = StatusDistributionChartPoint<string>;
 
 export interface SellerDashboardProductPerformanceItem {
   productId: number;

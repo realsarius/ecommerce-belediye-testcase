@@ -105,9 +105,10 @@ export default function Support({
     const isSupportOrAdmin = isSupport || isAdmin;
 
     const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
-    const [selectedSupportUserId, setSelectedSupportUserId] = useState<string>(
-        supportAssignableUsers[0] ? String(supportAssignableUsers[0].id) : ''
-    );
+    const [supportAssignmentDraft, setSupportAssignmentDraft] = useState<{ conversationId: number | null; supportUserId: string }>({
+        conversationId: null,
+        supportUserId: supportAssignableUsers[0] ? String(supportAssignableUsers[0].id) : '',
+    });
     const [subject, setSubject] = useState('Canlı Destek');
     const [initialMessage, setInitialMessage] = useState('');
     const [messageText, setMessageText] = useState('');
@@ -222,20 +223,17 @@ export default function Support({
         selectedConversationIdRef.current = effectiveSelectedConversationId;
     }, [effectiveSelectedConversationId]);
 
-    useEffect(() => {
-        if (!selectedConversation) {
-            return;
+    const selectedSupportUserId = useMemo(() => {
+        if (selectedConversation && supportAssignmentDraft.conversationId === selectedConversation.id && supportAssignmentDraft.supportUserId) {
+            return supportAssignmentDraft.supportUserId;
         }
 
-        if (selectedConversation.supportUserId) {
-            setSelectedSupportUserId(String(selectedConversation.supportUserId));
-            return;
+        if (selectedConversation?.supportUserId) {
+            return String(selectedConversation.supportUserId);
         }
 
-        if (supportAssignableUsers[0]) {
-            setSelectedSupportUserId(String(supportAssignableUsers[0].id));
-        }
-    }, [selectedConversation]);
+        return supportAssignableUsers[0] ? String(supportAssignableUsers[0].id) : '';
+    }, [selectedConversation, supportAssignmentDraft]);
 
     useEffect(() => {
         if (!isAuthenticated || !token) return;
@@ -548,7 +546,13 @@ export default function Support({
                                 <div className="flex items-center gap-2">
                                     {isAdmin ? (
                                         <>
-                                            <Select value={selectedSupportUserId} onValueChange={setSelectedSupportUserId}>
+                                            <Select
+                                                value={selectedSupportUserId}
+                                                onValueChange={(value) => setSupportAssignmentDraft({
+                                                    conversationId: selectedConversation.id,
+                                                    supportUserId: value,
+                                                })}
+                                            >
                                                 <SelectTrigger className="h-9 w-[220px]">
                                                     <SelectValue placeholder="Temsilci seçin" />
                                                 </SelectTrigger>
