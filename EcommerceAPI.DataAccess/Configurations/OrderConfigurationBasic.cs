@@ -18,6 +18,9 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
         
         builder.HasIndex(o => o.OrderNumber)
             .IsUnique();
+
+        builder.Property(o => o.CheckoutContextVersion)
+            .IsRequired();
         
         builder.Property(o => o.TotalAmount)
             .IsRequired()

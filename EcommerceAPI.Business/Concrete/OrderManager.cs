@@ -25,6 +25,7 @@ namespace EcommerceAPI.Business.Concrete;
 
 public class OrderManager : IOrderService
 {
+    private const int CurrentCheckoutContextVersion = 1;
     private readonly IOrderDal _orderDal;
     private readonly IProductDal _productDal;
     private readonly IInventoryService _inventoryService;
@@ -928,6 +929,7 @@ public class OrderManager : IOrderService
         var acceptedAt = DateTime.UtcNow;
         var order = new Order
         {
+            CheckoutContextVersion = CurrentCheckoutContextVersion,
             UserId = userId,
             OrderNumber = GenerateOrderNumber(),
             Status = giftCardRedemption.FinalTotal <= 0 ? OrderStatus.Paid : OrderStatus.PendingPayment,

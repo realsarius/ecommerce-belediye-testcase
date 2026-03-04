@@ -4,6 +4,7 @@ namespace EcommerceAPI.Entities.Concrete;
 
 public class Order : BaseEntity
 {
+    public int CheckoutContextVersion { get; set; } = 1;
     public string OrderNumber { get; set; } = string.Empty; 
     public int UserId { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.PendingPayment;

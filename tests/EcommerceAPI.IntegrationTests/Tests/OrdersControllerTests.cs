@@ -235,7 +235,8 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var order = await verificationDb.Orders.FindAsync(apiResult.Data.Id);
 
         order.Should().NotBeNull();
-        order!.PreliminaryInfoAcceptedAt.Should().NotBeNull();
+        order!.CheckoutContextVersion.Should().Be(1);
+        order.PreliminaryInfoAcceptedAt.Should().NotBeNull();
         order.DistanceSalesContractAcceptedAt.Should().NotBeNull();
         order.AcceptedFromIp.Should().Be("203.0.113.10");
     }

@@ -188,6 +188,7 @@ public class OrderManagerTests
         var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
 
         capturedOrder.Should().NotBeNull();
+        capturedOrder.CheckoutContextVersion.Should().Be(1);
         capturedOrder.TotalAmount.Should().Be(154.90m); 
         result.Success.Should().BeTrue();
         result.Data.TotalAmount.Should().Be(154.90m);
@@ -251,6 +252,7 @@ public class OrderManagerTests
         var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
 
         result.Success.Should().BeTrue();
+        capturedOrder.CheckoutContextVersion.Should().Be(1);
         capturedOrder.TotalAmount.Should().Be(214.90m);
         capturedOrder.LoyaltyPointsUsed.Should().Be(1500);
         capturedOrder.LoyaltyDiscountAmount.Should().Be(15m);
@@ -462,6 +464,7 @@ public class OrderManagerTests
 
         result.Success.Should().BeTrue();
         capturedOrder.InvoiceInfo.Should().BeNull();
+        capturedOrder.CheckoutContextVersion.Should().Be(1);
         capturedOrder.PreliminaryInfoAcceptedAt.Should().BeNull();
         capturedOrder.DistanceSalesContractAcceptedAt.Should().BeNull();
         capturedOrder.AcceptedFromIp.Should().BeNull();
