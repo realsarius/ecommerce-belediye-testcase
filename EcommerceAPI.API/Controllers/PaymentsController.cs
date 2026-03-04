@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Core.Utilities.Results;
@@ -61,9 +62,13 @@ public class PaymentsController : ControllerBase
     [HttpGet("settings")]
     public IActionResult GetPaymentSettings()
     {
-        var activeProviders = _paymentSettings.ActiveProviders?.Count > 0
+        var configuredProviders = _paymentSettings.ActiveProviders?.Count > 0
             ? _paymentSettings.ActiveProviders
             : [PaymentProviderType.Iyzico];
+
+        var activeProviders = configuredProviders
+            .Distinct()
+            .ToList();
 
         var defaultProvider = activeProviders.Contains(_paymentSettings.DefaultProvider)
             ? _paymentSettings.DefaultProvider

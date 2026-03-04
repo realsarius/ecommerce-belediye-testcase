@@ -11,5 +11,5 @@ public class PaymentSettings
     public bool AllowLegacyEncryptedSavedCardPayments { get; set; } = true;
     public bool Force3DSecure { get; set; }
     public decimal Force3DSecureAbove { get; set; } = 5000m;
-    public string PublicApiBaseUrl { get; set; } = "http://localhost:5294";
+    public string PublicApiBaseUrl { get; set; } = "http://localhost:5000";
 }

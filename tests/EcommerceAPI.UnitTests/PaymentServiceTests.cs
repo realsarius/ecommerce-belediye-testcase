@@ -62,7 +62,7 @@ public class IyzicoPaymentServiceTests
             DefaultProvider = PaymentProviderType.Iyzico,
             Force3DSecure = false,
             Force3DSecureAbove = 5000m,
-            PublicApiBaseUrl = "http://localhost:5294"
+            PublicApiBaseUrl = "http://localhost:5000"
         };
         _paymentSettingsOptionsMock.Setup(o => o.Value).Returns(_paymentSettings);
 

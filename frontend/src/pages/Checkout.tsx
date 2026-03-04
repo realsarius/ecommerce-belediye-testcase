@@ -162,10 +162,10 @@ export default function Checkout() {
 
           setPaymentForm({
             cardHolderName: 'BERKAN SÖZER',
-            cardNumber: '9792 0303 9444 0796',
-            expireMonth: '05',
+            cardNumber: '5406 6700 0000 0009',
+            expireMonth: '12',
             expireYear: '2027',
-            cvc: '654',
+            cvc: '123',
           });
           
 
@@ -236,8 +236,9 @@ export default function Checkout() {
   const configuredActivePaymentProviders = effectivePaymentSettings.activeProviders.length > 0
     ? effectivePaymentSettings.activeProviders
     : ['Iyzico' as PaymentProviderType];
+  const uniqueActivePaymentProviders = [...new Set(configuredActivePaymentProviders)];
   const activePaymentProviders = effectivePaymentSettings.enableMultiProviderSelection
-    ? configuredActivePaymentProviders
+    ? uniqueActivePaymentProviders
     : [effectivePaymentSettings.defaultProvider];
   const hasAcceptedLegalConsents = !effectiveFrontendFeatures.enableCheckoutLegalConsents
     || (preliminaryInfoAccepted && distanceSalesAccepted);
