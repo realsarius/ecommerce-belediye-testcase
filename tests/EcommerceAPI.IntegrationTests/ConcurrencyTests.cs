@@ -1,10 +1,10 @@
 using System.Net.Http.Json;
 using Xunit;
 using FluentAssertions;
+using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
-using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
 using Xunit.Abstractions;
 
@@ -21,6 +21,16 @@ public class ConcurrencyTests : IClassFixture<CustomWebApplicationFactory>
         _factory = factory;
         _client = factory.CreateClient();
         _output = output;
+    }
+
+    private static CheckoutInvoiceInfoRequest CreateInvoiceInfo(int userId, string address = "Test Invoice Address 123, Istanbul")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Individual,
+            FullName = $"Concurrency User {userId}",
+            InvoiceAddress = address
+        };
     }
 
     [Fact]
@@ -52,25 +62,18 @@ public class ConcurrencyTests : IClassFixture<CustomWebApplicationFactory>
         {
             tasks.Add(Task.Run(async () =>
             {
-                var client = _factory.CreateClient();
-                client.DefaultRequestHeaders.Add(TestAuthHandler.UserIdHeader, userId.ToString());
-                client.DefaultRequestHeaders.Add(TestAuthHandler.RoleHeader, "Customer");
+                var client = _factory.CreateClient().AsCustomer(userId);
                 var addRes = await client.PostAsJsonAsync("/api/v1/Cart/items", new { productId = productId, quantity = 1 });
                 if (!addRes.IsSuccessStatusCode) return addRes;
 
-                return await client.PostAsJsonAsync("/api/v1/Orders", new 
-                { 
-                    shippingAddress = "Test Address 123, Istanbul",
-                    paymentMethod = "CreditCard",
-                    preliminaryInfoAccepted = true,
-                    distanceSalesContractAccepted = true,
-                    invoiceInfo = new
-                    {
-                        type = InvoiceType.Individual.ToString(),
-                        fullName = $"Concurrency User {userId}",
-                        invoiceAddress = "Test Invoice Address 123, Istanbul"
-                    },
-                    notes = $"Concurrency Test {Guid.NewGuid()}"
+                return await client.PostAsJsonAsync("/api/v1/Orders", new CheckoutRequest
+                {
+                    ShippingAddress = "Test Address 123, Istanbul",
+                    PaymentMethod = "CreditCard",
+                    PreliminaryInfoAccepted = true,
+                    DistanceSalesContractAccepted = true,
+                    InvoiceInfo = CreateInvoiceInfo(userId),
+                    Notes = $"Concurrency Test {Guid.NewGuid()}"
                 });
             }));
         }
