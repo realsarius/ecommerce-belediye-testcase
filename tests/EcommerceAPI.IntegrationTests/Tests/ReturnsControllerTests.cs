@@ -120,6 +120,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task ReviewReturnRequest_AsAdminApprove_ShouldCreateRefundRequest()
     {
+        const int adminUserId = 999;
         var customerUserId = Random.Shared.Next(889_001, 890_000);
         var categoryId = Random.Shared.Next(890_001, 891_000);
         var productId = Random.Shared.Next(891_001, 892_000);
@@ -128,6 +129,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, adminUserId, "Admin");
 
             await TestDataSeeder.EnsureOrderWithPaymentAsync(
                 db,
@@ -153,7 +155,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createResult = await createResponse.Content.ReadFromJsonAsync<ApiResult<ReturnRequestDto>>();
         createResult.Should().NotBeNull();
 
-        var adminClient = _factory.CreateClient().AsAdmin(userId: 999);
+        var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
         var reviewResponse = await adminClient.PutAsJsonAsync($"/api/v1/admin/returns/{createResult!.Data.Id}/approve", new ReviewReturnRequestRequest
         {
             ReviewNote = "Hasar doğrulandı, refund başlatıldı"
@@ -181,6 +183,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task ReviewReturnRequest_AsAdminReject_ShouldExposeReviewNoteToCustomer()
     {
+        const int adminUserId = 1001;
         var customerUserId = Random.Shared.Next(893_001, 894_000);
         var categoryId = Random.Shared.Next(894_001, 895_000);
         var productId = Random.Shared.Next(895_001, 896_000);
@@ -189,6 +192,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, adminUserId, "Admin");
 
             await TestDataSeeder.EnsureOrderWithPaymentAsync(
                 db,
@@ -214,7 +218,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createResult = await createResponse.Content.ReadFromJsonAsync<ApiResult<ReturnRequestDto>>();
         createResult.Should().NotBeNull();
 
-        var adminClient = _factory.CreateClient().AsAdmin(userId: 1001);
+        var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
         var reviewResponse = await adminClient.PutAsJsonAsync($"/api/v1/admin/returns/{createResult!.Data.Id}/reject", new ReviewReturnRequestRequest
         {
             ReviewNote = "Ürün hijyen kategorisinde olduğu için iade kapsamı dışında."

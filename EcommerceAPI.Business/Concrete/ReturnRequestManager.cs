@@ -138,7 +138,6 @@ public class ReturnRequestManager : IReturnRequestService
         {
             OrderId = orderId,
             UserId = userId,
-            Order = order,
             Type = requestType,
             ReasonCategory = reasonCategory,
             SelectedOrderItemIdsJson = SerializeSelectedOrderItemIds(selectedOrderItems.Select(item => item.Id)),
