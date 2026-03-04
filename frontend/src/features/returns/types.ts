@@ -1,3 +1,5 @@
+import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
+
 export type ReturnRequestType = 'Return' | 'Cancellation';
 
 export type ReturnReasonCategory =
@@ -36,6 +38,7 @@ export interface ReturnRequest {
   reviewNote?: string | null;
   reviewedAt?: string | null;
   refundRequestId?: number | null;
+  refundProvider?: PaymentProviderType | null;
   refundStatus?: string | null;
   createdAt: string;
 }

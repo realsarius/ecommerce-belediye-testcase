@@ -23,6 +23,12 @@ import {
 } from '@/components/common/select';
 import { getOrderStatusLabel } from '@/lib/orderStatus';
 
+const paymentProviderLabels = {
+  Iyzico: 'Iyzico',
+  Stripe: 'Stripe',
+  PayTR: 'PayTR',
+} as const;
+
 const returnStatusLabels: Record<ReturnRequestStatus, string> = {
   Pending: 'İnceleniyor',
   Approved: 'Onaylandı',
@@ -506,7 +512,10 @@ export default function Returns() {
                           {request.requestedRefundAmount.toLocaleString('tr-TR')} TRY
                         </p>
                         {request.refundStatus && (
-                          <p className="mt-1">Refund: {request.refundStatus}</p>
+                          <p className="mt-1">
+                            Refund: {request.refundStatus}
+                            {request.refundProvider ? ` · ${paymentProviderLabels[request.refundProvider]}` : ''}
+                          </p>
                         )}
                       </div>
                     </div>

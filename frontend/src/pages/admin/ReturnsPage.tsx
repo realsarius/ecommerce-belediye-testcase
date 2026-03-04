@@ -66,6 +66,12 @@ const reasonCategoryLabels: Record<ReturnReasonCategory, string> = {
   Other: 'Diğer',
 };
 
+const paymentProviderLabels = {
+  Iyzico: 'Iyzico',
+  Stripe: 'Stripe',
+  PayTR: 'PayTR',
+} as const;
+
 function getReturnStatusTone(status: ReturnRequestStatus) {
   switch (status) {
     case 'Approved':
@@ -474,6 +480,13 @@ export default function ReturnsPage() {
                 <div className="space-y-2">
                   <Label>Talep Tarihi</Label>
                   <Input value={formatDateTime(selectedRequest.createdAt)} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label>Refund Sağlayıcısı</Label>
+                  <Input
+                    value={selectedRequest.refundProvider ? paymentProviderLabels[selectedRequest.refundProvider] : 'Henüz oluşmadı'}
+                    readOnly
+                  />
                 </div>
               </div>
 
