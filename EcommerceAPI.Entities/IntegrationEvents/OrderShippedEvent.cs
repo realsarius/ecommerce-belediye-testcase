@@ -3,6 +3,7 @@ namespace EcommerceAPI.Entities.IntegrationEvents;
 public sealed class OrderShippedEvent
 {
     public Guid EventId { get; init; } = Guid.NewGuid();
+    public string? CorrelationId { get; init; }
     public int OrderId { get; init; }
     public string OrderNumber { get; init; } = string.Empty;
     public int UserId { get; init; }
@@ -11,4 +12,5 @@ public sealed class OrderShippedEvent
     public string CargoCompany { get; init; } = string.Empty;
     public string TrackingCode { get; init; } = string.Empty;
     public DateTime ShippedAt { get; init; } = DateTime.UtcNow;
+    public DateTime? EstimatedDeliveryDate { get; init; }
 }

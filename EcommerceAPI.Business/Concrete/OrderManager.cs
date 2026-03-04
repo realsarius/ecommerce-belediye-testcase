@@ -15,11 +15,17 @@ using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
+using InvoiceType = EcommerceAPI.Entities.Enums.InvoiceType;
+using EcommerceAPI.Entities.Settings;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Business.Concrete;
 
 public class OrderManager : IOrderService
 {
+    private const int CurrentCheckoutContextVersion = 1;
     private readonly IOrderDal _orderDal;
     private readonly IProductDal _productDal;
     private readonly IInventoryService _inventoryService;
@@ -32,10 +38,13 @@ public class OrderManager : IOrderService
     private readonly IAuditService _auditService;
     private readonly ILogger<OrderManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly FrontendFeatureSettings _frontendFeatureSettings;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     private const decimal FreeShippingThreshold = 1000m;
     private const decimal ShippingCost = 29.90m;
     private const int OrderTimeoutMinutes = 30;
+    private static readonly Regex TrackingCodeRegex = new("^[A-Za-z0-9/-]{6,40}$", RegexOptions.Compiled);
 
     public OrderManager(
         IOrderDal orderDal,
@@ -49,7 +58,9 @@ public class OrderManager : IOrderService
         IReferralService referralService,
         IAuditService auditService,
         ILogger<OrderManager> logger,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        IOptions<FrontendFeatureSettings> frontendFeatureSettings,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _orderDal = orderDal;
         _productDal = productDal;
@@ -63,12 +74,28 @@ public class OrderManager : IOrderService
         _auditService = auditService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
+        _frontendFeatureSettings = frontendFeatureSettings.Value;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     [LogAspect]
     [ValidationAspect(typeof(CheckoutRequestValidator))]
     public async Task<IDataResult<OrderDto>> CheckoutAsync(int userId, CheckoutRequest request)
     {
+        if (_frontendFeatureSettings.EnableCheckoutLegalConsents
+            && (!request.PreliminaryInfoAccepted || !request.DistanceSalesContractAccepted))
+        {
+            return new ErrorDataResult<OrderDto>("Yasal onaylar tamamlanmadan sipariş oluşturulamaz.");
+        }
+
+        var invoiceValidationError = _frontendFeatureSettings.EnableCheckoutInvoiceInfo
+            ? ValidateInvoiceInfo(request.InvoiceInfo)
+            : null;
+        if (!string.IsNullOrWhiteSpace(invoiceValidationError))
+        {
+            return new ErrorDataResult<OrderDto>(invoiceValidationError);
+        }
+
         var idempotencyKey = NormalizeIdempotencyKey(request.IdempotencyKey);
         request.IdempotencyKey = idempotencyKey;
 
@@ -492,6 +519,7 @@ public class OrderManager : IOrderService
 
         order.Status = orderStatus;
         order.UpdatedAt = DateTime.UtcNow;
+        ApplyShipmentMetadataForOrderStatus(order, orderStatus);
 
         await _unitOfWork.BeginTransactionAsync();
 
@@ -531,11 +559,24 @@ public class OrderManager : IOrderService
     }
 
     [LogAspect]
+    [ValidationAspect(typeof(ShipOrderRequestValidator))]
     public async Task<IDataResult<OrderDto>> ShipOrderAsync(int sellerId, int orderId, ShipOrderRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.TrackingCode) || string.IsNullOrWhiteSpace(request.CargoCompany))
+        var resolvedCargoCompany = ResolveCargoCompany(request);
+
+        if (string.IsNullOrWhiteSpace(request.TrackingCode) || string.IsNullOrWhiteSpace(resolvedCargoCompany))
         {
             return new ErrorDataResult<OrderDto>("Kargo firması ve takip kodu zorunludur.");
+        }
+
+        if (!IsValidTrackingCode(request.TrackingCode))
+        {
+            return new ErrorDataResult<OrderDto>("Takip kodu 6-40 karakter olmalı ve yalnızca harf, rakam, tire veya eğik çizgi içermelidir.");
+        }
+
+        if (request.EstimatedDeliveryDate.HasValue && request.EstimatedDeliveryDate.Value.Date < DateTime.UtcNow.Date)
+        {
+            return new ErrorDataResult<OrderDto>("Tahmini teslimat tarihi bugunden once olamaz.");
         }
 
         var order = await _orderDal.GetByIdWithDetailsAsync(orderId);
@@ -559,9 +600,12 @@ public class OrderManager : IOrderService
         var shippedAt = DateTime.UtcNow;
 
         order.Status = OrderStatus.Shipped;
-        order.CargoCompany = request.CargoCompany.Trim();
+        order.CargoCompany = resolvedCargoCompany;
         order.TrackingCode = request.TrackingCode.Trim();
         order.ShippedAt = shippedAt;
+        order.EstimatedDeliveryDate = request.EstimatedDeliveryDate?.Date;
+        order.DeliveredAt = null;
+        order.ShipmentStatus = ShipmentStatus.HandedToCargo;
 
         await _unitOfWork.BeginTransactionAsync();
         try
@@ -570,6 +614,7 @@ public class OrderManager : IOrderService
 
             await _publishEndpoint.Publish(new OrderShippedEvent
             {
+                CorrelationId = _correlationIdProvider.GetCorrelationId(),
                 OrderId = order.Id,
                 OrderNumber = order.OrderNumber,
                 UserId = order.UserId,
@@ -577,11 +622,19 @@ public class OrderManager : IOrderService
                 CustomerName = order.User != null ? $"{order.User.FirstName} {order.User.LastName}".Trim() : string.Empty,
                 CargoCompany = order.CargoCompany,
                 TrackingCode = order.TrackingCode,
-                ShippedAt = shippedAt
+                ShippedAt = shippedAt,
+                EstimatedDeliveryDate = order.EstimatedDeliveryDate
             });
 
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
+
+            _logger.LogInformation(
+                "Order shipped and event published. OrderId={OrderId}, SellerId={SellerId}, CargoCompany={CargoCompany}, CorrelationId={CorrelationId}",
+                order.Id,
+                sellerId,
+                order.CargoCompany,
+                _correlationIdProvider.GetCorrelationId());
         }
         catch (Exception ex)
         {
@@ -605,6 +658,32 @@ public class OrderManager : IOrderService
             });
 
         return new SuccessDataResult<OrderDto>(order.ToDto(), "Sipariş kargoya verildi.");
+    }
+
+    private static bool IsValidTrackingCode(string trackingCode)
+    {
+        return TrackingCodeRegex.IsMatch(trackingCode.Trim());
+    }
+
+    private static string? ResolveCargoCompany(ShipOrderRequest request)
+    {
+        if (request.CargoProvider.HasValue && request.CargoProvider.Value != CargoProvider.Unknown)
+        {
+            return request.CargoProvider.Value switch
+            {
+                CargoProvider.YurticiKargo => "Yurtiçi Kargo",
+                CargoProvider.ArasCargo => "Aras Kargo",
+                CargoProvider.MngKargo => "MNG Kargo",
+                CargoProvider.PttKargo => "PTT Kargo",
+                CargoProvider.SuratKargo => "Sürat Kargo",
+                CargoProvider.UpsKargo => "UPS Kargo",
+                _ => null
+            };
+        }
+
+        return string.IsNullOrWhiteSpace(request.CargoCompany)
+            ? null
+            : request.CargoCompany.Trim();
     }
 
     [LogAspect]
@@ -847,13 +926,20 @@ public class OrderManager : IOrderService
         LoyaltyRedemptionPreviewDto loyaltyRedemption,
         GiftCardValidationResult giftCardRedemption)
     {
+        var acceptedAt = DateTime.UtcNow;
         var order = new Order
         {
+            CheckoutContextVersion = CurrentCheckoutContextVersion,
             UserId = userId,
             OrderNumber = GenerateOrderNumber(),
             Status = giftCardRedemption.FinalTotal <= 0 ? OrderStatus.Paid : OrderStatus.PendingPayment,
             ShippingAddress = request.ShippingAddress,
             Notes = request.Notes ?? string.Empty,
+            PreliminaryInfoAcceptedAt = _frontendFeatureSettings.EnableCheckoutLegalConsents && request.PreliminaryInfoAccepted ? acceptedAt : null,
+            DistanceSalesContractAcceptedAt = _frontendFeatureSettings.EnableCheckoutLegalConsents && request.DistanceSalesContractAccepted ? acceptedAt : null,
+            AcceptedFromIp = _frontendFeatureSettings.EnableCheckoutLegalConsents && !string.IsNullOrWhiteSpace(request.AcceptedFromIp)
+                ? request.AcceptedFromIp
+                : null,
             SubtotalAmount = subtotal,
             TotalAmount = subtotal - couponData.Amount + shippingCost - loyaltyRedemption.DiscountAmount - giftCardRedemption.AppliedAmount,
             CouponId = couponData.Id,
@@ -863,7 +949,10 @@ public class OrderManager : IOrderService
             LoyaltyDiscountAmount = loyaltyRedemption.DiscountAmount,
             GiftCardId = giftCardRedemption.GiftCardId > 0 ? giftCardRedemption.GiftCardId : null,
             GiftCardCode = string.IsNullOrWhiteSpace(giftCardRedemption.Code) ? null : giftCardRedemption.Code,
-            GiftCardAmount = giftCardRedemption.AppliedAmount
+            GiftCardAmount = giftCardRedemption.AppliedAmount,
+            InvoiceInfo = _frontendFeatureSettings.EnableCheckoutInvoiceInfo && request.InvoiceInfo != null
+                ? CreateInvoiceInfo(request.InvoiceInfo)
+                : null
         };
 
         foreach (var cartItem in cartDto.Items)
@@ -881,6 +970,7 @@ public class OrderManager : IOrderService
             Amount = order.TotalAmount,
             Status = order.TotalAmount <= 0 ? PaymentStatus.Success : PaymentStatus.Pending,
             PaymentMethod = order.TotalAmount <= 0 ? "GiftCard" : request.PaymentMethod,
+            Provider = order.TotalAmount <= 0 ? null : PaymentProviderType.Iyzico,
             IdempotencyKey = !string.IsNullOrEmpty(request.IdempotencyKey) ? request.IdempotencyKey : Guid.NewGuid().ToString()
         };
 
@@ -919,5 +1009,93 @@ public class OrderManager : IOrderService
         }
 
         return await _giftCardService.ValidateAsync(userId, giftCardCode, amountAfterDiscounts);
+    }
+
+    private static string? ValidateInvoiceInfo(CheckoutInvoiceInfoRequest? invoiceInfo)
+    {
+        if (invoiceInfo == null)
+        {
+            return "Fatura bilgisi zorunludur.";
+        }
+
+        if (string.IsNullOrWhiteSpace(invoiceInfo.InvoiceAddress) || invoiceInfo.InvoiceAddress.Length < 10)
+        {
+            return "Fatura adresi zorunludur.";
+        }
+
+        if (invoiceInfo.Type == InvoiceType.Corporate)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceInfo.CompanyName))
+            {
+                return "Kurumsal fatura için şirket adı zorunludur.";
+            }
+
+            if (string.IsNullOrWhiteSpace(invoiceInfo.TaxOffice))
+            {
+                return "Kurumsal fatura için vergi dairesi zorunludur.";
+            }
+
+            if (string.IsNullOrWhiteSpace(invoiceInfo.TaxNumber) || invoiceInfo.TaxNumber.Length != 10 || invoiceInfo.TaxNumber.Any(ch => !char.IsDigit(ch)))
+            {
+                return "Kurumsal fatura için 10 haneli vergi numarası zorunludur.";
+            }
+
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(invoiceInfo.FullName))
+        {
+            return "Bireysel fatura için ad soyad zorunludur.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(invoiceInfo.TcKimlikNo)
+            && (invoiceInfo.TcKimlikNo.Length != 11 || invoiceInfo.TcKimlikNo.Any(ch => !char.IsDigit(ch))))
+        {
+            return "TC kimlik numarası 11 haneli olmalıdır.";
+        }
+
+        return null;
+    }
+
+    private static InvoiceInfo CreateInvoiceInfo(CheckoutInvoiceInfoRequest invoiceInfo)
+    {
+        return new InvoiceInfo
+        {
+            Type = invoiceInfo.Type,
+            FullName = invoiceInfo.Type == InvoiceType.Corporate
+                ? (invoiceInfo.FullName ?? invoiceInfo.CompanyName ?? string.Empty)
+                : invoiceInfo.FullName ?? string.Empty,
+            TcKimlikNo = string.IsNullOrWhiteSpace(invoiceInfo.TcKimlikNo) ? null : invoiceInfo.TcKimlikNo,
+            CompanyName = string.IsNullOrWhiteSpace(invoiceInfo.CompanyName) ? null : invoiceInfo.CompanyName,
+            TaxOffice = string.IsNullOrWhiteSpace(invoiceInfo.TaxOffice) ? null : invoiceInfo.TaxOffice,
+            TaxNumber = string.IsNullOrWhiteSpace(invoiceInfo.TaxNumber) ? null : invoiceInfo.TaxNumber,
+            InvoiceAddress = invoiceInfo.InvoiceAddress
+        };
+    }
+
+    private static void ApplyShipmentMetadataForOrderStatus(Order order, OrderStatus orderStatus)
+    {
+        switch (orderStatus)
+        {
+            case OrderStatus.Processing:
+                order.ShipmentStatus = ShipmentStatus.Preparing;
+                order.DeliveredAt = null;
+                break;
+            case OrderStatus.Shipped:
+                order.ShipmentStatus = order.ShipmentStatus == ShipmentStatus.Pending
+                    ? ShipmentStatus.HandedToCargo
+                    : order.ShipmentStatus;
+                break;
+            case OrderStatus.Delivered:
+                order.ShipmentStatus = ShipmentStatus.Delivered;
+                order.DeliveredAt ??= DateTime.UtcNow;
+                break;
+            case OrderStatus.Cancelled:
+                if (order.ShippedAt == null)
+                {
+                    order.ShipmentStatus = ShipmentStatus.Pending;
+                }
+                break;
+        }
     }
 }

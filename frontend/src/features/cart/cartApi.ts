@@ -1,5 +1,5 @@
 import { baseApi } from '@/app/api';
-import type { Cart, AddToCartRequest, UpdateCartItemRequest } from './types';
+import type { Cart, AddToCartRequest, ReorderCartRequest, ReorderCartResult, UpdateCartItemRequest } from './types';
 
 export const cartApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -14,6 +14,15 @@ export const cartApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      invalidatesTags: ['Cart'],
+    }),
+    reorderCart: builder.mutation<ReorderCartResult, ReorderCartRequest>({
+      query: (data) => ({
+        url: '/cart/reorder',
+        method: 'POST',
+        body: data,
+      }),
+      transformResponse: (response: { data: ReorderCartResult }) => response.data,
       invalidatesTags: ['Cart'],
     }),
     updateCartItem: builder.mutation<Cart, { productId: number; data: UpdateCartItemRequest }>({
@@ -44,6 +53,7 @@ export const cartApi = baseApi.injectEndpoints({
 export const {
   useGetCartQuery,
   useAddToCartMutation,
+  useReorderCartMutation,
   useUpdateCartItemMutation,
   useRemoveFromCartMutation,
   useClearCartMutation,

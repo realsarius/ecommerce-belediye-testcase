@@ -7,6 +7,7 @@ public class RefundRequest : BaseEntity
     public int ReturnRequestId { get; set; }
     public int OrderId { get; set; }
     public int? PaymentId { get; set; }
+    public PaymentProviderType Provider { get; set; } = PaymentProviderType.Iyzico;
     public decimal Amount { get; set; }
     public RefundRequestStatus Status { get; set; } = RefundRequestStatus.Pending;
     public string IdempotencyKey { get; set; } = string.Empty;

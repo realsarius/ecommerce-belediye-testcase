@@ -11,6 +11,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using EcommerceAPI.Entities.Utilities;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -21,6 +22,7 @@ public class RefundConsumerTests
     {
         await using var dbContext = CreateDbContext();
         var refundService = new Mock<IRefundService>();
+        var refundRetryScheduler = new Mock<IRefundRetryScheduler>();
         refundService.Setup(x => x.ProcessRefundAsync(501, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<RefundRequestDto>(new RefundRequestDto
             {
@@ -50,6 +52,7 @@ public class RefundConsumerTests
             .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
             .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
         var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        var loggerMock = new Mock<ILogger<RefundRequestedConsumer>>();
         notificationPreferenceService
             .Setup(x => x.GetChannelSettingsAsync(42, NotificationType.Refund))
             .ReturnsAsync(new NotificationChannelSettingsDto
@@ -65,10 +68,11 @@ public class RefundConsumerTests
         var consumer = new RefundRequestedConsumer(
             dbContext,
             refundService.Object,
+            refundRetryScheduler.Object,
             emailService.Object,
             notificationService.Object,
             notificationPreferenceService.Object,
-            Mock.Of<ILogger<RefundRequestedConsumer>>());
+            loggerMock.Object);
 
         var message = new RefundRequestedEvent
         {
@@ -96,6 +100,105 @@ public class RefundConsumerTests
         dbContext.InboxMessages.Should().ContainSingle(x =>
             x.ConsumerName == "RefundRequestedConsumer" &&
             x.MessageId == message.EventId);
+        VerifyRefundConsumerLogContains(loggerMock, LogLevel.Information, AnalyticsLogSchema.Events.RefundProcessed);
+    }
+
+    [Fact]
+    public async Task RefundRequestedConsumer_WhenRefundFailsAndRetryScheduled_ShouldSkipFailureEmail()
+    {
+        await using var dbContext = CreateDbContext();
+        var refundService = new Mock<IRefundService>();
+        var refundRetryScheduler = new Mock<IRefundRetryScheduler>();
+
+        refundService.Setup(x => x.ProcessRefundAsync(701, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.ErrorDataResult<RefundRequestDto>(
+                new RefundRequestDto
+                {
+                    Id = 701,
+                    ReturnRequestId = 401,
+                    OrderId = 301,
+                    UserId = 52,
+                    OrderNumber = "ORD-301",
+                    CustomerEmail = "retry@test.com",
+                    CustomerName = "Retry Customer",
+                    Amount = 149.90m,
+                    Currency = "TRY",
+                    Status = RefundRequestStatus.Failed.ToString(),
+                    FailureReason = "Gateway temporary error"
+                },
+                "Gateway temporary error"));
+
+        refundRetryScheduler
+            .Setup(x => x.TryScheduleRetry(It.Is<RefundRequestedEvent>(evt =>
+                evt.RefundRequestId == 701 &&
+                evt.RetryAttempt == 0)))
+            .Returns(true);
+
+        var emailService = new Mock<IEmailNotificationService>();
+        emailService
+            .Setup(x => x.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var notificationService = new Mock<INotificationService>();
+        notificationService
+            .Setup(x => x.CreateNotificationAsync(It.IsAny<CreateNotificationRequest>()))
+            .ReturnsAsync(new EcommerceAPI.Core.Utilities.Results.SuccessDataResult<NotificationDto>(new NotificationDto()));
+        var notificationPreferenceService = new Mock<INotificationPreferenceService>();
+        var loggerMock = new Mock<ILogger<RefundRequestedConsumer>>();
+        notificationPreferenceService
+            .Setup(x => x.GetChannelSettingsAsync(52, NotificationType.Refund))
+            .ReturnsAsync(new NotificationChannelSettingsDto
+            {
+                InAppEnabled = true,
+                EmailEnabled = true,
+                PushEnabled = false,
+                SupportsInApp = true,
+                SupportsEmail = true,
+                SupportsPush = true
+            });
+
+        var consumer = new RefundRequestedConsumer(
+            dbContext,
+            refundService.Object,
+            refundRetryScheduler.Object,
+            emailService.Object,
+            notificationService.Object,
+            notificationPreferenceService.Object,
+            loggerMock.Object);
+
+        var message = new RefundRequestedEvent
+        {
+            EventId = Guid.NewGuid(),
+            RefundRequestId = 701,
+            ReturnRequestId = 401,
+            OrderId = 301,
+            UserId = 52,
+            Amount = 149.90m,
+            Currency = "TRY",
+            RetryAttempt = 0
+        };
+
+        var context = CreateConsumeContext(message);
+
+        await consumer.Consume(context.Object);
+
+        refundRetryScheduler.Verify(x => x.TryScheduleRetry(It.IsAny<RefundRequestedEvent>()), Times.Once);
+        emailService.Verify(
+            x => x.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        notificationService.Verify(
+            x => x.CreateNotificationAsync(It.Is<CreateNotificationRequest>(request =>
+                request.UserId == 52 &&
+                request.Title.Contains("yeniden denenecek"))),
+            Times.Once);
+        VerifyRefundConsumerLogContains(loggerMock, LogLevel.Warning, AnalyticsLogSchema.Events.RefundFailed);
     }
 
     private static AppDbContext CreateDbContext()
@@ -121,5 +224,17 @@ public class RefundConsumerTests
         });
         context.SetupGet(x => x.CancellationToken).Returns(CancellationToken.None);
         return context;
+    }
+
+    private static void VerifyRefundConsumerLogContains<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string expectedValue)
+    {
+        loggerMock.Verify(
+            logger => logger.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains(expectedValue, StringComparison.Ordinal)),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.AtLeastOnce);
     }
 }

@@ -402,6 +402,9 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("Brand")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CardAlias")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -420,11 +423,6 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("CvvEncrypted")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<string>("ExpireMonthEncrypted")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -438,10 +436,33 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Property<bool>("IsDefault")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("IyzicoCardToken")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("IyzicoUserKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Last4Digits")
                         .IsRequired()
                         .HasMaxLength(4)
                         .HasColumnType("character varying(4)");
+
+                    b.Property<string>("PayTrToken")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("StripeCustomerId")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("StripePaymentMethodId")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("TokenProvider")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -682,6 +703,60 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.ToTable("TBL_InventoryMovements", (string)null);
                 });
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.InvoiceInfo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("InvoiceAddress")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TaxNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TaxOffice")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("TcKimlikNo")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.ToTable("TBL_InvoiceInfos", (string)null);
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.LoyaltyTransaction", b =>
                 {
                     b.Property<int>("Id")
@@ -877,12 +952,19 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AcceptedFromIp")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTime?>("CancelledAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CargoCompany")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<int>("CheckoutContextVersion")
+                        .HasColumnType("integer");
 
                     b.Property<string>("CouponCode")
                         .HasColumnType("text");
@@ -898,8 +980,17 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("DistanceSalesContractAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EstimatedDeliveryDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("GiftCardAmount")
                         .HasPrecision(18, 2)
@@ -930,6 +1021,12 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("PreliminaryInfoAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ShipmentStatus")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("ShippedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1094,6 +1191,10 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("Last4Digits")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
                     b.Property<int>("OrderId")
                         .HasColumnType("integer");
 
@@ -1104,6 +1205,9 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     b.Property<string>("PaymentProviderId")
                         .HasColumnType("text");
+
+                    b.Property<int?>("Provider")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1566,6 +1670,9 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Property<DateTime?>("ProcessedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Provider")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ProviderRefundId")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
@@ -1613,9 +1720,15 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)");
 
+                    b.Property<int>("ReasonCategory")
+                        .HasColumnType("integer");
+
                     b.Property<string>("RequestNote")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("RequestWindowEndsAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("RequestedRefundAmount")
                         .HasPrecision(18, 2)
@@ -1630,6 +1743,9 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     b.Property<int?>("ReviewedByUserId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SelectedOrderItemIdsJson")
+                        .HasColumnType("text");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1647,6 +1763,8 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     b.HasIndex("OrderId");
 
+                    b.HasIndex("ReasonCategory");
+
                     b.HasIndex("ReviewedByUserId");
 
                     b.HasIndex("Status");
@@ -1654,6 +1772,53 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("TBL_ReturnRequests", (string)null);
+                });
+
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.ReturnRequestAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ReturnRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReturnRequestId");
+
+                    b.ToTable("TBL_ReturnRequestAttachments", (string)null);
                 });
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Role", b =>
@@ -2454,6 +2619,17 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.InvoiceInfo", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.Order", "Order")
+                        .WithOne("InvoiceInfo")
+                        .HasForeignKey("EcommerceAPI.Entities.Concrete.InvoiceInfo", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.LoyaltyTransaction", b =>
                 {
                     b.HasOne("EcommerceAPI.Entities.Concrete.Order", "Order")
@@ -2741,6 +2917,17 @@ namespace EcommerceAPI.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("EcommerceAPI.Entities.Concrete.ReturnRequestAttachment", b =>
+                {
+                    b.HasOne("EcommerceAPI.Entities.Concrete.ReturnRequest", "ReturnRequest")
+                        .WithMany("Attachments")
+                        .HasForeignKey("ReturnRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReturnRequest");
+                });
+
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.SellerProfile", b =>
                 {
                     b.HasOne("EcommerceAPI.Entities.Concrete.User", "User")
@@ -2906,6 +3093,8 @@ namespace EcommerceAPI.DataAccess.Migrations
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.Order", b =>
                 {
+                    b.Navigation("InvoiceInfo");
+
                     b.Navigation("LoyaltyTransactions");
 
                     b.Navigation("OrderItems");
@@ -2943,6 +3132,8 @@ namespace EcommerceAPI.DataAccess.Migrations
 
             modelBuilder.Entity("EcommerceAPI.Entities.Concrete.ReturnRequest", b =>
                 {
+                    b.Navigation("Attachments");
+
                     b.Navigation("RefundRequest");
                 });
 

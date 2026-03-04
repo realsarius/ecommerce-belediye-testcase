@@ -44,6 +44,14 @@ public class CartController : BaseApiController
         return HandleResult(result);
     }
 
+    [HttpPost("reorder")]
+    public async Task<IActionResult> Reorder([FromBody] ReorderCartRequest request)
+    {
+        var userId = GetUserId();
+        var result = await _cartService.ReorderAsync(userId, request);
+        return HandleResult(result);
+    }
+
     [HttpPut("items/{productId}")]
     public async Task<IActionResult> UpdateCartItem(int productId, [FromBody] UpdateCartItemRequest request)
     {

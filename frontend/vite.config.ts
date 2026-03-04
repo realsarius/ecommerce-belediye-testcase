@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+const devProxyTarget = process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:5000'
+
 function getManualChunk(id: string) {
   if (!id.includes('node_modules')) {
     return undefined
@@ -38,15 +40,15 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ['ecommerce.berkansozer.com'],
+    allowedHosts: ['ecommerce.berkansozer.com', '10.2.2.103', 'localhost'],
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: devProxyTarget,
         changeOrigin: true,
         secure: false,
       },
       '/hubs': {
-        target: 'http://localhost:5000',
+        target: devProxyTarget,
         changeOrigin: true,
         secure: false,
         ws: true,

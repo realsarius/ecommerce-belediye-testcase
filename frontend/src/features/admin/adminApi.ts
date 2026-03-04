@@ -36,7 +36,7 @@ import type {
   CreateShippingAddressRequest,
   Order,
 } from '@/features/orders/types';
-import type { ReturnRequest } from '@/features/returns/types';
+import { normalizeReturnRequest, type ReturnRequest } from '@/features/returns/types';
 import type {
   NotificationTemplate,
   UpdateNotificationTemplateRequest,
@@ -236,7 +236,7 @@ export const adminApi = baseApi.injectEndpoints({
         url: '/admin/returns',
         params: params?.status ? { status: params.status } : undefined,
       }),
-      transformResponse: (response: { data: ReturnRequest[] }) => response.data,
+      transformResponse: (response: { data: ReturnRequest[] }) => response.data.map(normalizeReturnRequest),
       providesTags: (result) => createListTags('Returns', result),
     }),
     approveAdminReturn: builder.mutation<
@@ -248,7 +248,7 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: { reviewNote },
       }),
-      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      transformResponse: (response: { data: ReturnRequest }) => normalizeReturnRequest(response.data),
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Returns', id },
         { type: 'Returns', id: 'LIST' },
@@ -267,7 +267,7 @@ export const adminApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: { reviewNote },
       }),
-      transformResponse: (response: { data: ReturnRequest }) => response.data,
+      transformResponse: (response: { data: ReturnRequest }) => normalizeReturnRequest(response.data),
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Returns', id },
         { type: 'Returns', id: 'LIST' },

@@ -1,3 +1,6 @@
+import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
+import type { CheckoutInvoiceInfo } from '@/features/cart/types';
+
 // Order Types
 
 export type OrderStatus =
@@ -8,6 +11,24 @@ export type OrderStatus =
   | 'Delivered'
   | 'Cancelled'
   | 'Refunded';
+
+export type ShipmentStatus =
+  | 'Pending'
+  | 'Preparing'
+  | 'HandedToCargo'
+  | 'InTransit'
+  | 'OutForDelivery'
+  | 'Delivered'
+  | 'Failed'
+  | 'Returned';
+
+export type CargoProvider =
+  | 'YurticiKargo'
+  | 'ArasCargo'
+  | 'MngKargo'
+  | 'PttKargo'
+  | 'SuratKargo'
+  | 'UpsKargo';
 
 export interface Order {
   id: number;
@@ -24,6 +45,9 @@ export interface Order {
   cargoCompany?: string;
   trackingCode?: string;
   shippedAt?: string;
+  estimatedDeliveryDate?: string;
+  deliveredAt?: string;
+  shipmentStatus?: ShipmentStatus;
   couponCode?: string;
   discountAmount?: number;
   loyaltyPointsUsed?: number;
@@ -32,9 +56,11 @@ export interface Order {
   giftCardCode?: string;
   giftCardAmount?: number;
   payment?: Payment;
+  invoiceInfo?: CheckoutInvoiceInfo;
 }
 
 export interface OrderItem {
+  id: number;
   productId: number;
   productName: string;
   quantity: number;
@@ -50,17 +76,35 @@ export interface Payment {
   status: string;
   transactionId: string;
   paymentMethod?: string;
+  provider?: PaymentProviderType | null;
+  last4Digits?: string | null;
   errorMessage?: string;
+  requiresThreeDS?: boolean;
+  threeDSHtmlContent?: string | null;
   createdAt: string;
+}
+
+export interface PaymentSettings {
+  activeProviders: PaymentProviderType[];
+  defaultProvider: PaymentProviderType;
+  enableMultiProviderSelection: boolean;
+  enableTokenizedCardSave: boolean;
+  allowLegacyEncryptedSavedCardPayments: boolean;
+  force3DSecure: boolean;
+  force3DSecureAbove: number;
 }
 
 export interface ProcessPaymentRequest {
   orderId: number;
+  paymentProvider?: PaymentProviderType;
   savedCardId?: number;  // Kayıtlı kart ile ödeme için
   cardHolderName?: string;
   cardNumber?: string;
   expiryDate?: string;
   cvv: string;
+  require3DS?: boolean;
+  saveCard?: boolean;
+  saveCardAlias?: string;
   idempotencyKey?: string;
 }
 

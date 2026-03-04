@@ -39,7 +39,9 @@ import {
   useGetAdminReturnsQuery,
   useRejectAdminReturnMutation,
 } from '@/features/admin/adminApi';
-import type { ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
+import { useLazyGetReturnAttachmentAccessUrlQuery } from '@/features/returns/returnsApi';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
+import type { ReturnReasonCategory, ReturnRequest, ReturnRequestStatus, ReturnRequestType } from '@/features/returns/types';
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format';
 
 const returnStatusLabels: Record<ReturnRequestStatus, string> = {
@@ -54,6 +56,21 @@ const returnTypeLabels: Record<ReturnRequestType, string> = {
   Return: 'İade',
   Cancellation: 'İptal',
 };
+
+const reasonCategoryLabels: Record<ReturnReasonCategory, string> = {
+  WrongProduct: 'Yanlış ürün',
+  DefectiveDamaged: 'Hasarlı / arızalı',
+  NotAsDescribed: 'Açıklamaya uymuyor',
+  ChangedMind: 'Fikrini değiştirdi',
+  LateDelivery: 'Geç teslimat',
+  Other: 'Diğer',
+};
+
+const paymentProviderLabels = {
+  Iyzico: 'Iyzico',
+  Stripe: 'Stripe',
+  PayTR: 'PayTR',
+} as const;
 
 function getReturnStatusTone(status: ReturnRequestStatus) {
   switch (status) {
@@ -77,8 +94,16 @@ export default function ReturnsPage() {
   const [selectedRequest, setSelectedRequest] = useState<ReturnRequest | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const { data: requests = [], isLoading } = useGetAdminReturnsQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const [approveReturn, { isLoading: isApproving }] = useApproveAdminReturnMutation();
   const [rejectReturn, { isLoading: isRejecting }] = useRejectAdminReturnMutation();
+  const [getAttachmentAccessUrl] = useLazyGetReturnAttachmentAccessUrlQuery();
+  const effectiveFrontendFeatures = frontendFeatures ?? {
+    enableCheckoutLegalConsents: true,
+    enableCheckoutInvoiceInfo: true,
+    enableShipmentTimeline: true,
+    enableReturnAttachments: true,
+  };
   const isReviewing = isApproving || isRejecting;
 
   const summary = useMemo(() => {
@@ -139,6 +164,16 @@ export default function ReturnsPage() {
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       toast.error(err.data?.message || 'Talep değerlendirilemedi.');
+    }
+  };
+
+  const openAttachment = async (returnRequestId: number, attachmentId: number) => {
+    try {
+      const result = await getAttachmentAccessUrl({ returnRequestId, attachmentId }).unwrap();
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      toast.error(err.data?.message || 'Görsel açılamadı.');
     }
   };
 
@@ -221,6 +256,7 @@ export default function ReturnsPage() {
                     <TableHead>Sipariş</TableHead>
                     <TableHead>Müşteri</TableHead>
                     <TableHead>Tip</TableHead>
+                    <TableHead>Kategori</TableHead>
                     <TableHead>Neden</TableHead>
                     <TableHead>Tutar</TableHead>
                     <TableHead>Tarih</TableHead>
@@ -237,6 +273,7 @@ export default function ReturnsPage() {
                       <TableCell>
                         <Badge variant="outline">{returnTypeLabels[request.type]}</Badge>
                       </TableCell>
+                      <TableCell>{reasonCategoryLabels[request.reasonCategory]}</TableCell>
                       <TableCell className="max-w-[22rem] truncate">{request.reason}</TableCell>
                       <TableCell>{formatCurrency(request.requestedRefundAmount)}</TableCell>
                       <TableCell className="text-muted-foreground">
@@ -251,7 +288,7 @@ export default function ReturnsPage() {
                   ))}
                   {tabData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="p-0">
+                      <TableCell colSpan={8} className="p-0">
                         <EmptyState
                           icon={RotateCcw}
                           title="Bekleyen iade talebi bulunmuyor"
@@ -432,12 +469,24 @@ export default function ReturnsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
+                  <Label>Kategori</Label>
+                  <Input value={reasonCategoryLabels[selectedRequest.reasonCategory]} readOnly />
+                </div>
+
+                <div className="space-y-2">
                   <Label>Talep Nedeni</Label>
                   <Input value={selectedRequest.reason} readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label>Talep Tarihi</Label>
                   <Input value={formatDateTime(selectedRequest.createdAt)} readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label>Refund Sağlayıcısı</Label>
+                  <Input
+                    value={selectedRequest.refundProvider ? paymentProviderLabels[selectedRequest.refundProvider] : 'Henüz oluşmadı'}
+                    readOnly
+                  />
                 </div>
               </div>
 
@@ -449,6 +498,41 @@ export default function ReturnsPage() {
                   rows={4}
                 />
               </div>
+
+              {(selectedRequest.selectedItems ?? []).length > 0 ? (
+                <div className="space-y-2">
+                  <Label>Seçilen Ürünler</Label>
+                  <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedRequest.selectedItems ?? []).map((item) => (
+                        <Badge key={item.orderItemId} variant="outline">
+                          {item.productName} x {item.quantity}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {effectiveFrontendFeatures.enableReturnAttachments && (selectedRequest.attachments ?? []).length > 0 ? (
+                <div className="space-y-2">
+                  <Label>Eklenen Fotoğraflar</Label>
+                  <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedRequest.attachments ?? []).map((attachment) => (
+                        <button
+                          key={attachment.id}
+                          type="button"
+                          className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs transition hover:border-primary hover:text-primary"
+                          onClick={() => void openAttachment(selectedRequest.id, attachment.id)}
+                        >
+                          {attachment.fileName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="space-y-2">
                 <Label htmlFor="review-note">İnceleme Notu</Label>

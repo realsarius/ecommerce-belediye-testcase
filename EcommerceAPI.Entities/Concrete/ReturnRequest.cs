@@ -7,9 +7,12 @@ public class ReturnRequest : BaseEntity
     public int OrderId { get; set; }
     public int UserId { get; set; }
     public ReturnRequestType Type { get; set; } = ReturnRequestType.Return;
+    public ReturnReasonCategory ReasonCategory { get; set; } = ReturnReasonCategory.Other;
+    public string? SelectedOrderItemIdsJson { get; set; }
     public ReturnRequestStatus Status { get; set; } = ReturnRequestStatus.Pending;
     public string Reason { get; set; } = string.Empty;
     public string? RequestNote { get; set; }
+    public DateTime? RequestWindowEndsAt { get; set; }
     public decimal RequestedRefundAmount { get; set; }
     public int? ReviewedByUserId { get; set; }
     public string? ReviewNote { get; set; }
@@ -19,4 +22,5 @@ public class ReturnRequest : BaseEntity
     public User User { get; set; } = null!;
     public User? ReviewedByUser { get; set; }
     public RefundRequest? RefundRequest { get; set; }
+    public ICollection<ReturnRequestAttachment> Attachments { get; set; } = new List<ReturnRequestAttachment>();
 }

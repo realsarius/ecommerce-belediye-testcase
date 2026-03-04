@@ -5,15 +5,29 @@ import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/common/button';
 import { Skeleton } from '@/components/common/skeleton';
 import { ShoppingBag, Package, ArrowRight, RotateCcw } from 'lucide-react';
-import type { OrderStatus } from '@/features/orders/types';
+import type { Order } from '@/features/orders/types';
 import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
-const getEligibleReturnAction = (orderStatus: OrderStatus) => {
-  if (orderStatus === 'Delivered') {
+const getReturnDaysRemaining = (deliveredAt?: string) => {
+  if (!deliveredAt) {
+    return null;
+  }
+
+  const diffInMs = new Date(deliveredAt).getTime() + (14 * 24 * 60 * 60 * 1000) - Date.now();
+  return Math.max(0, Math.ceil(diffInMs / (24 * 60 * 60 * 1000)));
+};
+
+const getEligibleReturnAction = (order: Order) => {
+  if (order.status === 'Delivered') {
+    const daysRemaining = getReturnDaysRemaining(order.deliveredAt);
+    if (daysRemaining === 0) {
+      return null;
+    }
+
     return 'İade Talebi Oluştur';
   }
 
-  if (orderStatus === 'PendingPayment' || orderStatus === 'Paid' || orderStatus === 'Processing') {
+  if (order.status === 'PendingPayment' || order.status === 'Paid' || order.status === 'Processing') {
     return 'İptal Talebi Oluştur';
   }
 
@@ -57,7 +71,7 @@ export default function Orders() {
 
       <div className="space-y-4">
         {orders.map((order) => {
-          const returnActionLabel = getEligibleReturnAction(order.status);
+          const returnActionLabel = getEligibleReturnAction(order);
 
           return (
           <Card key={order.id}>

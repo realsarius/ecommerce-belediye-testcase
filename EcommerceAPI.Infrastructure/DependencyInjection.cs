@@ -4,6 +4,7 @@ using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
 using EcommerceAPI.Core.Interfaces;
+using EcommerceAPI.Entities.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
 using EcommerceAPI.Infrastructure.Services;
 using EcommerceAPI.Infrastructure.Settings;
@@ -70,8 +71,48 @@ public static class DependencyInjection
                                 ?? config["SecretKey"]
                                 ?? string.Empty;
             options.BaseUrl = Environment.GetEnvironmentVariable("IYZICO_BASE_URL")
-                              ?? config["BaseUrl"]
+                                ?? config["BaseUrl"]
                               ?? "https://sandbox-api.iyzipay.com";
+        });
+
+        services.Configure<PaymentSettings>(options =>
+        {
+            configuration.GetSection("PaymentSettings").Bind(options);
+
+            var publicApiBaseUrl = Environment.GetEnvironmentVariable("PUBLIC_API_BASE_URL");
+            if (!string.IsNullOrWhiteSpace(publicApiBaseUrl))
+            {
+                options.PublicApiBaseUrl = publicApiBaseUrl.Trim();
+            }
+
+            if (options.ActiveProviders == null || options.ActiveProviders.Count == 0)
+            {
+                options.ActiveProviders = new List<Entities.Enums.PaymentProviderType>
+                {
+                    Entities.Enums.PaymentProviderType.Iyzico
+                };
+            }
+
+            if (!options.ActiveProviders.Contains(options.DefaultProvider))
+            {
+                options.DefaultProvider = options.ActiveProviders[0];
+            }
+        });
+        services.AddSingleton<IPaymentFeaturePolicy, PaymentFeaturePolicy>();
+
+        services.Configure<ReturnAttachmentSettings>(options =>
+        {
+            configuration.GetSection("ReturnAttachments").Bind(options);
+        });
+
+        services.Configure<RefundRetrySettings>(options =>
+        {
+            configuration.GetSection("RefundRetry").Bind(options);
+        });
+
+        services.Configure<FrontendFeatureSettings>(options =>
+        {
+            configuration.GetSection("FrontendFeatures").Bind(options);
         });
 
         services.Configure<EmailNotificationSettings>(options =>
@@ -103,9 +144,26 @@ public static class DependencyInjection
                                ?? "E-Ticaret";
         });
 
-        services.AddScoped<IPaymentService, IyzicoPaymentService>();
-        services.AddScoped<IRefundService, IyzicoRefundService>();
+        services.AddScoped<IyzicoPaymentService>();
+        services.AddScoped<StripePaymentProvider>();
+        services.AddScoped<PayTrPaymentProvider>();
+        services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<IyzicoPaymentService>());
+        services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<StripePaymentProvider>());
+        services.AddScoped<IPaymentProvider>(serviceProvider => serviceProvider.GetRequiredService<PayTrPaymentProvider>());
+        services.AddScoped<IPaymentProviderFactory, PaymentProviderFactory>();
+        services.AddScoped<IPaymentService, PaymentService>();
+
+        services.AddScoped<IyzicoRefundService>();
+        services.AddScoped<StripeRefundProvider>();
+        services.AddScoped<PayTrRefundProvider>();
+        services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<IyzicoRefundService>());
+        services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<StripeRefundProvider>());
+        services.AddScoped<IRefundProvider>(serviceProvider => serviceProvider.GetRequiredService<PayTrRefundProvider>());
+        services.AddScoped<IRefundProviderFactory, RefundProviderFactory>();
+        services.AddScoped<IRefundService, RefundService>();
+        services.AddScoped<IRefundRetryJob, RefundRetryJob>();
         services.AddScoped<IIyzicoRefundGateway, IyzicoRefundGateway>();
+        services.AddScoped<IIyzicoPaymentGateway, IyzicoPaymentGateway>();
         services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
         services.AddScoped<IRecommendationCacheService, RedisRecommendationCacheService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
@@ -117,8 +175,20 @@ public static class DependencyInjection
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
         services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        services.AddScoped<IReturnAttachmentStorageService, ReturnAttachmentStorageService>();
+        services.AddScoped<IReturnAttachmentAccessService, ReturnAttachmentAccessService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
+
+        var hangfireEnabled = configuration.GetValue("Hangfire:Enabled", !string.Equals(environment, "Test", StringComparison.OrdinalIgnoreCase));
+        if (hangfireEnabled)
+        {
+            services.AddScoped<IRefundRetryScheduler, HangfireRefundRetryScheduler>();
+        }
+        else
+        {
+            services.AddSingleton<IRefundRetryScheduler, NoOpRefundRetryScheduler>();
+        }
 
         services.AddScoped<IProductSearchIndexService, ElasticProductSearchIndexService>();
 

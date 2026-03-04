@@ -14,6 +14,10 @@ using Microsoft.Extensions.Logging;
 using MassTransit;
 using EcommerceAPI.Entities.IntegrationEvents;
 using Microsoft.EntityFrameworkCore;
+using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Settings;
+using Microsoft.Extensions.Options;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -31,6 +35,8 @@ public class OrderManagerTests
     private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<OrderManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
+    private readonly IOptions<FrontendFeatureSettings> _frontendFeatureSettings;
     private readonly OrderManager _orderManager;
 
     public OrderManagerTests()
@@ -47,6 +53,9 @@ public class OrderManagerTests
         _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<OrderManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _correlationIdProviderMock = new Mock<ICorrelationIdProvider>();
+        _frontendFeatureSettings = CreateFrontendFeatureSettings();
+        _correlationIdProviderMock.Setup(x => x.GetCorrelationId()).Returns("test-correlation-id");
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<OrderCreatedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -94,8 +103,43 @@ public class OrderManagerTests
             _referralServiceMock.Object,
             _auditServiceMock.Object,
             _loggerMock.Object,
-            _publishEndpointMock.Object
+            _publishEndpointMock.Object,
+            _frontendFeatureSettings,
+            _correlationIdProviderMock.Object
         );
+    }
+
+    private static IOptions<FrontendFeatureSettings> CreateFrontendFeatureSettings(
+        bool enableCheckoutLegalConsents = true,
+        bool enableCheckoutInvoiceInfo = true)
+    {
+        return Options.Create(new FrontendFeatureSettings
+        {
+            EnableCheckoutLegalConsents = enableCheckoutLegalConsents,
+            EnableCheckoutInvoiceInfo = enableCheckoutInvoiceInfo,
+        });
+    }
+
+    private static CheckoutInvoiceInfoRequest CreateInvoiceInfo(string address = "Test Invoice Address 123")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Individual,
+            FullName = "Test User",
+            InvoiceAddress = address
+        };
+    }
+
+    private static CheckoutInvoiceInfoRequest CreateCorporateInvoiceInfo(string address = "Test Invoice Address 123", string? taxNumber = "1234567890")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Corporate,
+            CompanyName = "Acme A.S.",
+            TaxOffice = "Kadikoy",
+            TaxNumber = taxNumber,
+            InvoiceAddress = address
+        };
     }
 
     [Fact]
@@ -105,7 +149,10 @@ public class OrderManagerTests
         var checkoutRequest = new CheckoutRequest 
         { 
             ShippingAddress = "Test Address",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
         
         var cartDto = new CartDto 
@@ -141,6 +188,7 @@ public class OrderManagerTests
         var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
 
         capturedOrder.Should().NotBeNull();
+        capturedOrder.CheckoutContextVersion.Should().Be(1);
         capturedOrder.TotalAmount.Should().Be(154.90m); 
         result.Success.Should().BeTrue();
         result.Data.TotalAmount.Should().Be(154.90m);
@@ -158,7 +206,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard",
-            LoyaltyPointsToUse = 1500
+            LoyaltyPointsToUse = 1500,
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var cartDto = new CartDto
@@ -201,6 +252,7 @@ public class OrderManagerTests
         var result = await _orderManager.CheckoutAsync(userId, checkoutRequest);
 
         result.Success.Should().BeTrue();
+        capturedOrder.CheckoutContextVersion.Should().Be(1);
         capturedOrder.TotalAmount.Should().Be(214.90m);
         capturedOrder.LoyaltyPointsUsed.Should().Be(1500);
         capturedOrder.LoyaltyDiscountAmount.Should().Be(15m);
@@ -216,7 +268,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard",
-            GiftCardCode = "GC-TEST-1"
+            GiftCardCode = "GC-TEST-1",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var cartDto = new CartDto
@@ -273,7 +328,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address",
             PaymentMethod = "CreditCard",
-            GiftCardCode = "GC-FULL-1"
+            GiftCardCode = "GC-FULL-1",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var cartDto = new CartDto
@@ -322,10 +380,108 @@ public class OrderManagerTests
     }
 
     [Fact]
+    public async Task CheckoutAsync_WithoutLegalConsents_ShouldReturnError()
+    {
+        var result = await _orderManager.CheckoutAsync(100, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Yasal onaylar");
+        _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WithCorporateInvoiceMissingTaxNumber_ShouldReturnError()
+    {
+        var result = await _orderManager.CheckoutAsync(100, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateCorporateInvoiceInfo(taxNumber: null)
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("vergi numarası");
+        _orderDalMock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutAsync_WhenCheckoutFeatureFlagsDisabled_ShouldProceedWithoutLegalConsentsOrInvoice()
+    {
+        var orderManager = new OrderManager(
+            _orderDalMock.Object,
+            _productDalMock.Object,
+            _inventoryServiceMock.Object,
+            _cartServiceMock.Object,
+            _uowMock.Object,
+            _couponServiceMock.Object,
+            _loyaltyServiceMock.Object,
+            _giftCardServiceMock.Object,
+            _referralServiceMock.Object,
+            _auditServiceMock.Object,
+            _loggerMock.Object,
+            _publishEndpointMock.Object,
+            CreateFrontendFeatureSettings(enableCheckoutLegalConsents: false, enableCheckoutInvoiceInfo: false),
+            _correlationIdProviderMock.Object);
+
+        const int userId = 100;
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+        };
+        var cartDto = new CartDto
+        {
+            Id = 1,
+            TotalAmount = 125m,
+            Items = new List<CartItemDto>
+            {
+                new() { ProductId = 1, ProductName = "P1", Quantity = 1, UnitPrice = 125, AvailableStock = 10 }
+            }
+        };
+
+        _cartServiceMock.Setup(x => x.GetCartAsync(userId))
+            .ReturnsAsync(new SuccessDataResult<CartDto>(cartDto));
+        _inventoryServiceMock.Setup(x => x.ReserveStocksAsync(It.IsAny<Dictionary<int, int>>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new SuccessResult());
+        _couponServiceMock.Setup(x => x.ValidateCouponAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(new SuccessDataResult<CouponValidationResult>(new CouponValidationResult { IsValid = true, DiscountAmount = 0 }));
+        _cartServiceMock.Setup(x => x.ClearCartAsync(userId)).ReturnsAsync(new SuccessResult());
+
+        Order capturedOrder = null!;
+        _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
+            .Callback<Order>(o => { o.Id = 88; capturedOrder = o; })
+            .ReturnsAsync((Order o) => o);
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()))
+            .ReturnsAsync(() => capturedOrder);
+
+        var result = await orderManager.CheckoutAsync(userId, checkoutRequest);
+
+        result.Success.Should().BeTrue();
+        capturedOrder.InvoiceInfo.Should().BeNull();
+        capturedOrder.CheckoutContextVersion.Should().Be(1);
+        capturedOrder.PreliminaryInfoAcceptedAt.Should().BeNull();
+        capturedOrder.DistanceSalesContractAcceptedAt.Should().BeNull();
+        capturedOrder.AcceptedFromIp.Should().BeNull();
+    }
+
+    [Fact]
     public async Task CheckoutAsync_WhenReserveFails_ShouldReturnError()
     {
         var userId = 100;
-        var checkoutRequest = new CheckoutRequest();
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
+        };
         var cartDto = new CartDto 
         { 
             Items = new List<CartItemDto> { new() { ProductId = 1, Quantity = 1, AvailableStock = 10 } } 
@@ -367,7 +523,14 @@ public class OrderManagerTests
         _orderDalMock.Setup(x => x.AddAsync(It.IsAny<Order>()))
             .ThrowsAsync(new Exception("DB Connection Failed"));
 
-        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest());
+        var result = await _orderManager.CheckoutAsync(userId, new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
+        });
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Sipariş oluşturulamadı");
@@ -407,7 +570,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address 123",
             PaymentMethod = "CreditCard",
-            IdempotencyKey = idempotencyKey
+            IdempotencyKey = idempotencyKey,
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         });
 
         result.Success.Should().BeTrue();
@@ -469,7 +635,10 @@ public class OrderManagerTests
         {
             ShippingAddress = "Test Address 123",
             PaymentMethod = "CreditCard",
-            IdempotencyKey = idempotencyKey
+            IdempotencyKey = idempotencyKey,
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         });
 
         result.Success.Should().BeTrue();
@@ -583,7 +752,7 @@ public class OrderManagerTests
 
         var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
         {
-            CargoCompany = "Yurtici",
+            CargoProvider = CargoProvider.YurticiKargo,
             TrackingCode = "TRK-123"
         });
 
@@ -591,5 +760,173 @@ public class OrderManagerTests
         result.Message.Should().Be("Sipariş size ait ürünler içermiyor");
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
         _uowMock.Verify(x => x.BeginTransactionAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ShipOrderAsync_WithEstimatedDelivery_ShouldPersistShipmentMetadata()
+    {
+        const int sellerId = 5;
+        var estimatedDeliveryDate = DateTime.UtcNow.Date.AddDays(2);
+        OrderShippedEvent? publishedEvent = null;
+        var order = new Order
+        {
+            Id = 703,
+            UserId = 201,
+            OrderNumber = "ORD-SELLER-3",
+            Status = OrderStatus.Paid,
+            Payment = new Payment { Status = PaymentStatus.Success },
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 90,
+                    Quantity = 1,
+                    PriceSnapshot = 240m,
+                    Product = new Product
+                    {
+                        Id = 90,
+                        Name = "Kargo Test Urunu",
+                        Description = "d",
+                        Price = 240m,
+                        SKU = "K1",
+                        SellerId = sellerId
+                    }
+                }
+            ]
+        };
+
+        _publishEndpointMock
+            .Setup(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((message, _) => publishedEvent = message as OrderShippedEvent)
+            .Returns(Task.CompletedTask);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
+        {
+            CargoProvider = CargoProvider.YurticiKargo,
+            TrackingCode = "TRK-555",
+            EstimatedDeliveryDate = estimatedDeliveryDate
+        });
+
+        result.Success.Should().BeTrue();
+        order.Status.Should().Be(OrderStatus.Shipped);
+        order.ShipmentStatus.Should().Be(ShipmentStatus.HandedToCargo);
+        order.EstimatedDeliveryDate.Should().Be(estimatedDeliveryDate);
+        order.ShippedAt.Should().NotBeNull();
+        publishedEvent.Should().NotBeNull();
+        publishedEvent!.EstimatedDeliveryDate.Should().Be(estimatedDeliveryDate);
+        publishedEvent.CargoCompany.Should().Be("Yurtiçi Kargo");
+        publishedEvent.TrackingCode.Should().Be("TRK-555");
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.PendingPayment)]
+    [InlineData(OrderStatus.Shipped)]
+    [InlineData(OrderStatus.Delivered)]
+    [InlineData(OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Refunded)]
+    public async Task ShipOrderAsync_WhenOrderStatusIsNotShippable_ShouldReturnError(OrderStatus orderStatus)
+    {
+        const int sellerId = 7;
+        var order = new Order
+        {
+            Id = 705,
+            UserId = 203,
+            OrderNumber = "ORD-SHIP-STATUS",
+            Status = orderStatus,
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 92,
+                    Quantity = 1,
+                    PriceSnapshot = 100m,
+                    Product = new Product
+                    {
+                        Id = 92,
+                        Name = "Durum Test Urunu",
+                        Description = "d",
+                        Price = 100m,
+                        SKU = "DS1",
+                        SellerId = sellerId
+                    }
+                }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.ShipOrderAsync(sellerId, order.Id, new ShipOrderRequest
+        {
+            CargoProvider = CargoProvider.YurticiKargo,
+            TrackingCode = "TRK-123456"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Sadece ödenmiş veya hazırlanmakta olan siparişler kargoya verilebilir.");
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uowMock.Verify(x => x.BeginTransactionAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ShipOrderAsync_WhenTrackingCodeFormatIsInvalid_ShouldReturnError()
+    {
+        var result = await _orderManager.ShipOrderAsync(7, 999, new ShipOrderRequest
+        {
+            CargoProvider = CargoProvider.YurticiKargo,
+            TrackingCode = "ABC 12"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Takip kodu 6-40 karakter olmalı ve yalnızca harf, rakam, tire veya eğik çizgi içermelidir.");
+        _orderDalMock.Verify(x => x.GetByIdWithDetailsAsync(It.IsAny<int>()), Times.Never);
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderShippedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateOrderStatusAsync_WhenDelivered_ShouldSetDeliveredShipmentMetadata()
+    {
+        var order = new Order
+        {
+            Id = 704,
+            UserId = 202,
+            OrderNumber = "ORD-DELIVERED-1",
+            Status = OrderStatus.Shipped,
+            ShipmentStatus = ShipmentStatus.HandedToCargo,
+            ShippedAt = DateTime.UtcNow.AddDays(-1),
+            OrderItems =
+            [
+                new OrderItem
+                {
+                    ProductId = 91,
+                    Quantity = 1,
+                    PriceSnapshot = 100m,
+                    Product = new Product
+                    {
+                        Id = 91,
+                        Name = "Teslim Test Urunu",
+                        Description = "d",
+                        Price = 100m,
+                        SKU = "T1",
+                        SellerId = 6
+                    }
+                }
+            ]
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+
+        var result = await _orderManager.UpdateOrderStatusAsync(order.Id, "Delivered");
+
+        result.Success.Should().BeTrue();
+        order.Status.Should().Be(OrderStatus.Delivered);
+        order.ShipmentStatus.Should().Be(ShipmentStatus.Delivered);
+        order.DeliveredAt.Should().NotBeNull();
+        _publishEndpointMock.Verify(x => x.Publish(It.IsAny<OrderStatusChangedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

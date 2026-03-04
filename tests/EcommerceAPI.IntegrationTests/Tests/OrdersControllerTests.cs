@@ -6,6 +6,7 @@ using FluentAssertions;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using EcommerceAPI.Entities.Enums;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
 
@@ -19,6 +20,16 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         _factory = factory;
     }
 
+    private static CheckoutInvoiceInfoRequest CreateInvoiceInfo(string address = "Test Invoice Address 123, Istanbul")
+    {
+        return new CheckoutInvoiceInfoRequest
+        {
+            Type = InvoiceType.Individual,
+            FullName = "Test User",
+            InvoiceAddress = address
+        };
+    }
+
     [Fact]
     public async Task Checkout_WithoutAuth_Returns401()
     {
@@ -26,7 +37,10 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var checkoutRequest = new CheckoutRequest
         {
             ShippingAddress = "Test Address",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var response = await anonymousClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
@@ -44,7 +58,10 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var checkoutRequest = new CheckoutRequest
         {
             ShippingAddress = "Test Address 123",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var response = await authenticatedClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
@@ -99,7 +116,10 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var checkoutRequest = new CheckoutRequest
         {
             ShippingAddress = "Test Address 123, Istanbul",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var response = await authenticatedClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
@@ -145,7 +165,10 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var request = new CheckoutRequest
         {
             ShippingAddress = "Test Address 123, Istanbul",
-            PaymentMethod = "CreditCard"
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
         };
 
         var firstResponse = await client.PostAsJsonAsync("/api/v1/orders", request);
@@ -163,5 +186,58 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         secondResult!.Success.Should().BeTrue();
         secondResult.Data.Id.Should().Be(firstResult.Data.Id);
         secondResult.Message.Should().Contain("Idempotent");
+    }
+
+    [Fact]
+    public async Task Checkout_WithLegalConsents_ShouldPersistConsentTimestampsAndIp()
+    {
+        var userId = Random.Shared.Next(850_001, 860_000);
+        var categoryId = Random.Shared.Next(860_001, 870_000);
+        var productId = Random.Shared.Next(870_001, 880_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, userId);
+            await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"Consent Category {categoryId}");
+            await TestDataSeeder.EnsureProductWithStockAsync(db, productId, categoryId, 10);
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+        client.DefaultRequestHeaders.Remove("X-Forwarded-For");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", "203.0.113.10");
+
+        var addToCartResponse = await client.PostAsJsonAsync("/api/v1/cart/items", new AddToCartRequest
+        {
+            ProductId = productId,
+            Quantity = 1
+        });
+
+        addToCartResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new CheckoutRequest
+        {
+            ShippingAddress = "Test Address 123, Istanbul",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<OrderDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var order = await verificationDb.Orders.FindAsync(apiResult.Data.Id);
+
+        order.Should().NotBeNull();
+        order!.CheckoutContextVersion.Should().Be(1);
+        order.PreliminaryInfoAcceptedAt.Should().NotBeNull();
+        order.DistanceSalesContractAcceptedAt.Should().NotBeNull();
+        order.AcceptedFromIp.Should().Be("203.0.113.10");
     }
 }

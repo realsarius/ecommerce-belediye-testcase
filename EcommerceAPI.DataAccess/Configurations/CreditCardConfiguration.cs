@@ -30,6 +30,10 @@ public class CreditCardConfiguration : IEntityTypeConfiguration<CreditCard>
             .IsRequired()
             .HasMaxLength(500)
             .HasConversion(new EncryptedStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.Brand)
+            .HasConversion<int>()
+            .IsRequired();
         
         builder.Property(cc => cc.CardNumberEncrypted)
             .IsRequired()
@@ -46,11 +50,30 @@ public class CreditCardConfiguration : IEntityTypeConfiguration<CreditCard>
         builder.Property(cc => cc.ExpireMonthEncrypted)
             .IsRequired()
             .HasMaxLength(200);
-        
-        builder.Property(cc => cc.CvvEncrypted)
-            .IsRequired()
-            .HasMaxLength(200);
-        
+
+        builder.Property(cc => cc.IyzicoCardToken)
+            .HasMaxLength(500)
+            .HasConversion(new ProviderTokenStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.IyzicoUserKey)
+            .HasMaxLength(500)
+            .HasConversion(new ProviderTokenStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.StripePaymentMethodId)
+            .HasMaxLength(500)
+            .HasConversion(new ProviderTokenStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.StripeCustomerId)
+            .HasMaxLength(500)
+            .HasConversion(new ProviderTokenStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.PayTrToken)
+            .HasMaxLength(500)
+            .HasConversion(new ProviderTokenStringConverter(_encryptionService));
+
+        builder.Property(cc => cc.TokenProvider)
+            .HasConversion<int?>();
+
         builder.Property(cc => cc.IsDefault)
             .IsRequired();
         

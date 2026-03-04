@@ -24,6 +24,7 @@ const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
 const Cart = lazy(() => import('@/pages/Cart'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
+const CheckoutSuccess = lazy(() => import('@/pages/CheckoutSuccess'));
 const Orders = lazy(() => import('@/pages/Orders'));
 const OrderDetail = lazy(() => import('@/pages/OrderDetail'));
 const Returns = lazy(() => import('@/pages/Returns'));
@@ -81,6 +82,7 @@ const SellerDashboard = lazy(() => import('@/pages/seller/Dashboard'));
 const SellerProducts = lazy(() => import('@/pages/seller/Products'));
 const SellerProductForm = lazy(() => import('@/pages/seller/ProductForm'));
 const SellerOrders = lazy(() => import('@/pages/seller/Orders'));
+const SellerReturnsPage = lazy(() => import('@/pages/seller/Returns'));
 const SellerFinancePage = lazy(() => import('@/pages/seller/Finance'));
 const SellerReviewsPage = lazy(() => import('@/pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('@/pages/seller/Profile'));
@@ -134,6 +136,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Checkout />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/checkout/success"
+                      element={
+                        <ProtectedRoute>
+                          <CheckoutSuccess />
                         </ProtectedRoute>
                       }
                     />
@@ -281,6 +291,7 @@ function App() {
                     <Route path="products/new" element={<SellerProductForm />} />
                     <Route path="products/:id" element={<SellerProductForm />} />
                     <Route path="orders" element={<SellerOrders />} />
+                    <Route path="returns" element={<SellerReturnsPage />} />
                     <Route path="finance" element={<SellerFinancePage />} />
                     <Route path="reviews" element={<SellerReviewsPage />} />
                     <Route path="profile" element={<SellerProfile />} />

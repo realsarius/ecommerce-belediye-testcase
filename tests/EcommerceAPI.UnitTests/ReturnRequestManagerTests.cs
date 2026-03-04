@@ -12,6 +12,7 @@ using FluentAssertions;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Moq;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.UnitTests;
 
@@ -25,8 +26,10 @@ public class ReturnRequestManagerTests
     private readonly Mock<IGiftCardService> _giftCardServiceMock;
     private readonly Mock<IReferralService> _referralServiceMock;
     private readonly Mock<IAuditService> _auditServiceMock;
+    private readonly Mock<IReturnAttachmentStorageService> _returnAttachmentStorageServiceMock;
     private readonly Mock<ILogger<ReturnRequestManager>> _loggerMock;
     private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly Mock<ICorrelationIdProvider> _correlationIdProviderMock;
     private readonly ReturnRequestManager _manager;
 
     public ReturnRequestManagerTests()
@@ -39,8 +42,11 @@ public class ReturnRequestManagerTests
         _giftCardServiceMock = new Mock<IGiftCardService>();
         _referralServiceMock = new Mock<IReferralService>();
         _auditServiceMock = new Mock<IAuditService>();
+        _returnAttachmentStorageServiceMock = new Mock<IReturnAttachmentStorageService>();
         _loggerMock = new Mock<ILogger<ReturnRequestManager>>();
         _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _correlationIdProviderMock = new Mock<ICorrelationIdProvider>();
+        _correlationIdProviderMock.Setup(x => x.GetCorrelationId()).Returns("test-correlation-id");
         _publishEndpointMock
             .Setup(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -59,6 +65,9 @@ public class ReturnRequestManagerTests
         _referralServiceMock
             .Setup(x => x.ReverseRewardsForOrderAsync(It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync(new SuccessResult());
+        _returnAttachmentStorageServiceMock
+            .Setup(x => x.FinalizeTemporaryPhotosAsync(It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SuccessDataResult<List<ReturnRequestAttachment>>([]));
 
         _manager = new ReturnRequestManager(
             _returnRequestDalMock.Object,
@@ -69,8 +78,10 @@ public class ReturnRequestManagerTests
             _giftCardServiceMock.Object,
             _referralServiceMock.Object,
             _auditServiceMock.Object,
+            _returnAttachmentStorageServiceMock.Object,
             _loggerMock.Object,
-            _publishEndpointMock.Object);
+            _publishEndpointMock.Object,
+            _correlationIdProviderMock.Object);
     }
 
     [Fact]
@@ -91,6 +102,8 @@ public class ReturnRequestManagerTests
         var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "NotAsDescribed",
+            SelectedOrderItemIds = [order.OrderItems.First().Id],
             Reason = "Ürün beklentimi karşılamadı",
             RequestNote = "Kutusu açıldı ama hasarsız."
         });
@@ -98,7 +111,10 @@ public class ReturnRequestManagerTests
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(ReturnRequestStatus.Pending.ToString());
         result.Data.Type.Should().Be(ReturnRequestType.Return.ToString());
+        result.Data.ReasonCategory.Should().Be(ReturnReasonCategory.NotAsDescribed.ToString());
         result.Data.RequestedRefundAmount.Should().Be(order.TotalAmount);
+        result.Data.SelectedItems.Should().ContainSingle();
+        result.Data.RequestWindowEndsAt.Should().Be(order.DeliveredAt!.Value.AddDays(14));
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
 
@@ -115,6 +131,7 @@ public class ReturnRequestManagerTests
         var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "Other",
             Reason = "İade denemesi"
         });
 
@@ -124,8 +141,151 @@ public class ReturnRequestManagerTests
     }
 
     [Fact]
+    public async Task CreateReturnRequestAsync_WhenActiveRequestExists_ShouldFail()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(true);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "Other",
+            Reason = "Aynı sipariş için ikinci talep"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("zaten aktif");
+        _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WhenDeliveredMoreThan14DaysAgo_ShouldFail()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+        order.DeliveredAt = DateTime.UtcNow.Date.AddDays(-15);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "ChangedMind",
+            Reason = "Süre dışı iade denemesi"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("14 gün");
+        _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WhenMultipleItemsAndNoSelection_ShouldFail()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success, includeSecondItem: true);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "Other",
+            Reason = "Bir urun iade etmek istiyorum"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("en az bir ürün");
+        _returnRequestDalMock.Verify(x => x.AddAsync(It.IsAny<ReturnRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WithSelectedItems_ShouldCalculateRefundAmountFromSelectedItems()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success, includeSecondItem: true);
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+        _returnRequestDalMock.Setup(x => x.AddAsync(It.IsAny<ReturnRequest>()))
+            .Callback<ReturnRequest>(request => request.Id = 1002)
+            .ReturnsAsync((ReturnRequest request) => request);
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(1002))
+            .ReturnsAsync((ReturnRequest?)null);
+
+        var selectedItem = order.OrderItems.Last();
+        var expectedRefundAmount = selectedItem.PriceSnapshot * selectedItem.Quantity;
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "DefectiveDamaged",
+            SelectedOrderItemIds = [selectedItem.Id],
+            Reason = "Ikinci urun hasarli geldi"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.RequestedRefundAmount.Should().Be(expectedRefundAmount);
+        result.Data.SelectedItems.Should().ContainSingle();
+        result.Data.SelectedItems[0].OrderItemId.Should().Be(selectedItem.Id);
+        result.Data.SelectedItems[0].ProductId.Should().Be(selectedItem.ProductId);
+    }
+
+    [Fact]
+    public async Task CreateReturnRequestAsync_WithUploadedPhotoKeys_ShouldAttachUploadedPhotos()
+    {
+        var order = CreateOrder(OrderStatus.Delivered, PaymentStatus.Success);
+        var uploadedAttachment = new ReturnRequestAttachment
+        {
+            Id = 77,
+            OriginalFileName = "hasar.jpg",
+            StoredFileName = "stored.jpg",
+            RelativePath = "final/2026/03/stored.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 42_000
+        };
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _returnRequestDalMock.Setup(x => x.HasActiveRequestForOrderAsync(order.Id))
+            .ReturnsAsync(false);
+        _returnRequestDalMock.Setup(x => x.AddAsync(It.IsAny<ReturnRequest>()))
+            .Callback<ReturnRequest>(request => request.Id = 1003)
+            .ReturnsAsync((ReturnRequest request) => request);
+        _returnAttachmentStorageServiceMock
+            .Setup(x => x.FinalizeTemporaryPhotosAsync(order.UserId, It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SuccessDataResult<List<ReturnRequestAttachment>>([uploadedAttachment]));
+        _returnRequestDalMock.Setup(x => x.GetByIdWithDetailsAsync(1003))
+            .ReturnsAsync((ReturnRequest?)null);
+
+        var result = await _manager.CreateReturnRequestAsync(order.UserId, order.Id, new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "DefectiveDamaged",
+            SelectedOrderItemIds = [order.OrderItems.First().Id],
+            UploadedPhotoKeys = ["upload-key-1"],
+            Reason = "Hasarlı ürün geldi"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Attachments.Should().ContainSingle();
+        result.Data.Attachments[0].FileName.Should().Be("hasar.jpg");
+        result.Data.Attachments[0].ContentType.Should().Be("image/jpeg");
+    }
+
+    [Fact]
     public async Task ReviewReturnRequestAsync_ApprovedPaidOrder_ShouldCreateRefundRequest()
     {
+        RefundRequest? capturedRefundRequest = null;
         var returnRequest = new ReturnRequest
         {
             Id = 3001,
@@ -145,6 +305,7 @@ public class ReturnRequestManagerTests
         _refundRequestDalMock.Setup(x => x.GetByReturnRequestIdAsync(returnRequest.Id))
             .ReturnsAsync((RefundRequest?)null);
         _refundRequestDalMock.Setup(x => x.AddAsync(It.IsAny<RefundRequest>()))
+            .Callback<RefundRequest>(refundRequest => capturedRefundRequest = refundRequest)
             .ReturnsAsync((RefundRequest refundRequest) => refundRequest);
 
         var result = await _manager.ReviewReturnRequestAsync(returnRequest.Id, 7, new ReviewReturnRequestRequest
@@ -155,6 +316,9 @@ public class ReturnRequestManagerTests
 
         result.Success.Should().BeTrue();
         result.Data.Status.Should().Be(ReturnRequestStatus.RefundPending.ToString());
+        result.Data.RefundProvider.Should().Be(PaymentProviderType.Iyzico);
+        capturedRefundRequest.Should().NotBeNull();
+        capturedRefundRequest!.Provider.Should().Be(PaymentProviderType.Iyzico);
         _refundRequestDalMock.Verify(x => x.AddAsync(It.IsAny<RefundRequest>()), Times.Once);
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<RefundRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
@@ -266,14 +430,15 @@ public class ReturnRequestManagerTests
         _publishEndpointMock.Verify(x => x.Publish(It.IsAny<ReturnRequestReviewedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus)
+    private static Order CreateOrder(OrderStatus orderStatus, PaymentStatus paymentStatus, bool includeSecondItem = false)
     {
-        return new Order
+        var order = new Order
         {
             Id = 501,
             UserId = 42,
             OrderNumber = "ORD-TEST",
             Status = orderStatus,
+            DeliveredAt = orderStatus == OrderStatus.Delivered ? DateTime.UtcNow.Date : null,
             TotalAmount = 249.90m,
             ShippingAddress = "Test Address",
             Payment = new Payment
@@ -283,12 +448,14 @@ public class ReturnRequestManagerTests
                 Currency = "TRY",
                 Status = paymentStatus,
                 PaymentMethod = "CreditCard",
+                Provider = PaymentProviderType.Iyzico,
                 IdempotencyKey = "payment-key"
             },
             OrderItems =
             [
                 new OrderItem
                 {
+                    Id = 9101,
                     ProductId = 91,
                     Quantity = 1,
                     PriceSnapshot = 249.90m,
@@ -305,5 +472,35 @@ public class ReturnRequestManagerTests
                 }
             ]
         };
+
+        if (includeSecondItem)
+        {
+            order.OrderItems.Add(new OrderItem
+            {
+                Id = 9102,
+                OrderId = order.Id,
+                ProductId = 92,
+                Quantity = 2,
+                PriceSnapshot = 75m,
+                Product = new Product
+                {
+                    Id = 92,
+                    Name = "Second Test Product",
+                    Description = "desc",
+                    Price = 75m,
+                    SKU = "SKU-2",
+                    CategoryId = 1,
+                    SellerId = 5
+                }
+            });
+
+            order.TotalAmount = order.OrderItems.Sum(item => item.PriceSnapshot * item.Quantity);
+            if (order.Payment != null)
+            {
+                order.Payment.Amount = order.TotalAmount;
+            }
+        }
+
+        return order;
     }
 }

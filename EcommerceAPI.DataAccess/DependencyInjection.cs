@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IAnnouncementDal, EfAnnouncementDal>();
         services.AddScoped<IContactMessageDal, EfContactMessageDal>();
         services.AddScoped<IReturnRequestDal, EfReturnRequestDal>();
+        services.AddScoped<IReturnRequestAttachmentDal, EfReturnRequestAttachmentDal>();
         services.AddScoped<IRefundRequestDal, EfRefundRequestDal>();
         services.AddScoped<ILoyaltyTransactionDal, EfLoyaltyTransactionDal>();
         services.AddScoped<IGiftCardDal, EfGiftCardDal>();

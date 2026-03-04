@@ -6,6 +6,7 @@ import {
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
 import { logout, setCredentials } from '@/features/auth/authSlice';
+import { getRuntimeApiBaseUrl } from '@/lib/runtimeApi';
 
 interface AuthState {
   user: {
@@ -20,7 +21,7 @@ interface AuthState {
 }
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_URL || '/api/v1',
+  baseUrl: getRuntimeApiBaseUrl(),
   prepareHeaders: (headers, { getState }) => {
     const state = getState() as { auth: AuthState };
     const token = state.auth.token;

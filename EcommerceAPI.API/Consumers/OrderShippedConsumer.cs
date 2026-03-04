@@ -5,6 +5,7 @@ using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.IntegrationEvents;
+using EcommerceAPI.Entities.Utilities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,9 +49,10 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
         if (alreadyProcessed)
         {
             _logger.LogInformation(
-                "OrderShippedEvent duplicate skipped. OrderId={OrderId}, MessageId={MessageId}",
+                "OrderShippedEvent duplicate skipped. OrderId={OrderId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.OrderId,
-                messageId);
+                messageId,
+                message.CorrelationId);
             return;
         }
 
@@ -60,12 +62,16 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
 
         if (channelSettings.InAppEnabled)
         {
+            var estimatedDeliveryText = message.EstimatedDeliveryDate.HasValue
+                ? $" Tahmini teslimat: {message.EstimatedDeliveryDate.Value.ToLocalTime():dd.MM.yyyy}."
+                : string.Empty;
+
             await _notificationService.CreateNotificationAsync(new CreateNotificationRequest
             {
                 UserId = message.UserId,
                 Type = "Order",
                 Title = "Siparişiniz kargoya verildi",
-                Body = $"{message.OrderNumber} numaralı siparişiniz {message.CargoCompany} ile yola çıktı. Takip kodu: {message.TrackingCode}",
+                Body = $"{message.OrderNumber} numaralı siparişiniz {message.CargoCompany} ile yola çıktı. Takip kodu: {message.TrackingCode}.{estimatedDeliveryText}",
                 DeepLink = $"/orders/{message.OrderId}"
             });
         }
@@ -78,6 +84,20 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
                 BuildShipmentEmailBody(message),
                 context.CancellationToken);
         }
+
+        _logger.LogInformation(
+            "Shipment analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, OrderId={OrderId}, OrderNumber={OrderNumber}, UserId={UserId}, CargoCompany={CargoCompany}, TrackingCode={TrackingCode}, EstimatedDeliveryDate={EstimatedDeliveryDate}, MessageId={MessageId}, OccurredAt={OccurredAt}, CorrelationId={CorrelationId}",
+            AnalyticsLogSchema.Streams.Fulfillment,
+            AnalyticsLogSchema.Events.OrderShipped,
+            message.OrderId,
+            message.OrderNumber,
+            message.UserId,
+            message.CargoCompany,
+            message.TrackingCode,
+            message.EstimatedDeliveryDate,
+            messageId,
+            message.ShippedAt,
+            message.CorrelationId);
 
         _dbContext.InboxMessages.Add(new InboxMessage
         {
@@ -94,9 +114,10 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {
             _logger.LogInformation(
-                "OrderShippedEvent duplicate detected during inbox save. OrderId={OrderId}, MessageId={MessageId}",
+                "OrderShippedEvent duplicate detected during inbox save. OrderId={OrderId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.OrderId,
-                messageId);
+                messageId,
+                message.CorrelationId);
         }
     }
 
@@ -112,6 +133,7 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
         activity.SetTag("ecommerce.message.type", nameof(OrderShippedEvent));
         activity.SetTag("ecommerce.order.id", message.OrderId);
         activity.SetTag("ecommerce.order.number", message.OrderNumber);
+        activity.SetTag("ecommerce.correlation_id", message.CorrelationId);
     }
 
     private static bool IsDuplicateKeyException(DbUpdateException ex)
@@ -130,6 +152,7 @@ public sealed class OrderShippedConsumer : IConsumer<OrderShippedEvent>
                   <li>Kargo firması: {message.CargoCompany}</li>
                   <li>Takip kodu: {message.TrackingCode}</li>
                   <li>Gönderim zamanı: {message.ShippedAt.ToLocalTime():dd.MM.yyyy HH:mm}</li>
+                  {(message.EstimatedDeliveryDate.HasValue ? $"<li>Tahmini teslimat: {message.EstimatedDeliveryDate.Value.ToLocalTime():dd.MM.yyyy}</li>" : string.Empty)}
                 </ul>
                 <p>Sipariş detaylarınızı hesabınızdan takip edebilirsiniz.</p>
                 """;

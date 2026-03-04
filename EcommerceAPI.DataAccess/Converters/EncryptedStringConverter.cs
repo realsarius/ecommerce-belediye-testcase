@@ -26,3 +26,45 @@ public class NullableEncryptedStringConverter : ValueConverter<string?, string?>
     {
     }
 }
+
+public class ProviderTokenStringConverter : ValueConverter<string?, string?>
+{
+    private const string Prefix = "enc::";
+
+    public ProviderTokenStringConverter(IEncryptionService encryptionService)
+        : base(
+            plainText => ProtectToken(plainText, encryptionService),
+            cipherText => UnprotectToken(cipherText, encryptionService))
+    {
+    }
+
+    private static string? ProtectToken(string? plainText, IEncryptionService encryptionService)
+    {
+        if (string.IsNullOrEmpty(plainText))
+        {
+            return plainText;
+        }
+
+        if (plainText.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            return plainText;
+        }
+
+        return $"{Prefix}{encryptionService.Encrypt(plainText)}";
+    }
+
+    private static string? UnprotectToken(string? cipherText, IEncryptionService encryptionService)
+    {
+        if (string.IsNullOrEmpty(cipherText))
+        {
+            return cipherText;
+        }
+
+        if (!cipherText.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            return cipherText;
+        }
+
+        return encryptionService.Decrypt(cipherText.Substring(Prefix.Length));
+    }
+}

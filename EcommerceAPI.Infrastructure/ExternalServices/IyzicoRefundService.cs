@@ -5,12 +5,16 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Infrastructure.Utilities;
 using Microsoft.Extensions.Logging;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
-public class IyzicoRefundService : IRefundService
+public class IyzicoRefundService : IRefundService, IRefundProvider
 {
+    public PaymentProviderType ProviderType => PaymentProviderType.Iyzico;
+
     private readonly IRefundRequestDal _refundRequestDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IIyzicoRefundGateway _refundGateway;
@@ -19,6 +23,7 @@ public class IyzicoRefundService : IRefundService
     private readonly IReferralService _referralService;
     private readonly IAuditService _auditService;
     private readonly ILogger<IyzicoRefundService> _logger;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     public IyzicoRefundService(
         IRefundRequestDal refundRequestDal,
@@ -28,7 +33,8 @@ public class IyzicoRefundService : IRefundService
         IGiftCardService giftCardService,
         IReferralService referralService,
         IAuditService auditService,
-        ILogger<IyzicoRefundService> logger)
+        ILogger<IyzicoRefundService> logger,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _refundRequestDal = refundRequestDal;
         _unitOfWork = unitOfWork;
@@ -38,6 +44,7 @@ public class IyzicoRefundService : IRefundService
         _referralService = referralService;
         _auditService = auditService;
         _logger = logger;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     public async Task<IDataResult<RefundRequestDto>> ProcessRefundAsync(int refundRequestId, CancellationToken cancellationToken = default)
@@ -84,16 +91,18 @@ public class IyzicoRefundService : IRefundService
                 refundRequest.Status = RefundRequestStatus.Failed;
                 refundRequest.FailureReason = gatewayResult.ErrorMessage ?? "Refund işlemi başarısız oldu.";
                 refundRequest.ProcessedAt = DateTime.UtcNow;
+                var sanitizedGatewayError = SensitiveDataLogSanitizer.Sanitize(gatewayResult.ErrorMessage);
 
                 _refundRequestDal.Update(refundRequest);
                 await _unitOfWork.SaveChangesAsync();
 
                 _logger.LogWarning(
-                    "Refund failed. RefundRequestId={RefundRequestId}, OrderId={OrderId}, ErrorCode={ErrorCode}, ErrorMessage={ErrorMessage}",
+                    "Refund failed. RefundRequestId={RefundRequestId}, OrderId={OrderId}, ErrorCode={ErrorCode}, ErrorMessage={ErrorMessage}, CorrelationId={CorrelationId}",
                     refundRequest.Id,
                     refundRequest.OrderId,
                     gatewayResult.ErrorCode,
-                    gatewayResult.ErrorMessage);
+                    sanitizedGatewayError,
+                    _correlationIdProvider.GetCorrelationId());
 
                 return new ErrorDataResult<RefundRequestDto>(MapToDto(refundRequest), refundRequest.FailureReason, gatewayResult.ErrorCode);
             }
@@ -173,12 +182,13 @@ public class IyzicoRefundService : IRefundService
                 });
 
             _logger.LogInformation(
-                "Refund processed successfully. RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, Amount={Amount}, ProviderRefundId={ProviderRefundId}",
+                "Refund processed successfully. RefundRequestId={RefundRequestId}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, Amount={Amount}, ProviderRefundId={ProviderRefundId}, CorrelationId={CorrelationId}",
                 refundRequest.Id,
                 refundRequest.ReturnRequestId,
                 refundRequest.OrderId,
                 refundRequest.Amount,
-                refundRequest.ProviderRefundId);
+                refundRequest.ProviderRefundId,
+                _correlationIdProvider.GetCorrelationId());
 
             return new SuccessDataResult<RefundRequestDto>(MapToDto(refundRequest), "Refund işlemi tamamlandı.");
         }
@@ -187,15 +197,18 @@ public class IyzicoRefundService : IRefundService
             refundRequest.Status = RefundRequestStatus.Pending;
             refundRequest.FailureReason = ex.Message;
             refundRequest.ProcessedAt = null;
+            var sanitizedExceptionMessage = SensitiveDataLogSanitizer.Sanitize(ex.Message);
 
             _refundRequestDal.Update(refundRequest);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogError(
-                ex,
-                "Refund processing failed with transient error. RefundRequestId={RefundRequestId}, OrderId={OrderId}",
+                "Refund processing failed with transient error. RefundRequestId={RefundRequestId}, OrderId={OrderId}, ErrorType={ErrorType}, ErrorMessage={ErrorMessage}, CorrelationId={CorrelationId}",
                 refundRequest.Id,
-                refundRequest.OrderId);
+                refundRequest.OrderId,
+                ex.GetType().Name,
+                sanitizedExceptionMessage,
+                _correlationIdProvider.GetCorrelationId());
 
             throw;
         }
@@ -214,6 +227,7 @@ public class IyzicoRefundService : IRefundService
             CustomerName = $"{refundRequest.ReturnRequest.User.FirstName} {refundRequest.ReturnRequest.User.LastName}".Trim(),
             Amount = refundRequest.Amount,
             Currency = refundRequest.Payment?.Currency ?? refundRequest.Order.Currency,
+            Provider = refundRequest.Provider,
             Status = refundRequest.Status.ToString(),
             ProviderRefundId = refundRequest.ProviderRefundId,
             FailureReason = refundRequest.FailureReason,

@@ -18,6 +18,9 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
         
         builder.HasIndex(o => o.OrderNumber)
             .IsUnique();
+
+        builder.Property(o => o.CheckoutContextVersion)
+            .IsRequired();
         
         builder.Property(o => o.TotalAmount)
             .IsRequired()
@@ -47,6 +50,12 @@ public class OrderConfigurationBasic : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.TrackingCode)
             .HasMaxLength(120);
+
+        builder.Property(o => o.AcceptedFromIp)
+            .HasMaxLength(128);
+
+        builder.Property(o => o.ShipmentStatus)
+            .IsRequired();
         
         builder.Property(o => o.ShippingAddress)
             .HasMaxLength(2000);

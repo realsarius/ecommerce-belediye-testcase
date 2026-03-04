@@ -20,6 +20,9 @@ public static class MappingExtensions
             CargoCompany = order.CargoCompany,
             TrackingCode = order.TrackingCode,
             ShippedAt = order.ShippedAt,
+            EstimatedDeliveryDate = order.EstimatedDeliveryDate,
+            DeliveredAt = order.DeliveredAt,
+            ShipmentStatus = order.ShipmentStatus.ToString(),
             CreatedAt = order.CreatedAt,
             CancelledAt = order.CancelledAt,
             CouponCode = order.CouponCode,
@@ -46,7 +49,19 @@ public static class MappingExtensions
                 Currency = order.Payment.Currency,
                 Status = order.Payment.Status.ToString(),
                 PaymentMethod = order.Payment.PaymentMethod,
+                Provider = order.Payment.Provider,
+                Last4Digits = order.Payment.Last4Digits,
                 CreatedAt = order.Payment.CreatedAt
+            } : null,
+            InvoiceInfo = order.InvoiceInfo != null ? new InvoiceInfoDto
+            {
+                Type = order.InvoiceInfo.Type,
+                FullName = order.InvoiceInfo.FullName,
+                TcKimlikNo = order.InvoiceInfo.TcKimlikNo,
+                CompanyName = order.InvoiceInfo.CompanyName,
+                TaxOffice = order.InvoiceInfo.TaxOffice,
+                TaxNumber = order.InvoiceInfo.TaxNumber,
+                InvoiceAddress = order.InvoiceInfo.InvoiceAddress
             } : null
         };
     }

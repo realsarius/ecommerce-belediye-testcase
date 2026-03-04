@@ -33,7 +33,7 @@ import { Label } from '@/components/common/label';
 import { KpiCard } from '@/components/admin/KpiCard';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { useGetSellerOrdersQuery, useShipSellerOrderMutation } from '@/features/seller/sellerApi';
-import type { Order, OrderStatus } from '@/features/orders/types';
+import type { CargoProvider, Order, OrderStatus } from '@/features/orders/types';
 import { getOrderStatusLabel, getOrderStatusTone } from '@/lib/orderStatus';
 
 function formatCurrency(value: number, currency = 'TRY') {
@@ -58,6 +58,48 @@ function maskCustomerName(value?: string) {
 
 function canShipOrder(status: OrderStatus) {
   return status === 'Paid' || status === 'Processing';
+}
+
+const cargoProviders: Array<{ value: CargoProvider; label: string }> = [
+  { value: 'YurticiKargo', label: 'Yurtiçi Kargo' },
+  { value: 'ArasCargo', label: 'Aras Kargo' },
+  { value: 'MngKargo', label: 'MNG Kargo' },
+  { value: 'PttKargo', label: 'PTT Kargo' },
+  { value: 'SuratKargo', label: 'Sürat Kargo' },
+  { value: 'UpsKargo', label: 'UPS Kargo' },
+];
+
+const trackingCodePattern = /^[A-Za-z0-9/-]{6,40}$/;
+
+function getTrackingCodeError(value: string) {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  if (!trackingCodePattern.test(normalizedValue)) {
+    return 'Takip kodu 6-40 karakter olmalı; yalnızca harf, rakam, tire veya / içermelidir.';
+  }
+
+  return null;
+}
+
+function mapCargoCompanyToProvider(cargoCompany?: string): CargoProvider | '' {
+  if (!cargoCompany) {
+    return '';
+  }
+
+  const normalizedValue = cargoCompany.toLocaleLowerCase('tr-TR');
+
+  if (normalizedValue.includes('yurti')) return 'YurticiKargo';
+  if (normalizedValue.includes('aras')) return 'ArasCargo';
+  if (normalizedValue.includes('mng')) return 'MngKargo';
+  if (normalizedValue.includes('ptt')) return 'PttKargo';
+  if (normalizedValue.includes('sürat') || normalizedValue.includes('surat')) return 'SuratKargo';
+  if (normalizedValue.includes('ups')) return 'UpsKargo';
+
+  return '';
 }
 
 function buildTimeline(order: Order) {
@@ -93,7 +135,9 @@ export default function SellerOrders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [shippingDialogOrder, setShippingDialogOrder] = useState<Order | null>(null);
   const [trackingCode, setTrackingCode] = useState('');
-  const [cargoCompany, setCargoCompany] = useState('');
+  const [cargoProvider, setCargoProvider] = useState<CargoProvider | ''>('');
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
+  const trackingCodeError = getTrackingCodeError(trackingCode);
 
   const { data: orders = [], isLoading } = useGetSellerOrdersQuery();
   const [shipSellerOrder, { isLoading: isUpdating }] = useShipSellerOrderMutation();
@@ -129,7 +173,8 @@ export default function SellerOrders() {
   const openShippingDialog = (order: Order) => {
     setShippingDialogOrder(order);
     setTrackingCode(order.trackingCode ?? '');
-    setCargoCompany(order.cargoCompany ?? '');
+    setCargoProvider(mapCargoCompanyToProvider(order.cargoCompany));
+    setEstimatedDeliveryDate(order.estimatedDeliveryDate ? order.estimatedDeliveryDate.slice(0, 10) : '');
   };
 
   const handleShipOrder = async () => {
@@ -137,22 +182,39 @@ export default function SellerOrders() {
       return;
     }
 
-    if (!trackingCode.trim() || !cargoCompany.trim()) {
+    if (!trackingCode.trim() || !cargoProvider) {
       toast.error('Kargo firması ve takip kodu zorunludur.');
       return;
+    }
+
+    if (trackingCodeError) {
+      toast.error(trackingCodeError);
+      return;
+    }
+
+    if (estimatedDeliveryDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(`${estimatedDeliveryDate}T00:00:00`);
+      if (selectedDate < today) {
+        toast.error('Tahmini teslimat tarihi bugünden önce olamaz.');
+        return;
+      }
     }
 
     try {
       const updatedOrder = await shipSellerOrder({
         id: shippingDialogOrder.id,
         trackingCode: trackingCode.trim(),
-        cargoCompany: cargoCompany.trim(),
+        cargoProvider,
+        estimatedDeliveryDate: estimatedDeliveryDate || undefined,
       }).unwrap();
       setSelectedOrder((current) => (current?.id === updatedOrder.id ? updatedOrder : current));
       setShippingDialogOrder(null);
       toast.success('Sipariş kargoya verildi ve müşteri bilgilendirildi.');
       setTrackingCode('');
-      setCargoCompany('');
+      setCargoProvider('');
+      setEstimatedDeliveryDate('');
     } catch {
       toast.error('Sipariş kargoya verilemedi.');
     }
@@ -285,6 +347,11 @@ export default function SellerOrders() {
                         <div className="space-y-1">
                           <p className="font-medium text-foreground">{order.cargoCompany}</p>
                           <p>{order.trackingCode}</p>
+                          {order.estimatedDeliveryDate ? (
+                            <p className="text-xs text-muted-foreground">
+                              Tahmini teslimat: {new Date(order.estimatedDeliveryDate).toLocaleDateString('tr-TR')}
+                            </p>
+                          ) : null}
                         </div>
                       ) : (
                         'Henüz tanımlanmadı'
@@ -424,6 +491,11 @@ export default function SellerOrders() {
                               Gönderim zamanı: {new Date(selectedOrder.shippedAt).toLocaleString('tr-TR')}
                             </p>
                           ) : null}
+                          {selectedOrder.estimatedDeliveryDate ? (
+                            <p className="text-muted-foreground">
+                              Tahmini teslimat: {new Date(selectedOrder.estimatedDeliveryDate).toLocaleDateString('tr-TR')}
+                            </p>
+                          ) : null}
                         </>
                       ) : (
                         <p className="text-muted-foreground">Henüz takip bilgisi girilmedi.</p>
@@ -466,12 +538,18 @@ export default function SellerOrders() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="cargo-company">Kargo Firması</Label>
-              <Input
-                id="cargo-company"
-                placeholder="Yurtiçi Kargo, MNG, Aras..."
-                value={cargoCompany}
-                onChange={(event) => setCargoCompany(event.target.value)}
-              />
+              <Select value={cargoProvider} onValueChange={(value) => setCargoProvider(value as CargoProvider)}>
+                <SelectTrigger id="cargo-company">
+                  <SelectValue placeholder="Kargo firması seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cargoProviders.map((provider) => (
+                    <SelectItem key={provider.value} value={provider.value}>
+                      {provider.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="tracking-code">Takip Kodu</Label>
@@ -480,6 +558,23 @@ export default function SellerOrders() {
                 placeholder="ABC123456789"
                 value={trackingCode}
                 onChange={(event) => setTrackingCode(event.target.value)}
+                aria-invalid={Boolean(trackingCodeError)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Harf, rakam, tire veya / kullanabilirsiniz.
+              </p>
+              {trackingCodeError ? (
+                <p className="text-xs text-destructive">{trackingCodeError}</p>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="estimated-delivery-date">Tahmini Teslimat Tarihi</Label>
+              <Input
+                id="estimated-delivery-date"
+                type="date"
+                value={estimatedDeliveryDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(event) => setEstimatedDeliveryDate(event.target.value)}
               />
             </div>
           </div>

@@ -70,7 +70,7 @@ const sellerNavigationGroups: DashboardNavGroup[] = [
     label: 'Satışlar',
     items: [
       { label: 'Siparişlerim', href: '/seller/orders', icon: Truck },
-      { label: 'İade Talepleri', icon: RefreshCcw, disabled: true, badge: 'Yakında' },
+      { label: 'İade Talepleri', href: '/seller/returns', icon: RefreshCcw },
     ],
   },
   {

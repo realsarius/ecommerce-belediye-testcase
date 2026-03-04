@@ -51,7 +51,7 @@ function PreferenceRow({
   );
 }
 
-export function CookieBanner() {
+export function ConsentBanner() {
   const [visible, setVisible] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -193,4 +193,4 @@ export function CookieBanner() {
   );
 }
 
-export default CookieBanner;
+export default ConsentBanner;

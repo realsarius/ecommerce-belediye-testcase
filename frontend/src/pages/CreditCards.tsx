@@ -1,25 +1,16 @@
 import { useState } from 'react';
 import { 
   useGetCreditCardsQuery, 
-  useAddCreditCardMutation, 
   useDeleteCreditCardMutation,
   useSetDefaultCardMutation,
   type CreditCard 
 } from '@/features/creditCards/creditCardsApi';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/common/card';
 import { Button } from '@/components/common/button';
-import { Input } from '@/components/common/input';
-import { Label } from '@/components/common/label';
+import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
-import { Checkbox } from '@/components/common/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/common/dialog';
+import { CardBrandIcon } from '@/components/checkout/CardBrandIcon';
+import { getCardBrandLabel } from '@/lib/cardBrand';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,66 +21,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/common/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/common/select';
-import { CreditCard as CreditCardIcon, Plus, Trash2, Loader2, Star } from 'lucide-react';
+import { CreditCard as CreditCardIcon, ArrowRight, ShieldCheck, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 
-const emptyForm = {
-  cardAlias: '',
-  cardHolderName: '',
-  cardNumber: '',
-  expireMonth: '',
-  expireYear: '',
-  cvv: '',
-  isDefault: false,
-};
+function formatExpiry(month: string, year: string) {
+  return `${month.padStart(2, '0')}/${year.slice(-2)}`;
+}
 
 export default function CreditCards() {
   const { data: cards, isLoading } = useGetCreditCardsQuery();
-  const [addCard, { isLoading: isAddingCard }] = useAddCreditCardMutation();
   const [deleteCard, { isLoading: isDeletingCard }] = useDeleteCreditCardMutation();
   const [setDefaultCard] = useSetDefaultCardMutation();
   
-  const [showAddDialog, setShowAddDialog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<number | null>(null);
-  
-  const [cardForm, setCardForm] = useState(emptyForm);
-
-  const resetForm = () => {
-    setCardForm(emptyForm);
-  };
-
-  const formatCardNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 16);
-    return digits.replace(/(\d{4})/g, '$1 ').trim();
-  };
-
-  const handleAddCard = async () => {
-    try {
-      await addCard({
-        ...cardForm,
-        cardNumber: cardForm.cardNumber.replace(/\s/g, ''),
-      }).unwrap();
-      setShowAddDialog(false);
-      resetForm();
-      toast.success('Kart başarıyla eklendi');
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string; errors?: Record<string, string[]> } };
-      if (err.data?.errors) {
-        const firstError = Object.values(err.data.errors)[0]?.[0];
-        toast.error(firstError || 'Kart eklenemedi');
-      } else {
-        toast.error(err.data?.message || 'Kart eklenemedi');
-      }
-    }
-  };
 
   const handleDeleteClick = (id: number) => {
     setCardToDelete(id);
@@ -137,13 +83,32 @@ export default function CreditCards() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Kayıtlı Kartlarım</h1>
-          <p className="text-muted-foreground mt-2">Kredi kartlarınızı yönetin</p>
+          <p className="text-muted-foreground mt-2">Token ile korunan kayıtlı kartlarınızı yönetin</p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Kart
+        <Button asChild>
+          <Link to="/checkout">
+            Checkout&apos;a Git
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </Button>
       </div>
+
+      <Card className="mb-6 border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+        <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <div className="space-y-1">
+              <p className="font-medium">Yeni kart ekleme checkout akışına taşındı.</p>
+              <p className="text-sm text-muted-foreground">
+                Kartınızı kaydetmek için ödeme sırasında &quot;Bu kartı kaydet&quot; seçeneğini kullanın. Kart verisi sağlayıcı token&apos;ı ile korunur.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" className="shrink-0">
+            <Link to="/checkout">Ödemeye Git</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {cards && cards.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,7 +117,7 @@ export default function CreditCards() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CreditCardIcon className="h-5 w-5 text-primary" />
+                    <CardBrandIcon brand={card.brand} />
                     <CardTitle className="text-lg">{card.cardAlias}</CardTitle>
                     {card.isDefault && (
                       <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
@@ -185,10 +150,20 @@ export default function CreditCards() {
                 <div className="font-mono text-lg tracking-wider">
                   •••• •••• •••• {card.last4Digits}
                 </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <CreditCardIcon className="h-4 w-4" />
+                  <span>{getCardBrandLabel(card.brand)}</span>
+                  {card.isTokenized ? <Badge variant="secondary">Tokenized</Badge> : <Badge variant="outline">Legacy</Badge>}
+                </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{card.cardHolderName}</span>
-                  <span>{card.expireMonth}/{card.expireYear.slice(-2)}</span>
+                  <span>{formatExpiry(card.expireMonth, card.expireYear)}</span>
                 </div>
+                {card.isTokenized && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Sağlayıcı token&apos;ı ile korunuyor{card.tokenProvider ? ` (${card.tokenProvider})` : ''}.
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -199,123 +174,17 @@ export default function CreditCards() {
             <CreditCardIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <CardTitle className="mb-2">Henüz kart eklenmemiş</CardTitle>
             <CardDescription className="mb-4">
-              Hızlı ödeme için kredi kartı ekleyin
+              İlk kayıtlı kartınızı oluşturmak için checkout sırasında kartınızı kaydedin
             </CardDescription>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              İlk Kartımı Ekle
+            <Button asChild>
+              <Link to="/checkout">
+                Checkout&apos;a Git
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
           </CardContent>
         </Card>
       )}
-
-      {/* Add Card Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={(open) => {
-        setShowAddDialog(open);
-        if (!open) resetForm();
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Yeni Kart Ekle</DialogTitle>
-            <DialogDescription>Kredi kartı bilgilerinizi güvenle saklayın.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Kart Takma Adı</Label>
-              <Input
-                placeholder="Bonus Kartım, Akbank vb."
-                value={cardForm.cardAlias}
-                onChange={(e) => setCardForm({ ...cardForm, cardAlias: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Kart Üzerindeki İsim</Label>
-              <Input
-                placeholder="KAMURAN OLTACI"
-                value={cardForm.cardHolderName}
-                onChange={(e) => setCardForm({ ...cardForm, cardHolderName: e.target.value.toUpperCase() })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Kart Numarası</Label>
-              <Input
-                placeholder="4111 1111 1111 1111"
-                value={cardForm.cardNumber}
-                onChange={(e) => setCardForm({ ...cardForm, cardNumber: formatCardNumber(e.target.value) })}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Ay</Label>
-                <Select
-                  value={cardForm.expireMonth}
-                  onValueChange={(v) => setCardForm({ ...cardForm, expireMonth: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Ay" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <SelectItem key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                        {String(i + 1).padStart(2, '0')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Yıl</Label>
-                <Select
-                  value={cardForm.expireYear}
-                  onValueChange={(v) => setCardForm({ ...cardForm, expireYear: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Yıl" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = new Date().getFullYear() + i;
-                      return (
-                        <SelectItem key={year} value={String(year)}>
-                          {year}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>CVV</Label>
-                <Input
-                  placeholder="123"
-                  maxLength={4}
-                  value={cardForm.cvv}
-                  onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isDefault"
-                checked={cardForm.isDefault}
-                onCheckedChange={(checked) => setCardForm({ ...cardForm, isDefault: !!checked })}
-              />
-              <label htmlFor="isDefault" className="text-sm cursor-pointer">
-                Varsayılan kart olarak ayarla
-              </label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              İptal
-            </Button>
-            <Button onClick={handleAddCard} disabled={isAddingCard}>
-              {isAddingCard && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Kaydet
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -2,9 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { useGetAddressesQuery, useCreateAddressMutation } from '@/features/admin/adminApi';
-import { useCheckoutMutation, useProcessPaymentMutation } from '@/features/orders/ordersApi';
-import { useGetCreditCardsQuery, useAddCreditCardMutation } from '@/features/creditCards/creditCardsApi';
+import { useCheckoutMutation, useGetPaymentSettingsQuery, useProcessPaymentMutation } from '@/features/orders/ordersApi';
+import { useGetCreditCardsQuery } from '@/features/creditCards/creditCardsApi';
+import { useClearCartMutation } from '@/features/cart/cartApi';
+import type { CheckoutInvoiceInfo } from '@/features/cart/types';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import { Button } from '@/components/common/button';
+import { Badge } from '@/components/common/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
@@ -26,6 +30,11 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/common/dialog';
+import { CardBrandIcon } from '@/components/checkout/CardBrandIcon';
+import { InvoiceInfo } from '@/components/checkout/InvoiceInfo';
+import { LegalConsents } from '@/components/checkout/LegalConsents';
+import { PaymentProviderLogo, getPaymentProviderLabel } from '@/components/order/PaymentProviderLogo';
+import { detectCardBrand, getCardBrandLabel } from '@/lib/cardBrand';
 import { Package, CreditCard, MapPin, Loader2, Plus, Ticket, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -34,6 +43,14 @@ import type { CouponValidationResult } from '@/features/coupons/types';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
 import { useGetGiftCardSummaryQuery, useValidateGiftCardMutation } from '@/features/giftCards/giftCardsApi';
 import type { GiftCardValidationResult } from '@/features/giftCards/types';
+import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
+
+const PENDING_THREE_DS_ORDER_ID_KEY = 'pending_three_ds_order_id';
+const RECENT_CHECKOUT_ORDER_ID_KEY = 'recent_checkout_order_id';
+
+function formatExpiry(month: string, year: string) {
+  return `${month.padStart(2, '0')}/${year.slice(-2)}`;
+}
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -41,16 +58,19 @@ export default function Checkout() {
   const { data: cart, isLoading: isCartLoading } = useGetCartQuery();
   const { data: addresses, isLoading: isAddressLoading } = useGetAddressesQuery();
   const [createAddress, { isLoading: isCreatingAddress }] = useCreateAddressMutation();
+  const [clearCart] = useClearCartMutation();
   const [checkout, { isLoading: isCheckingOut }] = useCheckoutMutation();
   const [processPayment, { isLoading: isProcessingPayment }] = useProcessPaymentMutation();
+  const { data: paymentSettings } = useGetPaymentSettingsQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const { data: savedCards } = useGetCreditCardsQuery();
-  const [addCreditCard] = useAddCreditCardMutation();
   const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary } = useGetGiftCardSummaryQuery();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
+  const [isCheckoutFlowActive, setIsCheckoutFlowActive] = useState(false);
   const [cartSnapshot, setCartSnapshot] = useState<typeof cart | null>(null);
   const [addressForm, setAddressForm] = useState({
     title: '',
@@ -74,6 +94,16 @@ export default function Checkout() {
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string>('');
   const [saveCardForLater, setSaveCardForLater] = useState(false);
   const [cardAlias, setCardAlias] = useState('');
+  const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<PaymentProviderType>('Iyzico');
+  const [preliminaryInfoAccepted, setPreliminaryInfoAccepted] = useState(false);
+  const [distanceSalesAccepted, setDistanceSalesAccepted] = useState(false);
+  const [useShippingAddressForInvoice, setUseShippingAddressForInvoice] = useState(true);
+  const [invoiceInfo, setInvoiceInfo] = useState<CheckoutInvoiceInfo>({
+    type: 'Individual',
+    fullName: '',
+    tcKimlikNo: '',
+    invoiceAddress: '',
+  });
 
 
   const [couponCode, setCouponCode] = useState(location.state?.couponCode || '');
@@ -106,9 +136,10 @@ export default function Checkout() {
         });
     }
   }, [cart, couponCodeFromState, appliedCoupon, isValidatingCoupon, validateCoupon]);
-  
+
   // Yönlendirme yapılıyor mu? (race condition önlemek için)
   const isNavigatingRef = useRef(false);
+  const isHandlingThreeDSReturnRef = useRef(false);
   
 
   const cheatCodeBuffer = useRef('');
@@ -133,10 +164,10 @@ export default function Checkout() {
 
           setPaymentForm({
             cardHolderName: 'BERKAN SÖZER',
-            cardNumber: '9792 0303 9444 0796',
-            expireMonth: '05',
+            cardNumber: '5406 6700 0000 0009',
+            expireMonth: '12',
             expireYear: '2027',
-            cvc: '654',
+            cvc: '123',
           });
           
 
@@ -171,6 +202,10 @@ export default function Checkout() {
   const displayCart = cartSnapshot || cart;
   const subtotal = displayCart?.totalAmount ?? 0;
   const shippingCost = subtotal >= 1000 ? 0 : 29.9;
+  const selectedAddress = addresses?.find((address) => address.id.toString() === selectedAddressId);
+  const selectedAddressText = selectedAddress
+    ? `${selectedAddress.fullName}, ${selectedAddress.addressLine}, ${selectedAddress.district}/${selectedAddress.city} P.K: ${selectedAddress.postalCode} - Tel: ${selectedAddress.phone}`
+    : '';
   const amountAfterCoupon = appliedCoupon?.isValid ? appliedCoupon.finalTotal : subtotal;
   const normalizedRequestedPoints = Math.max(0, Math.floor((Number(loyaltyPointsToUse) || 0) / 100) * 100);
   const maxPointsByBalance = loyaltySummary?.availablePoints ?? 0;
@@ -182,6 +217,183 @@ export default function Checkout() {
   const giftCardRemainingBalance = Math.max(0, (appliedGiftCard?.availableBalance ?? 0) - giftCardDiscountAmount);
   const grandTotal = Math.max(0, amountAfterLoyalty - giftCardDiscountAmount);
   const requiresPayment = grandTotal > 0;
+  const selectedSavedCard = savedCards?.find((card) => card.id.toString() === selectedSavedCardId);
+  const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
+  const isTokenizedSavedCard = !!selectedSavedCard?.isTokenized;
+  const effectivePaymentSettings = paymentSettings ?? {
+    activeProviders: ['Iyzico' as PaymentProviderType],
+    defaultProvider: 'Iyzico' as PaymentProviderType,
+    enableMultiProviderSelection: false,
+    enableTokenizedCardSave: false,
+    allowLegacyEncryptedSavedCardPayments: false,
+    force3DSecure: false,
+    force3DSecureAbove: 5000,
+  };
+  const effectiveFrontendFeatures = frontendFeatures ?? {
+    enableCheckoutLegalConsents: true,
+    enableCheckoutInvoiceInfo: true,
+    enableShipmentTimeline: true,
+    enableReturnAttachments: true,
+  };
+  const configuredActivePaymentProviders = effectivePaymentSettings.activeProviders.length > 0
+    ? effectivePaymentSettings.activeProviders
+    : ['Iyzico' as PaymentProviderType];
+  const uniqueActivePaymentProviders = [...new Set(configuredActivePaymentProviders)];
+  const activePaymentProviders = effectivePaymentSettings.enableMultiProviderSelection
+    ? uniqueActivePaymentProviders
+    : [effectivePaymentSettings.defaultProvider];
+  const hasAcceptedLegalConsents = !effectiveFrontendFeatures.enableCheckoutLegalConsents
+    || (preliminaryInfoAccepted && distanceSalesAccepted);
+  const willRequireThreeDS = requiresPayment && (
+    effectivePaymentSettings.force3DSecure ||
+    grandTotal >= effectivePaymentSettings.force3DSecureAbove
+  );
+  const currentCardBrand = detectCardBrand(paymentForm.cardNumber);
+  const selectedSavedCardProviderMismatch = !!(
+    selectedSavedCard?.tokenProvider &&
+    selectedSavedCard.tokenProvider !== selectedPaymentProvider
+  );
+  const isLegacySavedCardDisabled = !!(
+    selectedSavedCard &&
+    !selectedSavedCard.isTokenized &&
+    !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments
+  );
+
+  const handleSavedCardSelection = (value: string) => {
+    setSelectedSavedCardId(value);
+
+    if (value && value !== 'new') {
+      const card = savedCards?.find((savedCard) => savedCard.id.toString() === value);
+      if (card && !card.isTokenized && !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments) {
+        toast.error('Bu eski kayıtlı kart güvenlik nedeniyle devre dışı. Lütfen kartı yeniden girin.');
+        setSelectedSavedCardId('new');
+        return;
+      }
+
+      if (card) {
+        setPaymentForm({
+          cardHolderName: card.cardHolderName,
+          cardNumber: `•••• •••• •••• ${card.last4Digits}`,
+          expireMonth: card.expireMonth.padStart(2, '0'),
+          expireYear: card.expireYear,
+          cvc: '',
+        });
+      }
+
+      return;
+    }
+
+    setPaymentForm({
+      cardHolderName: '',
+      cardNumber: '',
+      expireMonth: '',
+      expireYear: '',
+      cvc: '',
+    });
+  };
+
+  useEffect(() => {
+    const nextProvider = activePaymentProviders.includes(selectedPaymentProvider)
+      ? selectedPaymentProvider
+      : effectivePaymentSettings.defaultProvider;
+
+    if (nextProvider !== selectedPaymentProvider) {
+      setSelectedPaymentProvider(nextProvider);
+    }
+  }, [activePaymentProviders, effectivePaymentSettings.defaultProvider, selectedPaymentProvider]);
+
+  useEffect(() => {
+    if (!effectivePaymentSettings.enableTokenizedCardSave && saveCardForLater) {
+      setSaveCardForLater(false);
+      setCardAlias('');
+    }
+  }, [effectivePaymentSettings.enableTokenizedCardSave, saveCardForLater]);
+
+  useEffect(() => {
+    if (selectedSavedCard && !selectedSavedCard.isTokenized && !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments) {
+      setSelectedSavedCardId('new');
+    }
+  }, [effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments, selectedSavedCard]);
+
+  useEffect(() => {
+    if (willRequireThreeDS && saveCardForLater) {
+      setSaveCardForLater(false);
+      setCardAlias('');
+    }
+  }, [saveCardForLater, willRequireThreeDS]);
+
+  useEffect(() => {
+    if (!selectedAddress) {
+      return;
+    }
+
+    setInvoiceInfo((current) => ({
+      ...current,
+      fullName: current.type === 'Individual' ? selectedAddress.fullName : current.fullName,
+      invoiceAddress: useShippingAddressForInvoice ? selectedAddressText : current.invoiceAddress,
+    }));
+  }, [selectedAddress, selectedAddressText, useShippingAddressForInvoice]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const threeDSStatus = searchParams.get('threeDS');
+
+    if (!threeDSStatus || isHandlingThreeDSReturnRef.current) {
+      return;
+    }
+
+    isHandlingThreeDSReturnRef.current = true;
+    isNavigatingRef.current = true;
+
+    const pendingThreeDSOrderId = window.localStorage.getItem(PENDING_THREE_DS_ORDER_ID_KEY);
+    const targetOrderId = pendingThreeDSOrderId ? parseInt(pendingThreeDSOrderId, 10) : null;
+
+    const finalizeThreeDSReturn = async () => {
+      try {
+        if (threeDSStatus === 'success') {
+          try {
+            await clearCart().unwrap();
+          } catch {
+            // Sipariş başarılıysa cart temizliği başarısız olsa da yönlendirmeyi engelleme.
+          }
+
+          if (targetOrderId) {
+            window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(targetOrderId));
+          }
+
+          window.localStorage.removeItem(PENDING_THREE_DS_ORDER_ID_KEY);
+          setPendingOrderId(null);
+          setCartSnapshot(null);
+          setIsCheckoutFlowActive(false);
+          toast.success('3D Secure doğrulaması tamamlandı. Siparişiniz alındı.');
+          navigate(targetOrderId ? `/orders/${targetOrderId}` : '/orders', { replace: true });
+          return;
+        }
+
+        window.localStorage.removeItem(PENDING_THREE_DS_ORDER_ID_KEY);
+        setPendingOrderId(null);
+        setCartSnapshot(null);
+        setIsCheckoutFlowActive(false);
+        toast.error('3D Secure doğrulaması tamamlanamadı. Siparişiniz ödeme bekliyor; detay ekranından tekrar deneyebilirsiniz.');
+        navigate(targetOrderId ? `/orders/${targetOrderId}` : '/orders', { replace: true });
+      } finally {
+        isHandlingThreeDSReturnRef.current = false;
+      }
+    };
+
+    void finalizeThreeDSReturn();
+  }, [clearCart, location.search, navigate]);
+
+  const submitThreeDSForm = (htmlContent: string) => {
+    const trimmedContent = htmlContent.trim();
+    const decodedHtml = trimmedContent.startsWith('<')
+      ? trimmedContent
+      : window.atob(trimmedContent);
+
+    document.open();
+    document.write(decodedHtml);
+    document.close();
+  };
 
   const handleAddressSubmit = async () => {
     try {
@@ -227,14 +439,81 @@ export default function Checkout() {
     return sum % 10 === 0;
   };
 
+  const buildInvoicePayload = (shippingAddress: string): CheckoutInvoiceInfo => ({
+    type: invoiceInfo.type,
+    fullName: invoiceInfo.type === 'Individual'
+      ? (invoiceInfo.fullName?.trim() || selectedAddress?.fullName || '')
+      : (invoiceInfo.fullName?.trim() || invoiceInfo.companyName?.trim() || ''),
+    tcKimlikNo: invoiceInfo.type === 'Individual' && invoiceInfo.tcKimlikNo?.trim()
+      ? invoiceInfo.tcKimlikNo.trim()
+      : undefined,
+    companyName: invoiceInfo.type === 'Corporate' ? invoiceInfo.companyName?.trim() : undefined,
+    taxOffice: invoiceInfo.type === 'Corporate' ? invoiceInfo.taxOffice?.trim() : undefined,
+    taxNumber: invoiceInfo.type === 'Corporate' ? invoiceInfo.taxNumber?.trim() : undefined,
+    invoiceAddress: useShippingAddressForInvoice ? shippingAddress : invoiceInfo.invoiceAddress.trim(),
+  });
+
+  const validateInvoiceForm = (shippingAddress: string): string | null => {
+    const nextInvoice = buildInvoicePayload(shippingAddress);
+
+    if (!nextInvoice.invoiceAddress || nextInvoice.invoiceAddress.length < 10) {
+      return 'Lütfen geçerli bir fatura adresi girin';
+    }
+
+    if (nextInvoice.type === 'Corporate') {
+      if (!nextInvoice.companyName) {
+        return 'Kurumsal fatura için şirket adı zorunludur';
+      }
+
+      if (!nextInvoice.taxOffice) {
+        return 'Kurumsal fatura için vergi dairesi zorunludur';
+      }
+
+      if (!nextInvoice.taxNumber || nextInvoice.taxNumber.length !== 10) {
+        return 'Kurumsal fatura için 10 haneli vergi numarası girin';
+      }
+
+      return null;
+    }
+
+    if (!nextInvoice.fullName) {
+      return 'Bireysel fatura için ad soyad zorunludur';
+    }
+
+    if (nextInvoice.tcKimlikNo && nextInvoice.tcKimlikNo.length !== 11) {
+      return 'TC kimlik numarası 11 haneli olmalıdır';
+    }
+
+    return null;
+  };
+
   const handleCheckout = async () => {
     if (!selectedAddressId) {
       toast.error('Lütfen teslimat adresi seçin');
       return;
     }
-    const isUsingSavedCard = selectedSavedCardId && selectedSavedCardId !== 'new' && selectedSavedCardId !== '';
+
+    if (effectiveFrontendFeatures.enableCheckoutLegalConsents && !hasAcceptedLegalConsents) {
+      toast.error('Siparişi tamamlamak için yasal onayları kabul etmelisiniz');
+      return;
+    }
 
     if (requiresPayment) {
+      if (isLegacySavedCardDisabled) {
+        toast.error('Eski sifreli kayıtlı kartlar bu ortamda kullanılamaz. Lütfen kartı yeniden girin.');
+        return;
+      }
+
+      if (selectedSavedCardProviderMismatch) {
+        toast.error('Seçilen kayıtlı kart farklı bir ödeme sağlayıcısına ait.');
+        return;
+      }
+
+      if (saveCardForLater && !isUsingSavedCard && willRequireThreeDS) {
+        toast.error('3D Secure gereken ödemelerde yeni kartı kaydetme özelliği henüz aktif değil.');
+        return;
+      }
+
       if (!isUsingSavedCard) {
         if (!paymentForm.cardNumber || !paymentForm.expireMonth || !paymentForm.expireYear || !paymentForm.cvc) {
           toast.error('Lütfen kart bilgilerini doldurun');
@@ -245,12 +524,12 @@ export default function Checkout() {
           toast.error('Kart numarası geçersizdir');
           return;
         }
-      } else if (!paymentForm.cvc) {
+      } else if (!isTokenizedSavedCard && !paymentForm.cvc) {
         toast.error('Lütfen CVV kodunu giriniz');
         return;
       }
 
-      if (paymentForm.cvc.length < 3) {
+      if ((!isUsingSavedCard || !isTokenizedSavedCard) && paymentForm.cvc.length < 3) {
         toast.error('CVC en az 3 haneli olmalıdır');
         return;
       }
@@ -261,13 +540,19 @@ export default function Checkout() {
     }
 
     let orderIdToUse = pendingOrderId;
+    setIsCheckoutFlowActive(true);
 
     try {
       if (!orderIdToUse) {
-        const selectedAddress = addresses?.find(a => a.id.toString() === selectedAddressId);
         if (!selectedAddress) throw new Error('Adres bulunamadı');
-
-        const addressString = `${selectedAddress.fullName}, ${selectedAddress.addressLine}, ${selectedAddress.district}/${selectedAddress.city} P.K: ${selectedAddress.postalCode} - Tel: ${selectedAddress.phone}`;
+        const addressString = selectedAddressText;
+        if (effectiveFrontendFeatures.enableCheckoutInvoiceInfo) {
+          const invoiceValidationError = validateInvoiceForm(addressString);
+          if (invoiceValidationError) {
+            toast.error(invoiceValidationError);
+            return;
+          }
+        }
 
         const order = await checkout({
           shippingAddress: addressString,
@@ -277,6 +562,11 @@ export default function Checkout() {
           couponCode: appliedCoupon?.isValid ? appliedCoupon.coupon?.code : undefined,
           loyaltyPointsToUse: appliedLoyaltyPoints > 0 ? appliedLoyaltyPoints : undefined,
           giftCardCode: appliedGiftCard?.isValid ? appliedGiftCard.code : undefined,
+          preliminaryInfoAccepted,
+          distanceSalesContractAccepted: distanceSalesAccepted,
+          invoiceInfo: effectiveFrontendFeatures.enableCheckoutInvoiceInfo
+            ? buildInvoicePayload(addressString)
+            : undefined,
         }).unwrap();
 
         orderIdToUse = order.id;
@@ -287,6 +577,8 @@ export default function Checkout() {
         isNavigatingRef.current = true;
         setPendingOrderId(null);
         setCartSnapshot(null);
+        setIsCheckoutFlowActive(false);
+        window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(orderIdToUse));
         toast.success('Siparişiniz başarıyla oluşturuldu!');
         navigate(`/orders/${orderIdToUse}`);
         return;
@@ -295,12 +587,22 @@ export default function Checkout() {
       
       const paymentResult = await processPayment({
         orderId: orderIdToUse,
+        paymentProvider: selectedPaymentProvider,
         savedCardId: isUsingSavedCard ? parseInt(selectedSavedCardId) : undefined,
         cardHolderName: isUsingSavedCard ? undefined : paymentForm.cardHolderName,
         cardNumber: isUsingSavedCard ? undefined : paymentForm.cardNumber.replace(/\s/g, ''),
         expiryDate: isUsingSavedCard ? undefined : `${paymentForm.expireMonth}/${paymentForm.expireYear.slice(-2)}`,
         cvv: paymentForm.cvc,
+        require3DS: willRequireThreeDS,
+        saveCard: saveCardForLater && !isUsingSavedCard,
+        saveCardAlias: saveCardForLater && !isUsingSavedCard ? (cardAlias || undefined) : undefined,
       }).unwrap();
+
+      if (paymentResult.requiresThreeDS && paymentResult.threeDSHtmlContent) {
+        window.localStorage.setItem(PENDING_THREE_DS_ORDER_ID_KEY, String(orderIdToUse));
+        submitThreeDSForm(paymentResult.threeDSHtmlContent);
+        return;
+      }
 
       if (paymentResult.status !== 'Success') {
         toast.error(paymentResult.errorMessage || 'Ödeme işlemi başarısız oldu. Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
@@ -308,40 +610,27 @@ export default function Checkout() {
         return;
       }
 
-
-      if (saveCardForLater && (!selectedSavedCardId || selectedSavedCardId === 'new')) {
-        try {
-          await addCreditCard({
-            cardAlias: cardAlias || 'Kartım',
-            cardHolderName: paymentForm.cardHolderName,
-            cardNumber: paymentForm.cardNumber.replace(/\s/g, ''),
-            expireMonth: paymentForm.expireMonth,
-            expireYear: paymentForm.expireYear,
-            cvv: paymentForm.cvc,
-          }).unwrap();
-          toast.success('Kart bilgileriniz kaydedildi');
-        } catch {
-          // Silent fail - don't block checkout success
-        }
-      }
-
       isNavigatingRef.current = true;
       setPendingOrderId(null);
       setCartSnapshot(null);
+      setIsCheckoutFlowActive(false);
+      window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(orderIdToUse));
       toast.success('Siparişiniz başarıyla oluşturuldu!');
       navigate(`/orders/${orderIdToUse}`);
     } catch (error: unknown) {
       if (orderIdToUse) {
+        setIsCheckoutFlowActive(false);
         if (error instanceof Error) {
-          toast.error(error.message + ' Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
+          toast.error(error.message + ' Sipariş detayından tekrar deneyebilirsiniz.');
         } else {
           const err = error as { data?: { message?: string } };
-          toast.error((err.data?.message || 'Ödeme işlemi başarısız') + ' Lütfen tekrar deneyin.');
+          toast.error((err.data?.message || 'Ödeme işlemi başarısız') + ' Sipariş detayından tekrar deneyebilirsiniz.');
         }
-        navigate('/cart');
+        navigate(`/orders/${orderIdToUse}`);
         return;
       }
 
+      setIsCheckoutFlowActive(false);
       if (error instanceof Error) {
         toast.error(error.message);
         return;
@@ -353,10 +642,15 @@ export default function Checkout() {
 
 
   useEffect(() => {
-    if (!isLoading && !pendingOrderId && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.has('threeDS')) {
+      return;
+    }
+
+    if (!isLoading && !pendingOrderId && !isCheckoutFlowActive && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
       navigate('/cart');
     }
-  }, [cart, navigate, isLoading, pendingOrderId]);
+  }, [cart, navigate, isCheckoutFlowActive, isLoading, pendingOrderId]);
 
   if (isLoading) {
     return (
@@ -416,8 +710,46 @@ export default function Checkout() {
                   Kayıtlı adresiniz yok. Yeni adres ekleyin.
                 </p>
               )}
-            </CardContent>
+          </CardContent>
           </Card>
+
+          {effectiveFrontendFeatures.enableCheckoutInvoiceInfo ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  <CardTitle>Fatura Bilgisi</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <InvoiceInfo
+                  value={invoiceInfo}
+                  useShippingAddress={useShippingAddressForInvoice}
+                  selectedAddress={selectedAddress ? {
+                    fullName: selectedAddress.fullName,
+                    fullAddress: selectedAddressText,
+                  } : undefined}
+                  onTypeChange={(type) => {
+                    setInvoiceInfo((current) => ({
+                      ...current,
+                      type,
+                      fullName: type === 'Individual' ? (selectedAddress?.fullName || current.fullName) : current.fullName,
+                    }));
+                  }}
+                  onChange={setInvoiceInfo}
+                  onUseShippingAddressChange={(checked) => {
+                    setUseShippingAddressForInvoice(checked);
+                    if (checked && selectedAddressText) {
+                      setInvoiceInfo((current) => ({
+                        ...current,
+                        invoiceAddress: selectedAddressText,
+                      }));
+                    }
+                  }}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
 
 
           <Card>
@@ -439,48 +771,161 @@ export default function Checkout() {
                 </div>
               ) : (
                 <>
+              <div className="space-y-2">
+                <Label>Ödeme Sağlayıcısı</Label>
+                {effectivePaymentSettings.enableMultiProviderSelection && activePaymentProviders.length > 1 ? (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {activePaymentProviders.map((provider) => {
+                      const isSelected = selectedPaymentProvider === provider;
+
+                      return (
+                        <button
+                          key={provider}
+                          type="button"
+                          onClick={() => setSelectedPaymentProvider(provider)}
+                          className={`rounded-xl border p-4 text-left transition ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                              : 'border-border bg-background hover:border-primary/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <PaymentProviderLogo provider={provider} className="h-7 border-none bg-transparent p-0" />
+                              <div>
+                                <p className="font-medium">{getPaymentProviderLabel(provider)}</p>
+                                <p className="text-xs text-muted-foreground">Backend ayarlarında aktif</p>
+                              </div>
+                            </div>
+                            {isSelected ? (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <PaymentProviderLogo provider={activePaymentProviders[0]} className="h-6 border-none bg-transparent p-0" />
+                      <span className="font-medium">{getPaymentProviderLabel(activePaymentProviders[0])}</span>
+                    </div>
+                    <span className="text-muted-foreground">
+                      {effectivePaymentSettings.enableMultiProviderSelection ? 'Varsayılan' : 'Feature flag ile sabit'}
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Aktif sağlayıcı listesi backend ödeme ayarlarından okunur. Şu an yalnızca aktif olan seçenekler gösterilir.
+                </p>
+                {willRequireThreeDS && (
+                  <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-xs text-blue-700 dark:text-blue-300">
+                    Bu ödeme için 3D Secure doğrulaması uygulanacak.
+                  </div>
+                )}
+              </div>
 
               {savedCards && savedCards.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label>Kayıtlı Kartlarım</Label>
-                  <Select
-                    value={selectedSavedCardId}
-                    onValueChange={(value) => {
-                      setSelectedSavedCardId(value);
-                      if (value && value !== 'new') {
-                        const card = savedCards.find(c => c.id.toString() === value);
-                        if (card) {
-                          setPaymentForm({
-                            cardHolderName: card.cardHolderName,
-                            cardNumber: `•••• •••• •••• ${card.last4Digits}`,
-                            expireMonth: card.expireMonth.padStart(2, '0'),
-                            expireYear: card.expireYear,
-                            cvc: '',
-                          });
-                        }
-                      } else {
-                        setPaymentForm({
-                          cardHolderName: '',
-                          cardNumber: '',
-                          expireMonth: '',
-                          expireYear: '',
-                          cvc: '',
-                        });
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Kayıtlı kart seçin veya yeni kart girin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">+ Yeni kart ile öde</SelectItem>
-                      {savedCards.map((card) => (
-                        <SelectItem key={card.id} value={card.id.toString()}>
-                          {card.cardAlias} - •••• {card.last4Digits}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    {savedCards.map((card) => {
+                      const value = card.id.toString();
+                      const isSelected = selectedSavedCardId === value;
+                      const isProviderMismatch = !!card.tokenProvider && card.tokenProvider !== selectedPaymentProvider;
+                      const isLegacyDisabled = !card.isTokenized && !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments;
+
+                      return (
+                        <button
+                          key={card.id}
+                          type="button"
+                          onClick={() => handleSavedCardSelection(value)}
+                          disabled={isLegacyDisabled}
+                          className={`w-full rounded-xl border p-4 text-left transition ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                              : isLegacyDisabled
+                                ? 'cursor-not-allowed border-border bg-muted/40 opacity-70'
+                                : 'border-border bg-background hover:border-primary/40'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <CardBrandIcon brand={card.brand} />
+                                <p className="font-medium">{card.cardAlias}</p>
+                                {card.isDefault ? <Badge variant="secondary">Varsayılan</Badge> : null}
+                                {card.isTokenized ? (
+                                  <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Tokenized</Badge>
+                                ) : (
+                                  <Badge variant="outline">Legacy</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                •••• •••• •••• {card.last4Digits} • {formatExpiry(card.expireMonth, card.expireYear)}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                {card.tokenProvider ? (
+                                  <>
+                                    <PaymentProviderLogo provider={card.tokenProvider} className="h-5 border-none bg-transparent p-0" />
+                                    <span>{getPaymentProviderLabel(card.tokenProvider)} token akışı</span>
+                                  </>
+                                ) : (
+                                  <span>Mevcut şifreli kart kaydı</span>
+                                )}
+                              </div>
+                              {isProviderMismatch ? (
+                                <p className="text-xs text-amber-600 dark:text-amber-300">
+                                  Bu kart {getPaymentProviderLabel(card.tokenProvider!)} sağlayıcısına bağlı. Kullanmak için sağlayıcıyı değiştirin.
+                                </p>
+                              ) : card.isTokenized ? (
+                                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                  Bu kart token ile korunuyor; yeniden CVV girmeniz gerekmez.
+                                </p>
+                              ) : (
+                                <p className={`text-xs ${isLegacyDisabled ? 'text-amber-600 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                                  {isLegacyDisabled
+                                    ? 'Bu eski sifreli kart kaydi guvenlik geregi devre disi. Yeniden kart girisi yapin.'
+                                    : 'Bu eski kayıt için ödeme sırasında CVV doğrulaması istenir.'}
+                                </p>
+                              )}
+                            </div>
+                            {isSelected ? (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => handleSavedCardSelection('new')}
+                      className={`w-full rounded-xl border border-dashed p-4 text-left transition ${
+                        selectedSavedCardId === 'new' || selectedSavedCardId === ''
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'border-border bg-background hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium">Yeni kart ile öde</p>
+                          <p className="text-sm text-muted-foreground">
+                            Yeni kart girişi yapabilir ve isterseniz token ile kaydedebilirsiniz.
+                          </p>
+                        </div>
+                        {selectedSavedCardId === 'new' || selectedSavedCardId === '' ? (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="h-4 w-4" />
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  </div>
                 </div>
               )}
               
@@ -503,11 +948,15 @@ export default function Checkout() {
                       placeholder="4111 1111 1111 1111"
                       value={paymentForm.cardNumber}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 16);
-                        const formatted = value.replace(/(\d{4})/g, '$1 ').trim();
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 19);
+                        const formatted = value.match(/.{1,4}/g)?.join(' ') ?? value;
                         setPaymentForm({ ...paymentForm, cardNumber: formatted });
                       }}
                     />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <CardBrandIcon brand={currentCardBrand} className="h-6 min-w-[2.75rem]" />
+                      <span>{getCardBrandLabel(currentCardBrand)}</span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
@@ -563,37 +1012,54 @@ export default function Checkout() {
                   </div>
                   
                   {/* Save for later checkbox */}
-                  <div className="space-y-3 pt-2 border-t">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="saveCard"
-                        checked={saveCardForLater}
-                        onCheckedChange={(checked) => setSaveCardForLater(!!checked)}
-                      />
-                      <label htmlFor="saveCard" className="text-sm cursor-pointer">
-                        Bu kartı sonraki alışverişlerim için kaydet
-                      </label>
-                    </div>
-                    {saveCardForLater && (
-                      <div className="space-y-2">
-                        <Label>Kart Takma Adı</Label>
-                        <Input
-                          placeholder="Bonus Kartım, Akbank vb."
-                          value={cardAlias}
-                          onChange={(e) => setCardAlias(e.target.value)}
-                        />
-                      </div>
+                  <div className="space-y-3 border-t pt-2">
+                    {effectivePaymentSettings.enableTokenizedCardSave ? (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="saveCard"
+                            checked={saveCardForLater}
+                            onCheckedChange={(checked) => setSaveCardForLater(!!checked)}
+                            disabled={willRequireThreeDS}
+                          />
+                          <label htmlFor="saveCard" className={`text-sm ${willRequireThreeDS ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>
+                            Bu kartı sonraki alışverişlerim için kaydet
+                          </label>
+                        </div>
+                        {willRequireThreeDS && (
+                          <p className="text-xs text-muted-foreground">
+                            3D Secure gereken ödemelerde yeni kart kaydetme desteği sonraki adımda açılacak.
+                          </p>
+                        )}
+                        {saveCardForLater && (
+                          <div className="space-y-2">
+                            <Label>Kart Takma Adı</Label>
+                            <Input
+                              placeholder="Bonus Kartım, Akbank vb."
+                              value={cardAlias}
+                              onChange={(e) => setCardAlias(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Kart Iyzico token'i ile kaydedilir. Kart numarasi ve CVV tekrar saklanmaz.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Kayıtlı kart kaydetme özelliği bu ortamda feature flag ile kapalı.
+                      </p>
                     )}
                   </div>
                   
                   <p className="text-xs text-muted-foreground">
-                    Test kartı: 4111 1111 1111 1111, herhangi bir tarih ve CVC
+                    Test karti: 4111 1111 1111 1111, herhangi bir tarih ve CVC. CVV kaydedilmez.
                   </p>
                 </>
               )}
               
 
-              {selectedSavedCardId && selectedSavedCardId !== 'new' && (
+              {selectedSavedCardId && selectedSavedCardId !== 'new' && !isTokenizedSavedCard && (
                 <div className="space-y-2">
                   <Label>Güvenlik Kodu (CVV)</Label>
                   <Input
@@ -607,6 +1073,16 @@ export default function Checkout() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Kartınızın arkasındaki 3 haneli güvenlik kodu
+                  </p>
+                </div>
+              )}
+              {selectedSavedCardId && selectedSavedCardId !== 'new' && isTokenizedSavedCard && (
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm">
+                  <p className="font-medium text-emerald-700 dark:text-emerald-300">
+                    Bu kayitli kart saglayici token'i ile korunuyor.
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    Bu kart icin yeniden CVV girmeniz gerekmiyor.
                   </p>
                 </div>
               )}
@@ -843,11 +1319,19 @@ export default function Checkout() {
                 <span>Toplam</span>
                 <span>{grandTotal.toLocaleString('tr-TR')} ₺</span>
               </div>
+              {effectiveFrontendFeatures.enableCheckoutLegalConsents ? (
+                <LegalConsents
+                  preliminaryInfoAccepted={preliminaryInfoAccepted}
+                  distanceSalesAccepted={distanceSalesAccepted}
+                  onPreliminaryInfoAcceptedChange={setPreliminaryInfoAccepted}
+                  onDistanceSalesAcceptedChange={setDistanceSalesAccepted}
+                />
+              ) : null}
               <Button
-                className="w-full"
+                className={`w-full ${!hasAcceptedLegalConsents ? 'opacity-50' : ''}`}
                 size="lg"
                 onClick={handleCheckout}
-                disabled={isCheckingOut || isProcessingPayment}
+                disabled={isCheckingOut || isProcessingPayment || !hasAcceptedLegalConsents}
               >
                 {(isCheckingOut || isProcessingPayment) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

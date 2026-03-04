@@ -27,6 +27,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         
         builder.HasIndex(o => o.OrderNumber)
             .IsUnique();
+
+        builder.Property(o => o.CheckoutContextVersion)
+            .IsRequired();
         
         builder.Property(o => o.TotalAmount)
             .IsRequired()
@@ -56,6 +59,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.TrackingCode)
             .HasMaxLength(120);
+
+        builder.Property(o => o.AcceptedFromIp)
+            .HasMaxLength(128)
+            .HasConversion(new NullableEncryptedStringConverter(_encryptionService));
+
+        builder.Property(o => o.ShipmentStatus)
+            .IsRequired();
         
         // KVKK: ShippingAddress kişisel veri içerdiği için şifrelenir
         builder.Property(o => o.ShippingAddress)

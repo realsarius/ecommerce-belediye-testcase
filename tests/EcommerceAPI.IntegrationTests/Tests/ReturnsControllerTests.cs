@@ -5,6 +5,7 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.IntegrationTests.Utilities;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EcommerceAPI.IntegrationTests.Tests;
@@ -46,6 +47,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "NotAsDescribed",
             Reason = "Ürün beklentimi karşılamadı",
             RequestNote = "Paket açıldı ancak kullanılmadı."
         });
@@ -58,6 +60,53 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.Data.OrderId.Should().Be(orderId);
         result.Data.Status.Should().Be(ReturnRequestStatus.Pending.ToString());
         result.Data.Type.Should().Be(ReturnRequestType.Return.ToString());
+        result.Data.ReasonCategory.Should().Be(ReturnReasonCategory.NotAsDescribed.ToString());
+    }
+
+    [Fact]
+    public async Task GetMyReturnRequests_ShouldReturnReasonCategoryAndNonNullCollections()
+    {
+        var userId = Random.Shared.Next(880_001, 881_000);
+        var categoryId = Random.Shared.Next(881_001, 882_000);
+        var productId = Random.Shared.Next(882_001, 883_000);
+        var orderId = Random.Shared.Next(883_001, 884_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                userId,
+                productId,
+                categoryId,
+                $"RET-LIST-{orderId}",
+                $"payment-return-list-{orderId}",
+                orderStatus: OrderStatus.Delivered,
+                paymentStatus: PaymentStatus.Success);
+        }
+
+        var client = _factory.CreateClient().AsCustomer(userId);
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "ChangedMind",
+            Reason = "Numara beklentimi karşılamadı"
+        });
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var listResponse = await client.GetAsync("/api/v1/returns/mine");
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var listResult = await listResponse.Content.ReadFromJsonAsync<ApiResult<List<ReturnRequestDto>>>();
+        listResult.Should().NotBeNull();
+        listResult!.Success.Should().BeTrue();
+
+        var request = listResult.Data.Single(item => item.OrderId == orderId);
+        request.ReasonCategory.Should().Be(ReturnReasonCategory.ChangedMind.ToString());
+        request.SelectedItems.Should().NotBeNull();
+        request.Attachments.Should().NotBeNull();
     }
 
     [Fact]
@@ -91,6 +140,7 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createResponse = await customerClient.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
         {
             Type = "Return",
+            ReasonCategory = "WrongProduct",
             Reason = "Ürünü iade etmek istiyorum"
         });
 
@@ -99,9 +149,8 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         createResult.Should().NotBeNull();
 
         var sellerClient = _factory.CreateClient().AsSeller(sellerUserId);
-        var reviewResponse = await sellerClient.PatchAsJsonAsync($"/api/v1/admin/returns/{createResult!.Data.Id}", new ReviewReturnRequestRequest
+        var reviewResponse = await sellerClient.PutAsJsonAsync($"/api/v1/seller/returns/{createResult!.Data.Id}/approve", new ReviewReturnRequestRequest
         {
-            Status = "Approved",
             ReviewNote = "Talep onaylandı"
         });
 
@@ -112,5 +161,133 @@ public class ReturnsControllerTests : IClassFixture<CustomWebApplicationFactory>
         reviewResult!.Success.Should().BeTrue();
         reviewResult.Data.Status.Should().Be(ReturnRequestStatus.RefundPending.ToString());
         reviewResult.Data.RefundStatus.Should().Be(RefundRequestStatus.Pending.ToString());
+    }
+
+    [Fact]
+    public async Task ReviewReturnRequest_AsAdminApprove_ShouldCreateRefundRequest()
+    {
+        const int adminUserId = 999;
+        var customerUserId = Random.Shared.Next(889_001, 890_000);
+        var categoryId = Random.Shared.Next(890_001, 891_000);
+        var productId = Random.Shared.Next(891_001, 892_000);
+        var orderId = Random.Shared.Next(892_001, 893_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, adminUserId, "Admin");
+
+            await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                customerUserId,
+                productId,
+                categoryId,
+                $"RET-ADMIN-{orderId}",
+                $"payment-admin-review-{orderId}",
+                orderStatus: OrderStatus.Delivered,
+                paymentStatus: PaymentStatus.Success);
+        }
+
+        var customerClient = _factory.CreateClient().AsCustomer(customerUserId);
+        var createResponse = await customerClient.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "DefectiveDamaged",
+            Reason = "Ürün hasarlı geldi"
+        });
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createResult = await createResponse.Content.ReadFromJsonAsync<ApiResult<ReturnRequestDto>>();
+        createResult.Should().NotBeNull();
+
+        var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+        var reviewResponse = await adminClient.PutAsJsonAsync($"/api/v1/admin/returns/{createResult!.Data.Id}/approve", new ReviewReturnRequestRequest
+        {
+            ReviewNote = "Hasar doğrulandı, refund başlatıldı"
+        });
+
+        reviewResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var reviewResult = await reviewResponse.Content.ReadFromJsonAsync<ApiResult<ReturnRequestDto>>();
+        reviewResult.Should().NotBeNull();
+        reviewResult!.Success.Should().BeTrue();
+        reviewResult.Data.Status.Should().Be(ReturnRequestStatus.RefundPending.ToString());
+        reviewResult.Data.RefundStatus.Should().Be(RefundRequestStatus.Pending.ToString());
+        reviewResult.Data.ReviewNote.Should().Be("Hasar doğrulandı, refund başlatıldı");
+
+        await using var assertScope = _factory.Services.CreateAsyncScope();
+        var assertDb = assertScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var refundRequest = await assertDb.RefundRequests
+            .SingleAsync(rr => rr.ReturnRequestId == createResult.Data.Id);
+
+        refundRequest.OrderId.Should().Be(orderId);
+        refundRequest.Provider.Should().Be(PaymentProviderType.Iyzico);
+        refundRequest.Status.Should().Be(RefundRequestStatus.Pending);
+        refundRequest.Amount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task ReviewReturnRequest_AsAdminReject_ShouldExposeReviewNoteToCustomer()
+    {
+        const int adminUserId = 1001;
+        var customerUserId = Random.Shared.Next(893_001, 894_000);
+        var categoryId = Random.Shared.Next(894_001, 895_000);
+        var productId = Random.Shared.Next(895_001, 896_000);
+        var orderId = Random.Shared.Next(896_001, 897_000);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, adminUserId, "Admin");
+
+            await TestDataSeeder.EnsureOrderWithPaymentAsync(
+                db,
+                orderId,
+                customerUserId,
+                productId,
+                categoryId,
+                $"RET-REJECT-{orderId}",
+                $"payment-admin-reject-{orderId}",
+                orderStatus: OrderStatus.Delivered,
+                paymentStatus: PaymentStatus.Success);
+        }
+
+        var customerClient = _factory.CreateClient().AsCustomer(customerUserId);
+        var createResponse = await customerClient.PostAsJsonAsync($"/api/v1/orders/{orderId}/returns", new CreateReturnRequestRequest
+        {
+            Type = "Return",
+            ReasonCategory = "ChangedMind",
+            Reason = "Vazgeçtim ama koşullar uygun değil"
+        });
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createResult = await createResponse.Content.ReadFromJsonAsync<ApiResult<ReturnRequestDto>>();
+        createResult.Should().NotBeNull();
+
+        var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+        var reviewResponse = await adminClient.PutAsJsonAsync($"/api/v1/admin/returns/{createResult!.Data.Id}/reject", new ReviewReturnRequestRequest
+        {
+            ReviewNote = "Ürün hijyen kategorisinde olduğu için iade kapsamı dışında."
+        });
+
+        reviewResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var reviewResult = await reviewResponse.Content.ReadFromJsonAsync<ApiResult<ReturnRequestDto>>();
+        reviewResult.Should().NotBeNull();
+        reviewResult!.Success.Should().BeTrue();
+        reviewResult.Data.Status.Should().Be(ReturnRequestStatus.Rejected.ToString());
+        reviewResult.Data.ReviewNote.Should().Be("Ürün hijyen kategorisinde olduğu için iade kapsamı dışında.");
+
+        var customerReturnsResponse = await customerClient.GetAsync("/api/v1/returns/mine");
+        customerReturnsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var customerReturns = await customerReturnsResponse.Content.ReadFromJsonAsync<ApiResult<List<ReturnRequestDto>>>();
+        customerReturns.Should().NotBeNull();
+        customerReturns!.Success.Should().BeTrue();
+
+        var rejectedRequest = customerReturns.Data.Single(r => r.Id == createResult.Data.Id);
+        rejectedRequest.Status.Should().Be(ReturnRequestStatus.Rejected.ToString());
+        rejectedRequest.ReviewNote.Should().Be("Ürün hijyen kategorisinde olduğu için iade kapsamı dışında.");
     }
 }

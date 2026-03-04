@@ -4,6 +4,7 @@ namespace EcommerceAPI.Entities.Concrete;
 
 public class Order : BaseEntity
 {
+    public int CheckoutContextVersion { get; set; } = 1;
     public string OrderNumber { get; set; } = string.Empty; 
     public int UserId { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.PendingPayment;
@@ -15,7 +16,13 @@ public class Order : BaseEntity
     public string? CargoCompany { get; set; }
     public string? TrackingCode { get; set; }
     public DateTime? ShippedAt { get; set; }
+    public DateTime? EstimatedDeliveryDate { get; set; }
+    public DateTime? DeliveredAt { get; set; }
+    public ShipmentStatus ShipmentStatus { get; set; } = ShipmentStatus.Pending;
     public DateTime? CancelledAt { get; set; }
+    public DateTime? PreliminaryInfoAcceptedAt { get; set; }
+    public DateTime? DistanceSalesContractAcceptedAt { get; set; }
+    public string? AcceptedFromIp { get; set; }
     
     public int? CouponId { get; set; }
     public string? CouponCode { get; set; }
@@ -34,4 +41,5 @@ public class Order : BaseEntity
     public ICollection<LoyaltyTransaction> LoyaltyTransactions { get; set; } = new List<LoyaltyTransaction>();
     public ICollection<ReferralTransaction> ReferralTransactions { get; set; } = new List<ReferralTransaction>();
     public Payment? Payment { get; set; }
+    public InvoiceInfo? InvoiceInfo { get; set; }
 }

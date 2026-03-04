@@ -50,6 +50,16 @@
       "key": "reviewId",
       "value": "1",
       "type": "string"
+    },
+    {
+      "key": "attachmentId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "uploadedPhotoKey",
+      "value": "",
+      "type": "string"
     }
   ],
   "auth": {
@@ -429,6 +439,33 @@
           }
         },
         {
+          "name": "Reorder From Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/reorder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "reorder"
+              ]
+            },
+            "description": "Geçmiş siparişteki ürünleri stok kurallarına göre tekrar sepete ekler.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}"
+            }
+          }
+        },
+        {
           "name": "Update Cart Item",
           "request": {
             "method": "PUT",
@@ -527,7 +564,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"shippingAddress\": \"Örnek Mahalle, Test Sokak No:1, Kadıköy, İstanbul\",\n  \"paymentMethod\": \"CreditCard\",\n  \"couponCode\": \"\",\n  \"notes\": \"Lütfen zile basmayın\"\n}"
+              "raw": "{\n  \"shippingAddress\": \"Örnek Mahalle, Test Sokak No:1, Kadıköy, İstanbul\",\n  \"paymentMethod\": \"CreditCard\",\n  \"couponCode\": \"\",\n  \"notes\": \"Lütfen zile basmayın\",\n  \"preliminaryInfoAccepted\": true,\n  \"distanceSalesContractAccepted\": true,\n  \"invoiceInfo\": {\n    \"type\": \"individual\",\n    \"fullName\": \"Demo User\",\n    \"invoiceAddress\": \"Örnek Mahalle, Test Sokak No:1, Kadıköy, İstanbul\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/orders",
@@ -538,7 +575,7 @@
                 "orders"
               ]
             },
-            "description": "Sepetteki ürünlerle sipariş oluşturur. Order ID otomatik kaydedilir."
+            "description": "Sepetteki ürünlerle sipariş oluşturur. Legal consent ve invoice alanları güncel sözleşmeye uygundur. Order ID otomatik kaydedilir."
           }
         },
         {
@@ -650,7 +687,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"5406670000000009\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\",\n  \"idempotencyKey\": \"\"\n}"
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"paymentProvider\": \"Iyzico\",\n  \"cardNumber\": \"5406670000000009\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\",\n  \"require3DS\": false,\n  \"saveCard\": false,\n  \"idempotencyKey\": \"\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
@@ -676,7 +713,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"4111111111111129\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\"\n}"
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"paymentProvider\": \"Iyzico\",\n  \"cardNumber\": \"4111111111111129\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\",\n  \"require3DS\": false,\n  \"saveCard\": false\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
@@ -702,7 +739,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderId\": {{orderId}},\n  \"cardNumber\": \"4126111111111114\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\"\n}"
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"paymentProvider\": \"Iyzico\",\n  \"cardNumber\": \"5528790000000008\",\n  \"cardHolderName\": \"Demo User\",\n  \"expiryDate\": \"12/26\",\n  \"cvv\": \"123\",\n  \"require3DS\": false,\n  \"saveCard\": false\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/payments",
@@ -714,6 +751,154 @@
               ]
             },
             "description": "Çalıntı kart hata testi. Kart: 4126111111111114"
+          }
+        },
+        {
+          "name": "Get Payment Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payments/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "settings"
+              ]
+            },
+            "description": "Aktif ödeme sağlayıcıları, 3DS ayarları ve rollout flag bilgilerini getirir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Returns (Customer)",
+      "item": [
+        {
+          "name": "Create Return Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/returns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "returns"
+              ]
+            },
+            "description": "Müşteri adına iade veya iptal talebi oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"Return\",\n  \"reasonCategory\": \"ChangedMind\",\n  \"selectedOrderItemIds\": [],\n  \"uploadedPhotoKeys\": [],\n  \"reason\": \"Ürün beklentimi karşılamadı.\",\n  \"requestNote\": \"Demo Postman talebi\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Return Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/returns/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "returns",
+                "mine"
+              ]
+            },
+            "description": "Giriş yapan müşterinin iade ve iptal taleplerini listeler."
+          }
+        },
+        {
+          "name": "Get Return Attachment Access Url",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/returns/{{returnRequestId}}/attachments/{{attachmentId}}/access-url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "returns",
+                "{{returnRequestId}}",
+                "attachments",
+                "{{attachmentId}}",
+                "access-url"
+              ]
+            },
+            "description": "Return attachment için signed access URL üretir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload Return Photos",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [
+                    "/absolute/path/to/return-photo.jpg"
+                  ]
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/uploads/return-photos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "return-photos"
+              ]
+            },
+            "description": "İade talebi için private photo upload yapar. Postman içinden gerçek dosya yolu seçilmelidir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Frontend Settings",
+      "item": [
+        {
+          "name": "Get Frontend Features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/frontend-settings/features",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "frontend-settings",
+                "features"
+              ]
+            },
+            "description": "Checkout, shipment timeline ve return attachment capability bayraklarını getirir."
           }
         }
       ]
@@ -2932,6 +3117,93 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"trackingCode\": \"TRK123456789\",\n  \"cargoCompany\": \"Yurtiçi Kargo\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller - Returns",
+      "item": [
+        {
+          "name": "Get Returns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/returns?status=Pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "returns"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Pending"
+                }
+              ]
+            },
+            "description": "Satıcıya ait iade taleplerini listeler."
+          }
+        },
+        {
+          "name": "Approve Return",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/returns/{{returnRequestId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "returns",
+                "{{returnRequestId}}",
+                "approve"
+              ]
+            },
+            "description": "Satıcının kendi siparişi için iade talebini onaylar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNote\": \"Satıcı tarafından onaylandı.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject Return",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/seller/returns/{{returnRequestId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "returns",
+                "{{returnRequestId}}",
+                "reject"
+              ]
+            },
+            "description": "Satıcının kendi siparişi için iade talebini reddeder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNote\": \"Satıcı tarafından reddedildi.\"\n}"
             }
           }
         }

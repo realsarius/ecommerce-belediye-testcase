@@ -14,6 +14,9 @@ public class OrderDto : IDto
     public string? CargoCompany { get; set; }
     public string? TrackingCode { get; set; }
     public DateTime? ShippedAt { get; set; }
+    public DateTime? EstimatedDeliveryDate { get; set; }
+    public DateTime? DeliveredAt { get; set; }
+    public string ShipmentStatus { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     
@@ -28,4 +31,5 @@ public class OrderDto : IDto
     
     public List<OrderItemDto> Items { get; set; } = new();
     public PaymentDto? Payment { get; set; }
+    public InvoiceInfoDto? InvoiceInfo { get; set; }
 }

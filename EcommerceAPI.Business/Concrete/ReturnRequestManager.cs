@@ -14,6 +14,8 @@ using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Business.Concrete;
 
@@ -27,8 +29,10 @@ public class ReturnRequestManager : IReturnRequestService
     private readonly IGiftCardService _giftCardService;
     private readonly IReferralService _referralService;
     private readonly IAuditService _auditService;
+    private readonly IReturnAttachmentStorageService _returnAttachmentStorageService;
     private readonly ILogger<ReturnRequestManager> _logger;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     public ReturnRequestManager(
         IReturnRequestDal returnRequestDal,
@@ -39,8 +43,10 @@ public class ReturnRequestManager : IReturnRequestService
         IGiftCardService giftCardService,
         IReferralService referralService,
         IAuditService auditService,
+        IReturnAttachmentStorageService returnAttachmentStorageService,
         ILogger<ReturnRequestManager> logger,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _returnRequestDal = returnRequestDal;
         _refundRequestDal = refundRequestDal;
@@ -50,8 +56,10 @@ public class ReturnRequestManager : IReturnRequestService
         _giftCardService = giftCardService;
         _referralService = referralService;
         _auditService = auditService;
+        _returnAttachmentStorageService = returnAttachmentStorageService;
         _logger = logger;
         _publishEndpoint = publishEndpoint;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     [LogAspect]
@@ -101,9 +109,29 @@ public class ReturnRequestManager : IReturnRequestService
             return new ErrorDataResult<ReturnRequestDto>("Geçersiz talep tipi.");
         }
 
-        if (!IsRequestAllowed(order.Status, requestType))
+        if (!TryParseReasonCategory(request.ReasonCategory, out var reasonCategory))
         {
-            return new ErrorDataResult<ReturnRequestDto>(GetInvalidStateMessage(order.Status, requestType));
+            return new ErrorDataResult<ReturnRequestDto>("Geçersiz talep kategorisi.");
+        }
+
+        if (!IsRequestAllowed(order, requestType))
+        {
+            return new ErrorDataResult<ReturnRequestDto>(GetInvalidStateMessage(order, requestType));
+        }
+
+        var selectedOrderItemsResult = ResolveSelectedOrderItems(order, requestType, request.SelectedOrderItemIds);
+        if (!selectedOrderItemsResult.Success)
+        {
+            return new ErrorDataResult<ReturnRequestDto>(selectedOrderItemsResult.Message);
+        }
+
+        var selectedOrderItems = selectedOrderItemsResult.Data;
+        var finalizedAttachmentsResult = await _returnAttachmentStorageService.FinalizeTemporaryPhotosAsync(
+            userId,
+            request.UploadedPhotoKeys);
+        if (!finalizedAttachmentsResult.Success)
+        {
+            return new ErrorDataResult<ReturnRequestDto>(finalizedAttachmentsResult.Message);
         }
 
         var returnRequest = new ReturnRequest
@@ -111,14 +139,27 @@ public class ReturnRequestManager : IReturnRequestService
             OrderId = orderId,
             UserId = userId,
             Type = requestType,
+            ReasonCategory = reasonCategory,
+            SelectedOrderItemIdsJson = SerializeSelectedOrderItemIds(selectedOrderItems.Select(item => item.Id)),
             Status = ReturnRequestStatus.Pending,
             Reason = request.Reason.Trim(),
             RequestNote = string.IsNullOrWhiteSpace(request.RequestNote) ? null : request.RequestNote.Trim(),
-            RequestedRefundAmount = order.Payment?.Status == PaymentStatus.Success ? order.TotalAmount : 0m
+            RequestWindowEndsAt = ResolveRequestWindowEndsAt(order, requestType),
+            Attachments = finalizedAttachmentsResult.Data,
+            RequestedRefundAmount = order.Payment?.Status == PaymentStatus.Success
+                ? selectedOrderItems.Sum(item => item.PriceSnapshot * item.Quantity)
+                : 0m
         };
 
         await _returnRequestDal.AddAsync(returnRequest);
         await _unitOfWork.SaveChangesAsync();
+
+        // Requery basarisiz olursa cevap DTO'su secilen urunleri ve musteri bilgisini yine de tasiyabilsin.
+        returnRequest.Order = order;
+        if (order.User != null)
+        {
+            returnRequest.User = order.User;
+        }
 
         await _auditService.LogActionAsync(
             userId.ToString(),
@@ -128,16 +169,22 @@ public class ReturnRequestManager : IReturnRequestService
             {
                 OrderId = orderId,
                 returnRequest.Type,
+                returnRequest.ReasonCategory,
+                SelectedOrderItemIds = selectedOrderItems.Select(item => item.Id).ToList(),
+                AttachmentCount = returnRequest.Attachments.Count,
                 returnRequest.Reason,
                 returnRequest.RequestedRefundAmount
             });
 
         _logger.LogInformation(
-            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, RequestedRefundAmount={RequestedRefundAmount}",
+            "Return request created. OrderId={OrderId}, UserId={UserId}, Type={Type}, ReasonCategory={ReasonCategory}, AttachmentCount={AttachmentCount}, RequestedRefundAmount={RequestedRefundAmount}, CorrelationId={CorrelationId}",
             orderId,
             userId,
             returnRequest.Type,
-            returnRequest.RequestedRefundAmount);
+            returnRequest.ReasonCategory,
+            returnRequest.Attachments.Count,
+            returnRequest.RequestedRefundAmount,
+            _correlationIdProvider.GetCorrelationId());
 
         var createdRequest = await _returnRequestDal.GetByIdWithDetailsAsync(returnRequest.Id) ?? returnRequest;
         return new SuccessDataResult<ReturnRequestDto>(MapToDto(createdRequest), "İade / iptal talebi oluşturuldu.");
@@ -191,6 +238,7 @@ public class ReturnRequestManager : IReturnRequestService
                     ReturnRequestId = returnRequest.Id,
                     OrderId = returnRequest.OrderId,
                     PaymentId = returnRequest.Order.Payment.Id,
+                    Provider = returnRequest.Order.Payment.Provider ?? PaymentProviderType.Iyzico,
                     Amount = returnRequest.RequestedRefundAmount,
                     Status = RefundRequestStatus.Pending,
                     IdempotencyKey = $"refund:{returnRequest.Id}:{Guid.NewGuid():N}"
@@ -261,8 +309,14 @@ public class ReturnRequestManager : IReturnRequestService
 
         if (createdRefundRequest != null)
         {
+            returnRequest.RefundRequest = createdRefundRequest;
+        }
+
+        if (createdRefundRequest != null)
+        {
             await _publishEndpoint.Publish(new RefundRequestedEvent
             {
+                CorrelationId = _correlationIdProvider.GetCorrelationId(),
                 RefundRequestId = createdRefundRequest.Id,
                 ReturnRequestId = returnRequest.Id,
                 OrderId = returnRequest.OrderId,
@@ -276,6 +330,7 @@ public class ReturnRequestManager : IReturnRequestService
 
         await _publishEndpoint.Publish(new ReturnRequestReviewedEvent
         {
+            CorrelationId = _correlationIdProvider.GetCorrelationId(),
             ReturnRequestId = returnRequest.Id,
             OrderId = returnRequest.OrderId,
             UserId = returnRequest.UserId,
@@ -309,36 +364,133 @@ public class ReturnRequestManager : IReturnRequestService
         return Enum.TryParse(value, true, out requestType);
     }
 
+    private static bool TryParseReasonCategory(string value, out ReturnReasonCategory category)
+    {
+        return Enum.TryParse(value, true, out category);
+    }
+
     private static bool TryParseReviewStatus(string value, out ReturnRequestStatus status)
     {
         var success = Enum.TryParse(value, true, out status);
         return success && (status == ReturnRequestStatus.Approved || status == ReturnRequestStatus.Rejected);
     }
 
-    private static bool IsRequestAllowed(OrderStatus orderStatus, ReturnRequestType requestType)
+    private static bool IsRequestAllowed(Order order, ReturnRequestType requestType)
     {
         return requestType switch
         {
-            ReturnRequestType.Cancellation => orderStatus == OrderStatus.PendingPayment ||
-                                              orderStatus == OrderStatus.Paid ||
-                                              orderStatus == OrderStatus.Processing,
-            ReturnRequestType.Return => orderStatus == OrderStatus.Delivered,
+            ReturnRequestType.Cancellation => order.Status == OrderStatus.PendingPayment ||
+                                              order.Status == OrderStatus.Paid ||
+                                              order.Status == OrderStatus.Processing,
+            ReturnRequestType.Return => order.Status == OrderStatus.Delivered &&
+                                        !IsReturnWindowExpired(order),
             _ => false
         };
     }
 
-    private static string GetInvalidStateMessage(OrderStatus orderStatus, ReturnRequestType requestType)
+    private static bool IsReturnWindowExpired(Order order)
+    {
+        if (!order.DeliveredAt.HasValue)
+        {
+            return false;
+        }
+
+        return order.DeliveredAt.Value.Date.AddDays(14) < DateTime.UtcNow.Date;
+    }
+
+    private static string GetInvalidStateMessage(Order order, ReturnRequestType requestType)
     {
         return requestType switch
         {
-            ReturnRequestType.Cancellation => $"Sipariş durumu {orderStatus} iken iptal talebi açılamaz.",
+            ReturnRequestType.Cancellation => $"Sipariş durumu {order.Status} iken iptal talebi açılamaz.",
+            ReturnRequestType.Return when order.Status == OrderStatus.Delivered && IsReturnWindowExpired(order)
+                => "İade talebi teslim tarihinden itibaren 14 gün içinde açılabilir.",
             ReturnRequestType.Return => "İade talebi yalnızca teslim edilen siparişler için açılabilir.",
             _ => "Talep oluşturulamadı."
         };
     }
 
+    private static IDataResult<List<OrderItem>> ResolveSelectedOrderItems(
+        Order order,
+        ReturnRequestType requestType,
+        List<int>? selectedOrderItemIds)
+    {
+        var orderItems = order.OrderItems.ToList();
+        if (orderItems.Count == 0)
+        {
+            return new ErrorDataResult<List<OrderItem>>("Siparişte iade edilebilir ürün bulunamadı.");
+        }
+
+        if (requestType == ReturnRequestType.Cancellation)
+        {
+            return new SuccessDataResult<List<OrderItem>>(orderItems);
+        }
+
+        if (orderItems.Count == 1 && (selectedOrderItemIds == null || selectedOrderItemIds.Count == 0))
+        {
+            return new SuccessDataResult<List<OrderItem>>(orderItems);
+        }
+
+        if (selectedOrderItemIds == null || selectedOrderItemIds.Count == 0)
+        {
+            return new ErrorDataResult<List<OrderItem>>("Çoklu ürün siparişlerinde iade edilecek en az bir ürün seçmelisiniz.");
+        }
+
+        var normalizedIds = selectedOrderItemIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToHashSet();
+
+        var selectedItems = orderItems
+            .Where(item => normalizedIds.Contains(item.Id))
+            .ToList();
+
+        if (selectedItems.Count != normalizedIds.Count)
+        {
+            return new ErrorDataResult<List<OrderItem>>("Seçilen ürünlerden bazıları siparişte bulunamadı.");
+        }
+
+        return new SuccessDataResult<List<OrderItem>>(selectedItems);
+    }
+
+    private static string SerializeSelectedOrderItemIds(IEnumerable<int> selectedOrderItemIds)
+    {
+        return JsonSerializer.Serialize(selectedOrderItemIds.Distinct().ToList());
+    }
+
+    private static HashSet<int> DeserializeSelectedOrderItemIds(string? selectedOrderItemIdsJson)
+    {
+        if (string.IsNullOrWhiteSpace(selectedOrderItemIdsJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            var ids = JsonSerializer.Deserialize<List<int>>(selectedOrderItemIdsJson) ?? [];
+            return ids.Where(id => id > 0).ToHashSet();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     private static ReturnRequestDto MapToDto(ReturnRequest request)
     {
+        var selectedOrderItemIds = DeserializeSelectedOrderItemIds(request.SelectedOrderItemIdsJson);
+        var selectedItems = request.Order?.OrderItems
+            .Where(item => selectedOrderItemIds.Count == 0 || selectedOrderItemIds.Contains(item.Id))
+            .Select(item => new ReturnRequestItemDto
+            {
+                OrderItemId = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.Product?.Name ?? string.Empty,
+                Quantity = item.Quantity,
+                LineTotal = item.PriceSnapshot * item.Quantity
+            })
+            .ToList() ?? new List<ReturnRequestItemDto>();
+
         return new ReturnRequestDto
         {
             Id = request.Id,
@@ -347,9 +499,22 @@ public class ReturnRequestManager : IReturnRequestService
             UserId = request.UserId,
             CustomerName = request.User != null ? $"{request.User.FirstName} {request.User.LastName}".Trim() : string.Empty,
             Type = request.Type.ToString(),
+            ReasonCategory = request.ReasonCategory.ToString(),
             Status = request.Status.ToString(),
             Reason = request.Reason,
             RequestNote = request.RequestNote,
+            RequestWindowEndsAt = request.RequestWindowEndsAt,
+            SelectedItems = selectedItems,
+            Attachments = request.Attachments
+                .Select(attachment => new ReturnRequestAttachmentDto
+                {
+                    Id = attachment.Id,
+                    FileName = attachment.OriginalFileName,
+                    ContentType = attachment.ContentType,
+                    SizeBytes = attachment.SizeBytes,
+                    CreatedAt = attachment.CreatedAt
+                })
+                .ToList(),
             RequestedRefundAmount = request.RequestedRefundAmount,
             PaymentStatus = request.Order?.Payment?.Status.ToString(),
             ReviewedByUserId = request.ReviewedByUserId,
@@ -357,8 +522,19 @@ public class ReturnRequestManager : IReturnRequestService
             ReviewNote = request.ReviewNote,
             ReviewedAt = request.ReviewedAt,
             RefundRequestId = request.RefundRequest?.Id,
+            RefundProvider = request.RefundRequest?.Provider,
             RefundStatus = request.RefundRequest?.Status.ToString(),
             CreatedAt = request.CreatedAt
         };
+    }
+
+    private static DateTime? ResolveRequestWindowEndsAt(Order order, ReturnRequestType requestType)
+    {
+        if (requestType != ReturnRequestType.Return || !order.DeliveredAt.HasValue)
+        {
+            return null;
+        }
+
+        return order.DeliveredAt.Value.AddDays(14);
     }
 }

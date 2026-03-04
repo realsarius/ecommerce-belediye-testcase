@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/common.sh"
 SMOKE_SUMMARY="${SMOKE_SUMMARY:-/tmp/api-smoke-summary.txt}"
 API_LOG="${API_LOG:-/tmp/api.log}"
 SMOKE_EXPECT_SWAGGER="${SMOKE_EXPECT_SWAGGER:-true}"
+SMOKE_REUSE_RUNNING_API="${SMOKE_REUSE_RUNNING_API:-true}"
 
 cleanup() {
   stop_api
@@ -16,7 +17,11 @@ cleanup() {
 trap cleanup EXIT
 
 rm -f "$SMOKE_SUMMARY"
-start_api "$API_LOG"
+if [[ "$SMOKE_REUSE_RUNNING_API" == "true" ]] && curl -fsS "$API_BASE_URL/health/ready" >/dev/null 2>&1; then
+  log "Hazir calisan API kullaniliyor: $API_BASE_URL"
+else
+  start_api "$API_LOG"
+fi
 
 wait_for_url "$API_BASE_URL/health/ready" "API readiness" 60 2 "$API_LOG"
 
@@ -96,6 +101,76 @@ request_json \
 assert_json_equals "$close_response" "success" "true" "destek konuşması kapatma"
 assert_json_equals "$close_response" "data.status" "Closed" "destek konuşması durumu"
 
+products_response="$(mktemp)"
+request_json "GET" "$API_BASE_URL/api/v1/products?page=1&pageSize=20" "$products_response"
+
+smoke_product_id="$(python3 - "$products_response" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+
+items = payload.get("data", {}).get("items", [])
+for item in items:
+    price = item.get("price") or 0
+    if price < 5000:
+        print(item["id"])
+        raise SystemExit(0)
+
+raise SystemExit("Uygun smoke checkout ürünü bulunamadı")
+PY
+)"
+
+clear_cart_response="$(mktemp)"
+request_json \
+  "DELETE" \
+  "$API_BASE_URL/api/v1/cart" \
+  "$clear_cart_response" \
+  -H "Authorization: Bearer $customer_token"
+
+add_to_cart_response="$(mktemp)"
+request_json \
+  "POST" \
+  "$API_BASE_URL/api/v1/cart/items" \
+  "$add_to_cart_response" \
+  -H "Authorization: Bearer $customer_token" \
+  -H "Content-Type: application/json" \
+  -d "{\"productId\":${smoke_product_id},\"quantity\":1}"
+assert_json_equals "$add_to_cart_response" "success" "true" "checkout smoke sepete ekleme"
+
+checkout_response="$(mktemp)"
+request_json \
+  "POST" \
+  "$API_BASE_URL/api/v1/orders" \
+  "$checkout_response" \
+  -H "Authorization: Bearer $customer_token" \
+  -H "Content-Type: application/json" \
+  -d '{"shippingAddress":"Test Customer, Bağdat Cd. No:1, Kadıköy/İstanbul P.K: 34700 - Tel: 5551234567","paymentMethod":"CreditCard","notes":"","preliminaryInfoAccepted":true,"distanceSalesContractAccepted":true,"invoiceInfo":{"type":"Individual","fullName":"Test Customer","invoiceAddress":"Test Customer, Bağdat Cd. No:1, Kadıköy/İstanbul P.K: 34700 - Tel: 5551234567"}}'
+assert_json_equals "$checkout_response" "success" "true" "checkout smoke sipariş oluşturma"
+order_id="$(json_read "$checkout_response" "data.id")"
+
+payment_response="$(mktemp)"
+request_json \
+  "POST" \
+  "$API_BASE_URL/api/v1/payments" \
+  "$payment_response" \
+  -H "Authorization: Bearer $customer_token" \
+  -H "Content-Type: application/json" \
+  -d "{\"orderId\":${order_id},\"paymentProvider\":\"Iyzico\",\"cardNumber\":\"5406670000000009\",\"cardHolderName\":\"TEST CUSTOMER\",\"expiryDate\":\"12/27\",\"cvv\":\"123\",\"require3DS\":false}"
+assert_json_equals "$payment_response" "success" "true" "checkout smoke ödeme isteği"
+assert_json_equals "$payment_response" "data.status" "Success" "checkout smoke ödeme sonucu"
+
+order_detail_response="$(mktemp)"
+request_json \
+  "GET" \
+  "$API_BASE_URL/api/v1/orders/${order_id}" \
+  "$order_detail_response" \
+  -H "Authorization: Bearer $customer_token"
+assert_json_equals "$order_detail_response" "success" "true" "checkout smoke sipariş detayı"
+assert_json_equals "$order_detail_response" "data.status" "Paid" "checkout smoke sipariş durumu"
+assert_json_equals "$order_detail_response" "data.payment.status" "Success" "checkout smoke payment durumu"
+
 {
   echo "health=ok"
   if [[ "$SMOKE_EXPECT_SWAGGER" == "true" ]]; then
@@ -107,6 +182,8 @@ assert_json_equals "$close_response" "data.status" "Closed" "destek konuşması 
   echo "suggestions=ok"
   echo "auth=ok"
   echo "support_flow=ok"
+  echo "checkout_payment_flow=ok"
+  echo "checkout_order_id=${order_id}"
   echo "conversation_id=${conversation_id}"
 } | tee "$SMOKE_SUMMARY"
 

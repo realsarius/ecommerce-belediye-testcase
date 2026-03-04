@@ -6,6 +6,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.IntegrationEvents;
+using EcommerceAPI.Entities.Utilities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,9 +50,10 @@ public sealed class ReturnRequestReviewedConsumer : IConsumer<ReturnRequestRevie
         if (alreadyProcessed)
         {
             _logger.LogInformation(
-                "ReturnRequestReviewedEvent duplicate skipped. ReturnRequestId={ReturnRequestId}, MessageId={MessageId}",
+                "ReturnRequestReviewedEvent duplicate skipped. ReturnRequestId={ReturnRequestId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.ReturnRequestId,
-                messageId);
+                messageId,
+                message.CorrelationId);
             return;
         }
 
@@ -85,6 +87,19 @@ public sealed class ReturnRequestReviewedConsumer : IConsumer<ReturnRequestRevie
                 context.CancellationToken);
         }
 
+        _logger.LogInformation(
+            "Return analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, ReturnRequestId={ReturnRequestId}, OrderId={OrderId}, UserId={UserId}, Decision={Decision}, Status={Status}, MessageId={MessageId}, OccurredAt={OccurredAt}, CorrelationId={CorrelationId}",
+            AnalyticsLogSchema.Streams.Returns,
+            AnalyticsLogSchema.Events.ReturnRequestReviewed,
+            message.ReturnRequestId,
+            message.OrderId,
+            message.UserId,
+            message.Decision,
+            message.CurrentStatus,
+            messageId,
+            DateTime.UtcNow,
+            message.CorrelationId);
+
         _dbContext.InboxMessages.Add(new InboxMessage
         {
             MessageId = messageId,
@@ -100,9 +115,10 @@ public sealed class ReturnRequestReviewedConsumer : IConsumer<ReturnRequestRevie
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {
             _logger.LogInformation(
-                "ReturnRequestReviewedEvent duplicate detected during inbox save. ReturnRequestId={ReturnRequestId}, MessageId={MessageId}",
+                "ReturnRequestReviewedEvent duplicate detected during inbox save. ReturnRequestId={ReturnRequestId}, MessageId={MessageId}, CorrelationId={CorrelationId}",
                 message.ReturnRequestId,
-                messageId);
+                messageId,
+                message.CorrelationId);
         }
     }
 
@@ -145,6 +161,7 @@ public sealed class ReturnRequestReviewedConsumer : IConsumer<ReturnRequestRevie
         activity.SetTag("ecommerce.message.type", nameof(ReturnRequestReviewedEvent));
         activity.SetTag("ecommerce.return_request.id", message.ReturnRequestId);
         activity.SetTag("ecommerce.return_request.status", message.CurrentStatus);
+        activity.SetTag("ecommerce.correlation_id", message.CorrelationId);
     }
 
     private static bool IsDuplicateKeyException(DbUpdateException ex)

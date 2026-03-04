@@ -6,53 +6,89 @@ using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
+using EcommerceAPI.Entities.Utilities;
 using EcommerceAPI.Core.Utilities.Redis;
+using EcommerceAPI.Infrastructure.Utilities;
 using Iyzipay;
 using Iyzipay.Model;
 using Iyzipay.Request;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using EcommerceAPI.Core.CrossCuttingConcerns;
 
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
 /// <summary>
 /// Iyzico ödeme API entegrasyonu.
 /// </summary>
-public class IyzicoPaymentService : IPaymentService
+public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 {
+    public PaymentProviderType ProviderType => PaymentProviderType.Iyzico;
+
+    private sealed class IyzicoPaymentExecutionResult
+    {
+        public IyzicoChargeGatewayResult? Payment { get; init; }
+        public IyzicoThreeDSInitializeGatewayResult? ThreeDSInitialize { get; init; }
+        public string? Last4Digits { get; init; }
+        public bool RequiresThreeDS => ThreeDSInitialize != null;
+    }
+
     private readonly IOrderDal _orderDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IyzicoSettings _settings;
+    private readonly PaymentSettings _paymentSettings;
     private readonly ICreditCardService _creditCardService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IReferralService _referralService;
+    private readonly IIyzicoPaymentGateway _paymentGateway;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
+    private readonly ICorrelationIdProvider _correlationIdProvider;
 
     public IyzicoPaymentService(
         IOrderDal orderDal,
         IUnitOfWork unitOfWork,
         IOptions<IyzicoSettings> settings,
+        IOptions<PaymentSettings> paymentSettings,
         ICreditCardService creditCardService,
         ILoyaltyService loyaltyService,
         IReferralService referralService,
+        IIyzicoPaymentGateway paymentGateway,
         IDistributedLockService lockService,
-        Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger)
+        Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger,
+        ICorrelationIdProvider correlationIdProvider)
     {
         _orderDal = orderDal;
         _unitOfWork = unitOfWork;
         _settings = settings.Value;
+        _paymentSettings = paymentSettings.Value;
         _creditCardService = creditCardService;
         _loyaltyService = loyaltyService;
         _referralService = referralService;
+        _paymentGateway = paymentGateway;
         _lockService = lockService;
         _logger = logger;
+        _correlationIdProvider = correlationIdProvider;
     }
 
     public async Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request)
     {
-        _logger.LogInformation("RAW PAYMENT REQUEST: User={UserId}, OrderId={OrderId}, SavedCardId={SavedCardId}, CardNoLen={CardLen}", 
-            userId, request.OrderId, request.SavedCardId, request.CardNumber?.Length ?? 0);
+        var requestedProvider = request.PaymentProvider ?? PaymentProviderType.Iyzico;
+        if (requestedProvider != PaymentProviderType.Iyzico)
+        {
+            return new ErrorDataResult<PaymentDto>(
+                $"Secilen odeme saglayicisi henuz aktif degil: {requestedProvider}");
+        }
+
+        request.PaymentProvider = requestedProvider;
+
+        _logger.LogInformation(
+            "Processing payment request. UserId={UserId}, OrderId={OrderId}, UsesSavedCard={UsesSavedCard}, Provider={Provider}, CorrelationId={CorrelationId}",
+            userId,
+            request.OrderId,
+            request.SavedCardId.HasValue,
+            requestedProvider,
+            _correlationIdProvider.GetCorrelationId());
         var lockKey = RedisKeys.PaymentLock(request.OrderId);
         var lockToken = await _lockService.TryAcquireLockAsync(lockKey);
 
@@ -94,11 +130,83 @@ public class IyzicoPaymentService : IPaymentService
                     Constants.InfrastructureConstants.Payment.AlreadyPaidCode,
                     "Bu sipariş için ödeme zaten alınmış.");
 
-            var iyzicoPayment = await ProcessIyzicoPaymentAsync(order, request);
+            var validationError = ValidatePaymentRequest(request);
+            if (validationError != null)
+            {
+                return new ErrorDataResult<PaymentDto>(validationError);
+            }
 
-            if (iyzicoPayment.Status == "success")
+            var requiresThreeDS = ShouldRequireThreeDS(order.TotalAmount, request);
+            if (requiresThreeDS && request.SaveCard && !request.SavedCardId.HasValue)
+            {
+                return new ErrorDataResult<PaymentDto>(
+                    "3D Secure gereken odemelerde yeni karti kaydetme simdilik desteklenmiyor.");
+            }
+
+            IyzicoPaymentExecutionResult iyzicoPaymentResult;
+            try
+            {
+                iyzicoPaymentResult = await ProcessIyzicoPaymentAsync(order, request, requiresThreeDS);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return new ErrorDataResult<PaymentDto>(ex.Message);
+            }
+
+            order.Payment.Last4Digits = iyzicoPaymentResult.Last4Digits;
+
+            if (iyzicoPaymentResult.RequiresThreeDS)
+            {
+                var threeDSInitialize = iyzicoPaymentResult.ThreeDSInitialize!;
+
+                if (threeDSInitialize.Success && !string.IsNullOrWhiteSpace(threeDSInitialize.HtmlContent))
+                {
+                    order.Payment.Status = PaymentStatus.Pending;
+                    order.Payment.Provider = PaymentProviderType.Iyzico;
+                    order.Payment.PaymentProviderId = threeDSInitialize.PaymentId;
+                    order.Payment.ErrorMessage = null;
+                    order.Payment.IdempotencyKey = idempotencyKey;
+
+                    _orderDal.Update(order);
+                    await _unitOfWork.SaveChangesAsync();
+
+                    return new SuccessDataResult<PaymentDto>(new PaymentDto
+                    {
+                        Id = order.Payment.Id,
+                        Amount = order.Payment.Amount,
+                        Currency = order.Payment.Currency,
+                        Status = order.Payment.Status.ToString(),
+                        PaymentMethod = order.Payment.PaymentMethod,
+                        Provider = order.Payment.Provider,
+                        Last4Digits = order.Payment.Last4Digits,
+                        ErrorMessage = null,
+                        RequiresThreeDS = true,
+                        ThreeDSHtmlContent = threeDSInitialize.HtmlContent,
+                        CreatedAt = order.Payment.CreatedAt
+                    });
+                }
+
+                order.Payment.Status = PaymentStatus.Failed;
+                order.Payment.ErrorMessage = threeDSInitialize.ErrorMessage ?? "3D Secure baslatilamadi.";
+                order.Payment.IdempotencyKey = idempotencyKey;
+
+                _orderDal.Update(order);
+                await _unitOfWork.SaveChangesAsync();
+                LogPaymentFailure(order, userId, request, requiresThreeDS, "ThreeDSInitialize", order.Payment.ErrorMessage);
+
+                return new ErrorDataResult<PaymentDto>(
+                    MapToDto(order.Payment),
+                    order.Payment.ErrorMessage,
+                    Constants.InfrastructureConstants.Payment.DefaultErrorCode,
+                    threeDSInitialize.ErrorMessage);
+            }
+
+            var iyzicoPayment = iyzicoPaymentResult.Payment!;
+
+            if (iyzicoPayment.Success)
             {
                 order.Payment.Status = PaymentStatus.Success;
+                order.Payment.Provider = PaymentProviderType.Iyzico;
                 order.Payment.PaymentProviderId = iyzicoPayment.PaymentId;
                 order.Status = OrderStatus.Paid;
                 order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
@@ -113,6 +221,11 @@ public class IyzicoPaymentService : IPaymentService
                 if (!referralResult.Success)
                 {
                     return new ErrorDataResult<PaymentDto>(referralResult.Message);
+                }
+
+                if (request.SaveCard && !request.SavedCardId.HasValue)
+                {
+                    await TryPersistTokenizedCardAsync(userId, request, iyzicoPayment);
                 }
             }
             else
@@ -130,6 +243,8 @@ public class IyzicoPaymentService : IPaymentService
             {
                 return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
             }
+
+            LogPaymentFailure(order, userId, request, requiresThreeDS, "Charge", order.Payment.ErrorMessage);
             
             return new ErrorDataResult<PaymentDto>(
                 MapToDto(order.Payment), 
@@ -143,15 +258,8 @@ public class IyzicoPaymentService : IPaymentService
         }
     }
 
-    private async Task<Iyzipay.Model.Payment> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request)
+    private async Task<IyzicoPaymentExecutionResult> ProcessIyzicoPaymentAsync(Order order, ProcessPaymentRequest request, bool requiresThreeDS)
     {
-        var options = new Iyzipay.Options
-        {
-            ApiKey = _settings.ApiKey,
-            SecretKey = _settings.SecretKey,
-            BaseUrl = _settings.BaseUrl
-        };
-
         var paymentRequest = new CreatePaymentRequest
         {
             Locale = Locale.TR.ToString(),
@@ -162,38 +270,46 @@ public class IyzicoPaymentService : IPaymentService
             Installment = 1,
             BasketId = $"B{order.Id}",
             PaymentChannel = PaymentChannel.WEB.ToString(),
-            PaymentGroup = PaymentGroup.PRODUCT.ToString()
+            PaymentGroup = PaymentGroup.PRODUCT.ToString(),
+            CallbackUrl = requiresThreeDS ? BuildThreeDSCallbackUrl() : null
         };
 
         // Kart bilgileri - kayıtlı kart veya yeni kart
         string cardHolderName, cardNumber, expireMonth, expireYear;
         
-        if (request.SavedCardId.HasValue)
+            if (request.SavedCardId.HasValue)
         {
             // Kayıtlı kart kullan
-            var savedCardResult = await _creditCardService.GetDecryptedCardForPaymentAsync(order.UserId, request.SavedCardId.Value);
+            var savedCardResult = await _creditCardService.GetStoredCardForPaymentAsync(order.UserId, request.SavedCardId.Value);
             if (!savedCardResult.Success || savedCardResult.Data == null)
             {
                 throw new InvalidOperationException("Kayıtlı kart bulunamadı veya yetkisiz erişim.");
             }
             
             var savedCard = savedCardResult.Data;
-            cardHolderName = savedCard.CardHolderName;
-            cardNumber = savedCard.CardNumber?.Replace(" ", "") ?? "";
-            expireMonth = savedCard.ExpireMonth;
-            expireYear = savedCard.ExpireYear;
-
-            _logger.LogInformation("Kayıtlı kart kullanılıyor ID: {SavedCardId}", request.SavedCardId);
-            _logger.LogInformation("Kart No Length: {Length}, IsNumeric: {IsNumeric}", 
-                cardNumber.Length, 
-                cardNumber.All(char.IsDigit));
-            _logger.LogInformation("Expire: {Month}/{Year}", expireMonth, expireYear);
-
-            if (!cardNumber.All(char.IsDigit))
+            if (savedCard.IsTokenized && savedCard.TokenProvider != PaymentProviderType.Iyzico)
             {
-                _logger.LogError("DECRYPTION HATASI: Kart numarası sadece rakamlardan oluşmuyor! Decrypted: {Decrypted}", 
-                    cardNumber.Length > 4 ? cardNumber.Substring(0, 4) + "***" : "INVALID");
+                throw new InvalidOperationException(
+                    $"Secilen kayitli kart {savedCard.TokenProvider} saglayicisi ile kayitli. Bu odeme yalnizca Iyzico ile alinabilir.");
             }
+
+            if (savedCard.IsTokenized &&
+                savedCard.TokenProvider == PaymentProviderType.Iyzico &&
+                !string.IsNullOrWhiteSpace(savedCard.IyzicoCardToken) &&
+                !string.IsNullOrWhiteSpace(savedCard.IyzicoUserKey))
+            {
+                paymentRequest.PaymentCard = new PaymentCard
+                {
+                    CardToken = savedCard.IyzicoCardToken,
+                    CardUserKey = savedCard.IyzicoUserKey,
+                    RegisterCard = 0
+                };
+
+                return await ExecuteIyzicoChargeAsync(paymentRequest, order, requiresThreeDS, savedCard.Last4Digits);
+            }
+
+            throw new InvalidOperationException(
+                "Bu kayitli kart eski sifreli formatta. Guvenlik nedeniyle yeniden kart bilgisi girmeniz gerekiyor.");
         }
         else
         {
@@ -211,9 +327,17 @@ public class IyzicoPaymentService : IPaymentService
             ExpireMonth = expireMonth,
             ExpireYear = expireYear,
             Cvc = request.CVV ?? "",
-            RegisterCard = 0
+            RegisterCard = request.SaveCard && !request.SavedCardId.HasValue ? 1 : 0
         };
+        return await ExecuteIyzicoChargeAsync(paymentRequest, order, requiresThreeDS, ResolveLast4Digits(cardNumber));
+    }
 
+    private async Task<IyzicoPaymentExecutionResult> ExecuteIyzicoChargeAsync(
+        CreatePaymentRequest paymentRequest,
+        Order order,
+        bool requiresThreeDS,
+        string? last4Digits)
+    {
         // Alıcı bilgileri
         paymentRequest.Buyer = new Buyer
         {
@@ -289,7 +413,108 @@ public class IyzicoPaymentService : IPaymentService
         
         paymentRequest.BasketItems = basketItems;
 
-        return await Iyzipay.Model.Payment.Create(paymentRequest, options);
+        if (requiresThreeDS)
+        {
+            return new IyzicoPaymentExecutionResult
+            {
+                ThreeDSInitialize = await _paymentGateway.InitializeThreeDSAsync(paymentRequest),
+                Last4Digits = last4Digits
+            };
+        }
+
+        return new IyzicoPaymentExecutionResult
+        {
+            Payment = await _paymentGateway.ChargeAsync(paymentRequest),
+            Last4Digits = last4Digits
+        };
+    }
+
+    private static string? ValidatePaymentRequest(ProcessPaymentRequest request)
+    {
+        if (request.SavedCardId.HasValue)
+        {
+            return null;
+        }
+
+        if (!IsValidCvv(request.CVV))
+        {
+            return "Guvenlik kodu (CVV) 3 veya 4 haneli olmalidir.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CardHolderName) ||
+            string.IsNullOrWhiteSpace(request.CardNumber) ||
+            string.IsNullOrWhiteSpace(request.ExpiryDate))
+        {
+            return "Yeni kart ile odeme icin kart bilgileri eksiksiz girilmelidir.";
+        }
+
+        var digitsOnly = new string(request.CardNumber.Where(char.IsDigit).ToArray());
+        if (digitsOnly.Length < 13 || digitsOnly.Length > 19)
+        {
+            return "Kart numarasi gecersizdir.";
+        }
+
+        if (!request.ExpiryDate.Contains('/'))
+        {
+            return "Son kullanma tarihi MM/YY veya MM/YYYY formatinda olmali.";
+        }
+
+        return null;
+    }
+
+    private async Task TryPersistTokenizedCardAsync(int userId, ProcessPaymentRequest request, IyzicoChargeGatewayResult iyzicoPayment)
+    {
+        if (string.IsNullOrWhiteSpace(iyzicoPayment.CardToken) ||
+            string.IsNullOrWhiteSpace(iyzicoPayment.CardUserKey) ||
+            string.IsNullOrWhiteSpace(iyzicoPayment.LastFourDigits))
+        {
+            _logger.LogWarning(
+                "Save card requested but provider token metadata was missing. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, CorrelationId={CorrelationId}",
+                userId,
+                request.OrderId,
+                iyzicoPayment.PaymentId,
+                _correlationIdProvider.GetCorrelationId());
+            return;
+        }
+
+        var saveResult = await _creditCardService.SaveTokenizedCardAsync(userId, new SaveTokenizedCreditCardRequest
+        {
+            CardAlias = string.IsNullOrWhiteSpace(request.SaveCardAlias)
+                ? (string.IsNullOrWhiteSpace(request.CardHolderName) ? "Kayitli Kartim" : request.CardHolderName)
+                : request.SaveCardAlias,
+            CardHolderName = request.CardHolderName ?? "Card Holder",
+            Brand = CardBrandDetector.Detect(request.CardNumber),
+            Last4Digits = iyzicoPayment.LastFourDigits,
+            ExpireMonth = GetExpireMonth(request.ExpiryDate),
+            ExpireYear = GetExpireYear(request.ExpiryDate),
+            TokenProvider = PaymentProviderType.Iyzico,
+            IyzicoCardToken = iyzicoPayment.CardToken,
+            IyzicoUserKey = iyzicoPayment.CardUserKey,
+            IsDefault = false
+        });
+
+        if (!saveResult.Success)
+        {
+            var sanitizedReason = SensitiveDataLogSanitizer.Sanitize(saveResult.Message);
+            _logger.LogWarning(
+                "Provider token received but local card save failed. UserId={UserId}, OrderId={OrderId}, PaymentId={PaymentId}, Reason={Reason}, CorrelationId={CorrelationId}",
+                userId,
+                request.OrderId,
+                iyzicoPayment.PaymentId,
+                sanitizedReason,
+                _correlationIdProvider.GetCorrelationId());
+        }
+    }
+
+    private static bool IsValidCvv(string? cvv)
+    {
+        if (string.IsNullOrWhiteSpace(cvv))
+        {
+            return false;
+        }
+
+        var digitsOnly = new string(cvv.Where(char.IsDigit).ToArray());
+        return digitsOnly.Length is >= 3 and <= 4;
     }
 
     private static string GetExpireMonth(string? expiryDate)
@@ -305,6 +530,60 @@ public class IyzicoPaymentService : IPaymentService
             return "2030";
         var year = expiryDate.Split('/')[1];
         return year.Length == 2 ? $"20{year}" : year;
+    }
+
+    private static string? ResolveLast4Digits(string? cardNumber)
+    {
+        if (string.IsNullOrWhiteSpace(cardNumber))
+        {
+            return null;
+        }
+
+        var digitsOnly = new string(cardNumber.Where(char.IsDigit).ToArray());
+        return digitsOnly.Length >= 4 ? digitsOnly[^4..] : null;
+    }
+
+    private void LogPaymentFailure(
+        Order order,
+        int userId,
+        ProcessPaymentRequest request,
+        bool requiresThreeDS,
+        string failureStage,
+        string? failureReason)
+    {
+        _logger.LogWarning(
+            "Payment analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, Provider={Provider}, OrderId={OrderId}, UserId={UserId}, PaymentRecordId={PaymentRecordId}, PaymentStatus={PaymentStatus}, FailureStage={FailureStage}, ErrorCode={ErrorCode}, FailureReason={FailureReason}, UsesSavedCard={UsesSavedCard}, RequiresThreeDS={RequiresThreeDS}, CorrelationId={CorrelationId}",
+            "Payment",
+            "PaymentFailed",
+            PaymentProviderType.Iyzico,
+            order.Id,
+            userId,
+            order.Payment?.Id,
+            order.Payment?.Status.ToString(),
+            failureStage,
+            Constants.InfrastructureConstants.Payment.DefaultErrorCode,
+            SensitiveDataLogSanitizer.Sanitize(failureReason),
+            request.SavedCardId.HasValue,
+            requiresThreeDS,
+            _correlationIdProvider.GetCorrelationId());
+    }
+
+    private bool ShouldRequireThreeDS(decimal orderAmount, ProcessPaymentRequest request)
+    {
+        return _paymentSettings.Force3DSecure
+            || orderAmount >= _paymentSettings.Force3DSecureAbove
+            || request.Require3DS;
+    }
+
+    private string BuildThreeDSCallbackUrl()
+    {
+        var baseUrl = _paymentSettings.PublicApiBaseUrl?.Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            throw new InvalidOperationException("PublicApiBaseUrl ayari bulunamadi.");
+        }
+
+        return $"{baseUrl}/api/v1/payments/callback";
     }
 
     public async Task<IDataResult<PaymentDto>> GetPaymentByOrderIdAsync(int orderId)
@@ -326,6 +605,8 @@ public class IyzicoPaymentService : IPaymentService
             Currency = payment.Currency,
             Status = payment.Status.ToString(),
             PaymentMethod = payment.PaymentMethod,
+            Provider = payment.Provider,
+            Last4Digits = payment.Last4Digits,
             ErrorMessage = payment.ErrorMessage,
             CreatedAt = payment.CreatedAt
         };
@@ -357,12 +638,6 @@ public class IyzicoPaymentService : IPaymentService
         // Idempotency: Zaten işlenmiş mi?
         if (order.Status == OrderStatus.Paid)
             return new SuccessResult("Already paid");
-
-        // Token varsa - Double Verification
-        if (!string.IsNullOrEmpty(request.Token))
-        {
-            return await VerifyAndFinalizePaymentAsync(request.Token, request.PaymentConversationId);
-        }
 
         // Direct webhook - status'a göre güncelle
         await _unitOfWork.BeginTransactionAsync();
@@ -407,7 +682,7 @@ public class IyzicoPaymentService : IPaymentService
         }
     }
 
-    public async Task<IResult> VerifyAndFinalizePaymentAsync(string token, string conversationId)
+    public async Task<IResult> VerifyAndFinalizePaymentAsync(string paymentId, string conversationId, string conversationData)
     {
         var options = new Iyzipay.Options
         {
@@ -416,14 +691,15 @@ public class IyzicoPaymentService : IPaymentService
             BaseUrl = _settings.BaseUrl
         };
 
-        var retrieveRequest = new RetrieveCheckoutFormRequest
+        var threeDSPaymentRequest = new CreateThreedsPaymentRequest
         {
             ConversationId = conversationId,
-            Token = token
+            PaymentId = paymentId,
+            ConversationData = conversationData,
+            Locale = Locale.TR.ToString()
         };
 
-        // iyzico'dan gerçek sonucu al
-        var checkoutForm = await CheckoutForm.Retrieve(retrieveRequest, options);
+        var threeDSPayment = await ThreedsPayment.Create(threeDSPaymentRequest, options);
 
         var order = await _orderDal.GetByOrderNumberAsync(conversationId);
         if (order == null || order.Payment == null)
@@ -436,10 +712,12 @@ public class IyzicoPaymentService : IPaymentService
         await _unitOfWork.BeginTransactionAsync();
         try
         {
-            if (checkoutForm.Status == "success" && checkoutForm.PaymentStatus == "SUCCESS")
+            if (threeDSPayment.Status == "success" && threeDSPayment.PaymentStatus == "SUCCESS")
             {
                 order.Payment.Status = PaymentStatus.Success;
-                order.Payment.PaymentProviderId = checkoutForm.PaymentId;
+                order.Payment.Provider = PaymentProviderType.Iyzico;
+                order.Payment.PaymentProviderId = threeDSPayment.PaymentId;
+                order.Payment.ErrorMessage = null;
                 order.Status = OrderStatus.Paid;
                 order.LoyaltyPointsEarned = CalculateEarnedLoyaltyPoints(order.TotalAmount);
 
@@ -449,20 +727,27 @@ public class IyzicoPaymentService : IPaymentService
                     await _unitOfWork.RollbackTransactionAsync();
                     return new ErrorResult(loyaltyResult.Message);
                 }
+
+                var referralResult = await _referralService.AwardFirstPurchaseRewardsAsync(order.Id);
+                if (!referralResult.Success)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return new ErrorResult(referralResult.Message);
+                }
             }
             else
             {
                 order.Payment.Status = PaymentStatus.Failed;
-                order.Payment.ErrorMessage = checkoutForm.ErrorMessage ?? "Ödeme doğrulaması başarısız";
+                order.Payment.ErrorMessage = threeDSPayment.ErrorMessage ?? "3D Secure odeme dogrulamasi basarisiz";
             }
 
             _orderDal.Update(order);
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
 
-            return checkoutForm.Status == "success" 
+            return threeDSPayment.Status == "success" 
                 ? new SuccessResult(@"Payment verified and updated") 
-                : new ErrorResult(checkoutForm.ErrorMessage ?? "Payment verification failed");
+                : new ErrorResult(threeDSPayment.ErrorMessage ?? "Payment verification failed");
         }
         catch
         {
