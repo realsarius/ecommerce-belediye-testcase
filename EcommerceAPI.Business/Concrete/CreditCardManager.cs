@@ -237,7 +237,7 @@ public class CreditCardManager : ICreditCardService
         }
 
         var allCards = await _creditCardDal.GetListAsync(c => c.UserId == userId);
-        foreach (var existingCard in allCards.Where(c => c.IsDefault))
+        foreach (var existingCard in allCards.Where(c => c.IsDefault && c.Id != card.Id))
         {
             existingCard.IsDefault = false;
             _creditCardDal.Update(existingCard);
