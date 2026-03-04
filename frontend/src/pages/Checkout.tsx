@@ -46,6 +46,7 @@ import type { GiftCardValidationResult } from '@/features/giftCards/types';
 import type { PaymentProviderType } from '@/features/creditCards/creditCardsApi';
 
 const PENDING_THREE_DS_ORDER_ID_KEY = 'pending_three_ds_order_id';
+const RECENT_CHECKOUT_ORDER_ID_KEY = 'recent_checkout_order_id';
 
 function formatExpiry(month: string, year: string) {
   return `${month.padStart(2, '0')}/${year.slice(-2)}`;
@@ -69,6 +70,7 @@ export default function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
+  const [isCheckoutFlowActive, setIsCheckoutFlowActive] = useState(false);
   const [cartSnapshot, setCartSnapshot] = useState<typeof cart | null>(null);
   const [addressForm, setAddressForm] = useState({
     title: '',
@@ -223,7 +225,7 @@ export default function Checkout() {
     defaultProvider: 'Iyzico' as PaymentProviderType,
     enableMultiProviderSelection: false,
     enableTokenizedCardSave: false,
-    allowLegacyEncryptedSavedCardPayments: true,
+    allowLegacyEncryptedSavedCardPayments: false,
     force3DSecure: false,
     force3DSecureAbove: 5000,
   };
@@ -355,9 +357,14 @@ export default function Checkout() {
             // Sipariş başarılıysa cart temizliği başarısız olsa da yönlendirmeyi engelleme.
           }
 
+          if (targetOrderId) {
+            window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(targetOrderId));
+          }
+
           window.localStorage.removeItem(PENDING_THREE_DS_ORDER_ID_KEY);
           setPendingOrderId(null);
           setCartSnapshot(null);
+          setIsCheckoutFlowActive(false);
           toast.success('3D Secure doğrulaması tamamlandı. Siparişiniz alındı.');
           navigate(targetOrderId ? `/orders/${targetOrderId}` : '/orders', { replace: true });
           return;
@@ -366,8 +373,9 @@ export default function Checkout() {
         window.localStorage.removeItem(PENDING_THREE_DS_ORDER_ID_KEY);
         setPendingOrderId(null);
         setCartSnapshot(null);
-        toast.error('3D Secure doğrulaması tamamlanamadı. Lütfen tekrar deneyin.');
-        navigate('/cart', { replace: true });
+        setIsCheckoutFlowActive(false);
+        toast.error('3D Secure doğrulaması tamamlanamadı. Siparişiniz ödeme bekliyor; detay ekranından tekrar deneyebilirsiniz.');
+        navigate(targetOrderId ? `/orders/${targetOrderId}` : '/orders', { replace: true });
       } finally {
         isHandlingThreeDSReturnRef.current = false;
       }
@@ -376,8 +384,12 @@ export default function Checkout() {
     void finalizeThreeDSReturn();
   }, [clearCart, location.search, navigate]);
 
-  const submitThreeDSForm = (base64HtmlContent: string) => {
-    const decodedHtml = window.atob(base64HtmlContent);
+  const submitThreeDSForm = (htmlContent: string) => {
+    const trimmedContent = htmlContent.trim();
+    const decodedHtml = trimmedContent.startsWith('<')
+      ? trimmedContent
+      : window.atob(trimmedContent);
+
     document.open();
     document.write(decodedHtml);
     document.close();
@@ -528,6 +540,7 @@ export default function Checkout() {
     }
 
     let orderIdToUse = pendingOrderId;
+    setIsCheckoutFlowActive(true);
 
     try {
       if (!orderIdToUse) {
@@ -564,6 +577,8 @@ export default function Checkout() {
         isNavigatingRef.current = true;
         setPendingOrderId(null);
         setCartSnapshot(null);
+        setIsCheckoutFlowActive(false);
+        window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(orderIdToUse));
         toast.success('Siparişiniz başarıyla oluşturuldu!');
         navigate(`/orders/${orderIdToUse}`);
         return;
@@ -598,20 +613,24 @@ export default function Checkout() {
       isNavigatingRef.current = true;
       setPendingOrderId(null);
       setCartSnapshot(null);
+      setIsCheckoutFlowActive(false);
+      window.localStorage.setItem(RECENT_CHECKOUT_ORDER_ID_KEY, String(orderIdToUse));
       toast.success('Siparişiniz başarıyla oluşturuldu!');
       navigate(`/orders/${orderIdToUse}`);
     } catch (error: unknown) {
       if (orderIdToUse) {
+        setIsCheckoutFlowActive(false);
         if (error instanceof Error) {
-          toast.error(error.message + ' Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.');
+          toast.error(error.message + ' Sipariş detayından tekrar deneyebilirsiniz.');
         } else {
           const err = error as { data?: { message?: string } };
-          toast.error((err.data?.message || 'Ödeme işlemi başarısız') + ' Lütfen tekrar deneyin.');
+          toast.error((err.data?.message || 'Ödeme işlemi başarısız') + ' Sipariş detayından tekrar deneyebilirsiniz.');
         }
-        navigate('/cart');
+        navigate(`/orders/${orderIdToUse}`);
         return;
       }
 
+      setIsCheckoutFlowActive(false);
       if (error instanceof Error) {
         toast.error(error.message);
         return;
@@ -628,10 +647,10 @@ export default function Checkout() {
       return;
     }
 
-    if (!isLoading && !pendingOrderId && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
+    if (!isLoading && !pendingOrderId && !isCheckoutFlowActive && !isNavigatingRef.current && (!cart || cart.items.length === 0)) {
       navigate('/cart');
     }
-  }, [cart, navigate, isLoading, pendingOrderId]);
+  }, [cart, navigate, isCheckoutFlowActive, isLoading, pendingOrderId]);
 
   if (isLoading) {
     return (

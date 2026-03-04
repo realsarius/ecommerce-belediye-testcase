@@ -381,6 +381,43 @@ public class IyzicoPaymentServiceTests
     }
 
     [Fact]
+    public async Task ProcessPaymentAsync_WhenLegacySavedCardIsSelected_ShouldReturnReadableErrorWithoutCharging()
+    {
+        var order = CreatePendingOrder(id: 19, orderNumber: "ORD-19");
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _creditCardServiceMock
+            .Setup(x => x.GetStoredCardForPaymentAsync(order.UserId, 100))
+            .ReturnsAsync(new SuccessDataResult<StoredCardPaymentDto>(new StoredCardPaymentDto
+            {
+                Id = 100,
+                CardHolderName = "Legacy User",
+                Brand = CardBrand.Mastercard,
+                Last4Digits = "4242",
+                ExpireMonth = "12",
+                ExpireYear = "2030",
+                IsTokenized = false,
+                TokenProvider = null,
+                CardNumber = null
+            }));
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            SavedCardId = 100,
+            PaymentProvider = PaymentProviderType.Iyzico,
+            CVV = "123",
+            IdempotencyKey = "legacy-saved-card-disabled"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("yeniden kart bilgisi");
+        _paymentGatewayMock.Verify(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        _paymentGatewayMock.Verify(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ProcessPaymentAsync_WhenGatewayReturnsSensitiveFailure_ShouldWriteSanitizedStructuredFailureLog()
     {
         var order = CreatePendingOrder(id: 19, orderNumber: "ORD-19");

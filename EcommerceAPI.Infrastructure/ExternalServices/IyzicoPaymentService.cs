@@ -308,25 +308,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                 return await ExecuteIyzicoChargeAsync(paymentRequest, order, requiresThreeDS, savedCard.Last4Digits);
             }
 
-            if (!IsValidCvv(request.CVV))
-            {
-                throw new InvalidOperationException("Guvenlik kodu (CVV) 3 veya 4 haneli olmalidir.");
-            }
-
-            cardHolderName = savedCard.CardHolderName;
-            cardNumber = savedCard.CardNumber?.Replace(" ", "") ?? "";
-            expireMonth = savedCard.ExpireMonth;
-            expireYear = savedCard.ExpireYear;
-
-            if (!cardNumber.All(char.IsDigit))
-            {
-                _logger.LogError(
-                    "Saved card data is invalid after decryption. OrderId={OrderId}, SavedCardId={SavedCardId}, CorrelationId={CorrelationId}",
-                    order.Id,
-                    request.SavedCardId,
-                    _correlationIdProvider.GetCorrelationId());
-                throw new InvalidOperationException("Kayitli kart verisi gecersiz.");
-            }
+            throw new InvalidOperationException(
+                "Bu kayitli kart eski sifreli formatta. Guvenlik nedeniyle yeniden kart bilgisi girmeniz gerekiyor.");
         }
         else
         {

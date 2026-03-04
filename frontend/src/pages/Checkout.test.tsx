@@ -175,7 +175,7 @@ describe('Checkout legal consent davranışı', () => {
         defaultProvider: 'Iyzico',
         enableMultiProviderSelection: false,
         enableTokenizedCardSave: false,
-        allowLegacyEncryptedSavedCardPayments: true,
+        allowLegacyEncryptedSavedCardPayments: false,
         force3DSecure: false,
         force3DSecureAbove: 5000,
       },

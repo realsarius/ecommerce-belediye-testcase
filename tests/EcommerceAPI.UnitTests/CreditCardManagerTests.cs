@@ -10,13 +10,13 @@ namespace EcommerceAPI.UnitTests;
 public class CreditCardManagerTests
 {
     [Fact]
-    public async Task GetStoredCardForPaymentAsync_WhenLegacyEncryptedCardsDisabled_ShouldRejectNonTokenizedCard()
+    public async Task GetStoredCardForPaymentAsync_WhenCardIsNotTokenized_ShouldRejectLegacyCardWithoutDecryptingPan()
     {
         var creditCardDalMock = new Mock<ICreditCardDal>();
         var unitOfWorkMock = new Mock<IUnitOfWork>();
         var encryptionServiceMock = new Mock<IEncryptionService>();
         var paymentFeaturePolicyMock = new Mock<EcommerceAPI.Business.Abstract.IPaymentFeaturePolicy>();
-        paymentFeaturePolicyMock.SetupGet(x => x.AllowLegacyEncryptedSavedCardPayments).Returns(false);
+        paymentFeaturePolicyMock.SetupGet(x => x.AllowLegacyEncryptedSavedCardPayments).Returns(true);
 
         var manager = new CreditCardManager(
             creditCardDalMock.Object,

@@ -265,7 +265,7 @@ public class CreditCardManager : ICreditCardService
                            !string.IsNullOrWhiteSpace(card.StripePaymentMethodId) ||
                            !string.IsNullOrWhiteSpace(card.PayTrToken));
 
-        if (!isTokenized && !_paymentFeaturePolicy.AllowLegacyEncryptedSavedCardPayments)
+        if (!isTokenized)
         {
             return new ErrorDataResult<StoredCardPaymentDto>(
                 "Bu kayitli kart eski sifreli formatta. Guvenlik nedeniyle yeniden kart bilgisi girmeniz gerekiyor.");
@@ -283,7 +283,7 @@ public class CreditCardManager : ICreditCardService
             TokenProvider = card.TokenProvider,
             IyzicoCardToken = card.IyzicoCardToken,
             IyzicoUserKey = card.IyzicoUserKey,
-            CardNumber = isTokenized ? null : _encryptionService.Decrypt(card.CardNumberEncrypted)
+            CardNumber = null
         };
 
         return new SuccessDataResult<StoredCardPaymentDto>(storedCard);
