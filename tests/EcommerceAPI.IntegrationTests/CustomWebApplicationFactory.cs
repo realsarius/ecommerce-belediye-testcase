@@ -16,6 +16,9 @@ namespace EcommerceAPI.IntegrationTests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private static readonly Lazy<string> TestConnectionString = new(
+        () => IntegrationTestDatabaseManager.GetConnectionStringAsync().GetAwaiter().GetResult());
+
     public CustomWebApplicationFactory()
     {
         Environment.SetEnvironmentVariable("JWT_SECRET_KEY", "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait");
@@ -32,7 +35,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                { "Redis:ConnectionString", "localhost:6379" },
+                { "Redis:ConnectionString", Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") ?? "localhost:6380" },
                 { "JWT_SECRET_KEY", "all-good-things-to-those-who-wait-i-have-waited-clarice-but-how-long-can-you-and-old-jackie-boy-wait" },
                 { "JWT_ISSUER", "EcommerceAPI" },
                 { "JWT_AUDIENCE", "EcommerceAPI" },
@@ -44,7 +47,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 { "ENCRYPTION_KEY", "12345678901234567890123456789012" },
                 { "HASH_PEPPER", "test-pepper-value" },
                 { "RateLimiting:Enabled", "false" },
-                { "ConnectionStrings:DefaultConnection", "Host=localhost;Port=5433;Database=ecommerce_test;Username=ecommerce_test_user;Password=test_password" }
+                { "ConnectionStrings:DefaultConnection", TestConnectionString.Value }
             });
         });
 
@@ -60,8 +63,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             var config = sp.GetRequiredService<IConfiguration>();
 
             var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                     ?? config.GetConnectionString("DefaultConnection") 
-                     ?? "Host=localhost;Port=5433;Database=ecommerce_test;Username=ecommerce_test_user;Password=test_password";
+                     ?? config.GetConnectionString("DefaultConnection")
+                     ?? TestConnectionString.Value;
 
             services.AddDbContext<AppDbContext>(opt =>
                 opt.UseNpgsql(connectionString));
