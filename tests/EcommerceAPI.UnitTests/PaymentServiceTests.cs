@@ -381,6 +381,38 @@ public class IyzicoPaymentServiceTests
     }
 
     [Fact]
+    public async Task ProcessPaymentAsync_WhenGatewayReturnsSensitiveFailure_ShouldWriteSanitizedStructuredFailureLog()
+    {
+        var order = CreatePendingOrder(id: 19, orderNumber: "ORD-19");
+        const string rawFailureMessage = "cardNumber=4111111111111111 token=tok_test cvv=123";
+
+        _orderDalMock.Setup(x => x.GetByIdWithDetailsAsync(order.Id))
+            .ReturnsAsync(order);
+        _paymentGatewayMock
+            .Setup(x => x.ChargeAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IyzicoChargeGatewayResult(false, "PAY-FAIL", rawFailureMessage, null, null, null));
+
+        var result = await _paymentService.ProcessPaymentAsync(order.UserId, new ProcessPaymentRequest
+        {
+            OrderId = order.Id,
+            CardHolderName = "Test User",
+            CardNumber = "5406670000000009",
+            ExpiryDate = "12/30",
+            CVV = "123",
+            IdempotencyKey = "payment-failure-log-test"
+        });
+
+        result.Success.Should().BeFalse();
+        order.Payment!.Status.Should().Be(PaymentStatus.Failed);
+        _loggerMock.VerifyLogContains(LogLevel.Warning, "Payment analytics event.");
+        _loggerMock.VerifyLogContains(LogLevel.Warning, "PaymentFailed");
+        _loggerMock.VerifyLogContains(LogLevel.Warning, "[REDACTED]");
+        _loggerMock.VerifyLogDoesNotContain("4111111111111111");
+        _loggerMock.VerifyLogDoesNotContain("tok_test");
+        _loggerMock.VerifyLogDoesNotContain("cvv=123");
+    }
+
+    [Fact]
     public async Task ProcessWebhookAsync_WhenOrderAlreadyPaid_ShouldReturnSuccessWithoutMutation()
     {
         var request = new IyzicoWebhookRequest

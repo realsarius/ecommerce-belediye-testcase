@@ -192,6 +192,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 
                 _orderDal.Update(order);
                 await _unitOfWork.SaveChangesAsync();
+                LogPaymentFailure(order, userId, request, requiresThreeDS, "ThreeDSInitialize", order.Payment.ErrorMessage);
 
                 return new ErrorDataResult<PaymentDto>(
                     MapToDto(order.Payment),
@@ -242,6 +243,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             {
                 return new SuccessDataResult<PaymentDto>(MapToDto(order.Payment));
             }
+
+            LogPaymentFailure(order, userId, request, requiresThreeDS, "Charge", order.Payment.ErrorMessage);
             
             return new ErrorDataResult<PaymentDto>(
                 MapToDto(order.Payment), 
@@ -555,6 +558,31 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
 
         var digitsOnly = new string(cardNumber.Where(char.IsDigit).ToArray());
         return digitsOnly.Length >= 4 ? digitsOnly[^4..] : null;
+    }
+
+    private void LogPaymentFailure(
+        Order order,
+        int userId,
+        ProcessPaymentRequest request,
+        bool requiresThreeDS,
+        string failureStage,
+        string? failureReason)
+    {
+        _logger.LogWarning(
+            "Payment analytics event. AnalyticsStream={AnalyticsStream}, AnalyticsEvent={AnalyticsEvent}, Provider={Provider}, OrderId={OrderId}, UserId={UserId}, PaymentRecordId={PaymentRecordId}, PaymentStatus={PaymentStatus}, FailureStage={FailureStage}, ErrorCode={ErrorCode}, FailureReason={FailureReason}, UsesSavedCard={UsesSavedCard}, RequiresThreeDS={RequiresThreeDS}, CorrelationId={CorrelationId}",
+            "Payment",
+            "PaymentFailed",
+            PaymentProviderType.Iyzico,
+            order.Id,
+            userId,
+            order.Payment?.Id,
+            order.Payment?.Status.ToString(),
+            failureStage,
+            Constants.InfrastructureConstants.Payment.DefaultErrorCode,
+            SensitiveDataLogSanitizer.Sanitize(failureReason),
+            request.SavedCardId.HasValue,
+            requiresThreeDS,
+            _correlationIdProvider.GetCorrelationId());
     }
 
     private bool ShouldRequireThreeDS(decimal orderAmount, ProcessPaymentRequest request)
