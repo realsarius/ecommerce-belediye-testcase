@@ -41,19 +41,19 @@ public class CreditCardConfigurationBasic : IEntityTypeConfiguration<CreditCard>
             .HasMaxLength(200);
 
         builder.Property(cc => cc.IyzicoCardToken)
-            .HasMaxLength(255);
+            .HasMaxLength(500);
 
         builder.Property(cc => cc.IyzicoUserKey)
-            .HasMaxLength(255);
+            .HasMaxLength(500);
 
         builder.Property(cc => cc.StripePaymentMethodId)
-            .HasMaxLength(255);
+            .HasMaxLength(500);
 
         builder.Property(cc => cc.StripeCustomerId)
-            .HasMaxLength(255);
+            .HasMaxLength(500);
 
         builder.Property(cc => cc.PayTrToken)
-            .HasMaxLength(255);
+            .HasMaxLength(500);
 
         builder.Property(cc => cc.TokenProvider)
             .HasConversion<int?>();

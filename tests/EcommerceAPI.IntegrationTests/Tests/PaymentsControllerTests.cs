@@ -169,7 +169,8 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         var assertDb = assertScope.ServiceProvider.GetRequiredService<AppDbContext>();
         var savedCard = await assertDb.CreditCards.SingleAsync(c =>
             c.UserId == userId &&
-            c.IyzicoCardToken == "iyz-card-token-save");
+            c.TokenProvider == PaymentProviderType.Iyzico &&
+            c.Last4Digits == "0009");
 
         savedCard.TokenProvider.Should().Be(PaymentProviderType.Iyzico);
         savedCard.IyzicoUserKey.Should().Be("iyz-user-key-save");
@@ -177,6 +178,23 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
         savedCard.CardAlias.Should().Be("Maas Kartim");
         savedCard.CardHolderName.Should().Be("Test User");
         savedCard.Brand.Should().Be(CardBrand.Mastercard);
+
+        await assertDb.Database.OpenConnectionAsync();
+        await using (var command = assertDb.Database.GetDbConnection().CreateCommand())
+        {
+            command.CommandText = "SELECT \"IyzicoCardToken\", \"IyzicoUserKey\" FROM \"TBL_CreditCards\" WHERE \"Id\" = @id";
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "@id";
+            parameter.Value = savedCard.Id;
+            command.Parameters.Add(parameter);
+
+            await using var reader = await command.ExecuteReaderAsync();
+            (await reader.ReadAsync()).Should().BeTrue();
+
+            reader.GetString(0).Should().NotBe("iyz-card-token-save");
+            reader.GetString(1).Should().NotBe("iyz-user-key-save");
+        }
+        await assertDb.Database.CloseConnectionAsync();
 
         var updatedOrder = await assertDb.Orders
             .Include(o => o.Payment)
