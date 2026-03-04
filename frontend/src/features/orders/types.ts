@@ -89,6 +89,7 @@ export interface PaymentSettings {
   defaultProvider: PaymentProviderType;
   enableMultiProviderSelection: boolean;
   enableTokenizedCardSave: boolean;
+  allowLegacyEncryptedSavedCardPayments: boolean;
   force3DSecure: boolean;
   force3DSecureAbove: number;
 }

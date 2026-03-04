@@ -19,15 +19,18 @@ public class CreditCardManager : ICreditCardService
     private readonly ICreditCardDal _creditCardDal;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEncryptionService _encryptionService;
+    private readonly IPaymentFeaturePolicy _paymentFeaturePolicy;
 
     public CreditCardManager(
         ICreditCardDal creditCardDal, 
         IUnitOfWork unitOfWork,
-        IEncryptionService encryptionService)
+        IEncryptionService encryptionService,
+        IPaymentFeaturePolicy paymentFeaturePolicy)
     {
         _creditCardDal = creditCardDal;
         _unitOfWork = unitOfWork;
         _encryptionService = encryptionService;
+        _paymentFeaturePolicy = paymentFeaturePolicy;
     }
 
     [LogAspect]
@@ -261,6 +264,12 @@ public class CreditCardManager : ICreditCardService
                           (!string.IsNullOrWhiteSpace(card.IyzicoCardToken) ||
                            !string.IsNullOrWhiteSpace(card.StripePaymentMethodId) ||
                            !string.IsNullOrWhiteSpace(card.PayTrToken));
+
+        if (!isTokenized && !_paymentFeaturePolicy.AllowLegacyEncryptedSavedCardPayments)
+        {
+            return new ErrorDataResult<StoredCardPaymentDto>(
+                "Bu kayitli kart eski sifreli formatta. Guvenlik nedeniyle yeniden kart bilgisi girmeniz gerekiyor.");
+        }
 
         var storedCard = new StoredCardPaymentDto
         {

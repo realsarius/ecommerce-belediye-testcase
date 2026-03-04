@@ -98,6 +98,7 @@ public static class DependencyInjection
                 options.DefaultProvider = options.ActiveProviders[0];
             }
         });
+        services.AddSingleton<IPaymentFeaturePolicy, PaymentFeaturePolicy>();
 
         services.Configure<ReturnAttachmentSettings>(options =>
         {

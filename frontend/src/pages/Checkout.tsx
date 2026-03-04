@@ -223,6 +223,7 @@ export default function Checkout() {
     defaultProvider: 'Iyzico' as PaymentProviderType,
     enableMultiProviderSelection: false,
     enableTokenizedCardSave: false,
+    allowLegacyEncryptedSavedCardPayments: true,
     force3DSecure: false,
     force3DSecureAbove: 5000,
   };
@@ -249,12 +250,23 @@ export default function Checkout() {
     selectedSavedCard?.tokenProvider &&
     selectedSavedCard.tokenProvider !== selectedPaymentProvider
   );
+  const isLegacySavedCardDisabled = !!(
+    selectedSavedCard &&
+    !selectedSavedCard.isTokenized &&
+    !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments
+  );
 
   const handleSavedCardSelection = (value: string) => {
     setSelectedSavedCardId(value);
 
     if (value && value !== 'new') {
       const card = savedCards?.find((savedCard) => savedCard.id.toString() === value);
+      if (card && !card.isTokenized && !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments) {
+        toast.error('Bu eski kayıtlı kart güvenlik nedeniyle devre dışı. Lütfen kartı yeniden girin.');
+        setSelectedSavedCardId('new');
+        return;
+      }
+
       if (card) {
         setPaymentForm({
           cardHolderName: card.cardHolderName,
@@ -293,6 +305,12 @@ export default function Checkout() {
       setCardAlias('');
     }
   }, [effectivePaymentSettings.enableTokenizedCardSave, saveCardForLater]);
+
+  useEffect(() => {
+    if (selectedSavedCard && !selectedSavedCard.isTokenized && !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments) {
+      setSelectedSavedCardId('new');
+    }
+  }, [effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments, selectedSavedCard]);
 
   useEffect(() => {
     if (willRequireThreeDS && saveCardForLater) {
@@ -468,6 +486,11 @@ export default function Checkout() {
     }
 
     if (requiresPayment) {
+      if (isLegacySavedCardDisabled) {
+        toast.error('Eski sifreli kayıtlı kartlar bu ortamda kullanılamaz. Lütfen kartı yeniden girin.');
+        return;
+      }
+
       if (selectedSavedCardProviderMismatch) {
         toast.error('Seçilen kayıtlı kart farklı bir ödeme sağlayıcısına ait.');
         return;
@@ -793,16 +816,20 @@ export default function Checkout() {
                       const value = card.id.toString();
                       const isSelected = selectedSavedCardId === value;
                       const isProviderMismatch = !!card.tokenProvider && card.tokenProvider !== selectedPaymentProvider;
+                      const isLegacyDisabled = !card.isTokenized && !effectivePaymentSettings.allowLegacyEncryptedSavedCardPayments;
 
                       return (
                         <button
                           key={card.id}
                           type="button"
                           onClick={() => handleSavedCardSelection(value)}
+                          disabled={isLegacyDisabled}
                           className={`w-full rounded-xl border p-4 text-left transition ${
                             isSelected
                               ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                              : 'border-border bg-background hover:border-primary/40'
+                              : isLegacyDisabled
+                                ? 'cursor-not-allowed border-border bg-muted/40 opacity-70'
+                                : 'border-border bg-background hover:border-primary/40'
                           }`}
                         >
                           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -839,8 +866,10 @@ export default function Checkout() {
                                   Bu kart token ile korunuyor; yeniden CVV girmeniz gerekmez.
                                 </p>
                               ) : (
-                                <p className="text-xs text-muted-foreground">
-                                  Bu eski kayıt için ödeme sırasında CVV doğrulaması istenir.
+                                <p className={`text-xs ${isLegacyDisabled ? 'text-amber-600 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                                  {isLegacyDisabled
+                                    ? 'Bu eski sifreli kart kaydi guvenlik geregi devre disi. Yeniden kart girisi yapin.'
+                                    : 'Bu eski kayıt için ödeme sırasında CVV doğrulaması istenir.'}
                                 </p>
                               )}
                             </div>
