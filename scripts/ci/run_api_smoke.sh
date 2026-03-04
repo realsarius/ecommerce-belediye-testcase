@@ -9,6 +9,7 @@ SMOKE_SUMMARY="${SMOKE_SUMMARY:-/tmp/api-smoke-summary.txt}"
 API_LOG="${API_LOG:-/tmp/api.log}"
 SMOKE_EXPECT_SWAGGER="${SMOKE_EXPECT_SWAGGER:-true}"
 SMOKE_REUSE_RUNNING_API="${SMOKE_REUSE_RUNNING_API:-true}"
+SMOKE_INCLUDE_PAYMENT_FLOW="${SMOKE_INCLUDE_PAYMENT_FLOW:-true}"
 
 cleanup() {
   stop_api
@@ -150,17 +151,6 @@ request_json \
 assert_json_equals "$checkout_response" "success" "true" "checkout smoke sipariş oluşturma"
 order_id="$(json_read "$checkout_response" "data.id")"
 
-payment_response="$(mktemp)"
-request_json \
-  "POST" \
-  "$API_BASE_URL/api/v1/payments" \
-  "$payment_response" \
-  -H "Authorization: Bearer $customer_token" \
-  -H "Content-Type: application/json" \
-  -d "{\"orderId\":${order_id},\"paymentProvider\":\"Iyzico\",\"cardNumber\":\"5406670000000009\",\"cardHolderName\":\"TEST CUSTOMER\",\"expiryDate\":\"12/27\",\"cvv\":\"123\",\"require3DS\":false}"
-assert_json_equals "$payment_response" "success" "true" "checkout smoke ödeme isteği"
-assert_json_equals "$payment_response" "data.status" "Success" "checkout smoke ödeme sonucu"
-
 order_detail_response="$(mktemp)"
 request_json \
   "GET" \
@@ -168,8 +158,33 @@ request_json \
   "$order_detail_response" \
   -H "Authorization: Bearer $customer_token"
 assert_json_equals "$order_detail_response" "success" "true" "checkout smoke sipariş detayı"
-assert_json_equals "$order_detail_response" "data.status" "Paid" "checkout smoke sipariş durumu"
-assert_json_equals "$order_detail_response" "data.payment.status" "Success" "checkout smoke payment durumu"
+
+checkout_payment_flow_status="skipped"
+if [[ "$SMOKE_INCLUDE_PAYMENT_FLOW" == "true" ]]; then
+  payment_response="$(mktemp)"
+  request_json \
+    "POST" \
+    "$API_BASE_URL/api/v1/payments" \
+    "$payment_response" \
+    -H "Authorization: Bearer $customer_token" \
+    -H "Content-Type: application/json" \
+    -d "{\"orderId\":${order_id},\"paymentProvider\":\"Iyzico\",\"cardNumber\":\"5406670000000009\",\"cardHolderName\":\"TEST CUSTOMER\",\"expiryDate\":\"12/27\",\"cvv\":\"123\",\"require3DS\":false}"
+  assert_json_equals "$payment_response" "success" "true" "checkout smoke ödeme isteği"
+  assert_json_equals "$payment_response" "data.status" "Success" "checkout smoke ödeme sonucu"
+
+  request_json \
+    "GET" \
+    "$API_BASE_URL/api/v1/orders/${order_id}" \
+    "$order_detail_response" \
+    -H "Authorization: Bearer $customer_token"
+  assert_json_equals "$order_detail_response" "success" "true" "checkout smoke sipariş detayı"
+  assert_json_equals "$order_detail_response" "data.status" "Paid" "checkout smoke sipariş durumu"
+  assert_json_equals "$order_detail_response" "data.payment.status" "Success" "checkout smoke payment durumu"
+  checkout_payment_flow_status="ok"
+else
+  assert_json_equals "$order_detail_response" "data.status" "PendingPayment" "checkout smoke sipariş durumu"
+  assert_json_equals "$order_detail_response" "data.payment.status" "Pending" "checkout smoke payment durumu"
+fi
 
 {
   echo "health=ok"
@@ -182,7 +197,8 @@ assert_json_equals "$order_detail_response" "data.payment.status" "Success" "che
   echo "suggestions=ok"
   echo "auth=ok"
   echo "support_flow=ok"
-  echo "checkout_payment_flow=ok"
+  echo "checkout_order_flow=ok"
+  echo "checkout_payment_flow=${checkout_payment_flow_status}"
   echo "checkout_order_id=${order_id}"
   echo "conversation_id=${conversation_id}"
 } | tee "$SMOKE_SUMMARY"

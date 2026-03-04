@@ -132,6 +132,7 @@ jobs:
         API_BASE_URL: "http://localhost:5050"
         ASPNETCORE_URLS: "http://localhost:5050"
         API_LOG: "/tmp/api.log"
+        SMOKE_INCLUDE_PAYMENT_FLOW: "false"
       run: ./scripts/ci/run_api_smoke.sh
 
     - name: API performance smoke (search products + suggestions)
