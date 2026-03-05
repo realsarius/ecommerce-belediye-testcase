@@ -40,6 +40,7 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
   });
 
   const [showCouponsDialog, setShowCouponsDialog] = useState(false);
+  const effectiveIsDevToolsEnabled = isCheatCodesEnabled && isDevToolsEnabled;
 
 
   const inputBufferRef = useRef('');
@@ -122,8 +123,6 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
 
   useEffect(() => {
     if (!isCheatCodesEnabled) {
-      setIsDevToolsEnabled(false);
-      setShowCouponsDialog(false);
       localStorage.removeItem('devToolsEnabled');
       return;
     }
@@ -139,7 +138,7 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
 
   return (
     <DevToolsContext.Provider value={{
-      isDevToolsEnabled,
+      isDevToolsEnabled: effectiveIsDevToolsEnabled,
       enableDevTools,
       disableDevTools,
       openCouponsDialog: () => {
