@@ -115,6 +115,11 @@ public class MediaUploadManager : IMediaUploadService
         }
 
         var objectKey = request.ObjectKey.Trim().TrimStart('/');
+        if (!IsValidObjectKey(objectKey))
+        {
+            return new ErrorDataResult<ConfirmMediaUploadDto>("Geçersiz object key formatı");
+        }
+
         if (!await _objectStorageService.ExistsAsync(objectKey))
         {
             return new ErrorDataResult<ConfirmMediaUploadDto>("Yüklenen dosya storage üzerinde bulunamadı");
@@ -425,13 +430,13 @@ public class MediaUploadManager : IMediaUploadService
         {
             if (referenceId <= 0)
             {
-                return new ErrorDataResult<string>("Ürün görselleri için geçerli bir ürün kimliği gereklidir");
+                return new ErrorDataResult<string>(message: "Ürün görselleri için geçerli bir ürün kimliği gereklidir");
             }
 
             var product = await _productDal.GetByIdWithDetailsAsync(referenceId);
             if (product == null)
             {
-                return new ErrorDataResult<string>("Ürün bulunamadı");
+                return new ErrorDataResult<string>(message: "Ürün bulunamadı");
             }
 
             if (!isAdmin)
@@ -439,7 +444,7 @@ public class MediaUploadManager : IMediaUploadService
                 var sellerProfile = await _sellerProfileDal.GetAsync(profile => profile.UserId == userId);
                 if (sellerProfile == null || product.SellerId != sellerProfile.Id)
                 {
-                    return new ErrorDataResult<string>("Yetkiniz yok");
+                    return new ErrorDataResult<string>(message: "Yetkiniz yok");
                 }
             }
 
@@ -451,18 +456,18 @@ public class MediaUploadManager : IMediaUploadService
         {
             if (!isAdmin)
             {
-                return new ErrorDataResult<string>("Yetkiniz yok");
+                return new ErrorDataResult<string>(message: "Yetkiniz yok");
             }
 
             if (referenceId <= 0)
             {
-                return new ErrorDataResult<string>("Kategori görselleri için geçerli bir kategori kimliği gereklidir");
+                return new ErrorDataResult<string>(message: "Kategori görselleri için geçerli bir kategori kimliği gereklidir");
             }
 
             var categoryExists = await _categoryDal.ExistsAsync(category => category.Id == referenceId);
             if (!categoryExists)
             {
-                return new ErrorDataResult<string>("Kategori bulunamadı");
+                return new ErrorDataResult<string>(message: "Kategori bulunamadı");
             }
 
             return new SuccessDataResult<string>(StorageKeyGenerator.CategoryImage(referenceId, extension));
@@ -483,12 +488,12 @@ public class MediaUploadManager : IMediaUploadService
 
             if (targetProfile == null)
             {
-                return new ErrorDataResult<string>("Satıcı profili bulunamadı");
+                return new ErrorDataResult<string>(message: "Satıcı profili bulunamadı");
             }
 
             if (!isAdmin && referenceId > 0 && referenceId != targetProfile.Id)
             {
-                return new ErrorDataResult<string>("Yetkiniz yok");
+                return new ErrorDataResult<string>(message: "Yetkiniz yok");
             }
 
             var objectKey = context == MediaUploadContext.SellerLogo
@@ -498,7 +503,7 @@ public class MediaUploadManager : IMediaUploadService
             return new SuccessDataResult<string>(objectKey);
         }
 
-        return new ErrorDataResult<string>("Desteklenmeyen upload context");
+        return new ErrorDataResult<string>(message: "Desteklenmeyen upload context");
     }
 
     private async Task<IResult> EnsureProductOwnershipAsync(int userId, bool isAdmin, Product product)
@@ -546,6 +551,36 @@ public class MediaUploadManager : IMediaUploadService
     private static bool HasObjectKeyPrefix(string objectKey, string expectedPrefix)
     {
         return objectKey.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsValidObjectKey(string objectKey)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey))
+        {
+            return false;
+        }
+
+        if (objectKey.Length > 1024 || objectKey.EndsWith("/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (objectKey.Contains('\\') || objectKey.Contains("//", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var segments = objectKey.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+        {
+            return false;
+        }
+
+        return segments.All(segment =>
+            !string.IsNullOrWhiteSpace(segment) &&
+            segment != "." &&
+            segment != ".." &&
+            !segment.Any(char.IsControl));
     }
 
     private static bool TryDetectImageContentType(byte[]? fileHeader, out string contentType)

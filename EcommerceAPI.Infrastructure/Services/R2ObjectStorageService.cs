@@ -44,7 +44,10 @@ public class R2ObjectStorageService : IObjectStorageService
         }
 
         var normalizedKey = NormalizeObjectKey(objectKey);
-        var expirySeconds = _settings.PresignedUrlExpirySeconds > 0 ? _settings.PresignedUrlExpirySeconds : 300;
+        var configuredExpiry = _settings.PresignedUrlExpirySeconds > 0
+            ? _settings.PresignedUrlExpirySeconds
+            : 300;
+        var expirySeconds = Math.Clamp(configuredExpiry, 60, 600);
 
         var request = new GetPreSignedUrlRequest
         {
