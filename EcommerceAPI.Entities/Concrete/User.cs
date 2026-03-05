@@ -12,6 +12,13 @@ public class User : BaseEntity
     public string? GoogleSubject { get; set; }
     public string? AppleSubject { get; set; }
     public bool IsEmailVerified { get; set; }
+    public string? EmailVerificationToken { get; set; }
+    public DateTime? EmailVerificationTokenExpiry { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpiry { get; set; }
+    public string? PendingEmail { get; set; }
+    public string? EmailChangeToken { get; set; }
+    public DateTime? EmailChangeTokenExpiry { get; set; }
     public int? ReferredByUserId { get; set; }
     public int? AppliedReferralCodeId { get; set; }
     public int? ReferralRewardedOrderId { get; set; }

@@ -44,6 +44,24 @@ public class UserConfigurationBasic : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsEmailVerified)
             .HasDefaultValue(false);
 
+        builder.Property(u => u.EmailVerificationToken)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.EmailVerificationTokenExpiry);
+
+        builder.Property(u => u.PasswordResetToken)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.PasswordResetTokenExpiry);
+
+        builder.Property(u => u.PendingEmail)
+            .HasMaxLength(500);
+
+        builder.Property(u => u.EmailChangeToken)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.EmailChangeTokenExpiry);
+
         builder.Property(u => u.ReferredByUserId);
         builder.Property(u => u.AppliedReferralCodeId);
         builder.Property(u => u.ReferralRewardedOrderId);
