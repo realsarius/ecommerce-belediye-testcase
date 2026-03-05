@@ -259,24 +259,39 @@ public class SeedRunner
         foreach (var userData in usersData)
         {
             var emailHash = _hashingService.Hash(userData.Email.ToLowerInvariant().Trim());
-            if (existingUserIds.Contains(userData.Id) || existingEmailHashes.Contains(emailHash))
+            var shouldInsert = !(existingUserIds.Contains(userData.Id) || existingEmailHashes.Contains(emailHash));
+            if (shouldInsert)
             {
-                continue;
+                var encryptedEmail = _encryptionService.Encrypt(userData.Email);
+                var encryptedFirstName = _encryptionService.Encrypt(userData.FirstName);
+                var encryptedLastName = _encryptionService.Encrypt(userData.LastName);
+                var passwordHash = BCrypt.Net.BCrypt.HashPassword("Test123!");
+
+                await _context.Database.ExecuteSqlRawAsync(
+                    @"INSERT INTO ""TBL_Users"" (""Id"", ""FirstName"", ""LastName"", ""Email"", ""EmailHash"", ""PasswordHash"", ""RoleId"", ""CreatedAt"", ""UpdatedAt"", ""IsEmailVerified"") 
+                      VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9})",
+                    userData.Id, encryptedFirstName, encryptedLastName, encryptedEmail, emailHash, passwordHash, userData.RoleId, DateTime.UtcNow, DateTime.UtcNow, true);
+
+                insertedCount++;
+                existingUserIds.Add(userData.Id);
+                existingEmailHashes.Add(emailHash);
             }
 
-            var encryptedEmail = _encryptionService.Encrypt(userData.Email);
-            var encryptedFirstName = _encryptionService.Encrypt(userData.FirstName);
-            var encryptedLastName = _encryptionService.Encrypt(userData.LastName);
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword("Test123!");
-
+            // Smoke test kullanıcıları EmailVerified policy'sinden etkilenmesin diye
+            // her seed çalıştırmasında doğrulanmış olarak işaretlenir.
             await _context.Database.ExecuteSqlRawAsync(
-                @"INSERT INTO ""TBL_Users"" (""Id"", ""FirstName"", ""LastName"", ""Email"", ""EmailHash"", ""PasswordHash"", ""RoleId"", ""CreatedAt"", ""UpdatedAt"") 
-                  VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})",
-                userData.Id, encryptedFirstName, encryptedLastName, encryptedEmail, emailHash, passwordHash, userData.RoleId, DateTime.UtcNow, DateTime.UtcNow);
-
-            insertedCount++;
-            existingUserIds.Add(userData.Id);
-            existingEmailHashes.Add(emailHash);
+                @"UPDATE ""TBL_Users""
+                  SET ""IsEmailVerified"" = {0},
+                      ""EmailVerificationToken"" = NULL,
+                      ""EmailVerificationTokenExpiry"" = NULL,
+                      ""EmailVerificationCodeHash"" = NULL,
+                      ""EmailVerificationCodeExpiry"" = NULL,
+                      ""EmailVerificationCodeAttemptCount"" = 0,
+                      ""EmailVerificationCodeLastSentAt"" = NULL,
+                      ""EmailVerificationCodeLockedUntil"" = NULL,
+                      ""UpdatedAt"" = {1}
+                  WHERE ""EmailHash"" = {2}",
+                true, DateTime.UtcNow, emailHash);
         }
 
         if (insertedCount == 0)
