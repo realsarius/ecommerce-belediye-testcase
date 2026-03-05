@@ -128,17 +128,17 @@ describe('SellerProductForm', () => {
     renderCreateForm();
 
     await user.type(screen.getByLabelText('Ürün Adı *'), 'Deri Ceket');
-    await user.click(screen.getByRole('button', { name: 'Görsel Ekle' }));
-    await user.type(screen.getByLabelText('Görsel URL #1'), 'https://cdn.test/ceket-1.jpg');
     await user.click(screen.getByRole('button', { name: 'Varyant Ekle' }));
     await user.type(screen.getByLabelText('Varyant Adı'), 'Beden');
     await user.type(screen.getByLabelText('Varyant Değeri'), 'L');
     await user.click(screen.getByRole('button', { name: 'SKU Oluştur' }));
 
-    expect(screen.getByText('1 adet')).toBeInTheDocument();
+    expect(screen.getByText('0 adet')).toBeInTheDocument();
     expect(screen.getByText('1 satır')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ana Görsel' })).toBeInTheDocument();
-    expect(screen.getByDisplayValue('https://cdn.test/ceket-1.jpg')).toBeInTheDocument();
+    expect(screen.getByText('0/8')).toBeInTheDocument();
+    expect(screen.getByText('Görsel yüklemek için ürünü önce oluşturmanız gerekiyor')).toBeInTheDocument();
+    expect(screen.queryByText('Ana Görsel')).not.toBeInTheDocument();
+    expect(screen.queryAllByAltText('Ürün görseli')).toHaveLength(0);
     expect((screen.getByLabelText('SKU *') as HTMLInputElement).value).toMatch(/^[A-Z-]+-\d{3}$/);
   });
 
@@ -146,8 +146,7 @@ describe('SellerProductForm', () => {
     renderEditForm();
 
     expect(screen.getByDisplayValue('Deri Ceket')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('https://cdn.test/ceket-1.jpg')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('https://cdn.test/ceket-2.jpg')).toBeInTheDocument();
+    expect(screen.getAllByAltText('Ürün görseli')).toHaveLength(2);
     expect(screen.getByDisplayValue('Beden')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Siyah')).toBeInTheDocument();
     expect(screen.getByText('2 adet')).toBeInTheDocument();

@@ -36,6 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/common/checkbox';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
+import { SingleMediaUploader } from '@/components/media/SingleMediaUploader';
 import { ScrollArea } from '@/components/common/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/common/select';
 import { Separator } from '@/components/common/separator';
@@ -558,6 +559,24 @@ export default function AdminCategories() {
                 onChange={(event) => updateFormState((current) => ({ ...current, description: event.target.value }))}
               />
             </div>
+
+            {effectiveMode === 'edit' && selectedCategory ? (
+              <SingleMediaUploader
+                title="Kategori Görseli"
+                description="Kategori kartları ve filtre alanlarında kullanılan görsel"
+                context="category"
+                referenceId={selectedCategory.id}
+                imageUrl={selectedCategory.imageUrl}
+              />
+            ) : (
+              <SingleMediaUploader
+                title="Kategori Görseli"
+                description="Görsel yüklemek için önce kategoriyi oluşturmanız gerekir"
+                context="category"
+                disabled
+                disabledMessage="Önce kategoriyi kaydedin"
+              />
+            )}
 
             <div className="flex items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
               <Checkbox

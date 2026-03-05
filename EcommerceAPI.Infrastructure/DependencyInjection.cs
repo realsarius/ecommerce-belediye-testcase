@@ -116,6 +116,37 @@ public static class DependencyInjection
             configuration.GetSection("FrontendFeatures").Bind(options);
         });
 
+        services.Configure<CloudflareR2Settings>(options =>
+        {
+            var section = configuration.GetSection("CloudflareR2");
+
+            options.AccountId = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID")
+                                ?? section["AccountId"]
+                                ?? string.Empty;
+
+            options.AccessKeyId = Environment.GetEnvironmentVariable("R2_ACCESS_KEY_ID")
+                                  ?? section["AccessKeyId"]
+                                  ?? string.Empty;
+
+            options.SecretAccessKey = Environment.GetEnvironmentVariable("R2_SECRET_ACCESS_KEY")
+                                      ?? section["SecretAccessKey"]
+                                      ?? string.Empty;
+
+            options.BucketName = Environment.GetEnvironmentVariable("R2_BUCKET_NAME")
+                                 ?? section["BucketName"]
+                                 ?? string.Empty;
+
+            options.PublicBaseUrl = Environment.GetEnvironmentVariable("R2_PUBLIC_BASE_URL")
+                                    ?? section["PublicBaseUrl"]
+                                    ?? string.Empty;
+
+            options.PresignedUrlExpirySeconds = int.TryParse(
+                Environment.GetEnvironmentVariable("R2_PRESIGNED_URL_EXPIRY_SECONDS"),
+                out var presignedExpirySeconds)
+                ? presignedExpirySeconds
+                : section.GetValue("PresignedUrlExpirySeconds", 300);
+        });
+
         services.Configure<EmailNotificationSettings>(options =>
         {
             var emailConfig = configuration.GetSection("Email");
@@ -222,10 +253,11 @@ public static class DependencyInjection
         }
         else
         {
-            services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
         }
         services.AddScoped<IReturnAttachmentStorageService, ReturnAttachmentStorageService>();
         services.AddScoped<IReturnAttachmentAccessService, ReturnAttachmentAccessService>();
+        services.AddSingleton<IObjectStorageService, R2ObjectStorageService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
         services.AddSingleton<ICorrelationIdProvider, CorrelationIdProvider>();
 

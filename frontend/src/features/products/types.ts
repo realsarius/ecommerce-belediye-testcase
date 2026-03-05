@@ -34,6 +34,7 @@ export interface Product {
 export interface ProductImage {
   id?: number;
   imageUrl: string;
+  objectKey?: string;
   sortOrder: number;
   isPrimary: boolean;
 }
@@ -136,6 +137,7 @@ export interface Category {
   id: number;
   name: string;
   description: string;
+  imageUrl?: string | null;
   isActive: boolean;
   parentCategoryId?: number | null;
   sortOrder: number;

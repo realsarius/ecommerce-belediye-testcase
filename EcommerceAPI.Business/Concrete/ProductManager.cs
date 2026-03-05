@@ -246,6 +246,7 @@ public class ProductManager : IProductService
             .Select((image, index) => new ProductImage
             {
                 ImageUrl = image.ImageUrl.Trim(),
+                ObjectKey = string.IsNullOrWhiteSpace(image.ObjectKey) ? null : image.ObjectKey.Trim(),
                 SortOrder = image.SortOrder > 0 ? image.SortOrder : index,
                 IsPrimary = image.IsPrimary
             })

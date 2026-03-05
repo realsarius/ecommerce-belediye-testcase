@@ -22,8 +22,14 @@ public class SellerProfileConfiguration : IEntityTypeConfiguration<SellerProfile
         builder.Property(sp => sp.LogoUrl)
             .HasMaxLength(500);
 
+        builder.Property(sp => sp.LogoObjectKey)
+            .HasMaxLength(1024);
+
         builder.Property(sp => sp.BannerImageUrl)
             .HasMaxLength(500);
+
+        builder.Property(sp => sp.BannerImageObjectKey)
+            .HasMaxLength(1024);
 
         builder.Property(sp => sp.ContactEmail)
             .HasMaxLength(200);

@@ -26,6 +26,7 @@ import { Button } from '@/components/common/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/card';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
+import { SingleMediaUploader } from '@/components/media/SingleMediaUploader';
 import { Skeleton } from '@/components/common/skeleton';
 import { Textarea } from '@/components/common/textarea';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export default function SellerProfile() {
     register,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<ProfileFormData>({
@@ -221,19 +223,49 @@ export default function SellerProfile() {
                       <p className="text-sm text-destructive">{errors.brandDescription.message}</p>
                     ) : null}
                   </div>
+                </div>
 
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <SingleMediaUploader
+                    title="Logo Görseli"
+                    description="Kare oranlı logo önerilir"
+                    context="seller-logo"
+                    referenceId={profile?.id}
+                    imageUrl={logoUrl}
+                    disabled={!isEdit}
+                    disabledMessage="Logo yüklemek için önce satıcı profilini oluşturun"
+                    onUploaded={(result) => {
+                      setValue('logoUrl', result.imageUrl, { shouldDirty: true, shouldValidate: true });
+                    }}
+                  />
+
+                  <SingleMediaUploader
+                    title="Banner Görseli"
+                    description="Mağaza üst alanında görünen geniş banner görseli"
+                    context="seller-banner"
+                    referenceId={profile?.id}
+                    imageUrl={bannerImageUrl}
+                    disabled={!isEdit}
+                    disabledMessage="Banner yüklemek için önce satıcı profilini oluşturun"
+                    onUploaded={(result) => {
+                      setValue('bannerImageUrl', result.imageUrl, { shouldDirty: true, shouldValidate: true });
+                    }}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="logoUrl">Logo URL</Label>
+                    <Label htmlFor="logoUrl">Logo URL (opsiyonel)</Label>
                     <Input id="logoUrl" placeholder="https://example.com/logo.png" {...register('logoUrl')} />
                     {errors.logoUrl ? (
                       <p className="text-sm text-destructive">{errors.logoUrl.message}</p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Kare oranlı logo önerilir.</p>
+                      <p className="text-xs text-muted-foreground">Manuel URL kullanmak isterseniz buradan girebilirsiniz.</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="bannerImageUrl">Banner Görsel URL</Label>
+                    <Label htmlFor="bannerImageUrl">Banner Görsel URL (opsiyonel)</Label>
                     <Input
                       id="bannerImageUrl"
                       placeholder="https://example.com/banner.jpg"
@@ -242,7 +274,7 @@ export default function SellerProfile() {
                     {errors.bannerImageUrl ? (
                       <p className="text-sm text-destructive">{errors.bannerImageUrl.message}</p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Geniş yatay görsel kullanmanız önerilir.</p>
+                      <p className="text-xs text-muted-foreground">R2 yükleme kullanıyorsanız bu alan otomatik güncellenir.</p>
                     )}
                   </div>
                 </div>

@@ -19,6 +19,7 @@ public class CreateProductRequest : IDto
 public class ProductImageInputDto : IDto
 {
     public string ImageUrl { get; set; } = string.Empty;
+    public string? ObjectKey { get; set; }
     public int SortOrder { get; set; }
     public bool IsPrimary { get; set; }
 }

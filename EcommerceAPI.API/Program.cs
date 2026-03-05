@@ -571,6 +571,11 @@ if (hangfireEnabled)
         "cleanup-expired-auth-tokens",
         service => service.ExecuteAsync(),
         Cron.Daily());
+
+    recurringJobManager.AddOrUpdate<IOrphanMediaCleanupService>(
+        "cleanup-orphan-media-objects",
+        service => service.ExecuteAsync(),
+        Cron.Daily(3));
 }
 
 app.UseCorrelationId();

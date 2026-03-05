@@ -111,6 +111,13 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
+    public async Task<Product?> GetByImageIdForUpdateAsync(int imageId)
+    {
+        return await _dbSet
+            .Include(p => p.Images)
+            .FirstOrDefaultAsync(p => p.Images.Any(image => image.Id == imageId));
+    }
+
     public async Task<(IEnumerable<Product> Items, int TotalCount)> GetPagedForSellerAsync(
         int page, int pageSize, int sellerId, int? categoryId = null, decimal? minPrice = null,
         decimal? maxPrice = null, string? search = null, string? sortBy = null, bool sortDescending = false)
@@ -171,6 +178,15 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .ThenInclude(cp => cp.Campaign)
             .Where(p => p.IsActive)
             .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<string>> GetAllImageObjectKeysAsync()
+    {
+        return await _context.Set<ProductImage>()
+            .AsNoTracking()
+            .Where(image => image.ObjectKey != null && image.ObjectKey != string.Empty)
+            .Select(image => image.ObjectKey!)
             .ToListAsync();
     }
 

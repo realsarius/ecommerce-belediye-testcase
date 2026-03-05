@@ -25,12 +25,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
-import { ArrowLeft, Boxes, Hash, ImagePlus, Layers3, Loader2, Save, Sparkles, Store, Trash2 } from 'lucide-react';
+import { ArrowLeft, Boxes, Hash, Layers3, Loader2, Save, Sparkles, Store, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProductImageUploader } from '@/components/media/ProductImageUploader';
 
 
 const imageSchema = z.object({
+  id: z.number().optional(),
   imageUrl: z.string().url('Geçerli bir görsel URL girin'),
+  objectKey: z.string().max(1024, 'Object key çok uzun').optional(),
+  sortOrder: z.number().int().min(0).default(0),
   isPrimary: z.boolean().default(false),
 });
 
@@ -65,6 +69,23 @@ const productSchema = z.object({
 
 type ProductFormInput = z.input<typeof productSchema>;
 type ProductFormData = z.output<typeof productSchema>;
+
+function normalizeImagesForRequest(images: ProductFormData['images']) {
+  const sanitized = (images || [])
+    .filter((image) => image.imageUrl?.trim())
+    .map((image, index) => ({
+      imageUrl: image.imageUrl.trim(),
+      objectKey: image.objectKey?.trim() ? image.objectKey.trim() : undefined,
+      isPrimary: !!image.isPrimary,
+      sortOrder: index,
+    }));
+
+  if (sanitized.length > 0 && sanitized.every((image) => !image.isPrimary)) {
+    sanitized[0].isPrimary = true;
+  }
+
+  return sanitized;
+}
 
 function buildSkuCandidate(name: string) {
   const normalized = name
@@ -116,10 +137,6 @@ export default function SellerProductForm() {
       variants: [],
     },
   });
-  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({
-    control,
-    name: 'images',
-  });
   const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
     control,
     name: 'variants',
@@ -132,7 +149,13 @@ export default function SellerProductForm() {
   const stock = Number(watch('initialStock') || 0);
   const isActive = watch('isActive');
   const selectedCategoryId = watch('categoryId');
-  const images = watch('images') || [];
+  const images = (watch('images') || []).map((image, index) => ({
+    id: image.id,
+    imageUrl: image.imageUrl,
+    objectKey: image.objectKey,
+    sortOrder: image.sortOrder ?? index,
+    isPrimary: image.isPrimary ?? index === 0,
+  }));
   const variants = watch('variants') || [];
   const selectedCategory = categories?.find((category) => category.id.toString() === selectedCategoryId);
   const stockMeta = useMemo(() => {
@@ -162,27 +185,6 @@ export default function SellerProductForm() {
     toast.success('SKU otomatik oluşturuldu.');
   };
 
-  const handleAddImage = () => {
-    appendImage({ imageUrl: '', isPrimary: imageFields.length === 0 });
-  };
-
-  const handleSetPrimaryImage = (index: number) => {
-    const currentImages = watch('images') || [];
-    currentImages.forEach((_, imageIndex) => {
-      setValue(`images.${imageIndex}.isPrimary`, imageIndex === index, { shouldDirty: true });
-    });
-  };
-
-  const handleRemoveImage = (index: number) => {
-    removeImage(index);
-    const nextImages = (watch('images') || []).filter((_, imageIndex) => imageIndex !== index);
-    if (nextImages.length > 0 && nextImages.every((image) => !image.isPrimary)) {
-      setTimeout(() => {
-        setValue('images.0.isPrimary', true, { shouldDirty: true });
-      }, 0);
-    }
-  };
-
   useEffect(() => {
     if (product && isEdit && categories) {
       const legacyCategoryId = (product as { CategoryId?: unknown }).CategoryId;
@@ -196,7 +198,10 @@ export default function SellerProductForm() {
         initialStock: product.stockQuantity,
         isActive: product.isActive,
         images: (product.images || []).map((image) => ({
+          id: image.id,
           imageUrl: image.imageUrl,
+          objectKey: image.objectKey,
+          sortOrder: image.sortOrder,
           isPrimary: image.isPrimary,
         })),
         variants: (product.variants || []).map((variant) => ({
@@ -219,11 +224,7 @@ export default function SellerProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           stockQuantity: data.initialStock, // Form uses initialStock field name for stock input
           isActive: data.isActive,
-          images: data.images.map((image, index) => ({
-            imageUrl: image.imageUrl,
-            isPrimary: image.isPrimary,
-            sortOrder: index,
-          })),
+          images: normalizeImagesForRequest(data.images),
           variants: data.variants.map((variant, index) => ({
             name: variant.name,
             value: variant.value,
@@ -242,11 +243,7 @@ export default function SellerProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           initialStock: data.initialStock,
           isActive: data.isActive,
-          images: data.images.map((image, index) => ({
-            imageUrl: image.imageUrl,
-            isPrimary: image.isPrimary,
-            sortOrder: index,
-          })),
+          images: normalizeImagesForRequest(data.images),
           variants: data.variants.map((variant, index) => ({
             name: variant.name,
             value: variant.value,
@@ -436,72 +433,22 @@ export default function SellerProductForm() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardHeader>
                 <CardTitle>Görseller</CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddImage}>
-                  <ImagePlus className="mr-2 h-4 w-4" />
-                  Görsel Ekle
-                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {imageFields.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border/70 p-6 text-sm text-muted-foreground">
-                    Ürün için henüz görsel eklenmedi. URL ile birden fazla görsel ekleyebilir, birini ana görsel olarak işaretleyebilirsiniz.
-                  </div>
-                ) : (
-                  imageFields.map((field, index) => (
-                    <div key={field.id} className="space-y-3 rounded-xl border border-border/70 p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="h-20 w-20 overflow-hidden rounded-xl bg-muted">
-                          {images[index]?.imageUrl ? (
-                            <img
-                              src={images[index]?.imageUrl}
-                              alt={`${productName || 'Ürün'} görsel ${index + 1}`}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                              Önizleme
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <div className="space-y-2">
-                            <Label htmlFor={`image-${index}`}>Görsel URL #{index + 1}</Label>
-                            <Input
-                              id={`image-${index}`}
-                              placeholder="https://..."
-                              {...register(`images.${index}.imageUrl`)}
-                            />
-                            {errors.images?.[index]?.imageUrl ? (
-                              <p className="text-sm text-destructive">{errors.images[index]?.imageUrl?.message}</p>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <Button
-                              type="button"
-                              variant={images[index]?.isPrimary ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => handleSetPrimaryImage(index)}
-                            >
-                              {images[index]?.isPrimary ? 'Ana Görsel' : 'Ana Görsel Yap'}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleRemoveImage(index)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Kaldır
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+                <ProductImageUploader
+                  productId={isEdit ? productId : undefined}
+                  canUpload={!!isEdit}
+                  images={images}
+                  onChange={(nextImages) => {
+                    setValue('images', nextImages, { shouldDirty: true, shouldValidate: true });
+                  }}
+                  maxFiles={8}
+                />
+                {errors.images && !Array.isArray(errors.images) && 'message' in errors.images ? (
+                  <p className="text-sm text-destructive">{errors.images.message as string}</p>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -654,8 +601,8 @@ export default function SellerProductForm() {
                 <CardTitle>Not</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>Bu form URL tabanlı çoklu görsel ve dinamik varyant alanlarını destekler.</p>
-                <p>Dosya upload ve sürükle bırak akışı ayrı medya/storage altyapısı geldiğinde bu formun üstüne eklenebilir.</p>
+                <p>Düzenleme modunda dosyalar R2 storage alanına yüklenir ve sürükle bırak ile sıralanabilir.</p>
+                <p>Yeni üründe önce kaydı oluşturup ardından düzenleme ekranında dosya upload yapabilirsiniz.</p>
               </CardContent>
             </Card>
 
