@@ -566,6 +566,11 @@ if (hangfireEnabled)
         "campaign-lifecycle-sync",
         service => service.ProcessCampaignLifecycleAsync(),
         "*/10 * * * *");
+
+    recurringJobManager.AddOrUpdate<IAuthTokenCleanupService>(
+        "cleanup-expired-auth-tokens",
+        service => service.ExecuteAsync(),
+        Cron.Daily());
 }
 
 app.UseCorrelationId();
