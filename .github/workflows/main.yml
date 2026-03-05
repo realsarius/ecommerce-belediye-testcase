@@ -220,7 +220,7 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push
+    - name: Build and push API image
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -229,5 +229,24 @@ jobs:
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-api:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-api:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-frontend:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-frontend:${{ github.sha }}
+        build-args: |
+          VITE_API_URL=/api/v1
+          VITE_SITE_URL=https://ecommerce.berkansozer.com
+          VITE_GOOGLE_CLIENT_ID=
+          VITE_APPLE_CLIENT_ID=
+          VITE_APPLE_REDIRECT_URI=https://ecommerce.berkansozer.com/login
+          VITE_GRAFANA_ADMIN_URL=
         cache-from: type=gha
         cache-to: type=gha,mode=max

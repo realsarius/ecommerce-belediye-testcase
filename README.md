@@ -596,6 +596,12 @@ Uygulama ayağa kalktıktan sonra hızlı doğrulama için doğrudan smoke scrip
 ./scripts/ci/run_api_smoke.sh
 ```
 
+Iyzico secrets olmayan ortamlarda checkout olusturma adimini koruyup odeme tahsilatini atlamak icin:
+
+```bash
+SMOKE_INCLUDE_PAYMENT_FLOW=false ./scripts/ci/run_api_smoke.sh
+```
+
 Production smoke icin:
 
 ```bash

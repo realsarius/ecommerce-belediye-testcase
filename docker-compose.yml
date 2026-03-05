@@ -112,6 +112,7 @@ services:
     container_name: ecommerce-redis
     profiles:
       - dev
+      - prod
     ports:
       - "6380:6379"
     volumes:
@@ -174,8 +175,8 @@ services:
       JWT_ISSUER: ${JWT_ISSUER}
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
       IYZICO_API_KEY: ${IYZICO_API_KEY}
       IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY}
       IYZICO_BASE_URL: ${IYZICO_BASE_URL}
@@ -223,8 +224,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost/health/ready || exit 1" ]
       interval: 15s
@@ -251,8 +250,8 @@ services:
       JWT_ISSUER: ${JWT_ISSUER}
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
       IYZICO_API_KEY: ${IYZICO_API_KEY}
       IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY}
       IYZICO_BASE_URL: ${IYZICO_BASE_URL}
@@ -268,7 +267,7 @@ services:
       RabbitMQ__PrefetchCount: ${RABBITMQ_PREFETCH_COUNT:-32}
       PRODUCT_INDEX_SYNC_FORCE_FAIL: ${PRODUCT_INDEX_SYNC_FORCE_FAIL:-false}
       DataProtection__KeysPath: /var/app/dataprotection-keys
-      OpenTelemetry__Enabled: ${OTEL_ENABLED:-true}
+      OpenTelemetry__Enabled: ${OTEL_ENABLED:-false}
       OpenTelemetry__ServiceName: ${OTEL_SERVICE_NAME:-EcommerceAPI.API}
       OpenTelemetry__OtlpEndpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
@@ -283,8 +282,6 @@ services:
       redis:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy
-      elasticsearch:
         condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost/health/ready || exit 1" ]
@@ -327,11 +324,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${FRONTEND_VITE_API_URL:-/api/v1}
+        VITE_SITE_URL: ${FRONTEND_VITE_SITE_URL:-https://ecommerce.berkansozer.com}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+        VITE_APPLE_REDIRECT_URI: ${FRONTEND_VITE_APPLE_REDIRECT_URI:-https://ecommerce.berkansozer.com/login}
+        VITE_GRAFANA_ADMIN_URL: ${FRONTEND_VITE_GRAFANA_ADMIN_URL:-}
     container_name: ecommerce-frontend-prod
     profiles:
       - prod
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     networks:
       - ecommerce-network
     depends_on:
@@ -340,6 +344,30 @@ services:
     labels:
       - "com.ecommerce.environment=production"
       - "com.ecommerce.service=frontend"
+
+  # Edge reverse proxy for production domains
+  caddy:
+    image: caddy:2-alpine
+    container_name: ecommerce-caddy
+    profiles:
+      - prod
+    environment:
+      ECOMMERCE_DOMAIN: ${ECOMMERCE_DOMAIN:-ecommerce.berkansozer.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - ecommerce-network
+    depends_on:
+      - frontend-prod
+    restart: unless-stopped
+    labels:
+      - "com.ecommerce.environment=production"
+      - "com.ecommerce.service=edge-proxy"
 
   # Elasticsearch - Audit Log Storage
   elasticsearch:
@@ -487,6 +515,14 @@ volumes:
     driver: local
     labels:
       - "com.ecommerce.service=message-broker"
+  caddy_data:
+    driver: local
+    labels:
+      - "com.ecommerce.service=edge-proxy"
+  caddy_config:
+    driver: local
+    labels:
+      - "com.ecommerce.service=edge-proxy"
   prometheus_data:
     driver: local
   grafana_data:
