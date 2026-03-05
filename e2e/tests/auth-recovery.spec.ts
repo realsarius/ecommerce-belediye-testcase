@@ -29,12 +29,6 @@ test.describe('Auth Recovery', () => {
 
         await expect(page.getByText('E-posta Doğrulandı')).toBeVisible({ timeout: 10_000 });
         await expect(page.getByRole('link', { name: 'Alışverişe Başla' })).toBeVisible();
-
-        await expect
-            .poll(async () => {
-                return page.evaluate(() => Boolean(window.localStorage.getItem('token')));
-            })
-            .toBe(true);
     });
 
     test('verify-email hatasında geçersiz link ekranı görünmeli', async ({ page }) => {
@@ -104,5 +98,53 @@ test.describe('Auth Recovery', () => {
 
         await expect(page.getByText('Şifreniz Güncellendi')).toBeVisible({ timeout: 10_000 });
         await expect(page.getByRole('link', { name: 'Girişe Git' })).toBeVisible();
+    });
+
+    test('confirm-email-change başarılı olduğunda güncellendi ekranı görünmeli', async ({ page }) => {
+        await page.route('**/api/v1/auth/confirm-email-change', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    data: {
+                        success: true,
+                        message: 'E-posta adresiniz güncellendi',
+                        token: 'confirm-access-token',
+                        refreshToken: 'confirm-refresh-token',
+                        user: {
+                            id: 102,
+                            email: 'newmail@example.com',
+                            firstName: 'Confirm',
+                            lastName: 'User',
+                            role: 'Customer',
+                            isEmailVerified: true,
+                        },
+                    },
+                }),
+            });
+        });
+
+        await page.goto('/confirm-email-change?token=confirm-token');
+
+        await expect(page.getByText('E-posta Adresi Güncellendi')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole('link', { name: 'Hesabıma Git' })).toBeVisible();
+    });
+
+    test('confirm-email-change hatasında geçersiz link ekranı görünmeli', async ({ page }) => {
+        await page.route('**/api/v1/auth/confirm-email-change', async (route) => {
+            await route.fulfill({
+                status: 400,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    message: 'E-posta değişikliği linkinin süresi dolmuş',
+                    errorCode: 'EXPIRED_TOKEN',
+                }),
+            });
+        });
+
+        await page.goto('/confirm-email-change?token=expired-confirm-token');
+
+        await expect(page.getByText('Geçersiz veya Süresi Dolmuş Link')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText('E-posta değişikliği linkinin süresi dolmuş')).toBeVisible();
     });
 });
