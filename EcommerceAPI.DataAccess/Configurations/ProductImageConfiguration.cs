@@ -16,6 +16,9 @@ public class ProductImageConfiguration : IEntityTypeConfiguration<ProductImage>
             .IsRequired()
             .HasMaxLength(1000);
 
+        builder.Property(x => x.ObjectKey)
+            .HasMaxLength(1024);
+
         builder.Property(x => x.SortOrder)
             .IsRequired()
             .HasDefaultValue(0);

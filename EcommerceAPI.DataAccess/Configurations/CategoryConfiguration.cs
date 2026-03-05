@@ -21,6 +21,12 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         
         builder.Property(c => c.Description)
             .HasMaxLength(1000);
+
+        builder.Property(c => c.ImageUrl)
+            .HasMaxLength(1000);
+
+        builder.Property(c => c.ImageObjectKey)
+            .HasMaxLength(1024);
         
         builder.Property(c => c.IsActive)
             .IsRequired();
