@@ -13,6 +13,7 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Security.Cryptography;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -1055,59 +1056,216 @@ public class AuthManager : IAuthService
     private static string BuildVerificationEmailBody(User user, string verificationLink, string verificationCode)
     {
         var fullName = GetFullName(user);
-        return $"""
-                <p>Merhaba {fullName},</p>
-                <p>Hesabınızı doğrulamak için aşağıdaki bağlantıya tıklayın:</p>
-                <p><a href="{verificationLink}">E-posta adresimi doğrula</a></p>
-                <p>Bağlantıyı açamıyorsanız bu doğrulama kodunu kullanabilirsiniz: <strong>{verificationCode}</strong></p>
-                <p>Doğrulama kodu 10 dakika geçerlidir.</p>
-                <p>Bu bağlantı 24 saat geçerlidir.</p>
-                """;
+        return BuildEmailLayout(
+            "E-posta doğrulama",
+            "Hesabınızı doğrulayın",
+            "Alışverişe devam edebilmek için e-posta doğrulaması gerekiyor",
+            $"""
+             <p style="margin:0 0 14px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+               Merhaba <strong style="color:#f8fafc;">{Encode(fullName)}</strong>, hesabınızı doğrulamak için aşağıdaki butonu kullanın.
+             </p>
+             {BuildPrimaryButton(verificationLink, "E-posta adresimi doğrula")}
+             <p style="margin:0 0 10px;color:#94a3b8;font-size:13px;line-height:1.6;">
+               Buton açılmazsa bu doğrulama kodunu kullanabilirsiniz
+             </p>
+             {BuildCodeBadge(verificationCode)}
+             <p style="margin:14px 0 0;color:#94a3b8;font-size:13px;line-height:1.7;">
+               Kod <strong style="color:#f8fafc;">10 dakika</strong>, doğrulama bağlantısı ise <strong style="color:#f8fafc;">24 saat</strong> geçerlidir.
+             </p>
+             {BuildLinkFallback(verificationLink)}
+             {BuildSecurityNotice("Bu talebi siz yapmadıysanız bu e-postayı yok sayabilirsiniz")}
+             """);
     }
 
     private static string BuildPasswordResetEmailBody(User user, string resetLink)
     {
         var fullName = GetFullName(user);
-        return $"""
-                <p>Merhaba {fullName},</p>
-                <p>Şifrenizi sıfırlamak için aşağıdaki bağlantıya tıklayın:</p>
-                <p><a href="{resetLink}">Şifremi sıfırla</a></p>
-                <p>Bu bağlantı 1 saat geçerlidir.</p>
-                """;
+        return BuildEmailLayout(
+            "Şifre güvenliği",
+            "Şifre sıfırlama talebi",
+            "Hesabınız için yeni bir şifre belirlemek üzere bağlantıyı kullanın",
+            $"""
+             <p style="margin:0 0 14px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+               Merhaba <strong style="color:#f8fafc;">{Encode(fullName)}</strong>, şifrenizi sıfırlamak için aşağıdaki butona tıklayın.
+             </p>
+             {BuildPrimaryButton(resetLink, "Şifremi sıfırla")}
+             <p style="margin:14px 0 0;color:#94a3b8;font-size:13px;line-height:1.7;">
+               Bu bağlantı <strong style="color:#f8fafc;">1 saat</strong> geçerlidir.
+             </p>
+             {BuildLinkFallback(resetLink)}
+             {BuildSecurityNotice("Bu işlemi siz başlatmadıysanız hesabınızın şifresini hemen değiştirin")}
+             """);
     }
 
     private static string BuildPasswordChangedEmailBody(User user)
     {
         var fullName = GetFullName(user);
-        return $"""
-                <p>Merhaba {fullName},</p>
-                <p>Hesabınızın şifresi başarıyla değiştirildi.</p>
-                <p>Bu işlemi siz yapmadıysanız lütfen destek ekibimizle iletişime geçin.</p>
-                """;
+        return BuildEmailLayout(
+            "Hesap bildirimi",
+            "Şifreniz başarıyla değiştirildi",
+            "Bu e-posta bilgilendirme amaçlı gönderilmiştir",
+            $"""
+             <p style="margin:0 0 12px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+               Merhaba <strong style="color:#f8fafc;">{Encode(fullName)}</strong>, hesabınızın şifresi başarıyla güncellendi.
+             </p>
+             {BuildSecurityNotice("Bu işlemi siz yapmadıysanız hemen destek ekibimizle iletişime geçin")}
+             """);
     }
 
     private static string BuildEmailChangeVerificationBody(User user, string newEmail, string verificationLink)
     {
         var fullName = GetFullName(user);
-        return $"""
-                <p>Merhaba {fullName},</p>
-                <p>Hesabınızdaki e-posta adresini <strong>{newEmail}</strong> olarak değiştirme talebi aldık.</p>
-                <p>Değişikliği onaylamak için aşağıdaki bağlantıya tıklayın:</p>
-                <p><a href="{verificationLink}">Yeni e-posta adresimi doğrula</a></p>
-                <p>Bu bağlantı 24 saat geçerlidir.</p>
-                """;
+        return BuildEmailLayout(
+            "E-posta değişikliği",
+            "Yeni e-posta adresinizi doğrulayın",
+            "Hesap güvenliği için adres değişikliği onayı gerekiyor",
+            $"""
+             <p style="margin:0 0 14px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+               Merhaba <strong style="color:#f8fafc;">{Encode(fullName)}</strong>, hesabınızdaki e-posta adresini
+               <strong style="color:#f8fafc;"> {Encode(newEmail)}</strong> olarak değiştirme talebi aldık.
+             </p>
+             {BuildPrimaryButton(verificationLink, "Yeni e-posta adresimi doğrula")}
+             <p style="margin:14px 0 0;color:#94a3b8;font-size:13px;line-height:1.7;">
+               Bu doğrulama bağlantısı <strong style="color:#f8fafc;">24 saat</strong> geçerlidir.
+             </p>
+             {BuildLinkFallback(verificationLink)}
+             {BuildSecurityNotice("Bu değişiklik size ait değilse hesabınızı hemen güvene alın")}
+             """);
     }
 
     private static string BuildEmailChangedNotificationBody(User user, string oldEmail, string newEmail)
     {
         var fullName = GetFullName(user);
+        return BuildEmailLayout(
+            "Hesap bildirimi",
+            "E-posta adresiniz güncellendi",
+            "Aşağıdaki değişiklik hesabınıza başarıyla uygulandı",
+            $"""
+             <p style="margin:0 0 14px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+               Merhaba <strong style="color:#f8fafc;">{Encode(fullName)}</strong>, hesap e-posta adresiniz güncellendi.
+             </p>
+             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px;border-collapse:collapse;">
+               <tr>
+                 <td style="padding:10px 12px;background:#111827;border:1px solid #243247;border-radius:10px;color:#cbd5e1;font-size:13px;">
+                   <div style="margin:0 0 6px;color:#94a3b8;">Eski e-posta</div>
+                   <div style="margin:0;color:#f8fafc;font-weight:600;">{Encode(oldEmail)}</div>
+                 </td>
+               </tr>
+             </table>
+             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:collapse;">
+               <tr>
+                 <td style="padding:10px 12px;background:#111827;border:1px solid #243247;border-radius:10px;color:#cbd5e1;font-size:13px;">
+                   <div style="margin:0 0 6px;color:#94a3b8;">Yeni e-posta</div>
+                   <div style="margin:0;color:#f8fafc;font-weight:600;">{Encode(newEmail)}</div>
+                 </td>
+               </tr>
+             </table>
+             {BuildSecurityNotice("Bu işlemi siz yapmadıysanız lütfen hemen destek ekibimizle iletişime geçin")}
+             """);
+    }
+
+    private static string BuildEmailLayout(string section, string title, string subtitle, string content)
+    {
         return $"""
-                <p>Merhaba {fullName},</p>
-                <p>Hesabınızın e-posta adresi başarıyla değiştirildi.</p>
-                <p>Eski e-posta: <strong>{oldEmail}</strong></p>
-                <p>Yeni e-posta: <strong>{newEmail}</strong></p>
-                <p>Bu işlemi siz yapmadıysanız lütfen hemen destek ekibimizle iletişime geçin.</p>
+                <!doctype html>
+                <html lang="tr">
+                <head>
+                  <meta charset="utf-8" />
+                  <meta name="viewport" content="width=device-width, initial-scale=1" />
+                  <title>{Encode(title)}</title>
+                </head>
+                <body style="margin:0;padding:0;background:#070b12;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#070b12;padding:26px 10px;">
+                    <tr>
+                      <td align="center">
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;border:1px solid #1f2937;border-radius:16px;background:#0b1220;overflow:hidden;">
+                          <tr>
+                            <td style="padding:22px 26px 18px;border-bottom:1px solid #1f2937;background:#0f172a;">
+                              <div style="margin:0 0 10px;">
+                                <span style="display:inline-block;padding:5px 10px;border-radius:999px;border:1px solid #21405f;background:#0b2540;color:#7dd3fc;font-size:11px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;">
+                                  {Encode(section)}
+                                </span>
+                              </div>
+                              <h1 style="margin:0;color:#f8fafc;font-size:24px;line-height:1.3;">{Encode(title)}</h1>
+                              <p style="margin:10px 0 0;color:#94a3b8;font-size:14px;line-height:1.6;">{Encode(subtitle)}</p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:22px 26px 26px;">
+                              {content}
+                            </td>
+                          </tr>
+                        </table>
+                        <p style="max-width:620px;margin:14px auto 0;color:#64748b;font-size:12px;line-height:1.7;text-align:center;">
+                          Bu e-posta sistem tarafından otomatik olarak gönderildi
+                        </p>
+                        <p style="max-width:620px;margin:6px auto 0;color:#475569;font-size:12px;line-height:1.7;text-align:center;">
+                          © 2026 E-Ticaret
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </body>
+                </html>
                 """;
+    }
+
+    private static string BuildPrimaryButton(string href, string label)
+    {
+        return $"""
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 16px;border-collapse:collapse;">
+                  <tr>
+                    <td>
+                      <a href="{Encode(href)}"
+                         style="display:inline-block;padding:12px 20px;border-radius:10px;background:#1d4ed8;border:1px solid #3b82f6;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+                        {Encode(label)}
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                """;
+    }
+
+    private static string BuildCodeBadge(string code)
+    {
+        return $"""
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:12px 16px;background:#111827;border:1px solid #29374e;border-radius:10px;">
+                      <span style="display:inline-block;font-family:'SFMono-Regular',Consolas,Monaco,monospace;font-size:24px;letter-spacing:6px;color:#f8fafc;font-weight:700;">
+                        {Encode(code)}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+                """;
+    }
+
+    private static string BuildLinkFallback(string url)
+    {
+        return $"""
+                <p style="margin:14px 0 0;color:#64748b;font-size:12px;line-height:1.7;word-break:break-all;">
+                  Link açılmazsa tarayıcıya yapıştırın: <a href="{Encode(url)}" style="color:#60a5fa;text-decoration:none;">{Encode(url)}</a>
+                </p>
+                """;
+    }
+
+    private static string BuildSecurityNotice(string text)
+    {
+        return $"""
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 0;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:11px 12px;background:#241b1b;border:1px solid #5f2c2c;border-radius:10px;color:#fca5a5;font-size:12px;line-height:1.7;">
+                      Güvenlik notu: {Encode(text)}
+                    </td>
+                  </tr>
+                </table>
+                """;
+    }
+
+    private static string Encode(string value)
+    {
+        return WebUtility.HtmlEncode(value);
     }
 
     private static string GetFullName(User user)
