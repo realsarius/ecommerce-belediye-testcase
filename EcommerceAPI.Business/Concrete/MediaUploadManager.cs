@@ -449,7 +449,7 @@ public class MediaUploadManager : IMediaUploadService
             }
 
             var sellerIdForPath = product.SellerId ?? 0;
-            return new SuccessDataResult<string>(StorageKeyGenerator.ProductImage(sellerIdForPath, product.Id, extension));
+            return new SuccessDataResult<string>(data: StorageKeyGenerator.ProductImage(sellerIdForPath, product.Id, extension));
         }
 
         if (context == MediaUploadContext.Category)
@@ -470,7 +470,7 @@ public class MediaUploadManager : IMediaUploadService
                 return new ErrorDataResult<string>(message: "Kategori bulunamadı");
             }
 
-            return new SuccessDataResult<string>(StorageKeyGenerator.CategoryImage(referenceId, extension));
+            return new SuccessDataResult<string>(data: StorageKeyGenerator.CategoryImage(referenceId, extension));
         }
 
         if (context == MediaUploadContext.SellerLogo || context == MediaUploadContext.SellerBanner)
@@ -500,7 +500,7 @@ public class MediaUploadManager : IMediaUploadService
                 ? StorageKeyGenerator.SellerLogo(targetProfile.Id, extension)
                 : StorageKeyGenerator.SellerBanner(targetProfile.Id, extension);
 
-            return new SuccessDataResult<string>(objectKey);
+            return new SuccessDataResult<string>(data: objectKey);
         }
 
         return new ErrorDataResult<string>(message: "Desteklenmeyen upload context");
