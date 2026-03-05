@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ImageIcon, Loader2, Upload } from 'lucide-react';
+import { ImageIcon, Loader2, RotateCcw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/common/button';
 import { Label } from '@/components/common/label';
@@ -23,6 +23,15 @@ type SingleMediaUploaderProps = {
   className?: string;
 };
 
+type FailedSingleUpload = {
+  file: File;
+  message: string;
+};
+
+function getApiErrorMessage(error: unknown, fallbackMessage: string): string {
+  return (error as { data?: { message?: string } })?.data?.message ?? fallbackMessage;
+}
+
 export function SingleMediaUploader({
   title,
   description,
@@ -38,29 +47,29 @@ export function SingleMediaUploader({
   const [confirmUpload] = useConfirmMediaUploadMutation();
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const [failedUpload, setFailedUpload] = useState<FailedSingleUpload | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isDisabled = disabled || !referenceId;
 
-  const handleSelectFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
+  const uploadFile = async (file: File): Promise<boolean> => {
     if (!referenceId) {
       toast.error(disabledMessage || 'Yükleme için geçerli bir kayıt bulunamadı');
-      return;
+      return false;
     }
 
     if (!ALLOWED_CONTENT_TYPES.includes(file.type as (typeof ALLOWED_CONTENT_TYPES)[number])) {
-      toast.error('Sadece JPEG, PNG, WebP veya GIF yükleyebilirsiniz');
-      return;
+      const message = 'Sadece JPEG, PNG, WebP veya GIF yükleyebilirsiniz';
+      toast.error(message);
+      setFailedUpload({ file, message });
+      return false;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error('Dosya boyutu 10 MB sınırını aşıyor');
-      return;
+      const message = 'Dosya boyutu 10 MB sınırını aşıyor';
+      toast.error(message);
+      setFailedUpload({ file, message });
+      return false;
     }
 
     setIsUploading(true);
@@ -83,11 +92,15 @@ export function SingleMediaUploader({
       }).unwrap();
 
       setProgress(100);
+      setFailedUpload(null);
       onUploaded?.(confirmed);
       toast.success('Görsel yüklendi');
+      return true;
     } catch (error) {
-      const message = (error as { data?: { message?: string } })?.data?.message;
-      toast.error(message || 'Görsel yüklenemedi');
+      const message = getApiErrorMessage(error, 'Görsel yüklenemedi');
+      setFailedUpload({ file, message });
+      toast.error(message);
+      return false;
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -95,6 +108,23 @@ export function SingleMediaUploader({
       }
       window.setTimeout(() => setProgress(null), 1200);
     }
+  };
+
+  const handleSelectFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    await uploadFile(file);
+  };
+
+  const handleRetry = async () => {
+    if (!failedUpload) {
+      return;
+    }
+
+    await uploadFile(failedUpload.file);
   };
 
   return (
@@ -126,6 +156,13 @@ export function SingleMediaUploader({
         </div>
       ) : null}
 
+      {failedUpload ? (
+        <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/5 px-3 py-2">
+          <p className="text-xs font-medium text-destructive">{failedUpload.message}</p>
+          <p className="truncate text-xs text-muted-foreground">{failedUpload.file.name}</p>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           ref={fileInputRef}
@@ -142,6 +179,10 @@ export function SingleMediaUploader({
         >
           {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {imageUrl ? 'Görseli Değiştir' : 'Görsel Yükle'}
+        </Button>
+        <Button type="button" variant="secondary" disabled={isDisabled || isUploading || !failedUpload} onClick={() => void handleRetry()}>
+          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+          Tekrar Dene
         </Button>
         {isDisabled && disabledMessage ? <p className="text-xs text-muted-foreground">{disabledMessage}</p> : null}
       </div>
