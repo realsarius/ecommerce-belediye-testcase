@@ -9,8 +9,10 @@ import type {
   ResetPasswordRequest,
   RegisterRequest,
   RefreshTokenRequest,
+  ResendVerificationCodeRequest,
   SocialLoginRequest,
   User,
+  VerifyEmailCodeRequest,
   VerifyEmailRequest,
 } from './types';
 
@@ -56,10 +58,25 @@ export const authApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
     }),
+    verifyEmailCode: builder.mutation<AuthResponse, VerifyEmailCodeRequest>({
+      query: (body) => ({
+        url: '/auth/verify-email-code',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
+    }),
     resendVerification: builder.mutation<ActionResult, void>({
       query: () => ({
         url: '/auth/resend-verification',
         method: 'POST',
+      }),
+    }),
+    resendVerificationCode: builder.mutation<ActionResult, ResendVerificationCodeRequest>({
+      query: (body) => ({
+        url: '/auth/resend-verification-code',
+        method: 'POST',
+        body,
       }),
     }),
     forgotPassword: builder.mutation<ActionResult, ForgotPasswordRequest>({
@@ -111,7 +128,9 @@ export const {
   useRegisterMutation,
   useRefreshMutation,
   useVerifyEmailMutation,
+  useVerifyEmailCodeMutation,
   useResendVerificationMutation,
+  useResendVerificationCodeMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
   useChangeEmailMutation,
