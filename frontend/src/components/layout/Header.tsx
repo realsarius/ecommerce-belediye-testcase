@@ -531,7 +531,12 @@ export function Header() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" showCloseButton={false} className="w-72 p-0">
+              <SheetContent
+                side="right"
+                showCloseButton={false}
+                className="w-72 p-0"
+                onOpenAutoFocus={(event) => event.preventDefault()}
+              >
                 <SheetTitle className="sr-only">Mobil Menü</SheetTitle>
                 <SheetDescription className="sr-only">Site navigasyon menüsü</SheetDescription>
                 <nav
