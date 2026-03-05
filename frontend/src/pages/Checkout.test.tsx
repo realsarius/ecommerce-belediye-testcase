@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderWithProviders } from '@/test-utils';
+import { createTestStore, renderWithProviders } from '@/test-utils';
 import Checkout from './Checkout';
 
 const mockNavigate = vi.fn();
@@ -214,5 +214,33 @@ describe('Checkout legal consent davranışı', () => {
     await user.click(screen.getByRole('button', { name: 'Kabul Ediyorum' }));
 
     expect(completeOrderButton).toBeEnabled();
+  });
+
+  it('doğrulanmamış kullanıcıda siparişi tamamla butonu kilitli olmalı', () => {
+    const store = createTestStore({
+      auth: {
+        user: {
+          id: 99,
+          email: 'unverified@example.com',
+          firstName: 'Unverified',
+          lastName: 'User',
+          role: 'Customer',
+          isEmailVerified: false,
+        },
+        token: 'test-token',
+        refreshToken: 'test-refresh-token',
+        isAuthenticated: true,
+      },
+    });
+
+    renderWithProviders(<Checkout />, {
+      route: '/checkout',
+      store,
+    });
+
+    expect(
+      screen.getByText(/Siparişi tamamlamak için önce e-posta adresinizi doğrulayın/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Siparişi Tamamla/i })).toBeDisabled();
   });
 });
