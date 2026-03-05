@@ -876,9 +876,26 @@ public class AuthManager : IAuthService
 
     private string GetFrontendBaseUrl()
     {
-        var configured = _configuration["Auth:FrontendBaseUrl"]
-                         ?? _configuration["FRONTEND_VITE_SITE_URL"]
-                         ?? "http://localhost:3000";
+        var configured = _configuration["EMAIL_BASE_URL"];
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            configured = _configuration["Email:BaseUrl"];
+        }
+
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            configured = _configuration["Auth:FrontendBaseUrl"];
+        }
+
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            configured = _configuration["FRONTEND_VITE_SITE_URL"];
+        }
+
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            configured = "http://localhost:3000";
+        }
 
         return configured.TrimEnd('/');
     }

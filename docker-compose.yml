@@ -183,6 +183,13 @@ services:
       REDIS_CONNECTION_STRING: redis:6379
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       HASH_PEPPER: ${HASH_PEPPER}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-Console}
+      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-true}
+      EMAIL_RESEND_API_KEY: ${EMAIL_RESEND_API_KEY:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-noreply@localhost}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-E-Ticaret Dev}
+      EMAIL_BASE_URL: ${EMAIL_BASE_URL:-http://localhost:3000}
+      Auth__FrontendBaseUrl: ${EMAIL_BASE_URL:-http://localhost:3000}
       ELASTICSEARCH_URL: http://elasticsearch:9200
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Port: 5672
@@ -258,6 +265,13 @@ services:
       REDIS_CONNECTION_STRING: redis:6379
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       HASH_PEPPER: ${HASH_PEPPER}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-Resend}
+      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-true}
+      EMAIL_RESEND_API_KEY: ${EMAIL_RESEND_API_KEY:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-noreply@ecommerce.berkansozer.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-E-Ticaret}
+      EMAIL_BASE_URL: ${EMAIL_BASE_URL:-https://ecommerce.berkansozer.com}
+      Auth__FrontendBaseUrl: ${EMAIL_BASE_URL:-https://ecommerce.berkansozer.com}
       ELASTICSEARCH_URL: http://elasticsearch:9200
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Port: 5672
