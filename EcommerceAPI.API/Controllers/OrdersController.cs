@@ -27,6 +27,7 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request)
     {
         ApplyIdempotencyKeyHeader(request);

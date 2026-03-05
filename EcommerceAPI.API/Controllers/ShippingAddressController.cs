@@ -38,6 +38,7 @@ public class ShippingAddressController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> CreateAddress([FromBody] CreateShippingAddressRequest request)
     {
         var userId = GetCurrentUserId();
@@ -51,6 +52,7 @@ public class ShippingAddressController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> UpdateAddress(int id, [FromBody] CreateShippingAddressRequest request)
     {
         var userId = GetCurrentUserId();
@@ -64,6 +66,7 @@ public class ShippingAddressController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> DeleteAddress(int id)
     {
         var userId = GetCurrentUserId();
@@ -76,4 +79,3 @@ public class ShippingAddressController : ControllerBase
         return BadRequest(result);
     }
 }
-
