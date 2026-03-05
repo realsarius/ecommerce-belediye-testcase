@@ -1,5 +1,6 @@
 import { createContext, lazy, Suspense, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { isCheatCodesEnabled } from '@/lib/featureFlags';
 
 const CouponsCheatDialog = lazy(() =>
   import('@/components/common/CouponsCheatDialog').then((module) => ({ default: module.CouponsCheatDialog }))
@@ -32,7 +33,9 @@ const COUPONS_CODE = 'ALOVELYDAY';
 
 export function DevToolsProvider({ children }: DevToolsProviderProps) {
   const [isDevToolsEnabled, setIsDevToolsEnabled] = useState(() => {
-
+    if (!isCheatCodesEnabled) {
+      return false;
+    }
     return localStorage.getItem('devToolsEnabled') === 'true';
   });
 
@@ -43,6 +46,9 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
   const timeoutRef = useRef<number | null>(null);
 
   const enableDevTools = useCallback(() => {
+    if (!isCheatCodesEnabled) {
+      return;
+    }
     setIsDevToolsEnabled(true);
     localStorage.setItem('devToolsEnabled', 'true');
   }, []);
@@ -53,6 +59,9 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!isCheatCodesEnabled) {
+      return;
+    }
 
     if (
       e.target instanceof HTMLInputElement ||
@@ -112,6 +121,13 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
   }, [enableDevTools, disableDevTools, isDevToolsEnabled]);
 
   useEffect(() => {
+    if (!isCheatCodesEnabled) {
+      setIsDevToolsEnabled(false);
+      setShowCouponsDialog(false);
+      localStorage.removeItem('devToolsEnabled');
+      return;
+    }
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -126,10 +142,15 @@ export function DevToolsProvider({ children }: DevToolsProviderProps) {
       isDevToolsEnabled,
       enableDevTools,
       disableDevTools,
-      openCouponsDialog: () => setShowCouponsDialog(true)
+      openCouponsDialog: () => {
+        if (!isCheatCodesEnabled) {
+          return;
+        }
+        setShowCouponsDialog(true);
+      }
     }}>
       {children}
-      {showCouponsDialog && (
+      {isCheatCodesEnabled && showCouponsDialog && (
         <Suspense fallback={null}>
           <CouponsCheatDialog open={showCouponsDialog} onOpenChange={setShowCouponsDialog} />
         </Suspense>

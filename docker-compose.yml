@@ -319,6 +319,7 @@ services:
     environment:
       VITE_API_URL: /api/v1
       VITE_DEV_PROXY_TARGET: http://api-dev
+      VITE_ENABLE_CHEAT_CODES: ${FRONTEND_VITE_ENABLE_CHEAT_CODES:-true}
     ports:
       - "3000:5173"
     volumes:
@@ -345,6 +346,7 @@ services:
         VITE_APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
         VITE_APPLE_REDIRECT_URI: ${FRONTEND_VITE_APPLE_REDIRECT_URI:-https://ecommerce.berkansozer.com/login}
         VITE_GRAFANA_ADMIN_URL: ${FRONTEND_VITE_GRAFANA_ADMIN_URL:-}
+        VITE_ENABLE_CHEAT_CODES: ${FRONTEND_VITE_ENABLE_CHEAT_CODES:-false}
     container_name: ecommerce-frontend-prod
     profiles:
       - prod

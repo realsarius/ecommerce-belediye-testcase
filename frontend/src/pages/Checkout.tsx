@@ -36,6 +36,7 @@ import { InvoiceInfo } from '@/components/checkout/InvoiceInfo';
 import { LegalConsents } from '@/components/checkout/LegalConsents';
 import { PaymentProviderLogo, getPaymentProviderLabel } from '@/components/order/PaymentProviderLogo';
 import { detectCardBrand, getCardBrandLabel } from '@/lib/cardBrand';
+import { isCheatCodesEnabled } from '@/lib/featureFlags';
 import { Package, CreditCard, MapPin, Loader2, Plus, Ticket, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -150,6 +151,11 @@ export default function Checkout() {
   
 
   useEffect(() => {
+    if (!isCheatCodesEnabled) {
+      cheatCodeBuffer.current = '';
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
 
       if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
