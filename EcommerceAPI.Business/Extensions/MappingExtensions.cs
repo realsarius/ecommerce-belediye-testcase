@@ -104,6 +104,7 @@ public static class MappingExtensions
                 {
                     Id = image.Id,
                     ImageUrl = image.ImageUrl,
+                    ObjectKey = image.ObjectKey,
                     SortOrder = image.SortOrder,
                     IsPrimary = image.IsPrimary
                 })
