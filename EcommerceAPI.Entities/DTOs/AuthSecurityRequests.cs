@@ -7,6 +7,17 @@ public class VerifyEmailRequest : IDto
     public string Token { get; set; } = string.Empty;
 }
 
+public class VerifyEmailCodeRequest : IDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
+public class ResendVerificationCodeRequest : IDto
+{
+    public string Email { get; set; } = string.Empty;
+}
+
 public class ForgotPasswordRequest : IDto
 {
     public string Email { get; set; } = string.Empty;

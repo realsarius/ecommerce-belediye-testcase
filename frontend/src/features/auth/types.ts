@@ -49,6 +49,15 @@ export interface VerifyEmailRequest {
   token: string;
 }
 
+export interface VerifyEmailCodeRequest {
+  email: string;
+  code: string;
+}
+
+export interface ResendVerificationCodeRequest {
+  email: string;
+}
+
 export interface ForgotPasswordRequest {
   email: string;
 }

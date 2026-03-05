@@ -4,6 +4,9 @@ public static class ErrorCodes
 {
     public const string InvalidToken = "INVALID_TOKEN";
     public const string ExpiredToken = "EXPIRED_TOKEN";
+    public const string InvalidCode = "INVALID_CODE";
+    public const string ExpiredCode = "EXPIRED_CODE";
+    public const string TooManyAttempts = "TOO_MANY_ATTEMPTS";
     public const string RateLimitExceeded = "RATE_LIMIT_EXCEEDED";
     public const string PasswordMismatch = "PASSWORD_MISMATCH";
     public const string EmailAlreadyInUse = "EMAIL_ALREADY_IN_USE";

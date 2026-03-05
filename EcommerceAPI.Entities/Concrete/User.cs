@@ -14,6 +14,11 @@ public class User : BaseEntity
     public bool IsEmailVerified { get; set; }
     public string? EmailVerificationToken { get; set; }
     public DateTime? EmailVerificationTokenExpiry { get; set; }
+    public string? EmailVerificationCodeHash { get; set; }
+    public DateTime? EmailVerificationCodeExpiry { get; set; }
+    public int EmailVerificationCodeAttemptCount { get; set; }
+    public DateTime? EmailVerificationCodeLastSentAt { get; set; }
+    public DateTime? EmailVerificationCodeLockedUntil { get; set; }
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
     public string? PendingEmail { get; set; }

@@ -228,6 +228,112 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task VerifyEmailCode_ValidCode_ReturnsOkAndMarksUserVerified()
+    {
+        var userId = NextUserId();
+        var email = $"verify_code_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: false, email: email);
+        await SetEmailVerificationTokenAsync(userId, $"verify-token-{Guid.NewGuid():N}", DateTime.UtcNow.AddHours(12));
+        await SetEmailVerificationCodeAsync(userId, "123456", DateTime.UtcNow.AddMinutes(10), attemptCount: 2);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/verify-email-code", new VerifyEmailCodeRequest
+        {
+            Email = email,
+            Code = "123456"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<AuthResponse>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.User.Should().NotBeNull();
+        apiResult.Data.User!.IsEmailVerified.Should().BeTrue();
+
+        var user = await FindUserAsync(userId);
+        user.Should().NotBeNull();
+        user!.IsEmailVerified.Should().BeTrue();
+        user.EmailVerificationToken.Should().BeNull();
+        user.EmailVerificationTokenExpiry.Should().BeNull();
+        user.EmailVerificationCodeHash.Should().BeNull();
+        user.EmailVerificationCodeExpiry.Should().BeNull();
+        user.EmailVerificationCodeAttemptCount.Should().Be(0);
+        user.EmailVerificationCodeLockedUntil.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task VerifyEmailCode_InvalidCode_ReturnsBadRequestAndIncrementsAttemptCount()
+    {
+        var userId = NextUserId();
+        var email = $"verify_code_invalid_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: false, email: email);
+        await SetEmailVerificationCodeAsync(userId, "123456", DateTime.UtcNow.AddMinutes(10), attemptCount: 1);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/verify-email-code", new VerifyEmailCodeRequest
+        {
+            Email = email,
+            Code = "654321"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("INVALID_CODE");
+
+        var user = await FindUserAsync(userId);
+        user.Should().NotBeNull();
+        user!.EmailVerificationCodeAttemptCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task VerifyEmailCode_WhenMaxAttemptsReached_ReturnsTooManyRequests()
+    {
+        var userId = NextUserId();
+        var email = $"verify_code_locked_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: false, email: email);
+        await SetEmailVerificationCodeAsync(userId, "123456", DateTime.UtcNow.AddMinutes(10), attemptCount: 4);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/verify-email-code", new VerifyEmailCodeRequest
+        {
+            Email = email,
+            Code = "000000"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("TOO_MANY_ATTEMPTS");
+        ReadRetryAfterHeaderSeconds(response).Should().BeGreaterThan(0);
+
+        var user = await FindUserAsync(userId);
+        user.Should().NotBeNull();
+        user!.EmailVerificationCodeLockedUntil.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task VerifyEmailCode_ExpiredCode_ReturnsBadRequestAndClearsCodeState()
+    {
+        var userId = NextUserId();
+        var email = $"verify_code_expired_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: false, email: email);
+        await SetEmailVerificationCodeAsync(userId, "123456", DateTime.UtcNow.AddMinutes(-1), attemptCount: 3);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/verify-email-code", new VerifyEmailCodeRequest
+        {
+            Email = email,
+            Code = "123456"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("EXPIRED_CODE");
+
+        var user = await FindUserAsync(userId);
+        user.Should().NotBeNull();
+        user!.EmailVerificationCodeHash.Should().BeNull();
+        user.EmailVerificationCodeExpiry.Should().BeNull();
+        user.EmailVerificationCodeAttemptCount.Should().Be(0);
+        user.EmailVerificationCodeLockedUntil.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ResendVerification_UnverifiedUser_ReturnsOkAndRefreshesToken()
     {
         var userId = NextUserId();
@@ -278,6 +384,56 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var retryAfterSeconds = ReadRetryAfterHeaderSeconds(secondResponse);
         retryAfterSeconds.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task ResendVerificationCode_SecondRequestWithinCooldown_ReturnsTooManyRequests()
+    {
+        var userId = NextUserId();
+        var email = $"resend_code_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: false, email: email);
+        await SetEmailVerificationCodeAsync(userId, "123456", DateTime.UtcNow.AddMinutes(10));
+
+        var firstResponse = await _client.PostAsJsonAsync("/api/v1/auth/resend-verification-code", new ResendVerificationCodeRequest
+        {
+            Email = email
+        });
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await _client.PostAsJsonAsync("/api/v1/auth/resend-verification-code", new ResendVerificationCodeRequest
+        {
+            Email = email
+        });
+
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        var errorCode = await ReadErrorCodeAsync(secondResponse);
+        errorCode.Should().Be("RATE_LIMIT_EXCEEDED");
+        ReadRetryAfterHeaderSeconds(secondResponse).Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task ResendVerificationCode_AfterResend_OldCodeShouldBecomeInvalid()
+    {
+        var userId = NextUserId();
+        var email = $"resend_code_old_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: false, email: email);
+        await SetEmailVerificationCodeAsync(userId, "111111", DateTime.UtcNow.AddMinutes(10));
+
+        var resendResponse = await _client.PostAsJsonAsync("/api/v1/auth/resend-verification-code", new ResendVerificationCodeRequest
+        {
+            Email = email
+        });
+        resendResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var verifyOldCodeResponse = await _client.PostAsJsonAsync("/api/v1/auth/verify-email-code", new VerifyEmailCodeRequest
+        {
+            Email = email,
+            Code = "111111"
+        });
+
+        verifyOldCodeResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(verifyOldCodeResponse);
+        errorCode.Should().Be("INVALID_CODE");
     }
 
     [Fact]
@@ -622,6 +778,27 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = await db.Users.FirstAsync(u => u.Id == userId);
         user.EmailVerificationToken = hashingService.Hash(rawToken);
         user.EmailVerificationTokenExpiry = expiry;
+        db.Users.Update(user);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task SetEmailVerificationCodeAsync(
+        int userId,
+        string rawCode,
+        DateTime expiry,
+        int attemptCount = 0,
+        DateTime? lockedUntil = null)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hashingService = scope.ServiceProvider.GetRequiredService<IHashingService>();
+
+        var user = await db.Users.FirstAsync(u => u.Id == userId);
+        user.EmailVerificationCodeHash = hashingService.Hash(rawCode);
+        user.EmailVerificationCodeExpiry = expiry;
+        user.EmailVerificationCodeAttemptCount = attemptCount;
+        user.EmailVerificationCodeLastSentAt = DateTime.UtcNow;
+        user.EmailVerificationCodeLockedUntil = lockedUntil;
         db.Users.Update(user);
         await db.SaveChangesAsync();
     }
