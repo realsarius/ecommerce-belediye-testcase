@@ -98,6 +98,54 @@ public class MediaControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task PresignUpload_CategoryAsAdmin_ReturnsOkWithExpectedObjectKeyPrefix()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var categoryId = await SeedCategoryAsync(factory.Services);
+        var client = factory.CreateClient().AsAdmin(NextId());
+
+        var response = await client.PostAsJsonAsync("/api/v1/media/presign", new PresignMediaUploadRequest
+        {
+            Context = "category",
+            ReferenceId = categoryId,
+            ContentType = "image/png",
+            FileSizeBytes = 4_096
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiResult<PresignedMediaUploadDto>>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.Data.ObjectKey.Should().StartWith($"categories/category-{categoryId}/");
+        result.Data.ObjectKey.Should().EndWith(".png");
+    }
+
+    [Fact]
+    public async Task PresignUpload_CategoryAsSeller_ReturnsForbidden()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var categoryId = await SeedCategoryAsync(factory.Services);
+        var seller = await SeedSellerProfileAsync(factory.Services);
+        var client = factory.CreateClient().AsSeller(seller.UserId);
+
+        var response = await client.PostAsJsonAsync("/api/v1/media/presign", new PresignMediaUploadRequest
+        {
+            Context = "category",
+            ReferenceId = categoryId,
+            ContentType = "image/png",
+            FileSizeBytes = 4_096
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ReadErrorMessageAsync(response)).Should().Be("Yetkiniz yok");
+    }
+
+    [Fact]
     public async Task ConfirmUpload_ProductValidObjectKey_PersistsImage()
     {
         var storage = new FakeObjectStorageService();
@@ -163,6 +211,108 @@ public class MediaControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await ReadErrorMessageAsync(response)).Should().Be("Geçersiz object key prefix");
+    }
+
+    [Fact]
+    public async Task ConfirmUpload_CategoryAsAdmin_UpdatesCategoryImage()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var categoryId = await SeedCategoryAsync(factory.Services);
+        var objectKey = $"categories/category-{categoryId}/{Guid.NewGuid():N}.webp";
+        storage.SeedObject(objectKey, ValidJpegHeader);
+        var client = factory.CreateClient().AsAdmin(NextId());
+
+        var response = await client.PostAsJsonAsync("/api/v1/media/confirm", new ConfirmMediaUploadRequest
+        {
+            Context = "category",
+            ReferenceId = categoryId,
+            ObjectKey = objectKey
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var category = await db.Categories.SingleAsync(x => x.Id == categoryId);
+
+        category.ImageObjectKey.Should().Be(objectKey);
+        category.ImageUrl.Should().Be(storage.GetPublicUrl(objectKey));
+    }
+
+    [Fact]
+    public async Task ConfirmUpload_CategoryAsSeller_ReturnsForbidden()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var categoryId = await SeedCategoryAsync(factory.Services);
+        var objectKey = $"categories/category-{categoryId}/{Guid.NewGuid():N}.webp";
+        storage.SeedObject(objectKey, ValidJpegHeader);
+        var seller = await SeedSellerProfileAsync(factory.Services);
+        var client = factory.CreateClient().AsSeller(seller.UserId);
+
+        var response = await client.PostAsJsonAsync("/api/v1/media/confirm", new ConfirmMediaUploadRequest
+        {
+            Context = "category",
+            ReferenceId = categoryId,
+            ObjectKey = objectKey
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ReadErrorMessageAsync(response)).Should().Be("Yetkiniz yok");
+    }
+
+    [Fact]
+    public async Task ConfirmUpload_SellerLogoAsOwnerSeller_UpdatesLogo()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var seller = await SeedSellerProfileAsync(factory.Services);
+        var objectKey = $"sellers/seller-{seller.SellerProfileId}/logo.webp";
+        storage.SeedObject(objectKey, ValidJpegHeader);
+        var client = factory.CreateClient().AsSeller(seller.UserId);
+
+        var response = await client.PostAsJsonAsync("/api/v1/media/confirm", new ConfirmMediaUploadRequest
+        {
+            Context = "seller-logo",
+            ReferenceId = seller.SellerProfileId,
+            ObjectKey = objectKey
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var profile = await db.SellerProfiles.SingleAsync(x => x.Id == seller.SellerProfileId);
+
+        profile.LogoObjectKey.Should().Be(objectKey);
+        profile.LogoUrl.Should().Be(storage.GetPublicUrl(objectKey));
+    }
+
+    [Fact]
+    public async Task ConfirmUpload_SellerBannerAsDifferentSeller_ReturnsForbidden()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var ownerSeller = await SeedSellerProfileAsync(factory.Services);
+        var attackerSeller = await SeedSellerProfileAsync(factory.Services);
+        var objectKey = $"sellers/seller-{ownerSeller.SellerProfileId}/banner.webp";
+        storage.SeedObject(objectKey, ValidJpegHeader);
+
+        var client = factory.CreateClient().AsSeller(attackerSeller.UserId);
+        var response = await client.PostAsJsonAsync("/api/v1/media/confirm", new ConfirmMediaUploadRequest
+        {
+            Context = "seller-banner",
+            ReferenceId = ownerSeller.SellerProfileId,
+            ObjectKey = objectKey
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ReadErrorMessageAsync(response)).Should().Be("Yetkiniz yok");
     }
 
     [Fact]
@@ -238,6 +388,41 @@ public class MediaControllerTests : IClassFixture<CustomWebApplicationFactory>
         second.IsPrimary.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task ReorderProductImages_WhenDifferentSeller_ReturnsForbidden()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var seeded = await SeedSellerProductWithImagesAsync(factory.Services, storage);
+        var attacker = await SeedSellerProfileAsync(factory.Services);
+        var client = factory.CreateClient().AsSeller(attacker.UserId);
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/v1/media/products/{seeded.ProductId}/images/reorder",
+            new ReorderProductImagesRequest
+            {
+                ImageOrders =
+                [
+                    new ReorderProductImageItemRequest
+                    {
+                        ImageId = seeded.SecondaryImageId,
+                        DisplayOrder = 0,
+                        IsPrimary = true
+                    },
+                    new ReorderProductImageItemRequest
+                    {
+                        ImageId = seeded.PrimaryImageId,
+                        DisplayOrder = 1,
+                        IsPrimary = false
+                    }
+                ]
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ReadErrorMessageAsync(response)).Should().Be("Yetkiniz yok");
+    }
+
     private WebApplicationFactory<Program> CreateFactoryWithStorage(FakeObjectStorageService storage)
     {
         return _factory.WithWebHostBuilder(builder =>
@@ -280,6 +465,26 @@ public class MediaControllerTests : IClassFixture<CustomWebApplicationFactory>
         await TestDataSeeder.EnsureProductWithStockAsync(db, productId, categoryId, stockQuantity: 50, sellerId: sellerProfile.Id);
 
         return (userId, sellerProfile.Id, productId);
+    }
+
+    private static async Task<int> SeedCategoryAsync(IServiceProvider services)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var categoryId = NextId();
+        var category = await TestDataSeeder.EnsureCategoryAsync(db, categoryId, $"category-{categoryId}");
+        return category.Id;
+    }
+
+    private static async Task<(int UserId, int SellerProfileId)> SeedSellerProfileAsync(IServiceProvider services)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var userId = NextId();
+        var sellerProfile = await TestDataSeeder.EnsureSellerProfileAsync(db, userId, $"seller-{userId}");
+        return (userId, sellerProfile.Id);
     }
 
     private static async Task<(int UserId, int ProductId, int PrimaryImageId, int SecondaryImageId, string PrimaryObjectKey, string SecondaryObjectKey)> SeedSellerProductWithImagesAsync(
