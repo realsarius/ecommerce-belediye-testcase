@@ -11,6 +11,7 @@ using EcommerceAPI.Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Resend;
 using StackExchange.Redis;
 
 namespace EcommerceAPI.Infrastructure;
@@ -117,32 +118,67 @@ public static class DependencyInjection
 
         services.Configure<EmailNotificationSettings>(options =>
         {
-            var config = configuration.GetSection("EmailNotifications");
+            var emailConfig = configuration.GetSection("Email");
+            var smtpConfig = configuration.GetSection("EmailNotifications");
+
+            options.Provider = Environment.GetEnvironmentVariable("EMAIL_PROVIDER")
+                               ?? emailConfig["Provider"]
+                               ?? smtpConfig["Provider"]
+                               ?? "Smtp";
+
             options.Enabled = bool.TryParse(Environment.GetEnvironmentVariable("EMAIL_NOTIFICATIONS_ENABLED"), out var enabled)
                 ? enabled
-                : config.GetValue("Enabled", false);
+                : emailConfig.GetValue<bool?>("Enabled")
+                  ?? smtpConfig.GetValue("Enabled", false);
+
+            options.ResendApiKey = Environment.GetEnvironmentVariable("EMAIL_RESEND_API_KEY")
+                                   ?? emailConfig["ResendApiKey"]
+                                   ?? string.Empty;
+
+            options.BaseUrl = Environment.GetEnvironmentVariable("EMAIL_BASE_URL")
+                              ?? emailConfig["BaseUrl"]
+                              ?? configuration["Auth:FrontendBaseUrl"]
+                              ?? string.Empty;
+
             options.Host = Environment.GetEnvironmentVariable("EMAIL_SMTP_HOST")
-                           ?? config["Host"]
+                           ?? smtpConfig["Host"]
                            ?? string.Empty;
+
             options.Port = int.TryParse(Environment.GetEnvironmentVariable("EMAIL_SMTP_PORT"), out var port)
                 ? port
-                : config.GetValue("Port", 587);
+                : smtpConfig.GetValue("Port", 587);
+
             options.Username = Environment.GetEnvironmentVariable("EMAIL_SMTP_USERNAME")
-                               ?? config["Username"]
+                               ?? smtpConfig["Username"]
                                ?? string.Empty;
+
             options.Password = Environment.GetEnvironmentVariable("EMAIL_SMTP_PASSWORD")
-                               ?? config["Password"]
+                               ?? smtpConfig["Password"]
                                ?? string.Empty;
+
             options.EnableSsl = bool.TryParse(Environment.GetEnvironmentVariable("EMAIL_SMTP_ENABLE_SSL"), out var enableSsl)
                 ? enableSsl
-                : config.GetValue("EnableSsl", true);
+                : smtpConfig.GetValue("EnableSsl", true);
+
             options.FromAddress = Environment.GetEnvironmentVariable("EMAIL_FROM_ADDRESS")
-                                  ?? config["FromAddress"]
+                                  ?? emailConfig["FromAddress"]
+                                  ?? smtpConfig["FromAddress"]
                                   ?? string.Empty;
+
             options.FromName = Environment.GetEnvironmentVariable("EMAIL_FROM_NAME")
-                               ?? config["FromName"]
+                               ?? emailConfig["FromName"]
+                               ?? smtpConfig["FromName"]
                                ?? "E-Ticaret";
         });
+
+        services.AddHttpClient<ResendClient>();
+        services.Configure<ResendClientOptions>(options =>
+        {
+            options.ApiToken = Environment.GetEnvironmentVariable("EMAIL_RESEND_API_KEY")
+                               ?? configuration["Email:ResendApiKey"]
+                               ?? string.Empty;
+        });
+        services.AddScoped<IResend, ResendClient>();
 
         services.AddScoped<IyzicoPaymentService>();
         services.AddScoped<StripePaymentProvider>();
@@ -175,7 +211,19 @@ public static class DependencyInjection
         services.AddScoped<ICacheService, RedisCacheManager>();
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
-        services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        var emailProvider = ResolveEmailProvider(configuration);
+        if (string.Equals(emailProvider, "Resend", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IEmailNotificationService, ResendEmailNotificationService>();
+        }
+        else if (string.Equals(emailProvider, "Console", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IEmailNotificationService, ConsoleEmailNotificationService>();
+        }
+        else
+        {
+            services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        }
         services.AddScoped<IReturnAttachmentStorageService, ReturnAttachmentStorageService>();
         services.AddScoped<IReturnAttachmentAccessService, ReturnAttachmentAccessService>();
         services.AddScoped<ITokenHelper, JwtTokenHelper>();
@@ -199,5 +247,15 @@ public static class DependencyInjection
     public static IConnectionMultiplexer GetRedisConnection(this IServiceProvider services)
     {
         return services.GetRequiredService<IConnectionMultiplexer>();
+    }
+
+    private static string ResolveEmailProvider(IConfiguration configuration)
+    {
+        var provider = Environment.GetEnvironmentVariable("EMAIL_PROVIDER")
+                       ?? configuration["Email:Provider"]
+                       ?? configuration["EmailNotifications:Provider"]
+                       ?? "Smtp";
+
+        return provider.Trim();
     }
 }

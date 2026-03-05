@@ -2,7 +2,10 @@ namespace EcommerceAPI.Infrastructure.Settings;
 
 public class EmailNotificationSettings
 {
+    public string Provider { get; set; } = "Smtp";
     public bool Enabled { get; set; }
+    public string ResendApiKey { get; set; } = string.Empty;
+    public string BaseUrl { get; set; } = string.Empty;
     public string Host { get; set; } = string.Empty;
     public int Port { get; set; } = 587;
     public string Username { get; set; } = string.Empty;
