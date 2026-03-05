@@ -49,6 +49,7 @@ export function Header() {
   const { isDevToolsEnabled, openCouponsDialog } = useDevTools();
   const [showTestCards, setShowTestCards] = useState(false);
   const [showTestUsers, setShowTestUsers] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [suggestionLimit, setSuggestionLimit] = useState(INITIAL_SUGGESTION_LIMIT);
@@ -75,6 +76,10 @@ export function Header() {
   useEffect(() => {
     setSearchInput(currentSearchQuery);
   }, [currentSearchQuery]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     setSuggestionLimit(INITIAL_SUGGESTION_LIMIT);
@@ -441,7 +446,7 @@ export function Header() {
             )}
 
             {/* Mobile Menu */}
-            <Sheet>
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon">
                   <Menu className="h-5 w-5" />
