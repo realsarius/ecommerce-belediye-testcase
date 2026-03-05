@@ -5,7 +5,7 @@ import { useAppSelector } from '@/app/hooks';
 import { toast } from 'sonner';
 
 export const useHome = () => {
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   // Get filter state from Redux
   const { page, search, categoryId, sortBy, sortDesc } = useAppSelector(
     (state) => state.products
@@ -30,6 +30,12 @@ export const useHome = () => {
       toast.error('Sepete eklemek için giriş yapmalısınız');
       return;
     }
+
+    if (user?.isEmailVerified === false) {
+      toast.warning('Alışveriş yapabilmek için e-posta adresinizi doğrulamanız gerekiyor.');
+      return;
+    }
+
     try {
       await addToCart({ productId, quantity: 1 }).unwrap();
       toast.success(`${productName} sepete eklendi`);
