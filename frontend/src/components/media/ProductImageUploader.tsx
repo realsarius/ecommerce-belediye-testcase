@@ -137,7 +137,7 @@ function SortableImageCard({
           {isSettingPrimary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
           {image.isPrimary ? 'Ana' : 'Ana Yap'}
         </Button>
-        <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={onDelete}>
+        <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={onDelete} aria-label="Görseli sil">
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         </Button>
       </div>
