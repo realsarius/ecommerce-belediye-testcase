@@ -54,6 +54,8 @@ public class AuthManagerTests
             .ReturnsAsync((true, 0));
         _authRateLimitServiceMock.Setup(x => x.TryConsumeResendVerificationAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((true, 0));
+        _authRateLimitServiceMock.Setup(x => x.TryConsumeResendVerificationCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((true, 0));
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -360,6 +362,196 @@ public class AuthManagerTests
     }
 
     [Fact]
+    public async Task VerifyEmailCodeAsync_WhenCodeIsValid_ShouldVerifyAndClearArtifacts()
+    {
+        var user = new User
+        {
+            Id = 72,
+            Email = "verify-code@example.com",
+            EmailHash = "verify-code-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+            FirstName = "Verify",
+            LastName = "Code",
+            RoleId = 1,
+            IsEmailVerified = false,
+            EmailVerificationToken = "verification-token-hash",
+            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(10),
+            EmailVerificationCodeHash = "verification-code-hash",
+            EmailVerificationCodeExpiry = DateTime.UtcNow.AddMinutes(5),
+            EmailVerificationCodeAttemptCount = 2,
+            EmailVerificationCodeLastSentAt = DateTime.UtcNow.AddMinutes(-1)
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash(It.IsAny<string>()))
+            .Returns<string>(input => input switch
+            {
+                "verify-code@example.com" => "verify-code-hash",
+                "123456" => "verification-code-hash",
+                "refresh-token-valid-code" => "refresh-token-valid-code-hash",
+                _ => $"hash-{input}"
+            });
+
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+        _roleDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Role, bool>>>()))
+            .ReturnsAsync(new Role { Id = 1, Name = "Customer" });
+        _tokenHelperMock
+            .Setup(x => x.GenerateAccessToken(user.Id, user.Email, "Customer", user.FirstName, user.LastName, true))
+            .Returns("access-token-valid-code");
+        _tokenHelperMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("refresh-token-valid-code");
+
+        var result = await _manager.VerifyEmailCodeAsync(new VerifyEmailCodeRequest
+        {
+            Email = "verify-code@example.com",
+            Code = "123456"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.User.Should().NotBeNull();
+        result.Data.User!.IsEmailVerified.Should().BeTrue();
+
+        user.IsEmailVerified.Should().BeTrue();
+        user.EmailVerificationToken.Should().BeNull();
+        user.EmailVerificationTokenExpiry.Should().BeNull();
+        user.EmailVerificationCodeHash.Should().BeNull();
+        user.EmailVerificationCodeExpiry.Should().BeNull();
+        user.EmailVerificationCodeAttemptCount.Should().Be(0);
+        user.EmailVerificationCodeLastSentAt.Should().BeNull();
+        user.EmailVerificationCodeLockedUntil.Should().BeNull();
+
+        _refreshTokenDalMock.Verify(x => x.AddAsync(It.Is<RefreshToken>(rt => rt.UserId == 72)), Times.Once);
+    }
+
+    [Fact]
+    public async Task VerifyEmailCodeAsync_WhenCodeIsInvalid_ShouldIncrementAttemptCount()
+    {
+        var user = new User
+        {
+            Id = 73,
+            Email = "verify-code-invalid@example.com",
+            EmailHash = "verify-code-invalid-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+            RoleId = 1,
+            IsEmailVerified = false,
+            EmailVerificationCodeHash = "expected-code-hash",
+            EmailVerificationCodeExpiry = DateTime.UtcNow.AddMinutes(5),
+            EmailVerificationCodeAttemptCount = 1
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash(It.IsAny<string>()))
+            .Returns<string>(input => input switch
+            {
+                "verify-code-invalid@example.com" => "verify-code-invalid-hash",
+                "000000" => "wrong-code-hash",
+                _ => $"hash-{input}"
+            });
+
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+
+        var result = await _manager.VerifyEmailCodeAsync(new VerifyEmailCodeRequest
+        {
+            Email = "verify-code-invalid@example.com",
+            Code = "000000"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidCode);
+        user.EmailVerificationCodeAttemptCount.Should().Be(2);
+        user.EmailVerificationCodeLockedUntil.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task VerifyEmailCodeAsync_WhenMaxAttemptsReached_ShouldReturnTooManyAttemptsAndLockUser()
+    {
+        var user = new User
+        {
+            Id = 74,
+            Email = "verify-code-locked@example.com",
+            EmailHash = "verify-code-locked-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+            RoleId = 1,
+            IsEmailVerified = false,
+            EmailVerificationCodeHash = "expected-code-hash",
+            EmailVerificationCodeExpiry = DateTime.UtcNow.AddMinutes(5),
+            EmailVerificationCodeAttemptCount = 4
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash(It.IsAny<string>()))
+            .Returns<string>(input => input switch
+            {
+                "verify-code-locked@example.com" => "verify-code-locked-hash",
+                "999999" => "wrong-code-hash",
+                _ => $"hash-{input}"
+            });
+
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+
+        var result = await _manager.VerifyEmailCodeAsync(new VerifyEmailCodeRequest
+        {
+            Email = "verify-code-locked@example.com",
+            Code = "999999"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.TooManyAttempts);
+        user.EmailVerificationCodeAttemptCount.Should().Be(5);
+        user.EmailVerificationCodeLockedUntil.Should().NotBeNull();
+        user.EmailVerificationCodeLockedUntil!.Value.Should().BeAfter(DateTime.UtcNow.AddMinutes(9));
+    }
+
+    [Fact]
+    public async Task VerifyEmailCodeAsync_WhenCodeIsExpired_ShouldClearCodeArtifactsAndReturnExpiredCode()
+    {
+        var user = new User
+        {
+            Id = 75,
+            Email = "verify-code-expired@example.com",
+            EmailHash = "verify-code-expired-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+            RoleId = 1,
+            IsEmailVerified = false,
+            EmailVerificationCodeHash = "expired-code-hash",
+            EmailVerificationCodeExpiry = DateTime.UtcNow.AddMinutes(-1),
+            EmailVerificationCodeAttemptCount = 3,
+            EmailVerificationCodeLastSentAt = DateTime.UtcNow.AddMinutes(-20),
+            EmailVerificationCodeLockedUntil = DateTime.UtcNow.AddMinutes(-5)
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash("verify-code-expired@example.com"))
+            .Returns("verify-code-expired-hash");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+
+        var result = await _manager.VerifyEmailCodeAsync(new VerifyEmailCodeRequest
+        {
+            Email = "verify-code-expired@example.com",
+            Code = "123456"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.ExpiredCode);
+        user.EmailVerificationCodeHash.Should().BeNull();
+        user.EmailVerificationCodeExpiry.Should().BeNull();
+        user.EmailVerificationCodeAttemptCount.Should().Be(0);
+        user.EmailVerificationCodeLastSentAt.Should().BeNull();
+        user.EmailVerificationCodeLockedUntil.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ResendVerificationAsync_WhenRateLimitExceeded_ShouldReturnRateLimitError()
     {
         var user = new User
@@ -388,6 +580,28 @@ public class AuthManagerTests
         _userDalMock.Verify(x => x.Update(It.IsAny<User>()), Times.Never);
         _emailNotificationServiceMock.Verify(
             x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResendVerificationCodeAsync_WhenRateLimitExceeded_ShouldReturnRateLimitError()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("limited@example.com"))
+            .Returns("limited-hash");
+        _authRateLimitServiceMock
+            .Setup(x => x.TryConsumeResendVerificationCodeAsync("limited-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((false, 120));
+
+        var result = await _manager.ResendVerificationCodeAsync(new ResendVerificationCodeRequest
+        {
+            Email = "limited@example.com"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.RateLimitExceeded);
+        _userDalMock.Verify(
+            x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()),
             Times.Never);
     }
 
