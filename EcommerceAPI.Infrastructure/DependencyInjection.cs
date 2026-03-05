@@ -168,6 +168,7 @@ public static class DependencyInjection
         services.AddScoped<IRecommendationCacheService, RedisRecommendationCacheService>();
         services.AddScoped<ICartCacheService, RedisCartCacheService>();
         services.AddScoped<IContactRateLimitService, RedisContactRateLimitService>();
+        services.AddScoped<IAuthRateLimitService, RedisAuthRateLimitService>();
         services.AddScoped<IAuditService, ElasticAuditService>();
         services.AddSingleton<ISocialAuthValidator, SocialAuthValidator>();
 

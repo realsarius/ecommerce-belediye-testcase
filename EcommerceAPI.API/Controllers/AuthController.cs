@@ -1,5 +1,7 @@
 using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Entities.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
@@ -73,7 +75,87 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpPost("verify-email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+    {
+        var result = await _authService.VerifyEmailAsync(request);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+
+        return BadRequest(result);
+    }
+
+    [HttpPost("resend-verification")]
+    [Authorize]
+    public async Task<IActionResult> ResendVerification()
+    {
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _authService.ResendVerificationAsync(userId);
+        if (!result.Success && result.ErrorCode == ErrorCodes.RateLimitExceeded)
+        {
+            var retryAfterSeconds = ExtractRetryAfterSeconds(result.Details);
+            if (retryAfterSeconds > 0)
+            {
+                Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+            }
+
+            return StatusCode(StatusCodes.Status429TooManyRequests, result);
+        }
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var result = await _authService.ForgotPasswordAsync(request);
+        if (!result.Success && result.ErrorCode == ErrorCodes.RateLimitExceeded)
+        {
+            var retryAfterSeconds = ExtractRetryAfterSeconds(result.Details);
+            if (retryAfterSeconds > 0)
+            {
+                Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+            }
+
+            return StatusCode(StatusCodes.Status429TooManyRequests, result);
+        }
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var result = await _authService.ResetPasswordAsync(request);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> Me()
     {
@@ -85,5 +167,26 @@ public class AuthController : ControllerBase
         if (!result.Success) return Unauthorized(result);
 
         return Ok(result);
+    }
+
+    private static int ExtractRetryAfterSeconds(object? details)
+    {
+        if (details is not { })
+        {
+            return 0;
+        }
+
+        var property = details.GetType().GetProperty("RetryAfterSeconds");
+        if (property == null)
+        {
+            property = details.GetType().GetProperty("retryAfterSeconds");
+        }
+
+        if (property?.GetValue(details) is int retryAfterSeconds)
+        {
+            return retryAfterSeconds;
+        }
+
+        return 0;
     }
 }

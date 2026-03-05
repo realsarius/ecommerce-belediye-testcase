@@ -22,4 +22,5 @@ public class UserDto : IDto
     public string Role { get; set; } = string.Empty;
     public string? Status { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    public bool IsEmailVerified { get; set; }
 }

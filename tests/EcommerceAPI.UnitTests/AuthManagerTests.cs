@@ -25,6 +25,9 @@ public class AuthManagerTests
     private readonly Mock<ITokenHelper> _tokenHelperMock;
     private readonly Mock<ISocialAuthValidator> _socialAuthValidatorMock;
     private readonly Mock<IReferralService> _referralServiceMock;
+    private readonly Mock<IEmailNotificationService> _emailNotificationServiceMock;
+    private readonly Mock<IAuthRateLimitService> _authRateLimitServiceMock;
+    private readonly Mock<Microsoft.Extensions.Logging.ILogger<AuthManager>> _loggerMock;
     private readonly AuthManager _manager;
 
     public AuthManagerTests()
@@ -38,10 +41,19 @@ public class AuthManagerTests
         _tokenHelperMock = new Mock<ITokenHelper>();
         _socialAuthValidatorMock = new Mock<ISocialAuthValidator>();
         _referralServiceMock = new Mock<IReferralService>();
+        _emailNotificationServiceMock = new Mock<IEmailNotificationService>();
+        _authRateLimitServiceMock = new Mock<IAuthRateLimitService>();
+        _loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<AuthManager>>();
         _referralServiceMock.Setup(x => x.ValidateReferralCodeAsync(It.IsAny<string?>()))
             .ReturnsAsync(new SuccessResult());
         _referralServiceMock.Setup(x => x.SetupNewUserAsync(It.IsAny<int>(), It.IsAny<string?>()))
             .ReturnsAsync(new SuccessResult());
+        _emailNotificationServiceMock.Setup(x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _authRateLimitServiceMock.Setup(x => x.TryConsumeForgotPasswordAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((true, 0));
+        _authRateLimitServiceMock.Setup(x => x.TryConsumeResendVerificationAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((true, 0));
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -60,7 +72,10 @@ public class AuthManagerTests
             _auditServiceMock.Object,
             _tokenHelperMock.Object,
             _socialAuthValidatorMock.Object,
-            _referralServiceMock.Object);
+            _referralServiceMock.Object,
+            _emailNotificationServiceMock.Object,
+            _authRateLimitServiceMock.Object,
+            _loggerMock.Object);
     }
 
     [Fact]
@@ -117,7 +132,7 @@ public class AuthManagerTests
         _roleDalMock
             .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Role, bool>>>()))
             .ReturnsAsync(new Role { Id = 7, Name = "Customer" });
-        _tokenHelperMock.Setup(x => x.GenerateAccessToken(It.IsAny<int>(), normalizedEmail, "Customer", It.IsAny<string>(), It.IsAny<string>()))
+        _tokenHelperMock.Setup(x => x.GenerateAccessToken(It.IsAny<int>(), normalizedEmail, "Customer", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
             .Returns("access-token");
         _tokenHelperMock.Setup(x => x.GenerateRefreshToken())
             .Returns("refresh-token");
