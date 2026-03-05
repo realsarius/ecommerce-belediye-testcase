@@ -48,6 +48,10 @@ public static class Messages
     public static string VerificationEmailSent = "E-posta doğrulama bağlantısı gönderildi.";
     public static string EmailAlreadyVerified = "E-posta adresiniz zaten doğrulanmış.";
     public static string EmailVerified = "E-posta adresiniz doğrulandı.";
+    public static string EmailChangeVerificationSent = "Yeni e-posta adresinize doğrulama linki gönderildi.";
+    public static string EmailChangeSuccess = "E-posta adresiniz başarıyla güncellendi.";
+    public static string EmailAlreadyInUse = "Bu e-posta adresi başka bir hesap tarafından kullanılıyor.";
+    public static string CurrentPasswordInvalid = "Mevcut şifreniz hatalı.";
     public static string PasswordResetLinkSent = "Şifre sıfırlama linki e-posta adresinize gönderildi.";
     public static string PasswordResetSuccess = "Şifreniz başarıyla güncellendi.";
 

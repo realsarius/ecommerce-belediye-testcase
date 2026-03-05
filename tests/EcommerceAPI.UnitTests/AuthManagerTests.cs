@@ -278,4 +278,182 @@ public class AuthManagerTests
         result.Data.Should().NotBeNull();
         result.Data!.Message.Should().Be("Hesabınız kullanım dışı bırakılmıştır.");
     }
+
+    [Fact]
+    public async Task ChangeEmailAsync_WhenCurrentPasswordIsInvalid_ShouldReturnError()
+    {
+        var existingUser = new User
+        {
+            Id = 41,
+            Email = "old@example.com",
+            EmailHash = "old-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Correct123!"),
+            FirstName = "Berkan",
+            LastName = "Sözer",
+            RoleId = 1,
+            AccountStatus = UserAccountStatus.Active,
+            IsEmailVerified = true
+        };
+
+        _userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync(existingUser);
+
+        var result = await _manager.ChangeEmailAsync(41, new ChangeEmailRequest
+        {
+            NewEmail = "new@example.com",
+            CurrentPassword = "WrongPassword1!"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be(Messages.CurrentPasswordInvalid);
+        _userDalMock.Verify(x => x.Update(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangeEmailAsync_WhenRequestIsValid_ShouldPersistPendingEmailAndSendVerificationMail()
+    {
+        var existingUser = new User
+        {
+            Id = 51,
+            Email = "old@example.com",
+            EmailHash = "old-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Correct123!"),
+            FirstName = "Berkan",
+            LastName = "Sözer",
+            RoleId = 1,
+            AccountStatus = UserAccountStatus.Active,
+            IsEmailVerified = true
+        };
+
+        _userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync(existingUser);
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([]);
+        _hashingServiceMock
+            .Setup(x => x.Hash(It.IsAny<string>()))
+            .Returns<string>(input =>
+            {
+                if (string.Equals(input, "new@example.com", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "new-email-hash";
+                }
+
+                return "generated-token-hash";
+            });
+
+        User? updatedUser = null;
+        _userDalMock
+            .Setup(x => x.Update(It.IsAny<User>()))
+            .Callback<User>(user => updatedUser = user);
+
+        var result = await _manager.ChangeEmailAsync(51, new ChangeEmailRequest
+        {
+            NewEmail = "new@example.com",
+            CurrentPassword = "Correct123!"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be(Messages.EmailChangeVerificationSent);
+        updatedUser.Should().NotBeNull();
+        updatedUser!.PendingEmail.Should().Be("new@example.com");
+        updatedUser.EmailChangeToken.Should().Be("generated-token-hash");
+        updatedUser.EmailChangeTokenExpiry.Should().NotBeNull();
+        _emailNotificationServiceMock.Verify(
+            x => x.SendAsync(
+                "new@example.com",
+                It.Is<string>(subject => subject.Contains("Yeni e-posta", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChangeAsync_WhenTokenIsValid_ShouldUpdateEmailAndIssueTokens()
+    {
+        var user = new User
+        {
+            Id = 61,
+            Email = "old@example.com",
+            EmailHash = "old-email-hash",
+            PendingEmail = "newmail@example.com",
+            EmailChangeToken = "confirm-token-hash",
+            EmailChangeTokenExpiry = DateTime.UtcNow.AddHours(12),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Correct123!"),
+            FirstName = "Berkan",
+            LastName = "Sözer",
+            RoleId = 7,
+            AccountStatus = UserAccountStatus.Active,
+            IsEmailVerified = true
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash(It.IsAny<string>()))
+            .Returns<string>(value => value switch
+            {
+                "confirm-token" => "confirm-token-hash",
+                "newmail@example.com" => "new-email-hash",
+                "refresh-token-new" => "refresh-token-new-hash",
+                _ => "generic-hash"
+            });
+
+        _userDalMock
+            .SetupSequence(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user])
+            .ReturnsAsync([]);
+
+        _refreshTokenDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>()))
+            .ReturnsAsync([
+                new RefreshToken
+                {
+                    Id = 1,
+                    UserId = 61,
+                    Token = "existing-refresh-token",
+                    IsRevoked = false,
+                    ExpiresAt = DateTime.UtcNow.AddDays(3)
+                }
+            ]);
+
+        _roleDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Role, bool>>>()))
+            .ReturnsAsync(new Role { Id = 7, Name = "Customer" });
+
+        _tokenHelperMock
+            .Setup(x => x.GenerateAccessToken(61, "newmail@example.com", "Customer", "Berkan", "Sözer", true))
+            .Returns("new-access-token");
+        _tokenHelperMock
+            .Setup(x => x.GenerateRefreshToken())
+            .Returns("refresh-token-new");
+
+        var result = await _manager.ConfirmEmailChangeAsync(new ConfirmEmailChangeRequest
+        {
+            Token = "confirm-token"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.Token.Should().Be("new-access-token");
+        result.Data.RefreshToken.Should().Be("refresh-token-new");
+        result.Data.User.Should().NotBeNull();
+        result.Data.User!.Email.Should().Be("newmail@example.com");
+        user.Email.Should().Be("newmail@example.com");
+        user.EmailHash.Should().Be("new-email-hash");
+        user.PendingEmail.Should().BeNull();
+        user.EmailChangeToken.Should().BeNull();
+        user.EmailChangeTokenExpiry.Should().BeNull();
+
+        _refreshTokenDalMock.Verify(
+            x => x.Update(It.Is<RefreshToken>(token => token.UserId == 61 && token.IsRevoked)),
+            Times.AtLeastOnce);
+        _emailNotificationServiceMock.Verify(
+            x => x.SendAsync(
+                "old@example.com",
+                It.Is<string>(subject => subject.Contains("değiştirildi", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
 }

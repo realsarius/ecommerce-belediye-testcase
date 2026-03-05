@@ -155,6 +155,19 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("confirm-email-change")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmailChange([FromBody] ConfirmEmailChangeRequest request)
+    {
+        var result = await _authService.ConfirmEmailChangeAsync(request);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> Me()

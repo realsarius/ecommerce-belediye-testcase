@@ -121,6 +121,7 @@ public class AuthorizationAttributesTests
     [InlineData(typeof(ShippingAddressController), nameof(ShippingAddressController.CreateAddress))]
     [InlineData(typeof(ShippingAddressController), nameof(ShippingAddressController.UpdateAddress))]
     [InlineData(typeof(ShippingAddressController), nameof(ShippingAddressController.DeleteAddress))]
+    [InlineData(typeof(AccountController), nameof(AccountController.ChangeEmail))]
     public void Shopping_Aksiyonlari_EmailVerified_Policy_Ile_Korunmali(Type controllerType, string methodName)
     {
         var method = controllerType.GetMethod(methodName);

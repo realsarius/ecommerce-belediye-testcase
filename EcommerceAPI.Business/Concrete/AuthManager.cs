@@ -433,6 +433,144 @@ public class AuthManager : IAuthService
         return new SuccessResult(Messages.PasswordResetSuccess);
     }
 
+    [ValidationAspect(typeof(ChangeEmailRequestValidator))]
+    public async Task<IResult> ChangeEmailAsync(int userId, ChangeEmailRequest request)
+    {
+        var user = await _userDal.GetAsync(u => u.Id == userId);
+        if (user == null)
+        {
+            return new ErrorResult(Messages.UserNotFound);
+        }
+
+        var accountStatusValidation = ValidateAccountStatus(user);
+        if (!accountStatusValidation.Success)
+        {
+            return accountStatusValidation;
+        }
+
+        if (string.IsNullOrWhiteSpace(user.PasswordHash))
+        {
+            return new ErrorResult(Messages.SocialAccountPasswordLoginNotAllowed);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+        {
+            return new ErrorResult(Messages.CurrentPasswordInvalid, ErrorCodes.CurrentPasswordInvalid);
+        }
+
+        var normalizedNewEmail = request.NewEmail.Trim().ToLowerInvariant();
+        var normalizedCurrentEmail = user.Email.Trim().ToLowerInvariant();
+        if (normalizedCurrentEmail == normalizedNewEmail)
+        {
+            return new ErrorResult("Yeni e-posta adresi mevcut adresinizle aynı olamaz.");
+        }
+
+        var newEmailHash = _hashingService.Hash(normalizedNewEmail);
+        var existingUser = (await _userDal.GetListAsync(u => u.EmailHash == newEmailHash && u.Id != userId)).FirstOrDefault();
+        if (existingUser != null)
+        {
+            return new ErrorResult(Messages.EmailAlreadyInUse, ErrorCodes.EmailAlreadyInUse);
+        }
+
+        var rawToken = TokenGenerator.GenerateUrlSafeToken();
+        user.PendingEmail = request.NewEmail.Trim();
+        user.EmailChangeToken = _hashingService.Hash(rawToken);
+        user.EmailChangeTokenExpiry = DateTime.UtcNow.AddHours(24);
+        _userDal.Update(user);
+
+        await _unitOfWork.SaveChangesAsync();
+
+        await SendEmailChangeVerificationAsync(user, user.PendingEmail, rawToken);
+
+        return new SuccessResult(Messages.EmailChangeVerificationSent);
+    }
+
+    [ValidationAspect(typeof(ConfirmEmailChangeRequestValidator))]
+    public async Task<IDataResult<AuthResponse>> ConfirmEmailChangeAsync(ConfirmEmailChangeRequest request)
+    {
+        var hashedToken = _hashingService.Hash(request.Token.Trim());
+        var user = (await _userDal.GetListAsync(u => u.EmailChangeToken == hashedToken)).FirstOrDefault();
+
+        if (user == null)
+        {
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "E-posta değişikliği linki geçersiz." },
+                "E-posta değişikliği linki geçersiz.",
+                ErrorCodes.InvalidToken);
+        }
+
+        if (!user.EmailChangeTokenExpiry.HasValue || user.EmailChangeTokenExpiry.Value < DateTime.UtcNow)
+        {
+            user.PendingEmail = null;
+            user.EmailChangeToken = null;
+            user.EmailChangeTokenExpiry = null;
+            _userDal.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "E-posta değişikliği linkinin süresi dolmuş." },
+                "E-posta değişikliği linkinin süresi dolmuş.",
+                ErrorCodes.ExpiredToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(user.PendingEmail))
+        {
+            user.EmailChangeToken = null;
+            user.EmailChangeTokenExpiry = null;
+            _userDal.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "Bekleyen e-posta değişikliği bulunamadı." },
+                "Bekleyen e-posta değişikliği bulunamadı.",
+                ErrorCodes.InvalidToken);
+        }
+
+        var normalizedNewEmail = user.PendingEmail.Trim().ToLowerInvariant();
+        var newEmailHash = _hashingService.Hash(normalizedNewEmail);
+        var existingUser = (await _userDal.GetListAsync(u => u.EmailHash == newEmailHash && u.Id != user.Id)).FirstOrDefault();
+        if (existingUser != null)
+        {
+            user.PendingEmail = null;
+            user.EmailChangeToken = null;
+            user.EmailChangeTokenExpiry = null;
+            _userDal.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = Messages.EmailAlreadyInUse },
+                Messages.EmailAlreadyInUse,
+                ErrorCodes.EmailAlreadyInUse);
+        }
+
+        var accountStatusValidation = ValidateAccountStatus(user);
+        if (!accountStatusValidation.Success)
+        {
+            return new ErrorDataResult<AuthResponse>(new AuthResponse
+            {
+                Success = false,
+                Message = accountStatusValidation.Message
+            });
+        }
+
+        var oldEmail = user.Email;
+        user.Email = user.PendingEmail.Trim();
+        user.EmailHash = newEmailHash;
+        user.IsEmailVerified = true;
+        user.PendingEmail = null;
+        user.EmailChangeToken = null;
+        user.EmailChangeTokenExpiry = null;
+        _userDal.Update(user);
+
+        await RevokeAllRefreshTokensAsync(user.Id, "Email changed");
+        await _unitOfWork.SaveChangesAsync();
+
+        await SendEmailChangedNotificationAsync(oldEmail, user.Email, user);
+
+        var response = await IssueAuthResponseAsync(user, "ConfirmEmailChange", Messages.EmailChangeSuccess);
+        return new SuccessDataResult<AuthResponse>(response, Messages.EmailChangeSuccess);
+    }
+
     [ValidationAspect(typeof(RefreshTokenRequestValidator))]
     public async Task<IDataResult<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request)
     {
@@ -701,6 +839,41 @@ public class AuthManager : IAuthService
         }
     }
 
+    private async Task SendEmailChangeVerificationAsync(User user, string newEmail, string rawToken)
+    {
+        var verificationLink = $"{GetFrontendBaseUrl()}/confirm-email-change?token={Uri.EscapeDataString(rawToken)}";
+        var emailSent = await _emailNotificationService.SendAsync(
+            newEmail,
+            "Yeni e-posta adresinizi doğrulayın",
+            BuildEmailChangeVerificationBody(user, newEmail, verificationLink));
+
+        if (!emailSent)
+        {
+            _logger.LogWarning(
+                "Email change verification mail could not be delivered. UserId={UserId}, Email={Email}, NewEmail={NewEmail}",
+                user.Id,
+                user.Email,
+                newEmail);
+        }
+    }
+
+    private async Task SendEmailChangedNotificationAsync(string oldEmail, string newEmail, User user)
+    {
+        var emailSent = await _emailNotificationService.SendAsync(
+            oldEmail,
+            "E-posta adresiniz değiştirildi",
+            BuildEmailChangedNotificationBody(user, oldEmail, newEmail));
+
+        if (!emailSent)
+        {
+            _logger.LogWarning(
+                "Email changed notification mail could not be delivered. UserId={UserId}, OldEmail={OldEmail}, NewEmail={NewEmail}",
+                user.Id,
+                oldEmail,
+                newEmail);
+        }
+    }
+
     private string GetFrontendBaseUrl()
     {
         var configured = _configuration["Auth:FrontendBaseUrl"]
@@ -739,6 +912,30 @@ public class AuthManager : IAuthService
                 <p>Merhaba {fullName},</p>
                 <p>Hesabınızın şifresi başarıyla değiştirildi.</p>
                 <p>Bu işlemi siz yapmadıysanız lütfen destek ekibimizle iletişime geçin.</p>
+                """;
+    }
+
+    private static string BuildEmailChangeVerificationBody(User user, string newEmail, string verificationLink)
+    {
+        var fullName = GetFullName(user);
+        return $"""
+                <p>Merhaba {fullName},</p>
+                <p>Hesabınızdaki e-posta adresini <strong>{newEmail}</strong> olarak değiştirme talebi aldık.</p>
+                <p>Değişikliği onaylamak için aşağıdaki bağlantıya tıklayın:</p>
+                <p><a href="{verificationLink}">Yeni e-posta adresimi doğrula</a></p>
+                <p>Bu bağlantı 24 saat geçerlidir.</p>
+                """;
+    }
+
+    private static string BuildEmailChangedNotificationBody(User user, string oldEmail, string newEmail)
+    {
+        var fullName = GetFullName(user);
+        return $"""
+                <p>Merhaba {fullName},</p>
+                <p>Hesabınızın e-posta adresi başarıyla değiştirildi.</p>
+                <p>Eski e-posta: <strong>{oldEmail}</strong></p>
+                <p>Yeni e-posta: <strong>{newEmail}</strong></p>
+                <p>Bu işlemi siz yapmadıysanız lütfen hemen destek ekibimizle iletişime geçin.</p>
                 """;
     }
 
