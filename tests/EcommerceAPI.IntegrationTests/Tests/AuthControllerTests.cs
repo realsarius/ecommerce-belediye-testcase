@@ -209,6 +209,28 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ResendVerification_SecondRequestWithinCooldown_ReturnsTooManyRequests()
+    {
+        var userId = NextUserId();
+        await SeedCustomerAsync(userId, isEmailVerified: false);
+        await SetEmailVerificationTokenAsync(userId, $"old-{Guid.NewGuid():N}", DateTime.UtcNow.AddMinutes(30));
+
+        var client = _factory.CreateClient().AsCustomer(userId, isEmailVerified: false);
+
+        var firstResponse = await client.PostAsync("/api/v1/auth/resend-verification", content: null);
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await client.PostAsync("/api/v1/auth/resend-verification", content: null);
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+
+        var errorCode = await ReadErrorCodeAsync(secondResponse);
+        errorCode.Should().Be("RATE_LIMIT_EXCEEDED");
+
+        var retryAfterSeconds = ReadRetryAfterHeaderSeconds(secondResponse);
+        retryAfterSeconds.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
     public async Task ForgotPassword_ExistingEmail_ReturnsOkAndStoresResetToken()
     {
         var userId = NextUserId();
@@ -240,6 +262,34 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         var result = await response.Content.ReadFromJsonAsync<ResultEnvelope>();
         result.Should().NotBeNull();
         result!.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ForgotPassword_FourthRequestWithinAnHour_ReturnsTooManyRequests()
+    {
+        var email = $"ratelimit_{Guid.NewGuid():N}@example.com";
+
+        for (var i = 0; i < 3; i++)
+        {
+            var allowedResponse = await _client.PostAsJsonAsync("/api/v1/auth/forgot-password", new ForgotPasswordRequest
+            {
+                Email = email
+            });
+
+            allowedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        var blockedResponse = await _client.PostAsJsonAsync("/api/v1/auth/forgot-password", new ForgotPasswordRequest
+        {
+            Email = email
+        });
+
+        blockedResponse.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        var errorCode = await ReadErrorCodeAsync(blockedResponse);
+        errorCode.Should().Be("RATE_LIMIT_EXCEEDED");
+
+        var retryAfterSeconds = ReadRetryAfterHeaderSeconds(blockedResponse);
+        retryAfterSeconds.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -493,6 +543,25 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         }
 
         return null;
+    }
+
+    private static int ReadRetryAfterHeaderSeconds(HttpResponseMessage response)
+    {
+        if (response.Headers.RetryAfter?.Delta is TimeSpan delta && delta.TotalSeconds > 0)
+        {
+            return (int)Math.Ceiling(delta.TotalSeconds);
+        }
+
+        if (response.Headers.TryGetValues("Retry-After", out var values))
+        {
+            var rawValue = values.FirstOrDefault();
+            if (int.TryParse(rawValue, out var retryAfterSeconds) && retryAfterSeconds > 0)
+            {
+                return retryAfterSeconds;
+            }
+        }
+
+        return 0;
     }
 
     private sealed class ResultEnvelope
