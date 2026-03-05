@@ -178,6 +178,56 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task VerifyEmail_ExpiredToken_ReturnsBadRequestAndClearsToken()
+    {
+        var userId = NextUserId();
+        await SeedCustomerAsync(userId, isEmailVerified: false);
+
+        var rawToken = $"verify-expired-{Guid.NewGuid():N}";
+        await SetEmailVerificationTokenAsync(userId, rawToken, DateTime.UtcNow.AddMinutes(-10));
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/verify-email", new VerifyEmailRequest
+        {
+            Token = rawToken
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("EXPIRED_TOKEN");
+
+        var user = await FindUserAsync(userId);
+        user.Should().NotBeNull();
+        user!.IsEmailVerified.Should().BeFalse();
+        user.EmailVerificationToken.Should().BeNull();
+        user.EmailVerificationTokenExpiry.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task VerifyEmail_UsedToken_ReturnsBadRequestOnSecondAttempt()
+    {
+        var userId = NextUserId();
+        await SeedCustomerAsync(userId, isEmailVerified: false);
+
+        var rawToken = $"verify-used-{Guid.NewGuid():N}";
+        await SetEmailVerificationTokenAsync(userId, rawToken, DateTime.UtcNow.AddHours(4));
+
+        var firstResponse = await _client.PostAsJsonAsync("/api/v1/auth/verify-email", new VerifyEmailRequest
+        {
+            Token = rawToken
+        });
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await _client.PostAsJsonAsync("/api/v1/auth/verify-email", new VerifyEmailRequest
+        {
+            Token = rawToken
+        });
+
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(secondResponse);
+        errorCode.Should().Be("INVALID_TOKEN");
+    }
+
+    [Fact]
     public async Task ResendVerification_UnverifiedUser_ReturnsOkAndRefreshesToken()
     {
         var userId = NextUserId();
@@ -350,6 +400,50 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ResetPassword_InvalidToken_ReturnsBadRequestWithInvalidTokenCode()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/reset-password", new ResetPasswordRequest
+        {
+            Token = $"reset-invalid-{Guid.NewGuid():N}",
+            NewPassword = "NewStrongPassword1",
+            ConfirmPassword = "NewStrongPassword1"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("INVALID_TOKEN");
+    }
+
+    [Fact]
+    public async Task ResetPassword_UsedToken_ReturnsBadRequestOnSecondAttempt()
+    {
+        var userId = NextUserId();
+        await SeedCustomerAsync(userId, isEmailVerified: true);
+
+        var rawToken = $"reset-used-{Guid.NewGuid():N}";
+        await SetPasswordResetTokenAsync(userId, rawToken, DateTime.UtcNow.AddHours(1));
+
+        var firstResponse = await _client.PostAsJsonAsync("/api/v1/auth/reset-password", new ResetPasswordRequest
+        {
+            Token = rawToken,
+            NewPassword = "NewStrongPassword1",
+            ConfirmPassword = "NewStrongPassword1"
+        });
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await _client.PostAsJsonAsync("/api/v1/auth/reset-password", new ResetPasswordRequest
+        {
+            Token = rawToken,
+            NewPassword = "AnotherStrongPassword1",
+            ConfirmPassword = "AnotherStrongPassword1"
+        });
+
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(secondResponse);
+        errorCode.Should().Be("INVALID_TOKEN");
+    }
+
+    [Fact]
     public async Task ChangeEmail_WhenClaimIsUnverified_ReturnsForbidden()
     {
         var userId = NextUserId();
@@ -423,6 +517,74 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         refreshTokens.Should().NotBeEmpty();
         refreshTokens.Should().Contain(token => token.IsRevoked && token.RevokedReason == "Email changed");
         refreshTokens.Should().ContainSingle(token => token.IsRevoked == false);
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChange_InvalidToken_ReturnsBadRequestWithInvalidTokenCode()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/confirm-email-change", new ConfirmEmailChangeRequest
+        {
+            Token = $"mail-change-invalid-{Guid.NewGuid():N}"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("INVALID_TOKEN");
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChange_ExpiredToken_ReturnsBadRequestAndClearsPendingState()
+    {
+        var userId = NextUserId();
+        var originalEmail = $"current_{Guid.NewGuid():N}@example.com";
+        var newEmail = $"new_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: true, email: originalEmail);
+
+        var rawToken = $"mail-change-expired-{Guid.NewGuid():N}";
+        await SetEmailChangeTokenAsync(userId, rawToken, newEmail, DateTime.UtcNow.AddMinutes(-5));
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/confirm-email-change", new ConfirmEmailChangeRequest
+        {
+            Token = rawToken
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(response);
+        errorCode.Should().Be("EXPIRED_TOKEN");
+
+        var user = await FindUserAsync(userId);
+        user.Should().NotBeNull();
+        user!.Email.Should().Be(originalEmail);
+        user.PendingEmail.Should().BeNull();
+        user.EmailChangeToken.Should().BeNull();
+        user.EmailChangeTokenExpiry.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChange_UsedToken_ReturnsBadRequestOnSecondAttempt()
+    {
+        var userId = NextUserId();
+        var originalEmail = $"current_{Guid.NewGuid():N}@example.com";
+        var newEmail = $"new_{Guid.NewGuid():N}@example.com";
+        await SeedCustomerAsync(userId, isEmailVerified: true, email: originalEmail);
+
+        var rawToken = $"mail-change-used-{Guid.NewGuid():N}";
+        await SetEmailChangeTokenAsync(userId, rawToken, newEmail, DateTime.UtcNow.AddHours(12));
+
+        var firstResponse = await _client.PostAsJsonAsync("/api/v1/auth/confirm-email-change", new ConfirmEmailChangeRequest
+        {
+            Token = rawToken
+        });
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await _client.PostAsJsonAsync("/api/v1/auth/confirm-email-change", new ConfirmEmailChangeRequest
+        {
+            Token = rawToken
+        });
+
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var errorCode = await ReadErrorCodeAsync(secondResponse);
+        errorCode.Should().Be("INVALID_TOKEN");
     }
 
     private int NextUserId()
