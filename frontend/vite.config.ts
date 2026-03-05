@@ -6,31 +6,6 @@ import path from 'path'
 
 const devProxyTarget = process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:5000'
 
-function getManualChunk(id: string) {
-  if (!id.includes('node_modules')) {
-    return undefined
-  }
-
-  const packageGroups: Array<[string, string[]]> = [
-    ['vendor-react', ['react', 'react-dom', 'react-router-dom']],
-    ['vendor-redux', ['@reduxjs/toolkit', 'react-redux']],
-    ['vendor-signalr', ['@microsoft/signalr']],
-    ['vendor-radix', ['@radix-ui', '@floating-ui']],
-    ['vendor-icons', ['lucide-react', '@heroicons']],
-    ['vendor-forms', ['react-hook-form', '@hookform', 'zod']],
-    ['vendor-ui', ['sonner', 'next-themes']],
-    ['vendor-utils', ['class-variance-authority', 'clsx', 'tailwind-merge', 'dayjs', 'uuid']],
-  ]
-
-  for (const [chunkName, packages] of packageGroups) {
-    if (packages.some((pkg) => id.includes(`/node_modules/${pkg}/`))) {
-      return chunkName
-    }
-  }
-
-  return undefined
-}
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -55,13 +30,7 @@ export default defineConfig({
       },
     },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: getManualChunk,
-      },
-    },
-  },
+  build: {},
   test: {
     globals: true,
     environment: 'jsdom',
