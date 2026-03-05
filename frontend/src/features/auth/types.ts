@@ -6,6 +6,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role: string;
+  isEmailVerified?: boolean;
   status?: string;
   lastLoginAt?: string | null;
 }
@@ -42,4 +43,34 @@ export interface RegisterRequest {
 
 export interface RefreshTokenRequest {
   refreshToken: string;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ChangeEmailRequest {
+  newEmail: string;
+  currentPassword: string;
+}
+
+export interface ConfirmEmailChangeRequest {
+  token: string;
+}
+
+export interface ActionResult {
+  success: boolean;
+  message: string;
+  errorCode?: string;
+  details?: unknown;
 }

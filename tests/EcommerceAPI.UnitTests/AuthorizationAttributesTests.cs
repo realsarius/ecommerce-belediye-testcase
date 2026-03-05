@@ -110,6 +110,31 @@ public class AuthorizationAttributesTests
         attribute.Roles.Should().BeNullOrWhiteSpace();
     }
 
+    [Theory]
+    [InlineData(typeof(CartController), nameof(CartController.AddToCart))]
+    [InlineData(typeof(CartController), nameof(CartController.Reorder))]
+    [InlineData(typeof(CartController), nameof(CartController.UpdateCartItem))]
+    [InlineData(typeof(CartController), nameof(CartController.RemoveFromCart))]
+    [InlineData(typeof(CartController), nameof(CartController.ClearCart))]
+    [InlineData(typeof(OrdersController), nameof(OrdersController.Checkout))]
+    [InlineData(typeof(PaymentsController), nameof(PaymentsController.ProcessPayment))]
+    [InlineData(typeof(ShippingAddressController), nameof(ShippingAddressController.CreateAddress))]
+    [InlineData(typeof(ShippingAddressController), nameof(ShippingAddressController.UpdateAddress))]
+    [InlineData(typeof(ShippingAddressController), nameof(ShippingAddressController.DeleteAddress))]
+    [InlineData(typeof(AccountController), nameof(AccountController.ChangeEmail))]
+    public void Shopping_Aksiyonlari_EmailVerified_Policy_Ile_Korunmali(Type controllerType, string methodName)
+    {
+        var method = controllerType.GetMethod(methodName);
+
+        method.Should().NotBeNull();
+        var attribute = method!
+            .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true)
+            .OfType<AuthorizeAttribute>()
+            .SingleOrDefault(x => string.Equals(x.Policy, "EmailVerified", StringComparison.Ordinal));
+
+        attribute.Should().NotBeNull($"{controllerType.Name}.{methodName} EmailVerified policy ile korunmalı");
+    }
+
     private static AuthorizeAttribute GetAuthorizeAttribute(MemberInfo member)
     {
         var attribute = member.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true)

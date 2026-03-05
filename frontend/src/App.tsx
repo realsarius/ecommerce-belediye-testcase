@@ -22,6 +22,10 @@ const SellerLayout = lazy(() =>
 const Home = lazy(() => import('@/pages/Home'));
 const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
+const VerifyEmail = lazy(() => import('@/pages/VerifyEmail'));
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
+const ConfirmEmailChange = lazy(() => import('@/pages/ConfirmEmailChange'));
 const Cart = lazy(() => import('@/pages/Cart'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
 const CheckoutSuccess = lazy(() => import('@/pages/CheckoutSuccess'));
@@ -105,6 +109,10 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    <Route path="/verify-email" element={<VerifyEmail />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/confirm-email-change" element={<ConfirmEmailChange />} />
                     <Route path="/products/:id" element={<ProductDetail />} />
                     <Route path="/compare" element={<Compare />} />
                     <Route path="/about" element={<About />} />

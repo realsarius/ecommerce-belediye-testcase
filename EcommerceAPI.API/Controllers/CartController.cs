@@ -37,6 +37,7 @@ public class CartController : BaseApiController
     }
 
     [HttpPost("items")]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> AddToCart([FromBody] AddToCartRequest request)
     {
         var userId = GetUserId();
@@ -45,6 +46,7 @@ public class CartController : BaseApiController
     }
 
     [HttpPost("reorder")]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> Reorder([FromBody] ReorderCartRequest request)
     {
         var userId = GetUserId();
@@ -53,6 +55,7 @@ public class CartController : BaseApiController
     }
 
     [HttpPut("items/{productId}")]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> UpdateCartItem(int productId, [FromBody] UpdateCartItemRequest request)
     {
         var userId = GetUserId();
@@ -61,6 +64,7 @@ public class CartController : BaseApiController
     }
 
     [HttpDelete("items/{productId}")]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> RemoveFromCart(int productId)
     {
         var userId = GetUserId();
@@ -69,6 +73,7 @@ public class CartController : BaseApiController
     }
 
     [HttpDelete]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> ClearCart()
     {
         var userId = GetUserId();

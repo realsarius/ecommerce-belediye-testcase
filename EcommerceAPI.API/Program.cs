@@ -28,6 +28,7 @@ using MassTransit;
 using EcommerceAPI.API.Consumers;
 using EcommerceAPI.API.HealthChecks;
 using EcommerceAPI.API.Services;
+using EcommerceAPI.API.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
@@ -36,6 +37,7 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using System.Diagnostics;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -434,6 +436,16 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("EmailVerified", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.Requirements.Add(new EmailVerifiedRequirement());
+    });
+});
+builder.Services.AddSingleton<IAuthorizationHandler, EmailVerifiedHandler>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -554,6 +566,11 @@ if (hangfireEnabled)
         "campaign-lifecycle-sync",
         service => service.ProcessCampaignLifecycleAsync(),
         "*/10 * * * *");
+
+    recurringJobManager.AddOrUpdate<IAuthTokenCleanupService>(
+        "cleanup-expired-auth-tokens",
+        service => service.ExecuteAsync(),
+        Cron.Daily());
 }
 
 app.UseCorrelationId();

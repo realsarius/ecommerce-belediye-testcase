@@ -17,7 +17,7 @@ public class JwtTokenHelper : ITokenHelper
         _configuration = configuration;
     }
 
-    public string GenerateAccessToken(int userId, string email, string role, string firstName, string lastName)
+    public string GenerateAccessToken(int userId, string email, string role, string firstName, string lastName, bool isEmailVerified)
     {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_configuration["JWT_SECRET_KEY"] ?? "default-key-for-dev-only-do-not-use-in-prod"));
@@ -30,7 +30,8 @@ public class JwtTokenHelper : ITokenHelper
             new Claim(ClaimTypes.Email, email),
             new Claim(ClaimTypes.Role, role),
             new Claim(ClaimTypes.GivenName, firstName),
-            new Claim(ClaimTypes.Surname, lastName)
+            new Claim(ClaimTypes.Surname, lastName),
+            new Claim("email_verified", isEmailVerified.ToString().ToLowerInvariant())
         };
 
         var token = new JwtSecurityToken(

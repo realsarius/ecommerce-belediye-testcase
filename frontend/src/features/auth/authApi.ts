@@ -1,11 +1,17 @@
 import { baseApi } from '@/app/api';
 import type {
+  ActionResult,
   AuthResponse,
+  ChangeEmailRequest,
+  ConfirmEmailChangeRequest,
+  ForgotPasswordRequest,
   LoginRequest,
+  ResetPasswordRequest,
   RegisterRequest,
   RefreshTokenRequest,
   SocialLoginRequest,
   User,
+  VerifyEmailRequest,
 } from './types';
 
 export const authApi = baseApi.injectEndpoints({
@@ -42,6 +48,49 @@ export const authApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
     }),
+    verifyEmail: builder.mutation<AuthResponse, VerifyEmailRequest>({
+      query: (body) => ({
+        url: '/auth/verify-email',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
+    }),
+    resendVerification: builder.mutation<ActionResult, void>({
+      query: () => ({
+        url: '/auth/resend-verification',
+        method: 'POST',
+      }),
+    }),
+    forgotPassword: builder.mutation<ActionResult, ForgotPasswordRequest>({
+      query: (body) => ({
+        url: '/auth/forgot-password',
+        method: 'POST',
+        body,
+      }),
+    }),
+    resetPassword: builder.mutation<ActionResult, ResetPasswordRequest>({
+      query: (body) => ({
+        url: '/auth/reset-password',
+        method: 'POST',
+        body,
+      }),
+    }),
+    changeEmail: builder.mutation<ActionResult, ChangeEmailRequest>({
+      query: (body) => ({
+        url: '/account/change-email',
+        method: 'POST',
+        body,
+      }),
+    }),
+    confirmEmailChange: builder.mutation<AuthResponse, ConfirmEmailChangeRequest>({
+      query: (body) => ({
+        url: '/auth/confirm-email-change',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
+    }),
     revoke: builder.mutation<void, RefreshTokenRequest>({
       query: (data) => ({
         url: '/auth/revoke',
@@ -61,6 +110,12 @@ export const {
   useSocialLoginMutation,
   useRegisterMutation,
   useRefreshMutation,
+  useVerifyEmailMutation,
+  useResendVerificationMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+  useChangeEmailMutation,
+  useConfirmEmailChangeMutation,
   useRevokeMutation,
   useGetMeQuery,
 } = authApi;

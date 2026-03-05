@@ -49,6 +49,24 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Checkout_UnverifiedUser_ReturnsForbidden()
+    {
+        var unverifiedClient = _factory.CreateClient().AsUnverifiedCustomer(userId: 14);
+        var checkoutRequest = new CheckoutRequest
+        {
+            ShippingAddress = "Test Address",
+            PaymentMethod = "CreditCard",
+            PreliminaryInfoAccepted = true,
+            DistanceSalesContractAccepted = true,
+            InvoiceInfo = CreateInvoiceInfo()
+        };
+
+        var response = await unverifiedClient.PostAsJsonAsync("/api/v1/orders", checkoutRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Checkout_EmptyCart_ReturnsBadRequest()
     {
         var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);

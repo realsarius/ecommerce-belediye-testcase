@@ -130,6 +130,11 @@ export default function Login() {
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                  Şifremi unuttum
+                </Link>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 pt-4">

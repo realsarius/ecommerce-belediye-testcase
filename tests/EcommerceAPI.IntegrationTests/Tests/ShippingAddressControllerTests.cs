@@ -59,6 +59,27 @@ public class ShippingAddressControllerTests : IClassFixture<CustomWebApplication
     }
 
     [Fact]
+    public async Task CreateAddress_UnverifiedUser_ReturnsForbidden()
+    {
+        var unverifiedClient = _factory.CreateClient().AsUnverifiedCustomer(userId: 104);
+        var createRequest = new CreateShippingAddressRequest
+        {
+            Title = "Home",
+            FullName = "Test User",
+            City = "Istanbul",
+            District = "Kadikoy",
+            AddressLine = "Test Street No:1",
+            Phone = "5551112233",
+            PostalCode = "34700",
+            IsDefault = true
+        };
+
+        var response = await unverifiedClient.PostAsJsonAsync("/api/v1/ShippingAddress", createRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task GetMyAddresses_ExistingUser_ReturnsOk()
     {
         int userId = 102;

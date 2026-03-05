@@ -6,16 +6,11 @@ import {
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
 import { logout, setCredentials } from '@/features/auth/authSlice';
+import type { User } from '@/features/auth/types';
 import { getRuntimeApiBaseUrl } from '@/lib/runtimeApi';
 
 interface AuthState {
-  user: {
-    id: number;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  } | null;
+  user: User | null;
   token: string | null;
   refreshToken: string | null;
 }

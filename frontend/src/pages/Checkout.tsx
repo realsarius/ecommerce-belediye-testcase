@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppSelector } from '@/app/hooks';
 import { useGetCartQuery } from '@/features/cart/cartApi';
 import { useGetAddressesQuery, useCreateAddressMutation } from '@/features/admin/adminApi';
 import { useCheckoutMutation, useGetPaymentSettingsQuery, useProcessPaymentMutation } from '@/features/orders/ordersApi';
@@ -55,6 +56,7 @@ function formatExpiry(month: string, year: string) {
 export default function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAppSelector((state) => state.auth);
   const { data: cart, isLoading: isCartLoading } = useGetCartQuery();
   const { data: addresses, isLoading: isAddressLoading } = useGetAddressesQuery();
   const [createAddress, { isLoading: isCreatingAddress }] = useCreateAddressMutation();
@@ -66,6 +68,7 @@ export default function Checkout() {
   const { data: savedCards } = useGetCreditCardsQuery();
   const { data: loyaltySummary } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary } = useGetGiftCardSummaryQuery();
+  const isEmailVerificationBlocked = user?.isEmailVerified === false;
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressDialog, setShowAddressDialog] = useState(false);
@@ -488,6 +491,11 @@ export default function Checkout() {
   };
 
   const handleCheckout = async () => {
+    if (isEmailVerificationBlocked) {
+      toast.error('Sipariş oluşturabilmek için e-posta adresinizi doğrulamanız gerekiyor.');
+      return;
+    }
+
     if (!selectedAddressId) {
       toast.error('Lütfen teslimat adresi seçin');
       return;
@@ -1342,11 +1350,16 @@ export default function Checkout() {
                   onDistanceSalesAcceptedChange={setDistanceSalesAccepted}
                 />
               ) : null}
+              {isEmailVerificationBlocked ? (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                  Siparişi tamamlamak için önce e-posta adresinizi doğrulayın.
+                </div>
+              ) : null}
               <Button
                 className={`w-full ${!hasAcceptedLegalConsents ? 'opacity-50' : ''}`}
                 size="lg"
                 onClick={handleCheckout}
-                disabled={isCheckingOut || isProcessingPayment || !hasAcceptedLegalConsents}
+                disabled={isCheckingOut || isProcessingPayment || !hasAcceptedLegalConsents || isEmailVerificationBlocked}
               >
                 {(isCheckingOut || isProcessingPayment) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

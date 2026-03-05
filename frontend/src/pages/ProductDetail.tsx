@@ -34,7 +34,7 @@ export default function ProductDetail() {
     index: 0,
   });
 
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const { data: product, isLoading, error } = useGetProductQuery(productId);
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
   const [trackProductView] = useTrackProductViewMutation();
@@ -180,6 +180,12 @@ export default function ProductDetail() {
       toast.error('Sepete eklemek için giriş yapmalısınız');
       return;
     }
+
+    if (user?.isEmailVerified === false) {
+      toast.warning('Alışveriş yapabilmek için e-posta adresinizi doğrulamanız gerekiyor.');
+      return;
+    }
+
     if (!product) return;
     try {
       await addToCart({ productId: product.id, quantity: 1 }).unwrap();

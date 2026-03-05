@@ -41,6 +41,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request)
     {
         ApplyIdempotencyKeyHeader(request);

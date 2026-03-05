@@ -2119,10 +2119,24 @@ namespace EcommerceAPI.DataAccess.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("EmailChangeToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("EmailChangeTokenExpiry")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("EmailHash")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<string>("EmailVerificationToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("EmailVerificationTokenExpiry")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
@@ -2148,6 +2162,17 @@ namespace EcommerceAPI.DataAccess.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PasswordResetToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpiry")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PendingEmail")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 

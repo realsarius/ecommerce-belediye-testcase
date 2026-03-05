@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
+import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { CategoryNav } from './CategoryNav';
 import { Footer } from './Footer';
 import { ConsentBanner } from '@/components/ui/ConsentBanner';
@@ -18,9 +19,10 @@ export function MainLayout() {
   });
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
+  const shouldFetchCurrentUser = !user || typeof user.isEmailVerified !== 'boolean';
   
   const { data } = useGetMeQuery(undefined, { 
-    skip: !isAuthenticated || !!user 
+    skip: !isAuthenticated || !shouldFetchCurrentUser 
   });
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export function MainLayout() {
       <GuestWishlistSync />
       <WishlistPriceAlertListener />
       <Header />
+      <EmailVerificationBanner />
       <CategoryNav />
       <main className="flex-1">
         <Outlet />

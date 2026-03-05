@@ -46,6 +46,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 { "Iyzico:SecretKey", "sandbox-test" },
                 { "ENCRYPTION_KEY", "12345678901234567890123456789012" },
                 { "HASH_PEPPER", "test-pepper-value" },
+                { "Email:Provider", "Console" },
+                { "Email:Enabled", "true" },
+                { "Email:FromAddress", "noreply@test.local" },
+                { "Email:FromName", "Ecommerce Test" },
                 { "RateLimiting:Enabled", "false" },
                 { "ConnectionStrings:DefaultConnection", TestConnectionString.Value }
             });
