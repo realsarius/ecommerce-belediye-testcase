@@ -280,6 +280,208 @@ public class AuthManagerTests
     }
 
     [Fact]
+    public async Task ForgotPasswordAsync_WhenEmailDoesNotExist_ShouldReturnSuccessWithoutSendingEmail()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("missing@example.com"))
+            .Returns("missing-hash");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([]);
+
+        var result = await _manager.ForgotPasswordAsync(new ForgotPasswordRequest
+        {
+            Email = "missing@example.com"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be(Messages.PasswordResetLinkSent);
+        _emailNotificationServiceMock.Verify(
+            x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenRateLimitExceeded_ShouldReturnRateLimitError()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("limited@example.com"))
+            .Returns("limited-hash");
+        _authRateLimitServiceMock
+            .Setup(x => x.TryConsumeForgotPasswordAsync("limited-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((false, 1800));
+
+        var result = await _manager.ForgotPasswordAsync(new ForgotPasswordRequest
+        {
+            Email = "limited@example.com"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.RateLimitExceeded);
+        _userDalMock.Verify(
+            x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task VerifyEmailAsync_WhenTokenExpired_ShouldClearStoredTokenAndReturnExpiredError()
+    {
+        var user = new User
+        {
+            Id = 71,
+            Email = "verify@example.com",
+            EmailHash = "verify-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+            FirstName = "Verify",
+            LastName = "User",
+            RoleId = 1,
+            EmailVerificationToken = "verify-token-hash",
+            EmailVerificationTokenExpiry = DateTime.UtcNow.AddMinutes(-5),
+            IsEmailVerified = false
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash("expired-verify-token"))
+            .Returns("verify-token-hash");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+
+        var result = await _manager.VerifyEmailAsync(new VerifyEmailRequest
+        {
+            Token = "expired-verify-token"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.ExpiredToken);
+        user.EmailVerificationToken.Should().BeNull();
+        user.EmailVerificationTokenExpiry.Should().BeNull();
+        _userDalMock.Verify(x => x.Update(It.Is<User>(u => u.Id == 71)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResendVerificationAsync_WhenRateLimitExceeded_ShouldReturnRateLimitError()
+    {
+        var user = new User
+        {
+            Id = 81,
+            Email = "resend@example.com",
+            EmailHash = "resend-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+            FirstName = "Resend",
+            LastName = "User",
+            RoleId = 1,
+            IsEmailVerified = false
+        };
+
+        _userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync(user);
+        _authRateLimitServiceMock
+            .Setup(x => x.TryConsumeResendVerificationAsync(81, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((false, 120));
+
+        var result = await _manager.ResendVerificationAsync(81);
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.RateLimitExceeded);
+        _userDalMock.Verify(x => x.Update(It.IsAny<User>()), Times.Never);
+        _emailNotificationServiceMock.Verify(
+            x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenPasswordsMismatch_ShouldReturnPasswordMismatchError()
+    {
+        var user = new User
+        {
+            Id = 91,
+            Email = "reset@example.com",
+            EmailHash = "reset-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("OldPassword1"),
+            FirstName = "Reset",
+            LastName = "User",
+            RoleId = 1,
+            PasswordResetToken = "reset-token-hash",
+            PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(30)
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash("valid-reset-token"))
+            .Returns("reset-token-hash");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+
+        var result = await _manager.ResetPasswordAsync(new ResetPasswordRequest
+        {
+            Token = "valid-reset-token",
+            NewPassword = "NewPassword1",
+            ConfirmPassword = "DifferentPassword1"
+        });
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(ErrorCodes.PasswordMismatch);
+        user.PasswordResetToken.Should().Be("reset-token-hash");
+        _refreshTokenDalMock.Verify(
+            x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenTokenIsValid_ShouldRevokeAllRefreshTokens()
+    {
+        var user = new User
+        {
+            Id = 101,
+            Email = "reset-valid@example.com",
+            EmailHash = "reset-valid-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("OldPassword1"),
+            FirstName = "Reset",
+            LastName = "Valid",
+            RoleId = 1,
+            PasswordResetToken = "reset-token-valid-hash",
+            PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(30)
+        };
+
+        var refreshTokens = new List<RefreshToken>
+        {
+            new() { Id = 1, UserId = 101, Token = "rt-1", ExpiresAt = DateTime.UtcNow.AddDays(1), IsRevoked = false, IsUsed = false },
+            new() { Id = 2, UserId = 101, Token = "rt-2", ExpiresAt = DateTime.UtcNow.AddDays(1), IsRevoked = false, IsUsed = false }
+        };
+
+        _hashingServiceMock
+            .Setup(x => x.Hash("valid-reset-token"))
+            .Returns("reset-token-valid-hash");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([user]);
+        _refreshTokenDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>()))
+            .ReturnsAsync(refreshTokens);
+
+        var result = await _manager.ResetPasswordAsync(new ResetPasswordRequest
+        {
+            Token = "valid-reset-token",
+            NewPassword = "NewPassword1",
+            ConfirmPassword = "NewPassword1"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be(Messages.PasswordResetSuccess);
+        BCrypt.Net.BCrypt.Verify("NewPassword1", user.PasswordHash).Should().BeTrue();
+        user.PasswordResetToken.Should().BeNull();
+        user.PasswordResetTokenExpiry.Should().BeNull();
+        refreshTokens.Should().OnlyContain(token =>
+            token.IsRevoked &&
+            token.RevokedReason == "Password reset");
+        _refreshTokenDalMock.Verify(
+            x => x.Update(It.Is<RefreshToken>(token => token.UserId == 101 && token.IsRevoked)),
+            Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task ChangeEmailAsync_WhenCurrentPasswordIsInvalid_ShouldReturnError()
     {
         var existingUser = new User
