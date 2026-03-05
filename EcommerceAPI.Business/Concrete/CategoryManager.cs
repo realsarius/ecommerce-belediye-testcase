@@ -256,6 +256,7 @@ public class CategoryManager : ICategoryService
             Id = category.Id,
             Name = category.Name,
             Description = category.Description,
+            ImageUrl = category.ImageUrl,
             IsActive = category.IsActive,
             ParentCategoryId = category.ParentCategoryId,
             SortOrder = category.SortOrder,
