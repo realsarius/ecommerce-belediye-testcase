@@ -14,10 +14,9 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, ImagePlus, Loader2, RotateCcw, Star, Trash2, Upload } from 'lucide-react';
+import { GripVertical, Loader2, RotateCcw, Star, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/common/button';
-import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
 import { useConfirmMediaUploadMutation, useDeleteMediaImageMutation, usePresignMediaUploadMutation, useReorderProductImagesMutation } from '@/features/media/mediaApi';
 import { uploadToPresignedUrl } from '@/lib/uploadToPresignedUrl';
@@ -164,7 +163,6 @@ export function ProductImageUploader({
   const [isReordering, setIsReordering] = useState(false);
   const [activeDeleteSortableId, setActiveDeleteSortableId] = useState<string | null>(null);
   const [activePrimarySortableId, setActivePrimarySortableId] = useState<string | null>(null);
-  const [manualUrl, setManualUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isMutating = isUploading || isReordering || activeDeleteSortableId !== null || activePrimarySortableId !== null;
@@ -286,32 +284,6 @@ export function ProductImageUploader({
         message: getApiErrorMessage(error, 'Dosya yükleme sırasında hata oluştu'),
       };
     }
-  };
-
-  const handleAddManualUrl = () => {
-    const trimmedUrl = manualUrl.trim();
-    if (!trimmedUrl) {
-      return;
-    }
-
-    try {
-      new URL(trimmedUrl);
-    } catch {
-      toast.error('Geçerli bir görsel URL girin');
-      return;
-    }
-
-    const next = normalizeImages([
-      ...images,
-      {
-        imageUrl: trimmedUrl,
-        sortOrder: images.length,
-        isPrimary: images.length === 0,
-      },
-    ]);
-
-    onChange(next);
-    setManualUrl('');
   };
 
   const handleSetPrimary = async (sortableId: string) => {
@@ -551,7 +523,7 @@ export function ProductImageUploader({
           <p className="text-sm text-muted-foreground">
             {canUpload
               ? 'Dosya seçip R2 storage alanına yükleyebilir, sürükleyip sıralayabilir ve ana görsel belirleyebilirsiniz'
-              : 'Yeni ürün için önce kaydetme yapın veya geçici olarak URL ekleyin'}
+              : 'Yeni ürün için önce kaydetme yapın, ardından düzenleme ekranında dosya yükleyin'}
           </p>
           {isReordering ? <p className="text-xs text-muted-foreground">Sıralama kaydediliyor</p> : null}
         </div>
@@ -579,21 +551,9 @@ export function ProductImageUploader({
 
       {!canUpload ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
-          <div className="space-y-2">
-            <Label htmlFor="manual-image-url">Geçici Görsel URL</Label>
-            <div className="flex gap-2">
-              <Input
-                id="manual-image-url"
-                placeholder="https://..."
-                value={manualUrl}
-                onChange={(event) => setManualUrl(event.target.value)}
-              />
-              <Button type="button" variant="outline" disabled={isMutating} onClick={handleAddManualUrl}>
-                <ImagePlus className="h-4 w-4" />
-                Ekle
-              </Button>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Görsel yüklemek için ürünü önce oluşturmanız gerekiyor
+          </p>
         </div>
       ) : null}
 
