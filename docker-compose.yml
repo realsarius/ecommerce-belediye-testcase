@@ -67,7 +67,7 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PROD_PASSWORD}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=tr_TR.UTF-8"
     ports:
-      - "${DATABASE_PROD_PORT}:5432"
+      - "127.0.0.1:${DATABASE_PROD_PORT}:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     networks:
@@ -114,7 +114,7 @@ services:
       - dev
       - prod
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -140,8 +140,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbit_password}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/ecommerce}
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -271,7 +271,7 @@ services:
       OpenTelemetry__ServiceName: ${OTEL_SERVICE_NAME:-EcommerceAPI.API}
       OpenTelemetry__OtlpEndpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
-      - "5001:80"
+      - "127.0.0.1:5001:80"
     volumes:
       - api_dataprotection_keys:/var/app/dataprotection-keys
     networks:

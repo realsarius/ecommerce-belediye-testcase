@@ -58,14 +58,34 @@ async function fetchJson(url) {
 }
 
 async function loadSeedFallback() {
-  const [productsJson, categoriesJson] = await Promise.all([
-    fs.readFile(path.join(repoDir, 'seed-data', 'products.json'), 'utf8'),
-    fs.readFile(path.join(repoDir, 'seed-data', 'categories.json'), 'utf8'),
-  ]);
+  const candidateSeedDirs = [
+    process.env.SITEMAP_SEED_DIR,
+    path.join(repoDir, 'seed-data'),
+    path.join(frontendDir, 'seed-data'),
+  ].filter(Boolean);
 
-  const products = JSON.parse(productsJson).filter((product) => product.isActive);
-  const categories = JSON.parse(categoriesJson).filter((category) => category.isActive);
-  return { products, categories, source: 'seed-data' };
+  let lastError;
+
+  for (const seedDir of candidateSeedDirs) {
+    try {
+      const [productsJson, categoriesJson] = await Promise.all([
+        fs.readFile(path.join(seedDir, 'products.json'), 'utf8'),
+        fs.readFile(path.join(seedDir, 'categories.json'), 'utf8'),
+      ]);
+
+      const products = JSON.parse(productsJson).filter((product) => product.isActive);
+      const categories = JSON.parse(categoriesJson).filter((category) => category.isActive);
+
+      return { products, categories, source: `seed-data:${seedDir}` };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  console.warn(
+    `[seo] Seed fallback unavailable, continuing with static-only sitemap: ${lastError?.message ?? 'unknown error'}`
+  );
+  return { products: [], categories: [], source: 'static-only' };
 }
 
 async function loadCatalogData(apiBaseUrl) {
