@@ -9,6 +9,11 @@ public interface IObjectStorageService
 
     Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken = default);
 
+    Task<byte[]?> GetObjectHeaderBytesAsync(
+        string objectKey,
+        int maxBytes = 64,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ObjectStorageObjectInfo>> ListObjectsAsync(
         string? prefix = null,
         int? maxKeys = null,

@@ -120,6 +120,16 @@ public class MediaUploadManager : IMediaUploadService
             return new ErrorDataResult<ConfirmMediaUploadDto>("Yüklenen dosya storage üzerinde bulunamadı");
         }
 
+        var fileHeader = await _objectStorageService.GetObjectHeaderBytesAsync(objectKey, maxBytes: 32);
+        if (!TryDetectImageContentType(fileHeader, out var detectedContentType) || !AllowedContentTypes.Contains(detectedContentType))
+        {
+            _logger.LogWarning(
+                "Upload confirm blocked due to invalid image signature. ObjectKey={ObjectKey}, DetectedContentType={DetectedContentType}",
+                objectKey,
+                string.IsNullOrWhiteSpace(detectedContentType) ? "unknown" : detectedContentType);
+            return new ErrorDataResult<ConfirmMediaUploadDto>("Yüklenen dosya geçerli bir görsel değil");
+        }
+
         var context = contextResult.Data;
 
         if (context == MediaUploadContext.Product)
@@ -536,6 +546,69 @@ public class MediaUploadManager : IMediaUploadService
     private static bool HasObjectKeyPrefix(string objectKey, string expectedPrefix)
     {
         return objectKey.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryDetectImageContentType(byte[]? fileHeader, out string contentType)
+    {
+        contentType = string.Empty;
+
+        if (fileHeader == null || fileHeader.Length < 3)
+        {
+            return false;
+        }
+
+        var header = fileHeader.AsSpan();
+
+        if (header.Length >= 3 &&
+            header[0] == 0xFF &&
+            header[1] == 0xD8 &&
+            header[2] == 0xFF)
+        {
+            contentType = "image/jpeg";
+            return true;
+        }
+
+        if (header.Length >= 8 &&
+            header[0] == 0x89 &&
+            header[1] == 0x50 &&
+            header[2] == 0x4E &&
+            header[3] == 0x47 &&
+            header[4] == 0x0D &&
+            header[5] == 0x0A &&
+            header[6] == 0x1A &&
+            header[7] == 0x0A)
+        {
+            contentType = "image/png";
+            return true;
+        }
+
+        if (header.Length >= 6 &&
+            header[0] == 0x47 &&
+            header[1] == 0x49 &&
+            header[2] == 0x46 &&
+            header[3] == 0x38 &&
+            (header[4] == 0x37 || header[4] == 0x39) &&
+            header[5] == 0x61)
+        {
+            contentType = "image/gif";
+            return true;
+        }
+
+        if (header.Length >= 12 &&
+            header[0] == 0x52 &&
+            header[1] == 0x49 &&
+            header[2] == 0x46 &&
+            header[3] == 0x46 &&
+            header[8] == 0x57 &&
+            header[9] == 0x45 &&
+            header[10] == 0x42 &&
+            header[11] == 0x50)
+        {
+            contentType = "image/webp";
+            return true;
+        }
+
+        return false;
     }
 
     private enum MediaUploadContext

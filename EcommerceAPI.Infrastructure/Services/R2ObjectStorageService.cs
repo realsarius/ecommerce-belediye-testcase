@@ -90,6 +90,42 @@ public class R2ObjectStorageService : IObjectStorageService
         }
     }
 
+    public async Task<byte[]?> GetObjectHeaderBytesAsync(
+        string objectKey,
+        int maxBytes = 64,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConfigured();
+
+        if (string.IsNullOrWhiteSpace(objectKey) || maxBytes <= 0)
+        {
+            return null;
+        }
+
+        var normalizedKey = NormalizeObjectKey(objectKey);
+
+        try
+        {
+            var request = new GetObjectRequest
+            {
+                BucketName = _settings.BucketName,
+                Key = normalizedKey,
+                ByteRange = new ByteRange(0, maxBytes - 1)
+            };
+
+            using var response = await _s3Client.GetObjectAsync(request, cancellationToken);
+            using var memoryStream = new MemoryStream();
+            await response.ResponseStream.CopyToAsync(memoryStream, cancellationToken);
+            var bytes = memoryStream.ToArray();
+
+            return bytes.Length == 0 ? null : bytes;
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<ObjectStorageObjectInfo>> ListObjectsAsync(
         string? prefix = null,
         int? maxKeys = null,
