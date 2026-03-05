@@ -62,6 +62,16 @@ jobs:
       run: |
         ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
           "set -euo pipefail; \
-          curl -fsS http://localhost:5001/health/live >/dev/null; \
-          curl -fsS http://localhost:5001/health/ready >/dev/null; \
-          echo 'Smoke checks passed.'"
+          cd '$DEPLOY_PATH'; \
+          for i in \$(seq 1 24); do \
+            if curl -fsS http://localhost:5001/health/live >/dev/null && curl -fsS http://localhost:5001/health/ready >/dev/null; then \
+              echo 'Smoke checks passed.'; \
+              exit 0; \
+            fi; \
+            echo \"API henüz hazır değil (\$i/24), 5 saniye bekleniyor...\"; \
+            sleep 5; \
+          done; \
+          echo 'Smoke checks zaman aşımına uğradı. Servis durumu ve API logları:'; \
+          docker compose --env-file .env.prod --profile prod ps; \
+          docker compose --env-file .env.prod --profile prod logs --tail=120 api-prod; \
+          exit 1"
