@@ -329,6 +329,24 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
+    public async Task ProcessPayment_UnverifiedUser_ReturnsForbidden()
+    {
+        var unverifiedClient = _factory.CreateClient().AsUnverifiedCustomer(userId: 10);
+        var paymentRequest = new ProcessPaymentRequest
+        {
+            OrderId = 1,
+            CardNumber = SuccessCard.Number,
+            CardHolderName = "Test User",
+            ExpiryDate = "12/26",
+            CVV = "123"
+        };
+
+        var response = await unverifiedClient.PostAsJsonAsync("/api/v1/payments", paymentRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task ProcessPayment_InvalidOrderId_ReturnsBadRequest()
     {
         var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 10);
