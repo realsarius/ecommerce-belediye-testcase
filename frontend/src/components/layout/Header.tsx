@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type TouchEvent as ReactTouchEvent } from 'react';
 import { ShoppingCart, User, LogOut, Menu, Package, Wrench, CreditCard, Users, MapPin, HelpCircle, Ticket, Store, Search, MessageSquare, Heart, RefreshCw, Bell, Gift, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
@@ -35,6 +35,10 @@ const TestUsersDialog = lazy(() =>
 
 const INITIAL_SUGGESTION_LIMIT = 6;
 const SUGGESTION_STEP = 10;
+const MOBILE_BREAKPOINT = 768;
+const MOBILE_MENU_OPEN_EDGE_PX = 28;
+const MOBILE_MENU_OPEN_SWIPE_PX = 70;
+const MOBILE_MENU_CLOSE_SWIPE_PX = 70;
 
 export function Header() {
   const { isAuthenticated, user, refreshToken } = useAppSelector((state) => state.auth);
@@ -55,6 +59,8 @@ export function Header() {
   const [suggestionLimit, setSuggestionLimit] = useState(INITIAL_SUGGESTION_LIMIT);
   const [revoke] = useRevokeMutation();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const openSwipeStartXRef = useRef<number | null>(null);
+  const closeSwipeStartXRef = useRef<number | null>(null);
 
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const wishlistItemCount = isAuthenticated ? (wishlist?.items?.length || 0) : pendingCount;
@@ -97,6 +103,75 @@ export function Header() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    const handleWindowTouchStart = (event: TouchEvent) => {
+      if (isMobileMenuOpen || window.innerWidth >= MOBILE_BREAKPOINT) {
+        openSwipeStartXRef.current = null;
+        return;
+      }
+
+      const touchX = event.touches[0]?.clientX;
+      if (touchX === undefined) {
+        openSwipeStartXRef.current = null;
+        return;
+      }
+
+      const distanceToRightEdge = window.innerWidth - touchX;
+      openSwipeStartXRef.current = distanceToRightEdge <= MOBILE_MENU_OPEN_EDGE_PX ? touchX : null;
+    };
+
+    const handleWindowTouchEnd = (event: TouchEvent) => {
+      if (isMobileMenuOpen || window.innerWidth >= MOBILE_BREAKPOINT) {
+        openSwipeStartXRef.current = null;
+        return;
+      }
+
+      const startX = openSwipeStartXRef.current;
+      openSwipeStartXRef.current = null;
+      if (startX === null) {
+        return;
+      }
+
+      const endX = event.changedTouches[0]?.clientX;
+      if (endX === undefined) {
+        return;
+      }
+
+      if (startX - endX >= MOBILE_MENU_OPEN_SWIPE_PX) {
+        setIsMobileMenuOpen(true);
+      }
+    };
+
+    window.addEventListener('touchstart', handleWindowTouchStart, { passive: true });
+    window.addEventListener('touchend', handleWindowTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleWindowTouchStart);
+      window.removeEventListener('touchend', handleWindowTouchEnd);
+    };
+  }, [isMobileMenuOpen]);
+
+  const handleMobileMenuTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    closeSwipeStartXRef.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleMobileMenuTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
+    const startX = closeSwipeStartXRef.current;
+    closeSwipeStartXRef.current = null;
+    if (startX === null) {
+      return;
+    }
+
+    const endX = event.changedTouches[0]?.clientX;
+    if (endX === undefined) {
+      return;
+    }
+
+    if (endX - startX >= MOBILE_MENU_CLOSE_SWIPE_PX) {
+      setIsMobileMenuOpen(false);
+    }
+  };
 
   const navigateToSearch = (rawQuery: string) => {
     const query = rawQuery.trim();
@@ -220,7 +295,7 @@ export function Header() {
           </div>
 
           {/* Right Side */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             {/* Wishlist */}
             <Button variant="ghost" size="icon" className="relative" asChild>
               <Link to={isAuthenticated ? "/wishlist" : "/login"} state={{ from: location }}>
@@ -236,7 +311,7 @@ export function Header() {
               </Link>
             </Button>
 
-            <Button variant="ghost" size="icon" className="relative" asChild>
+            <Button variant="ghost" size="icon" className="relative hidden md:inline-flex" asChild>
               <Link to={buildCompareUrl(compareIds)}>
                 <GitCompareArrows className="h-5 w-5" />
                 {compareCount > 0 && (
@@ -252,7 +327,7 @@ export function Header() {
 
             {/* Cart */}
             {isAuthenticated && (
-              <Button variant="ghost" size="icon" className="relative" asChild>
+              <Button variant="ghost" size="icon" className="relative hidden md:inline-flex" asChild>
                 <Link to="/notifications">
                   <Bell className="h-5 w-5" />
                   {unreadNotificationCount > 0 && (
@@ -285,37 +360,41 @@ export function Header() {
 
             {/* Dev Tools Dropdown */}
             {isDevToolsEnabled && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <Wrench className="h-4 w-4" />
-                    {/* <span className="hidden sm:inline">Dev Tools</span> */}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setShowTestCards(true)}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Test Kartları
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowTestUsers(true)}>
-                    <Users className="mr-2 h-4 w-4" />
-                    Kullanıcılar
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={openCouponsDialog}>
-                    <Ticket className="mr-2 h-4 w-4" />
-                    Kuponlar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="hidden md:block">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                      <Wrench className="h-4 w-4" />
+                      {/* <span className="hidden sm:inline">Dev Tools</span> */}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setShowTestCards(true)}>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Test Kartları
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowTestUsers(true)}>
+                      <Users className="mr-2 h-4 w-4" />
+                      Kullanıcılar
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={openCouponsDialog}>
+                      <Ticket className="mr-2 h-4 w-4" />
+                      Kuponlar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
 
-            <ThemeToggle />
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
 
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="hidden md:inline-flex">
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -452,10 +531,14 @@ export function Header() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-72">
+              <SheetContent side="right" showCloseButton={false} className="w-72 p-0">
                 <SheetTitle className="sr-only">Mobil Menü</SheetTitle>
                 <SheetDescription className="sr-only">Site navigasyon menüsü</SheetDescription>
-                <nav className="flex flex-col space-y-4 mt-8 px-4">
+                <nav
+                  className="mt-0 flex h-full flex-col space-y-4 overflow-y-auto px-4 pb-6 pt-6"
+                  onTouchStart={handleMobileMenuTouchStart}
+                  onTouchEnd={handleMobileMenuTouchEnd}
+                >
                   <form onSubmit={handleSearchSubmit} autoComplete="off">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -484,6 +567,9 @@ export function Header() {
                   <Link to="/" className="text-lg font-medium">
                     Ürünler
                   </Link>
+                  <Link to={buildCompareUrl(compareIds)} className="text-lg font-medium">
+                    Karşılaştır ({compareCount})
+                  </Link>
                   {isAuthenticated ? (
                     <>
                       <Link to="/wishlist" className="text-lg font-medium">
@@ -495,17 +581,16 @@ export function Header() {
                       <Link to="/notifications" className="text-lg font-medium">
                         Bildirimler ({unreadNotificationCount})
                       </Link>
-                      <Link to={buildCompareUrl(compareIds)} className="text-lg font-medium">
-                        Karşılaştır ({compareCount})
-                      </Link>
                       <div className="border-t pt-4">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Siparişlerim</p>
-                        <Link to="/orders" className="text-lg font-medium">
-                          Tüm Siparişlerim
-                        </Link>
-                        <Link to="/returns" className="mt-3 text-lg font-medium">
-                          İade ve İptal Taleplerim
-                        </Link>
+                        <div className="flex flex-col space-y-3">
+                          <Link to="/orders" className="text-lg font-medium">
+                            Tüm Siparişlerim
+                          </Link>
+                          <Link to="/returns" className="text-lg font-medium">
+                            İade ve İptal Taleplerim
+                          </Link>
+                        </div>
                       </div>
                       <div className="border-t pt-4">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Hesabım</p>
@@ -531,6 +616,13 @@ export function Header() {
                           <Link to="/support" className="text-lg font-medium">
                             Canlı Destek
                           </Link>
+                        </div>
+                      </div>
+                      <div className="border-t pt-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Tercihler</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Tema</span>
+                          <ThemeToggle />
                         </div>
                       </div>
                       {user?.role === 'Admin' && (
@@ -566,7 +658,48 @@ export function Header() {
                       <Button variant="outline" asChild>
                         <Link to="/register">Kayıt Ol</Link>
                       </Button>
+                      <div className="border-t pt-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Tercihler</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Tema</span>
+                          <ThemeToggle />
+                        </div>
+                      </div>
                     </>
+                  )}
+                  {isDevToolsEnabled && (
+                    <div className="border-t pt-4">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Dev Tools</p>
+                      <div className="flex flex-col space-y-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowTestCards(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                        >
+                          Test Kartları
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowTestUsers(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                        >
+                          Kullanıcılar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            openCouponsDialog();
+                            setIsMobileMenuOpen(false);
+                          }}
+                        >
+                          Kuponlar
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </nav>
               </SheetContent>
