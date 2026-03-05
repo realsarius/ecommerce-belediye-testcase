@@ -63,6 +63,8 @@ jobs:
         ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
           "set -euo pipefail; \
           cd '$DEPLOY_PATH'; \
+          echo 'Deploy sonrası ilk 45 saniye bekleniyor...'; \
+          sleep 45; \
           for i in \$(seq 1 24); do \
             if curl -fsS http://localhost:5001/health/live >/dev/null && curl -fsS http://localhost:5001/health/ready >/dev/null; then \
               echo 'Smoke checks passed.'; \
