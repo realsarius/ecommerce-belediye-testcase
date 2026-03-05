@@ -13,13 +13,16 @@ public class AdminProductsController : ControllerBase
 {
     private readonly IProductService _productService;
     private readonly ISellerProfileService _sellerProfileService;
+    private readonly IPlatformSellerService _platformSellerService;
 
     public AdminProductsController(
         IProductService productService,
-        ISellerProfileService sellerProfileService)
+        ISellerProfileService sellerProfileService,
+        IPlatformSellerService platformSellerService)
     {
         _productService = productService;
         _sellerProfileService = sellerProfileService;
+        _platformSellerService = platformSellerService;
     }
 
     private (int? UserId, string? Role) GetCurrentUser()
@@ -58,14 +61,22 @@ public class AdminProductsController : ControllerBase
     {
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
-        
+
         if (role == "Seller" && userId.HasValue)
         {
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);
             if (!profileResult.Success || profileResult.Data == null)
                 return BadRequest(new { message = "Önce satıcı profilinizi oluşturmanız gerekiyor" });
-                
+
             sellerId = profileResult.Data.Id;
+        }
+        else if (role == "Admin")
+        {
+            var platformSellerResult = await _platformSellerService.GetOrCreatePlatformSellerIdAsync();
+            if (!platformSellerResult.Success)
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = platformSellerResult.Message });
+
+            sellerId = platformSellerResult.Data;
         }
         
         var result = await _productService.CreateProductAsync(request, sellerId);

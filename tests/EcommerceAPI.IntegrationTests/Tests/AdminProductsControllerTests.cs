@@ -82,6 +82,50 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task CreateProduct_AsAdmin_ShouldAssignPlatformSeller()
+    {
+        const int adminUserId = 901;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+        var categoryId = await GetExistingCategoryIdAsync();
+        var createRequest = new CreateProductRequest
+        {
+            Name = $"Platform Seller Product {Guid.NewGuid():N}",
+            Description = "Admin tarafindan eklenen urun",
+            Price = 249.99m,
+            CategoryId = categoryId,
+            SKU = $"PLT-{Guid.NewGuid():N}"[..12],
+            InitialStock = 5
+        };
+
+        var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.Id.Should().BeGreaterThan(0);
+        apiResult.Data.SellerId.Should().NotBeNull();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var createdProduct = await db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product => product.Id == apiResult.Data.Id);
+
+        createdProduct.Should().NotBeNull();
+        createdProduct!.SellerId.Should().NotBeNull();
+
+        var sellerProfile = await db.SellerProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(profile => profile.Id == createdProduct.SellerId);
+
+        sellerProfile.Should().NotBeNull();
+        sellerProfile!.IsVerified.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UpdateProduct_AsAdmin_ReturnsOkOrError()
     {
         var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
@@ -173,5 +217,12 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         return categoryId != 0
             ? categoryId
             : throw new InvalidOperationException("No categories found for integration tests.");
+    }
+
+    private async Task EnsureAdminUserAsync(int userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await TestDataSeeder.EnsureUserAsync(db, userId, "Admin");
     }
 }
