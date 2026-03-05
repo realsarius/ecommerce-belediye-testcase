@@ -90,6 +90,62 @@ public class R2ObjectStorageService : IObjectStorageService
         }
     }
 
+    public async Task<IReadOnlyList<ObjectStorageObjectInfo>> ListObjectsAsync(
+        string? prefix = null,
+        int? maxKeys = null,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConfigured();
+
+        var normalizedPrefix = string.IsNullOrWhiteSpace(prefix) ? null : NormalizeObjectKey(prefix);
+        var remaining = maxKeys.HasValue && maxKeys.Value > 0
+            ? maxKeys.Value
+            : int.MaxValue;
+
+        var objects = new List<ObjectStorageObjectInfo>();
+        string? continuationToken = null;
+
+        do
+        {
+            var request = new ListObjectsV2Request
+            {
+                BucketName = _settings.BucketName,
+                Prefix = normalizedPrefix,
+                ContinuationToken = continuationToken,
+                MaxKeys = Math.Min(1000, remaining)
+            };
+
+            var response = await _s3Client.ListObjectsV2Async(request, cancellationToken);
+
+            foreach (var item in response.S3Objects)
+            {
+                if (string.IsNullOrWhiteSpace(item.Key))
+                {
+                    continue;
+                }
+
+                objects.Add(new ObjectStorageObjectInfo(
+                    NormalizeObjectKey(item.Key),
+                    item.LastModified.ToUniversalTime()));
+
+                remaining--;
+                if (remaining <= 0)
+                {
+                    break;
+                }
+            }
+
+            if (remaining <= 0 || !response.IsTruncated)
+            {
+                break;
+            }
+
+            continuationToken = response.NextContinuationToken;
+        } while (!string.IsNullOrWhiteSpace(continuationToken));
+
+        return objects;
+    }
+
     public async Task DeleteAsync(string objectKey, CancellationToken cancellationToken = default)
     {
         EnsureConfigured();

@@ -181,6 +181,15 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .ToListAsync();
     }
 
+    public async Task<IReadOnlyList<string>> GetAllImageObjectKeysAsync()
+    {
+        return await _context.Set<ProductImage>()
+            .AsNoTracking()
+            .Where(image => image.ObjectKey != null && image.ObjectKey != string.Empty)
+            .Select(image => image.ObjectKey!)
+            .ToListAsync();
+    }
+
     public async Task<(int ActiveProducts, int ActiveSellers, string Currency)> GetAdminDashboardProductSummaryAsync()
     {
         var activeProductsQuery = _dbSet

@@ -9,7 +9,7 @@ Bu planın amacı ürün, kategori ve satıcı profil görsellerini URL manuel g
 - [ ] Ürün görselleri için yükleme, sıralama, ana görsel seçimi ve silme akışlarını tamamla
 - [x] Kategori görselleri için admin upload akışını tamamla
 - [x] Satıcı profil logo ve banner görselleri için upload akışını tamamla
-- [ ] Orphan dosya temizliği ve operasyonel bakım joblarını ekle
+- [x] Orphan dosya temizliği ve operasyonel bakım joblarını ekle
 
 ## 2) Teknoloji Kararı
 
@@ -124,9 +124,9 @@ UX:
 
 ## 8) Operasyon ve Bakım
 
-- [ ] Hangfire job: orphan görselleri günlük temizle
-- [ ] Soft orphan penceresi uygula (ör. 24 saatten eski orphanları sil)
-- [ ] Storage hataları için merkezi log ve alert başlıkları ekle
+- [x] Hangfire job: orphan görselleri günlük temizle
+- [x] Soft orphan penceresi uygula (ör. 24 saatten eski orphanları sil)
+- [x] Storage hataları için merkezi log ve alert başlıkları ekle
 - [ ] R2 erişim anahtarlarını `.env.prod` ve secret management ile yönet
 
 ## 9) Fazlara Bölünmüş Uygulama Planı
@@ -157,7 +157,7 @@ UX:
 
 ### Faz 5 — Temizlik ve Hardening
 
-- [ ] Orphan cleanup job
+- [x] Orphan cleanup job
 - [ ] Güvenlik testleri
 - [ ] Entegrasyon testleri
 
