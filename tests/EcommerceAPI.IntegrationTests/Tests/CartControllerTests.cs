@@ -76,6 +76,21 @@ public class CartControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task AddToCart_UnverifiedUser_ReturnsForbidden()
+    {
+        var unverifiedClient = _factory.CreateClient().AsUnverifiedCustomer(userId: 2);
+        var request = new AddToCartRequest
+        {
+            ProductId = 1,
+            Quantity = 1
+        };
+
+        var response = await unverifiedClient.PostAsJsonAsync("/api/v1/cart/items", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task AddToCart_InsufficientStock_ReturnsBadRequestOrNotFound()
     {
         var authenticatedClient = _factory.CreateClient().AsCustomer(userId: 3);
