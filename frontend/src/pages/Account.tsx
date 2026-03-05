@@ -10,16 +10,35 @@ import { Skeleton } from '@/components/common/skeleton';
 import { useGetLoyaltySummaryQuery } from '@/features/loyalty/loyaltyApi';
 import { useGetGiftCardSummaryQuery } from '@/features/giftCards/giftCardsApi';
 import { useGetReferralSummaryQuery } from '@/features/referrals/referralsApi';
-import { User, Mail, Phone, Calendar, Shield, Save, Loader2, Gift, Copy, Sparkles, Users } from 'lucide-react';
+import { useChangeEmailMutation } from '@/features/auth/authApi';
+import { User, Mail, Phone, Calendar, Shield, Save, Loader2, Gift, Copy, Sparkles, Users, AtSign } from 'lucide-react';
 import { toast } from 'sonner';
+
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (typeof error !== 'object' || error === null || !('data' in error)) {
+    return fallback;
+  }
+
+  const data = (error as { data?: unknown }).data;
+  if (typeof data !== 'object' || data === null || !('message' in data)) {
+    return fallback;
+  }
+
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' && message.trim().length > 0 ? message : fallback;
+}
 
 export default function Account() {
   const { user } = useAppSelector((state) => state.auth);
   const { data: loyaltySummary, isLoading: isLoyaltyLoading } = useGetLoyaltySummaryQuery();
   const { data: giftCardSummary, isLoading: isGiftCardLoading } = useGetGiftCardSummaryQuery();
   const { data: referralSummary, isLoading: isReferralLoading } = useGetReferralSummaryQuery();
+  const [changeEmail, { isLoading: isChangingEmail }] = useChangeEmailMutation();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [emailChangeForm, setEmailChangeForm] = useState({ newEmail: '', currentPassword: '' });
+  const [pendingEmailPreview, setPendingEmailPreview] = useState<string | null>(null);
+  const isEmailChangeLocked = user?.isEmailVerified === false;
   const getUserFormData = () => ({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -58,6 +77,38 @@ export default function Account() {
       toast.success('Referral linki kopyalandı');
     } catch {
       toast.error('Referral linki kopyalanamadı');
+    }
+  };
+
+  const handleChangeEmail = async () => {
+    if (isEmailChangeLocked) {
+      toast.error('E-posta değiştirmek için önce mevcut e-posta adresinizi doğrulamanız gerekiyor');
+      return;
+    }
+
+    const normalizedCurrentEmail = user?.email?.trim().toLowerCase() ?? '';
+    const normalizedNewEmail = emailChangeForm.newEmail.trim().toLowerCase();
+    if (!normalizedNewEmail || !emailChangeForm.currentPassword.trim()) {
+      toast.error('Yeni e-posta ve mevcut şifre alanları zorunludur');
+      return;
+    }
+
+    if (normalizedCurrentEmail === normalizedNewEmail) {
+      toast.error('Yeni e-posta adresi mevcut adresinizle aynı olamaz');
+      return;
+    }
+
+    try {
+      const result = await changeEmail({
+        newEmail: emailChangeForm.newEmail.trim(),
+        currentPassword: emailChangeForm.currentPassword,
+      }).unwrap();
+
+      setPendingEmailPreview(emailChangeForm.newEmail.trim());
+      setEmailChangeForm((current) => ({ ...current, currentPassword: '' }));
+      toast.success(result.message || 'Doğrulama linki yeni e-posta adresine gönderildi');
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'E-posta değişikliği başlatılamadı'));
     }
   };
 
@@ -165,6 +216,65 @@ export default function Account() {
         </Card>
 
         {/* Account Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AtSign className="h-5 w-5" />
+              E-posta Adresini Değiştir
+            </CardTitle>
+            <CardDescription>
+              Yeni e-posta adresinize doğrulama linki gönderilir ve onaylanana kadar adresiniz değişmez
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isEmailChangeLocked ? (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                E-posta değiştirmek için önce mevcut e-posta adresinizi doğrulayın
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="newEmail">Yeni E-posta Adresi</Label>
+              <Input
+                id="newEmail"
+                type="email"
+                placeholder="yeni@email.com"
+                value={emailChangeForm.newEmail}
+                onChange={(e) => setEmailChangeForm((current) => ({ ...current, newEmail: e.target.value }))}
+                disabled={isChangingEmail || isEmailChangeLocked}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Mevcut Şifreniz</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                placeholder="••••••••"
+                value={emailChangeForm.currentPassword}
+                onChange={(e) => setEmailChangeForm((current) => ({ ...current, currentPassword: e.target.value }))}
+                disabled={isChangingEmail || isEmailChangeLocked}
+              />
+            </div>
+
+            <Button
+              onClick={handleChangeEmail}
+              disabled={isChangingEmail || isEmailChangeLocked}
+              className="w-full"
+            >
+              {isChangingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isChangingEmail ? 'Gönderiliyor...' : 'Doğrulama Linki Gönder'}
+            </Button>
+
+            {pendingEmailPreview ? (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300">
+                <strong>{pendingEmailPreview}</strong> adresine doğrulama linki gönderildi
+                Linke tıklayana kadar e-posta adresiniz güncellenmez
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

@@ -59,6 +59,15 @@ export interface ResetPasswordRequest {
   confirmPassword: string;
 }
 
+export interface ChangeEmailRequest {
+  newEmail: string;
+  currentPassword: string;
+}
+
+export interface ConfirmEmailChangeRequest {
+  token: string;
+}
+
 export interface ActionResult {
   success: boolean;
   message: string;

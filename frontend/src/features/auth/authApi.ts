@@ -2,6 +2,8 @@ import { baseApi } from '@/app/api';
 import type {
   ActionResult,
   AuthResponse,
+  ChangeEmailRequest,
+  ConfirmEmailChangeRequest,
   ForgotPasswordRequest,
   LoginRequest,
   ResetPasswordRequest,
@@ -74,6 +76,21 @@ export const authApi = baseApi.injectEndpoints({
         body,
       }),
     }),
+    changeEmail: builder.mutation<ActionResult, ChangeEmailRequest>({
+      query: (body) => ({
+        url: '/account/change-email',
+        method: 'POST',
+        body,
+      }),
+    }),
+    confirmEmailChange: builder.mutation<AuthResponse, ConfirmEmailChangeRequest>({
+      query: (body) => ({
+        url: '/auth/confirm-email-change',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
+    }),
     revoke: builder.mutation<void, RefreshTokenRequest>({
       query: (data) => ({
         url: '/auth/revoke',
@@ -97,6 +114,8 @@ export const {
   useResendVerificationMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useChangeEmailMutation,
+  useConfirmEmailChangeMutation,
   useRevokeMutation,
   useGetMeQuery,
 } = authApi;
