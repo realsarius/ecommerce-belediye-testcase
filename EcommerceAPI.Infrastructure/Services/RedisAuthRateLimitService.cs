@@ -31,6 +31,14 @@ public class RedisAuthRateLimitService : IAuthRateLimitService
         return TryConsumeAsync(key, ResendVerificationLimit, ResendVerificationWindow, cancellationToken);
     }
 
+    public Task<(bool Allowed, int RetryAfterSeconds)> TryConsumeResendVerificationCodeAsync(
+        string emailHash,
+        CancellationToken cancellationToken = default)
+    {
+        var key = $"ratelimit:auth:resend-verification-code:{emailHash}";
+        return TryConsumeAsync(key, ResendVerificationLimit, ResendVerificationWindow, cancellationToken);
+    }
+
     public Task<(bool Allowed, int RetryAfterSeconds)> TryConsumeForgotPasswordAsync(
         string emailHash,
         CancellationToken cancellationToken = default)

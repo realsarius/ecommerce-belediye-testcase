@@ -88,6 +88,30 @@ public class AuthController : ControllerBase
         return BadRequest(result);
     }
 
+    [HttpPost("verify-email-code")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyEmailCode([FromBody] VerifyEmailCodeRequest request)
+    {
+        var result = await _authService.VerifyEmailCodeAsync(request);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+
+        if (result.ErrorCode == ErrorCodes.TooManyAttempts)
+        {
+            var retryAfterSeconds = ExtractRetryAfterSeconds(result.Details);
+            if (retryAfterSeconds > 0)
+            {
+                Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+            }
+
+            return StatusCode(StatusCodes.Status429TooManyRequests, result);
+        }
+
+        return BadRequest(result);
+    }
+
     [HttpPost("resend-verification")]
     [Authorize]
     public async Task<IActionResult> ResendVerification()
@@ -99,6 +123,30 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.ResendVerificationAsync(userId);
+        if (!result.Success && result.ErrorCode == ErrorCodes.RateLimitExceeded)
+        {
+            var retryAfterSeconds = ExtractRetryAfterSeconds(result.Details);
+            if (retryAfterSeconds > 0)
+            {
+                Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+            }
+
+            return StatusCode(StatusCodes.Status429TooManyRequests, result);
+        }
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("resend-verification-code")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResendVerificationCode([FromBody] ResendVerificationCodeRequest request)
+    {
+        var result = await _authService.ResendVerificationCodeAsync(request);
         if (!result.Success && result.ErrorCode == ErrorCodes.RateLimitExceeded)
         {
             var retryAfterSeconds = ExtractRetryAfterSeconds(result.Details);

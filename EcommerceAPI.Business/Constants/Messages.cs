@@ -46,6 +46,7 @@ public static class Messages
     public static string SocialAccountConflict = "Bu e-posta farklı bir sosyal hesapla ilişkilendirilmiş.";
     public static string SocialAccountPasswordLoginNotAllowed = "Bu hesap için sosyal giriş kullanmanız gerekiyor.";
     public static string VerificationEmailSent = "E-posta doğrulama bağlantısı gönderildi.";
+    public static string VerificationCodeSent = "E-posta doğrulama kodu gönderildi.";
     public static string EmailAlreadyVerified = "E-posta adresiniz zaten doğrulanmış.";
     public static string EmailVerified = "E-posta adresiniz doğrulandı.";
     public static string EmailChangeVerificationSent = "Yeni e-posta adresinize doğrulama linki gönderildi.";

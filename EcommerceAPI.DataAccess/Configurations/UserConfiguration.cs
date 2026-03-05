@@ -58,6 +58,18 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.EmailVerificationTokenExpiry);
 
+        builder.Property(u => u.EmailVerificationCodeHash)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.EmailVerificationCodeExpiry);
+
+        builder.Property(u => u.EmailVerificationCodeAttemptCount)
+            .HasDefaultValue(0);
+
+        builder.Property(u => u.EmailVerificationCodeLastSentAt);
+
+        builder.Property(u => u.EmailVerificationCodeLockedUntil);
+
         builder.Property(u => u.PasswordResetToken)
             .HasMaxLength(64);
 

@@ -13,11 +13,17 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 
 namespace EcommerceAPI.Business.Concrete;
 
 public class AuthManager : IAuthService
 {
+    private const int EmailVerificationCodeLength = 6;
+    private const int EmailVerificationCodeMaxAttempts = 5;
+    private static readonly TimeSpan EmailVerificationCodeLifetime = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan EmailVerificationCodeLockDuration = TimeSpan.FromMinutes(10);
+
     private readonly IUserDal _userDal;
     private readonly IRoleDal _roleDal;
     private readonly IRefreshTokenDal _refreshTokenDal;
@@ -86,6 +92,7 @@ public class AuthManager : IAuthService
         }
 
         var rawVerificationToken = TokenGenerator.GenerateUrlSafeToken();
+        var rawVerificationCode = GenerateVerificationCode();
 
         var user = new User
         {
@@ -97,7 +104,12 @@ public class AuthManager : IAuthService
             RoleId = customerRole.Id,
             IsEmailVerified = false,
             EmailVerificationToken = _hashingService.Hash(rawVerificationToken),
-            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24)
+            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24),
+            EmailVerificationCodeHash = _hashingService.Hash(rawVerificationCode),
+            EmailVerificationCodeExpiry = DateTime.UtcNow.Add(EmailVerificationCodeLifetime),
+            EmailVerificationCodeAttemptCount = 0,
+            EmailVerificationCodeLastSentAt = DateTime.UtcNow,
+            EmailVerificationCodeLockedUntil = null
         };
 
         await _userDal.AddAsync(user);
@@ -117,7 +129,7 @@ public class AuthManager : IAuthService
             "User",
             new { UserId = user.Id, Email = user.Email });
 
-        await SendEmailVerificationAsync(user, rawVerificationToken);
+        await SendEmailVerificationAsync(user, rawVerificationToken, rawVerificationCode);
 
         return new SuccessDataResult<AuthResponse>(new AuthResponse
         {
@@ -307,8 +319,7 @@ public class AuthManager : IAuthService
 
         if (!user.EmailVerificationTokenExpiry.HasValue || user.EmailVerificationTokenExpiry.Value < DateTime.UtcNow)
         {
-            user.EmailVerificationToken = null;
-            user.EmailVerificationTokenExpiry = null;
+            ClearEmailVerificationArtifacts(user);
             _userDal.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
@@ -319,13 +330,88 @@ public class AuthManager : IAuthService
         }
 
         user.IsEmailVerified = true;
-        user.EmailVerificationToken = null;
-        user.EmailVerificationTokenExpiry = null;
+        ClearEmailVerificationArtifacts(user);
         _userDal.Update(user);
 
         await _unitOfWork.SaveChangesAsync();
 
         var response = await IssueAuthResponseAsync(user, "VerifyEmail", Messages.EmailVerified);
+        return new SuccessDataResult<AuthResponse>(response, Messages.EmailVerified);
+    }
+
+    [ValidationAspect(typeof(VerifyEmailCodeRequestValidator))]
+    public async Task<IDataResult<AuthResponse>> VerifyEmailCodeAsync(VerifyEmailCodeRequest request)
+    {
+        var normalizedEmail = request.Email.ToLowerInvariant().Trim();
+        var emailHash = _hashingService.Hash(normalizedEmail);
+        var user = (await _userDal.GetListAsync(u => u.EmailHash == emailHash)).FirstOrDefault();
+
+        if (user == null || user.IsEmailVerified)
+        {
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "Doğrulama kodu geçersiz." },
+                "Doğrulama kodu geçersiz.",
+                ErrorCodes.InvalidCode);
+        }
+
+        if (user.EmailVerificationCodeLockedUntil.HasValue && user.EmailVerificationCodeLockedUntil.Value > DateTime.UtcNow)
+        {
+            var retryAfterSeconds = (int)Math.Ceiling((user.EmailVerificationCodeLockedUntil.Value - DateTime.UtcNow).TotalSeconds);
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "Çok fazla hatalı deneme yaptınız. Lütfen daha sonra tekrar deneyin." },
+                "Çok fazla hatalı deneme yaptınız. Lütfen daha sonra tekrar deneyin.",
+                ErrorCodes.TooManyAttempts,
+                new { RetryAfterSeconds = Math.Max(1, retryAfterSeconds) });
+        }
+
+        if (!user.EmailVerificationCodeExpiry.HasValue || user.EmailVerificationCodeExpiry.Value < DateTime.UtcNow)
+        {
+            ClearEmailVerificationCodeArtifacts(user);
+            _userDal.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "Doğrulama kodunun süresi dolmuş." },
+                "Doğrulama kodunun süresi dolmuş.",
+                ErrorCodes.ExpiredCode);
+        }
+
+        var incomingCodeHash = _hashingService.Hash(request.Code.Trim());
+        if (string.IsNullOrWhiteSpace(user.EmailVerificationCodeHash) ||
+            !string.Equals(user.EmailVerificationCodeHash, incomingCodeHash, StringComparison.Ordinal))
+        {
+            user.EmailVerificationCodeAttemptCount += 1;
+            if (user.EmailVerificationCodeAttemptCount >= EmailVerificationCodeMaxAttempts)
+            {
+                user.EmailVerificationCodeLockedUntil = DateTime.UtcNow.Add(EmailVerificationCodeLockDuration);
+            }
+
+            _userDal.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            if (user.EmailVerificationCodeLockedUntil.HasValue && user.EmailVerificationCodeLockedUntil.Value > DateTime.UtcNow)
+            {
+                var retryAfterSeconds = (int)Math.Ceiling((user.EmailVerificationCodeLockedUntil.Value - DateTime.UtcNow).TotalSeconds);
+                return new ErrorDataResult<AuthResponse>(
+                    new AuthResponse { Success = false, Message = "Çok fazla hatalı deneme yaptınız. Lütfen daha sonra tekrar deneyin." },
+                    "Çok fazla hatalı deneme yaptınız. Lütfen daha sonra tekrar deneyin.",
+                    ErrorCodes.TooManyAttempts,
+                    new { RetryAfterSeconds = Math.Max(1, retryAfterSeconds) });
+            }
+
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = "Doğrulama kodu geçersiz." },
+                "Doğrulama kodu geçersiz.",
+                ErrorCodes.InvalidCode,
+                new { RemainingAttempts = Math.Max(0, EmailVerificationCodeMaxAttempts - user.EmailVerificationCodeAttemptCount) });
+        }
+
+        user.IsEmailVerified = true;
+        ClearEmailVerificationArtifacts(user);
+        _userDal.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        var response = await IssueAuthResponseAsync(user, "VerifyEmailCode", Messages.EmailVerified);
         return new SuccessDataResult<AuthResponse>(response, Messages.EmailVerified);
     }
 
@@ -352,15 +438,48 @@ public class AuthManager : IAuthService
         }
 
         var rawToken = TokenGenerator.GenerateUrlSafeToken();
-        user.EmailVerificationToken = _hashingService.Hash(rawToken);
-        user.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24);
+        var rawCode = GenerateVerificationCode();
+        SetEmailVerificationArtifacts(user, rawToken, rawCode);
 
         _userDal.Update(user);
         await _unitOfWork.SaveChangesAsync();
 
-        await SendEmailVerificationAsync(user, rawToken);
+        await SendEmailVerificationAsync(user, rawToken, rawCode);
 
         return new SuccessResult(Messages.VerificationEmailSent);
+    }
+
+    [ValidationAspect(typeof(ResendVerificationCodeRequestValidator))]
+    public async Task<IResult> ResendVerificationCodeAsync(ResendVerificationCodeRequest request)
+    {
+        var normalizedEmail = request.Email.ToLowerInvariant().Trim();
+        var emailHash = _hashingService.Hash(normalizedEmail);
+
+        var rateLimit = await _authRateLimitService.TryConsumeResendVerificationCodeAsync(emailHash);
+        if (!rateLimit.Allowed)
+        {
+            return new ErrorResult(
+                "Çok sık doğrulama isteği gönderiyorsunuz. Lütfen biraz bekleyin.",
+                ErrorCodes.RateLimitExceeded,
+                new { RetryAfterSeconds = rateLimit.RetryAfterSeconds });
+        }
+
+        var user = (await _userDal.GetListAsync(u => u.EmailHash == emailHash)).FirstOrDefault();
+        if (user == null || user.IsEmailVerified)
+        {
+            return new SuccessResult(Messages.VerificationCodeSent);
+        }
+
+        var rawToken = TokenGenerator.GenerateUrlSafeToken();
+        var rawCode = GenerateVerificationCode();
+        SetEmailVerificationArtifacts(user, rawToken, rawCode);
+
+        _userDal.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        await SendEmailVerificationAsync(user, rawToken, rawCode);
+
+        return new SuccessResult(Messages.VerificationCodeSent);
     }
 
     [ValidationAspect(typeof(ForgotPasswordRequestValidator))]
@@ -789,13 +908,46 @@ public class AuthManager : IAuthService
         }
     }
 
-    private async Task SendEmailVerificationAsync(User user, string rawToken)
+    private void SetEmailVerificationArtifacts(User user, string rawToken, string rawCode)
+    {
+        user.EmailVerificationToken = _hashingService.Hash(rawToken);
+        user.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(24);
+        user.EmailVerificationCodeHash = _hashingService.Hash(rawCode);
+        user.EmailVerificationCodeExpiry = DateTime.UtcNow.Add(EmailVerificationCodeLifetime);
+        user.EmailVerificationCodeAttemptCount = 0;
+        user.EmailVerificationCodeLastSentAt = DateTime.UtcNow;
+        user.EmailVerificationCodeLockedUntil = null;
+    }
+
+    private static string GenerateVerificationCode()
+    {
+        var code = RandomNumberGenerator.GetInt32(0, (int)Math.Pow(10, EmailVerificationCodeLength));
+        return code.ToString($"D{EmailVerificationCodeLength}");
+    }
+
+    private static void ClearEmailVerificationCodeArtifacts(User user)
+    {
+        user.EmailVerificationCodeHash = null;
+        user.EmailVerificationCodeExpiry = null;
+        user.EmailVerificationCodeAttemptCount = 0;
+        user.EmailVerificationCodeLastSentAt = null;
+        user.EmailVerificationCodeLockedUntil = null;
+    }
+
+    private static void ClearEmailVerificationArtifacts(User user)
+    {
+        user.EmailVerificationToken = null;
+        user.EmailVerificationTokenExpiry = null;
+        ClearEmailVerificationCodeArtifacts(user);
+    }
+
+    private async Task SendEmailVerificationAsync(User user, string rawToken, string rawCode)
     {
         var verificationLink = $"{GetFrontendBaseUrl()}/verify-email?token={Uri.EscapeDataString(rawToken)}";
         var emailSent = await _emailNotificationService.SendAsync(
             user.Email,
             "E-posta adresinizi doğrulayın",
-            BuildVerificationEmailBody(user, verificationLink));
+            BuildVerificationEmailBody(user, verificationLink, rawCode));
 
         if (!emailSent)
         {
@@ -900,13 +1052,15 @@ public class AuthManager : IAuthService
         return configured.TrimEnd('/');
     }
 
-    private static string BuildVerificationEmailBody(User user, string verificationLink)
+    private static string BuildVerificationEmailBody(User user, string verificationLink, string verificationCode)
     {
         var fullName = GetFullName(user);
         return $"""
                 <p>Merhaba {fullName},</p>
                 <p>Hesabınızı doğrulamak için aşağıdaki bağlantıya tıklayın:</p>
                 <p><a href="{verificationLink}">E-posta adresimi doğrula</a></p>
+                <p>Bağlantıyı açamıyorsanız bu doğrulama kodunu kullanabilirsiniz: <strong>{verificationCode}</strong></p>
+                <p>Doğrulama kodu 10 dakika geçerlidir.</p>
                 <p>Bu bağlantı 24 saat geçerlidir.</p>
                 """;
     }
