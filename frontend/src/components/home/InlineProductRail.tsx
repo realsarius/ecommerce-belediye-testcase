@@ -27,9 +27,9 @@ interface InlineProductRailProps {
 
 const railToneClasses: Record<InlineRailTone, string> = {
   personalized:
-    'border-sky-500/20 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.10),_transparent_44%),linear-gradient(145deg,_rgba(18,24,38,0.94),_rgba(11,15,24,0.96))] text-white/95 shadow-[0_10px_24px_rgba(2,6,23,0.28)]',
+    'border-sky-500/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.12),rgba(6,10,18,0.88)_55%)] text-white/95 shadow-[0_6px_16px_rgba(2,6,23,0.18)]',
   wishlisted:
-    'border-rose-500/20 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.12),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(251,146,60,0.08),_transparent_44%),linear-gradient(145deg,_rgba(32,19,24,0.93),_rgba(20,12,18,0.95))] text-white/95 shadow-[0_10px_24px_rgba(15,23,42,0.24)]',
+    'border-rose-500/15 bg-[linear-gradient(180deg,rgba(244,63,94,0.11),rgba(20,10,16,0.90)_55%)] text-white/95 shadow-[0_6px_16px_rgba(15,23,42,0.16)]',
 };
 
 export function InlineProductRail({
@@ -88,10 +88,10 @@ export function InlineProductRail({
 
   return (
     <div className={cn('col-span-full', className)}>
-      <section className={cn('relative overflow-hidden rounded-2xl border', railToneClasses[tone])}>
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_35%,transparent_100%)]" />
+      <section className={cn('relative overflow-hidden rounded-xl border', railToneClasses[tone])}>
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_40%,transparent_100%)]" />
 
-        <header className="relative border-b border-white/10 px-4 py-3 sm:px-5">
+        <header className="relative border-b border-white/8 px-4 py-3 sm:px-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 sm:mb-1">
@@ -109,7 +109,7 @@ export function InlineProductRail({
             </div>
 
             {helperText ? (
-              <div className="hidden shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/80 md:flex">
+              <div className="hidden shrink-0 items-center gap-2 rounded-full border border-white/12 bg-white/[0.08] px-3 py-1 text-xs text-white/75 md:flex">
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>{helperText}</span>
               </div>
@@ -117,7 +117,7 @@ export function InlineProductRail({
           </div>
         </header>
 
-        <div className="relative px-3 py-2.5 sm:px-4">
+        <div className="relative px-3 py-2 sm:px-4">
           <div className={cn(
             'absolute right-4 top-0 hidden -translate-y-1/2 items-center gap-2 md:flex',
             !hasOverflow && 'md:hidden',
@@ -127,7 +127,7 @@ export function InlineProductRail({
               type="button"
               variant="outline"
               size="icon-sm"
-              className="h-8 w-8 border-white/20 bg-black/20 text-white hover:bg-black/40"
+              className="h-8 w-8 border-white/15 bg-black/25 text-white hover:bg-black/35"
               onClick={() => scrollByAmount('left')}
               disabled={!canScrollLeft}
               aria-label={`${title} satırını sola kaydır`}
@@ -138,7 +138,7 @@ export function InlineProductRail({
               type="button"
               variant="outline"
               size="icon-sm"
-              className="h-8 w-8 border-white/20 bg-black/20 text-white hover:bg-black/40"
+              className="h-8 w-8 border-white/15 bg-black/25 text-white hover:bg-black/35"
               onClick={() => scrollByAmount('right')}
               disabled={!canScrollRight}
               aria-label={`${title} satırını sağa kaydır`}

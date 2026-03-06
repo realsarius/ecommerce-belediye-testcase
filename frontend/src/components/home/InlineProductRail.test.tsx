@@ -91,4 +91,29 @@ describe('InlineProductRail', () => {
       }),
     );
   });
+
+  it('rail containerı banner yerine kompakt feed satırı sınıflarını uygular', () => {
+    const { container } = render(
+      <InlineProductRail
+        title="Senin İçin Öneriler"
+        badgeText="Sana özel"
+        helperText="Kişiselleştirilmiş öneri motoru"
+        description="Kısa açıklama"
+        tone="personalized"
+        products={[createProduct(7)]}
+        isLoading={false}
+        isAddingToCart={false}
+        isInWishlist={() => false}
+        onAddToCart={vi.fn()}
+        onWishlistToggle={vi.fn()}
+      />,
+    );
+
+    const section = container.querySelector('section');
+    expect(section).toHaveClass('rounded-xl');
+    expect(section).not.toHaveClass('rounded-2xl');
+    expect(section?.className).toContain('shadow-[0_6px_16px');
+    expect(screen.getByText('Sana özel')).toBeInTheDocument();
+    expect(screen.getByText('Kişiselleştirilmiş öneri motoru')).toBeInTheDocument();
+  });
 });
