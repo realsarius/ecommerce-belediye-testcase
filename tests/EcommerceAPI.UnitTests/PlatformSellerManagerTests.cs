@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.Concrete;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;

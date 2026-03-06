@@ -1,5 +1,5 @@
-using EcommerceAPI.Business.Abstract;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Infrastructure.Constants;
 using EcommerceAPI.Infrastructure.Utilities;

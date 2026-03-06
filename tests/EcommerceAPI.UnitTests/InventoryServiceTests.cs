@@ -1,11 +1,11 @@
 using FluentAssertions;
 using Moq;
 using EcommerceAPI.Business.Concrete;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Entities.Concrete;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Entities.IntegrationEvents;

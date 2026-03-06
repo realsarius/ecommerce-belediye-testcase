@@ -1,7 +1,7 @@
 using EcommerceAPI.API.Controllers;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Utilities.Results;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Infrastructure.Constants;
 using FluentAssertions;

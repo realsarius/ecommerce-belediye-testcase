@@ -1,4 +1,4 @@
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Infrastructure.Settings;
 using Microsoft.Extensions.Options;
 

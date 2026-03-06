@@ -2,7 +2,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 
-namespace EcommerceAPI.Business.Abstract;
+namespace EcommerceAPI.Application.Abstractions.ServiceContracts;
 
 public interface INotificationPreferenceService
 {

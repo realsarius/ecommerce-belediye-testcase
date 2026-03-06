@@ -1,6 +1,6 @@
 using EcommerceAPI.API.Consumers;
 using EcommerceAPI.API.Hubs;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;

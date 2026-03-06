@@ -2,7 +2,7 @@ using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 
-namespace EcommerceAPI.Business.Abstract;
+namespace EcommerceAPI.Application.Abstractions.ServiceContracts;
 
 public interface IReturnAttachmentAccessService
 {

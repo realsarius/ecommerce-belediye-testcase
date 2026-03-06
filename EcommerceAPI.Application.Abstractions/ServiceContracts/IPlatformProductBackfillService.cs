@@ -1,6 +1,6 @@
 using EcommerceAPI.Core.Utilities.Results;
 
-namespace EcommerceAPI.Business.Abstract;
+namespace EcommerceAPI.Application.Abstractions.ServiceContracts;
 
 public interface IPlatformProductBackfillService
 {

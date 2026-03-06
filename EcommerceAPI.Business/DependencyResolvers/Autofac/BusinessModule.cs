@@ -2,7 +2,7 @@
 using Autofac;
 using Autofac.Extras.DynamicProxy;
 using Castle.DynamicProxy;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Core.CrossCuttingConcerns.Caching;
 using EcommerceAPI.Core.Utilities.Interceptors;

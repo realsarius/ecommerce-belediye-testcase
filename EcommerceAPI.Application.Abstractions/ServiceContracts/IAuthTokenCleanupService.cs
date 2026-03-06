@@ -1,4 +1,4 @@
-namespace EcommerceAPI.Business.Abstract;
+namespace EcommerceAPI.Application.Abstractions.ServiceContracts;
 
 public interface IAuthTokenCleanupService
 {

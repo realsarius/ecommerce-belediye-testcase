@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.IntegrationEvents;
