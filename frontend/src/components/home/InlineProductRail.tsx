@@ -91,16 +91,16 @@ export function InlineProductRail({
       <section className={cn('relative overflow-hidden rounded-2xl border', railToneClasses[tone])}>
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_35%,transparent_100%)]" />
 
-        <header className="relative border-b border-white/10 px-4 py-3 sm:px-5">
+        <header className="relative border-b border-white/10 px-4 py-2.5 sm:px-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="mb-1.5 flex items-center gap-2">
+              <div className="mb-1 flex items-center gap-2">
                 <Badge className="border border-white/15 bg-white/10 text-[11px] font-medium text-white/90">
                   {badgeText}
                 </Badge>
               </div>
-              <h3 className="truncate text-base font-semibold sm:text-lg">{title}</h3>
-              {description ? <p className="mt-1 truncate text-xs text-white/65">{description}</p> : null}
+              <h3 className="truncate text-sm font-semibold sm:text-base">{title}</h3>
+              {description ? <p className="mt-0.5 truncate text-[11px] text-white/65">{description}</p> : null}
             </div>
 
             {helperText ? (
@@ -112,7 +112,7 @@ export function InlineProductRail({
           </div>
         </header>
 
-        <div className="relative px-3 py-3 sm:px-4">
+        <div className="relative px-3 py-2.5 sm:px-4">
           <div className={cn(
             'absolute right-4 top-0 hidden -translate-y-1/2 items-center gap-2 md:flex',
             !hasOverflow && 'md:hidden',
@@ -151,13 +151,13 @@ export function InlineProductRail({
               ? Array.from({ length: 4 }).map((_, index) => (
                   <Card
                     key={`rail-skeleton-${index}`}
-                    className="h-[260px] w-[min(80vw,16rem)] shrink-0 rounded-xl border-white/10 bg-white/[0.04] py-0"
+                    className="h-[212px] w-[min(74vw,15rem)] shrink-0 rounded-lg border-white/10 bg-white/[0.04] py-0"
                   >
-                    <Skeleton className="h-32 w-full rounded-b-none rounded-t-xl bg-white/10" />
-                    <div className="space-y-2 p-3">
+                    <Skeleton className="h-28 w-full rounded-b-none rounded-t-lg bg-white/10" />
+                    <div className="space-y-1.5 p-2.5">
                       <Skeleton className="h-4 w-3/4 bg-white/10" />
                       <Skeleton className="h-3 w-1/2 bg-white/10" />
-                      <Skeleton className="h-8 w-full bg-white/10" />
+                      <Skeleton className="h-7 w-full bg-white/10" />
                     </div>
                   </Card>
                 ))

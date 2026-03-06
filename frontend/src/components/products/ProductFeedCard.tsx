@@ -40,12 +40,12 @@ export function ProductFeedCard({
       className={cn(
         'group relative overflow-hidden border-border/70 bg-card/90',
         isCompact
-          ? 'w-[min(80vw,16rem)] shrink-0 gap-3 rounded-xl py-0 shadow-xs dark:border-white/10 dark:bg-white/[0.03]'
+          ? 'w-[min(74vw,15rem)] shrink-0 gap-2 rounded-lg py-0 shadow-xs dark:border-white/10 dark:bg-white/[0.03]'
           : 'w-full max-w-sm gap-4 py-0',
         className,
       )}
     >
-      <div className={cn('relative flex items-center justify-center bg-muted/60', isCompact ? 'h-32' : 'h-48')}>
+      <div className={cn('relative flex items-center justify-center bg-muted/60', isCompact ? 'h-28' : 'h-48')}>
         <Link
           to={`/products/${product.id}`}
           aria-label={`${product.name} ürün detayına git`}
@@ -77,25 +77,21 @@ export function ProductFeedCard({
         </Button>
       </div>
 
-      <CardContent className={cn(isCompact ? 'space-y-1.5 px-3 pt-3' : 'space-y-2 px-4 pt-4')}>
+      <CardContent className={cn(isCompact ? 'space-y-1 px-2.5 pt-2.5' : 'space-y-2 px-4 pt-4')}>
         <Link to={`/products/${product.id}`}>
           <h3
             className={cn(
               'font-semibold transition-colors group-hover:text-primary',
-              isCompact ? 'line-clamp-1 text-sm' : 'truncate',
+              isCompact ? 'line-clamp-1 text-[13px]' : 'truncate',
             )}
           >
             {product.name}
           </h3>
         </Link>
 
-        <p className={cn('text-muted-foreground', isCompact ? 'truncate text-xs' : 'truncate text-sm')}>
+        <p className={cn('text-muted-foreground', isCompact ? 'truncate text-[11px]' : 'truncate text-sm')}>
           {product.categoryName}
         </p>
-
-        {isCompact ? (
-          <p className="line-clamp-1 text-xs text-muted-foreground/90">{product.description}</p>
-        ) : null}
 
         {product.hasActiveCampaign && (
           <div className={cn('flex flex-wrap items-center gap-2', isCompact ? 'pt-0.5' : 'pt-1')}>
@@ -111,33 +107,33 @@ export function ProductFeedCard({
           </div>
         )}
 
-        {product.wishlistCount > 0 && (
+        {!isCompact && product.wishlistCount > 0 && (
           <div className={cn('flex items-center gap-1 text-muted-foreground', isCompact ? 'text-[11px]' : 'text-xs')}>
             <Heart className={cn('text-red-500', isCompact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
             <span>{product.wishlistCount} kişi favoriledi</span>
           </div>
         )}
 
-        {product.hasActiveCampaign && (
+        {!isCompact && product.hasActiveCampaign && (
           <p className={cn('text-muted-foreground line-through', isCompact ? 'text-[11px]' : 'text-xs')}>
             {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
           </p>
         )}
 
-        <p className={cn('font-bold', isCompact ? 'text-base' : 'text-lg')}>
+        <p className={cn('font-bold', isCompact ? 'text-sm' : 'text-lg')}>
           {product.price.toLocaleString('tr-TR')} {product.currency}
         </p>
       </CardContent>
 
-      <CardFooter className={cn('px-4 pb-4 pt-0', isCompact ? 'px-3 pb-3' : 'flex-col gap-2')}>
+      <CardFooter className={cn('px-4 pb-4 pt-0', isCompact ? 'px-2.5 pb-2.5' : 'flex-col gap-2')}>
         <Button
           size={isCompact ? 'sm' : 'default'}
-          className={cn('w-full', isCompact && 'text-xs')}
+          className={cn('w-full', isCompact && 'h-8 gap-1 text-[11px]')}
           disabled={product.stockQuantity === 0 || isAddingToCart}
           onClick={() => onAddToCart(product.id, product.name)}
         >
-          <ShoppingCart className={cn('h-4 w-4', isCompact ? '' : 'mr-2')} />
-          <span>{isCompact ? 'Sepete Ekle' : 'Sepete Ekle'}</span>
+          <ShoppingCart className={cn(isCompact ? 'h-3.5 w-3.5' : 'mr-2 h-4 w-4')} />
+          <span>{isCompact ? 'Sepete' : 'Sepete Ekle'}</span>
         </Button>
 
         {!isCompact && onCompareToggle ? (
