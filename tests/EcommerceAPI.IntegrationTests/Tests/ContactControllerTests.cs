@@ -18,11 +18,19 @@ public class ContactControllerTests : IClassFixture<CustomWebApplicationFactory>
         _factory = factory;
     }
 
+    private static string CreateUniqueForwardedFor()
+    {
+        var bytes = Guid.NewGuid().ToByteArray();
+        var thirdOctet = bytes[0];
+        var fourthOctet = bytes[1] == 0 ? (byte)1 : bytes[1];
+        return $"198.51.{thirdOctet}.{fourthOctet}";
+    }
+
     [Fact]
     public async Task Create_ShouldPersistContactMessage()
     {
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"198.51.100.{Random.Shared.Next(1, 200)}");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", CreateUniqueForwardedFor());
         var uniqueToken = Guid.NewGuid().ToString("N")[..8];
         var email = $"berkan-{uniqueToken}@test.com";
         var subject = $"Genel bilgi {uniqueToken}";
@@ -48,7 +56,7 @@ public class ContactControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task Create_WithInvalidPayload_ShouldReturnBadRequest()
     {
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"198.51.101.{Random.Shared.Next(1, 200)}");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", CreateUniqueForwardedFor());
 
         var response = await client.PostAsJsonAsync("/api/v1/contact", new CreateContactMessageRequest
         {
@@ -65,7 +73,7 @@ public class ContactControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task Create_ShouldReturnTooManyRequests_WhenIpExceedsHourlyLimit()
     {
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"203.0.113.{Random.Shared.Next(1, 200)}");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", CreateUniqueForwardedFor());
 
         for (var index = 0; index < 5; index++)
         {
