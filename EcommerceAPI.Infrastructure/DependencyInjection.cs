@@ -1,5 +1,4 @@
 using EcommerceAPI.Business.Abstract;
-using EcommerceAPI.Business.Concrete;
 
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
