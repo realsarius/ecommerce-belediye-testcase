@@ -39,11 +39,11 @@ export const ProductList = ({
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
   const { addProduct: addCompareProduct, containsProduct, removeProduct: removeCompareProduct, compareIds } = useProductCompare();
-  const { data: personalizedRecommendations } = useGetPersonalizedRecommendationsQuery(
+  const { data: personalizedRecommendations, isLoading: isPersonalizedLoading } = useGetPersonalizedRecommendationsQuery(
     { take: 6 },
     { skip: !isAuthenticated || !hasDiscoveryFeedContext },
   );
-  const { data: topWishlistedData } = useSearchProductsQuery(
+  const { data: topWishlistedData, isLoading: isTopWishlistedLoading } = useSearchProductsQuery(
     {
       page: 1,
       pageSize: 8,
@@ -139,10 +139,10 @@ export const ProductList = ({
 
   const shouldRenderPersonalizedRail = hasDiscoveryFeedContext
     && isAuthenticated
-    && personalizedItems.length > 0;
+    && (isPersonalizedLoading || personalizedItems.length > 0);
 
   const shouldRenderTopWishlistedRail = hasDiscoveryFeedContext
-    && topWishlistedItems.length > 0;
+    && (isTopWishlistedLoading || topWishlistedItems.length > 0);
 
   const renderProductCards = (items: Product[]) =>
     items.map((product) => (
@@ -205,6 +205,7 @@ export const ProductList = ({
             description="Wishlist kategorilerin ve son aramalarına göre öneriler."
             tone="personalized"
             products={personalizedItems}
+            isLoading={isPersonalizedLoading}
             isAddingToCart={isAddingToCart}
             isInWishlist={isProductInWishlist}
             onAddToCart={handleAddToCart}
@@ -222,6 +223,7 @@ export const ProductList = ({
             description="Kullanıcıların sık favorilediği ürünler."
             tone="wishlisted"
             products={topWishlistedItems}
+            isLoading={isTopWishlistedLoading}
             isAddingToCart={isAddingToCart}
             isInWishlist={isProductInWishlist}
             onAddToCart={handleAddToCart}

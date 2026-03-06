@@ -74,8 +74,8 @@ vi.mock('@/components/products/ProductFeedCard', () => ({
 }));
 
 vi.mock('@/components/home/InlineProductRail', () => ({
-  InlineProductRail: ({ title }: { title: string }) => (
-    <div data-testid="inline-rail">{title}</div>
+  InlineProductRail: ({ title, isLoading }: { title: string; isLoading?: boolean }) => (
+    <div data-testid="inline-rail" data-loading={isLoading ? 'true' : 'false'}>{title}</div>
   ),
 }));
 
@@ -177,18 +177,22 @@ describe('ProductList inline rail akışı', () => {
 
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [] },
+      isLoading: false,
     });
   });
 
   it('keşif akışında rail satırlarını ürünlerin arasına gömer', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(101, 'Kişisel Öneri 1')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(201, 'Favori Ürün 1', 77)] },
+      isLoading: false,
     });
 
     renderProductList();
@@ -205,9 +209,11 @@ describe('ProductList inline rail akışı', () => {
   it('giriş yoksa personalized raili göstermez', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(102, 'Kişisel Öneri 2')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(202, 'Favori Ürün 2', 18)] },
+      isLoading: false,
     });
 
     renderProductList({ isAuthenticated: false });
@@ -219,9 +225,11 @@ describe('ProductList inline rail akışı', () => {
   it('filtreli akışta railleri gizler', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(103, 'Kişisel Öneri 3')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(203, 'Favori Ürün 3', 12)] },
+      isLoading: false,
     });
 
     renderProductList({
@@ -250,9 +258,11 @@ describe('ProductList inline rail akışı', () => {
   ])('discovery bağlamı $name railleri gizler', ({ productState }) => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(130, 'Kişisel Öneri Parametre')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(230, 'Favori Ürün Parametre', 14)] },
+      isLoading: false,
     });
 
     renderProductList({ productState });
@@ -264,9 +274,11 @@ describe('ProductList inline rail akışı', () => {
   it('varsayılan keşif koşulu bozulduğunda railleri gizler', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(104, 'Kişisel Öneri 4')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(204, 'Favori Ürün 4', 50)] },
+      isLoading: false,
     });
 
     renderProductList({
@@ -295,9 +307,11 @@ describe('ProductList inline rail akışı', () => {
   it('rail datası boşsa render etmez', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(205, 'Wish 0', 0)] },
+      isLoading: false,
     });
 
     renderProductList();
@@ -309,9 +323,11 @@ describe('ProductList inline rail akışı', () => {
   it('ana feedde zaten olan ürünleri rail listelerinden düşer', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(1, 'Feed İçindeki Öneri')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(2, 'Feed İçindeki Favori', 33)] },
+      isLoading: false,
     });
 
     renderProductList();
@@ -323,14 +339,34 @@ describe('ProductList inline rail akışı', () => {
   it('top wishlisted railde personalized ile çakışan ürünleri tekrar göstermez', () => {
     mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
       data: [createProduct(101, 'Tekrar Eden Ürün')],
+      isLoading: false,
     });
     mockProductsApi.useSearchProductsQuery.mockReturnValue({
       data: { items: [createProduct(101, 'Tekrar Eden Ürün', 87)] },
+      isLoading: false,
     });
 
     renderProductList();
 
     expect(screen.getByText('Senin İçin Öneriler')).toBeInTheDocument();
     expect(screen.queryByText('En Çok Favorilenenler')).not.toBeInTheDocument();
+  });
+
+  it('query loading durumunda rail skeleton containerlarını göstermeye devam eder', () => {
+    mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
+      data: [],
+      isLoading: true,
+    });
+    mockProductsApi.useSearchProductsQuery.mockReturnValue({
+      data: { items: [] },
+      isLoading: true,
+    });
+
+    renderProductList();
+
+    const rails = screen.getAllByTestId('inline-rail');
+    expect(rails).toHaveLength(2);
+    expect(screen.getByText('Senin İçin Öneriler')).toHaveAttribute('data-loading', 'true');
+    expect(screen.getByText('En Çok Favorilenenler')).toHaveAttribute('data-loading', 'true');
   });
 });

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/common/badge';
 import { Button } from '@/components/common/button';
@@ -47,9 +47,38 @@ export function InlineProductRail({
   className,
 }: InlineProductRailProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const maxLeft = container.scrollWidth - container.clientWidth;
+    const hasScrollableContent = maxLeft > 2;
+
+    setHasOverflow(hasScrollableContent);
+    setCanScrollLeft(container.scrollLeft > 2);
+    setCanScrollRight(container.scrollLeft < maxLeft - 2);
+  }, []);
+
+  useEffect(() => {
+    updateScrollState();
+
+    const handleResize = () => {
+      updateScrollState();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+    // Scroll dimensions depend on rendered cards and loading skeletons.
+  }, [products.length, isLoading, updateScrollState]);
 
   const scrollByAmount = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) {
+    if (!scrollContainerRef.current || !hasOverflow) {
       return;
     }
 
@@ -84,13 +113,18 @@ export function InlineProductRail({
         </header>
 
         <div className="relative px-3 py-3 sm:px-4">
-          <div className="absolute right-4 top-0 hidden -translate-y-1/2 items-center gap-2 md:flex">
+          <div className={cn(
+            'absolute right-4 top-0 hidden -translate-y-1/2 items-center gap-2 md:flex',
+            !hasOverflow && 'md:hidden',
+          )}
+          >
             <Button
               type="button"
               variant="outline"
               size="icon-sm"
               className="h-8 w-8 border-white/20 bg-black/20 text-white hover:bg-black/40"
               onClick={() => scrollByAmount('left')}
+              disabled={!canScrollLeft}
               aria-label={`${title} satırını sola kaydır`}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -101,6 +135,7 @@ export function InlineProductRail({
               size="icon-sm"
               className="h-8 w-8 border-white/20 bg-black/20 text-white hover:bg-black/40"
               onClick={() => scrollByAmount('right')}
+              disabled={!canScrollRight}
               aria-label={`${title} satırını sağa kaydır`}
             >
               <ChevronRight className="h-4 w-4" />
@@ -109,6 +144,7 @@ export function InlineProductRail({
 
           <div
             ref={scrollContainerRef}
+            onScroll={updateScrollState}
             className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
           >
             {isLoading
