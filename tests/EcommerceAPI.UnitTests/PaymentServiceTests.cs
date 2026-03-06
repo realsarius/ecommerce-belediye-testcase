@@ -29,6 +29,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IReferralService> _referralServiceMock;
+    private readonly Mock<IPaymentWebhookEventDal> _paymentWebhookEventDalMock;
     private readonly Mock<IIyzicoPaymentGateway> _paymentGatewayMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
@@ -45,6 +46,7 @@ public class IyzicoPaymentServiceTests
         _creditCardServiceMock = new Mock<ICreditCardService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _referralServiceMock = new Mock<IReferralService>();
+        _paymentWebhookEventDalMock = new Mock<IPaymentWebhookEventDal>();
         _paymentGatewayMock = new Mock<IIyzicoPaymentGateway>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
@@ -83,6 +85,12 @@ public class IyzicoPaymentServiceTests
         _paymentGatewayMock
             .Setup(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IyzicoThreeDSInitializeGatewayResult(true, "PAY-3DS", "base64-html", null));
+        _paymentWebhookEventDalMock
+            .Setup(x => x.ExistsByDedupeKeyAsync(It.IsAny<PaymentProviderType>(), It.IsAny<string>()))
+            .ReturnsAsync(false);
+        _paymentWebhookEventDalMock
+            .Setup(x => x.AddAsync(It.IsAny<PaymentWebhookEvent>()))
+            .ReturnsAsync((PaymentWebhookEvent entity) => entity);
 
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
@@ -92,6 +100,7 @@ public class IyzicoPaymentServiceTests
             _creditCardServiceMock.Object,
             _loyaltyServiceMock.Object,
             _referralServiceMock.Object,
+            _paymentWebhookEventDalMock.Object,
             _paymentGatewayMock.Object,
             _lockServiceMock.Object,
             _loggerMock.Object,
@@ -485,6 +494,31 @@ public class IyzicoPaymentServiceTests
         result.Success.Should().BeTrue();
         result.Message.Should().Be("Already paid");
         _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenWebhookEventAlreadyRecorded_ShouldReturnSuccessWithoutMutation()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "PAYMENT",
+            PaymentId = "PAY-DUP",
+            PaymentConversationId = "ORD-DUP",
+            Status = "SUCCESS"
+        };
+
+        _paymentWebhookEventDalMock
+            .Setup(x => x.ExistsByDedupeKeyAsync(PaymentProviderType.Iyzico, It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var signature = ComputeSignature(request, "test");
+        var result = await _paymentService.ProcessWebhookAsync(request, signature);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Webhook already processed");
+        _orderDalMock.Verify(x => x.GetByOrderNumberAsync(It.IsAny<string>()), Times.Never);
+        _paymentWebhookEventDalMock.Verify(x => x.AddAsync(It.IsAny<PaymentWebhookEvent>()), Times.Never);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 

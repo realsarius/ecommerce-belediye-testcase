@@ -15,6 +15,8 @@ using Iyzipay.Request;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using EcommerceAPI.Core.CrossCuttingConcerns;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
@@ -40,6 +42,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     private readonly ICreditCardService _creditCardService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IReferralService _referralService;
+    private readonly IPaymentWebhookEventDal _paymentWebhookEventDal;
     private readonly IIyzicoPaymentGateway _paymentGateway;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
@@ -53,6 +56,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         ICreditCardService creditCardService,
         ILoyaltyService loyaltyService,
         IReferralService referralService,
+        IPaymentWebhookEventDal paymentWebhookEventDal,
         IIyzicoPaymentGateway paymentGateway,
         IDistributedLockService lockService,
         Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger,
@@ -65,6 +69,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         _creditCardService = creditCardService;
         _loyaltyService = loyaltyService;
         _referralService = referralService;
+        _paymentWebhookEventDal = paymentWebhookEventDal;
         _paymentGateway = paymentGateway;
         _lockService = lockService;
         _logger = logger;
@@ -635,6 +640,13 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                  "ConversationId is missing",
                  Constants.InfrastructureConstants.Payment.WebhookConversationIdMissingCode);
 
+        var dedupeKey = BuildWebhookDedupeKey(request);
+        var alreadyProcessed = await _paymentWebhookEventDal.ExistsByDedupeKeyAsync(PaymentProviderType.Iyzico, dedupeKey);
+        if (alreadyProcessed)
+        {
+            return new SuccessResult("Webhook already processed");
+        }
+
         var order = await _orderDal.GetByOrderNumberAsync(request.PaymentConversationId);
         if (order == null)
              return new ErrorResult(
@@ -649,6 +661,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         await _unitOfWork.BeginTransactionAsync();
         try
         {
+            await _paymentWebhookEventDal.AddAsync(CreateWebhookEventRecord(request, dedupeKey));
+
             if (order.Payment == null)
             {
                  await _unitOfWork.RollbackTransactionAsync();
@@ -799,14 +813,43 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         return $"{_settings.SecretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
     }
 
+    private string BuildWebhookDedupeKey(IyzicoWebhookRequest request)
+    {
+        var canonicalPayload = string.Join('|',
+            request.IyziEventType?.Trim() ?? string.Empty,
+            request.IyziReferenceCode?.Trim() ?? string.Empty,
+            request.IyziPaymentId?.Trim() ?? string.Empty,
+            request.PaymentId?.Trim() ?? string.Empty,
+            request.PaymentConversationId?.Trim() ?? string.Empty,
+            request.Status?.Trim() ?? string.Empty,
+            request.IyziEventTime?.Trim() ?? string.Empty);
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPayload));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static PaymentWebhookEvent CreateWebhookEventRecord(IyzicoWebhookRequest request, string dedupeKey)
+    {
+        return new PaymentWebhookEvent
+        {
+            Provider = PaymentProviderType.Iyzico,
+            DedupeKey = dedupeKey,
+            EventType = request.IyziEventType?.Trim() ?? "UNKNOWN",
+            ProviderEventId = request.IyziReferenceCode?.Trim(),
+            PaymentId = request.IyziPaymentId?.Trim() ?? request.PaymentId?.Trim(),
+            PaymentConversationId = request.PaymentConversationId?.Trim(),
+            Status = request.Status?.Trim(),
+            EventTime = request.IyziEventTime?.Trim()
+        };
+    }
+
     /// <summary>
     /// HMAC-SHA256 hesaplayıp HEX olarak döndür
     /// </summary>
     private string ComputeHmacSha256Hex(string data)
     {
-        using var hmac = new System.Security.Cryptography.HMACSHA256(
-            System.Text.Encoding.UTF8.GetBytes(_settings.SecretKey));
-        var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_settings.SecretKey));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
         return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
     }
 

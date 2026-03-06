@@ -78,6 +78,7 @@ public class AppDbContext : DbContext
     public DbSet<GiftCardTransaction> GiftCardTransactions => Set<GiftCardTransaction>();
     public DbSet<ReferralCode> ReferralCodes => Set<ReferralCode>();
     public DbSet<ReferralTransaction> ReferralTransactions => Set<ReferralTransaction>();
+    public DbSet<PaymentWebhookEvent> PaymentWebhookEvents => Set<PaymentWebhookEvent>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -120,6 +121,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new GiftCardTransactionConfiguration());
         modelBuilder.ApplyConfiguration(new ReferralCodeConfiguration());
         modelBuilder.ApplyConfiguration(new ReferralTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new PaymentWebhookEventConfiguration());
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();

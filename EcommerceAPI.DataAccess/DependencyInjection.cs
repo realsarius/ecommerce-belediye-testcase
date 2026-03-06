@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IGiftCardTransactionDal, EfGiftCardTransactionDal>();
         services.AddScoped<IReferralCodeDal, EfReferralCodeDal>();
         services.AddScoped<IReferralTransactionDal, EfReferralTransactionDal>();
+        services.AddScoped<IPaymentWebhookEventDal, EfPaymentWebhookEventDal>();
         services.AddScoped<IOutboxService, OutboxService>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
