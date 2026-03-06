@@ -124,10 +124,17 @@ export const ProductList = ({
   const firstProductSegment = allProducts.slice(0, 8);
   const secondProductSegment = allProducts.slice(8, 16);
   const remainingProductSegment = allProducts.slice(16);
+  const productIdsInFeed = new Set(allProducts.map((product) => product.id));
 
-  const personalizedItems = (personalizedRecommendations ?? []).slice(0, 6);
+  const personalizedItems = (personalizedRecommendations ?? [])
+    .filter((item) => !productIdsInFeed.has(item.id))
+    .slice(0, 6);
+  const personalizedIds = new Set(personalizedItems.map((item) => item.id));
+
   const topWishlistedItems = (topWishlistedData?.items ?? [])
     .filter((item) => item.wishlistCount > 0)
+    .filter((item) => !productIdsInFeed.has(item.id))
+    .filter((item) => !personalizedIds.has(item.id))
     .slice(0, 8);
 
   const shouldRenderPersonalizedRail = hasDiscoveryFeedContext

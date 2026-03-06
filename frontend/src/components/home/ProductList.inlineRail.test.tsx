@@ -305,4 +305,32 @@ describe('ProductList inline rail akışı', () => {
     expect(screen.queryByText('Senin İçin Öneriler')).not.toBeInTheDocument();
     expect(screen.queryByText('En Çok Favorilenenler')).not.toBeInTheDocument();
   });
+
+  it('ana feedde zaten olan ürünleri rail listelerinden düşer', () => {
+    mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
+      data: [createProduct(1, 'Feed İçindeki Öneri')],
+    });
+    mockProductsApi.useSearchProductsQuery.mockReturnValue({
+      data: { items: [createProduct(2, 'Feed İçindeki Favori', 33)] },
+    });
+
+    renderProductList();
+
+    expect(screen.queryByText('Senin İçin Öneriler')).not.toBeInTheDocument();
+    expect(screen.queryByText('En Çok Favorilenenler')).not.toBeInTheDocument();
+  });
+
+  it('top wishlisted railde personalized ile çakışan ürünleri tekrar göstermez', () => {
+    mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
+      data: [createProduct(101, 'Tekrar Eden Ürün')],
+    });
+    mockProductsApi.useSearchProductsQuery.mockReturnValue({
+      data: { items: [createProduct(101, 'Tekrar Eden Ürün', 87)] },
+    });
+
+    renderProductList();
+
+    expect(screen.getByText('Senin İçin Öneriler')).toBeInTheDocument();
+    expect(screen.queryByText('En Çok Favorilenenler')).not.toBeInTheDocument();
+  });
 });
