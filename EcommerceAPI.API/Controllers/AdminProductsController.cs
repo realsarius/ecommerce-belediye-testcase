@@ -2,6 +2,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 
 namespace EcommerceAPI.API.Controllers;
@@ -13,13 +14,19 @@ public class AdminProductsController : ControllerBase
 {
     private readonly IProductService _productService;
     private readonly ISellerProfileService _sellerProfileService;
+    private readonly IPlatformSellerService _platformSellerService;
+    private readonly IConfiguration _configuration;
 
     public AdminProductsController(
         IProductService productService,
-        ISellerProfileService sellerProfileService)
+        ISellerProfileService sellerProfileService,
+        IPlatformSellerService platformSellerService,
+        IConfiguration configuration)
     {
         _productService = productService;
         _sellerProfileService = sellerProfileService;
+        _platformSellerService = platformSellerService;
+        _configuration = configuration;
     }
 
     private (int? UserId, string? Role) GetCurrentUser()
@@ -58,14 +65,47 @@ public class AdminProductsController : ControllerBase
     {
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
-        
+        var isAdminSellerPickerEnabled = IsAdminSellerPickerEnabled();
+        var isPlatformAutoAssignmentEnabled = IsAdminPlatformSellerAutoAssignmentEnabled();
+
         if (role == "Seller" && userId.HasValue)
         {
             var profileResult = await _sellerProfileService.GetByUserIdAsync(userId.Value);
             if (!profileResult.Success || profileResult.Data == null)
                 return BadRequest(new { message = "Önce satıcı profilinizi oluşturmanız gerekiyor" });
-                
+
             sellerId = profileResult.Data.Id;
+        }
+        else if (role == "Admin")
+        {
+            if (!isAdminSellerPickerEnabled && request.SellerId.HasValue)
+            {
+                return BadRequest(new { message = "Satıcı seçimi özelliği şu anda kapalı" });
+            }
+
+            if (isAdminSellerPickerEnabled && request.SellerId.HasValue)
+            {
+                var sellerResult = await _sellerProfileService.GetByIdAsync(request.SellerId.Value);
+                if (!sellerResult.Success || sellerResult.Data == null)
+                {
+                    return BadRequest(new { message = "Seçilen satıcı profili bulunamadı" });
+                }
+
+                sellerId = sellerResult.Data.Id;
+            }
+            else if (isPlatformAutoAssignmentEnabled)
+            {
+                var platformSellerResult = await _platformSellerService.GetOrCreatePlatformSellerIdAsync();
+                if (!platformSellerResult.Success)
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = platformSellerResult.Message });
+
+                sellerId = platformSellerResult.Data;
+            }
+
+            if (!sellerId.HasValue)
+            {
+                return BadRequest(new { message = "Satıcı ataması zorunlu. Platform atamasını açın veya satıcı seçin" });
+            }
         }
         
         var result = await _productService.CreateProductAsync(request, sellerId);
@@ -162,5 +202,25 @@ public class AdminProductsController : ControllerBase
             return Ok(result);
         }
         return BadRequest(result);
+    }
+
+    private bool IsAdminPlatformSellerAutoAssignmentEnabled()
+    {
+        if (bool.TryParse(Environment.GetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED"), out var envEnabled))
+        {
+            return envEnabled;
+        }
+
+        return _configuration.GetValue("PlatformSeller:EnableAdminAutoAssignment", true);
+    }
+
+    private bool IsAdminSellerPickerEnabled()
+    {
+        if (bool.TryParse(Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER"), out var envEnabled))
+        {
+            return envEnabled;
+        }
+
+        return _configuration.GetValue("FrontendFeatures:EnableAdminProductSellerPicker", false);
     }
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
@@ -79,6 +80,171 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
             HttpStatusCode.BadRequest,
             HttpStatusCode.InternalServerError
         );
+    }
+
+    [Fact]
+    public async Task CreateProduct_AsAdmin_ShouldAssignPlatformSeller()
+    {
+        const int adminUserId = 901;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+        var categoryId = await GetExistingCategoryIdAsync();
+        var createRequest = new CreateProductRequest
+        {
+            Name = $"Platform Seller Product {Guid.NewGuid():N}",
+            Description = "Admin tarafindan eklenen urun",
+            Price = 249.99m,
+            CategoryId = categoryId,
+            SKU = $"PLT-{Guid.NewGuid():N}"[..12],
+            InitialStock = 5
+        };
+
+        var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.Id.Should().BeGreaterThan(0);
+        apiResult.Data.SellerId.Should().NotBeNull();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var createdProduct = await db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product => product.Id == apiResult.Data.Id);
+
+        createdProduct.Should().NotBeNull();
+        createdProduct!.SellerId.Should().NotBeNull();
+
+        var sellerProfile = await db.SellerProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(profile => profile.Id == createdProduct.SellerId);
+
+        sellerProfile.Should().NotBeNull();
+        sellerProfile!.IsVerified.Should().BeTrue();
+        sellerProfile.IsPlatformAccount.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateProduct_AsAdmin_WhenSellerPickerEnabledAndSellerProvided_ShouldAssignSelectedSeller()
+    {
+        const int adminUserId = 916;
+        const int sellerUserId = 917;
+        await EnsureAdminUserAsync(adminUserId);
+        var selectedSellerProfileId = await EnsureSellerUserAndGetProfileIdAsync(sellerUserId);
+
+        var previousPickerFlag = Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER");
+        Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", "true");
+
+        try
+        {
+            var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+            var categoryId = await GetExistingCategoryIdAsync();
+            var createRequest = new CreateProductRequest
+            {
+                SellerId = selectedSellerProfileId,
+                Name = $"Selected Seller Product {Guid.NewGuid():N}",
+                Description = "Admin selected seller test",
+                Price = 349.99m,
+                CategoryId = categoryId,
+                SKU = $"SEL-{Guid.NewGuid():N}"[..12],
+                InitialStock = 6
+            };
+
+            var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+            apiResult.Should().NotBeNull();
+            apiResult!.Success.Should().BeTrue();
+            apiResult.Data.Id.Should().BeGreaterThan(0);
+            apiResult.Data.SellerId.Should().Be(selectedSellerProfileId);
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var createdProduct = await db.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(product => product.Id == apiResult.Data.Id);
+
+            createdProduct.Should().NotBeNull();
+            createdProduct!.SellerId.Should().Be(selectedSellerProfileId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", previousPickerFlag);
+        }
+    }
+
+    [Fact]
+    public async Task CreateProduct_AsAdmin_WhenSellerPickerDisabledAndSellerProvided_ShouldReturnBadRequest()
+    {
+        const int adminUserId = 918;
+        const int sellerUserId = 919;
+        await EnsureAdminUserAsync(adminUserId);
+        var selectedSellerProfileId = await EnsureSellerUserAndGetProfileIdAsync(sellerUserId);
+
+        var previousPickerFlag = Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER");
+        Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", "false");
+
+        try
+        {
+            var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+            var categoryId = await GetExistingCategoryIdAsync();
+            var createRequest = new CreateProductRequest
+            {
+                SellerId = selectedSellerProfileId,
+                Name = $"Rejected Seller Product {Guid.NewGuid():N}",
+                Description = "Seller picker disabled test",
+                Price = 229.99m,
+                CategoryId = categoryId,
+                SKU = $"RJT-{Guid.NewGuid():N}"[..12],
+                InitialStock = 2
+            };
+
+            var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", previousPickerFlag);
+        }
+    }
+
+    [Fact]
+    public async Task CreateProduct_AsAdmin_WhenPlatformAutoAssignmentDisabledAndNoSellerProvided_ShouldReturnBadRequest()
+    {
+        const int adminUserId = 920;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var previousPickerFlag = Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER");
+        var previousAutoAssignFlag = Environment.GetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED");
+        Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", "false");
+        Environment.SetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED", "false");
+
+        try
+        {
+            var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+            var categoryId = await GetExistingCategoryIdAsync();
+            var createRequest = new CreateProductRequest
+            {
+                Name = $"Rejected No Seller Product {Guid.NewGuid():N}",
+                Description = "Platform assignment disabled and no seller selected",
+                Price = 229.99m,
+                CategoryId = categoryId,
+                SKU = $"NSL-{Guid.NewGuid():N}"[..12],
+                InitialStock = 2
+            };
+
+            var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", previousPickerFlag);
+            Environment.SetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED", previousAutoAssignFlag);
+        }
     }
 
     [Fact]
@@ -165,6 +331,110 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task UpdateProduct_AsDifferentSeller_ForPlatformProduct_ShouldReturnBadRequestAndKeepData()
+    {
+        const int adminUserId = 910;
+        const int sellerUserId = 911;
+
+        await EnsureAdminUserAsync(adminUserId);
+        await EnsureSellerUserAsync(sellerUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+        var originalName = createdProduct.Name;
+
+        var sellerClient = _factory.CreateClient().AsSeller(sellerUserId);
+        var categoryId = await GetExistingCategoryIdAsync();
+        var updateRequest = new UpdateProductRequest
+        {
+            Name = $"Unauthorized Update {Guid.NewGuid():N}",
+            Description = "Should be blocked",
+            Price = 1.99m,
+            CategoryId = categoryId,
+            SKU = $"BLK-{Guid.NewGuid():N}"[..12],
+            IsActive = true
+        };
+
+        var response = await sellerClient.PutAsJsonAsync($"/api/v1/admin/products/{createdProduct.Id}", updateRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product => product.Id == createdProduct.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.Name.Should().Be(originalName);
+    }
+
+    [Fact]
+    public async Task DeleteProduct_AsDifferentSeller_ForPlatformProduct_ShouldReturnBadRequestAndKeepProduct()
+    {
+        const int adminUserId = 912;
+        const int sellerUserId = 913;
+
+        await EnsureAdminUserAsync(adminUserId);
+        await EnsureSellerUserAsync(sellerUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+
+        var sellerClient = _factory.CreateClient().AsSeller(sellerUserId);
+        var response = await sellerClient.DeleteAsync($"/api/v1/admin/products/{createdProduct.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product => product.Id == createdProduct.Id);
+
+        persisted.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetProduct_AsPlatformSeller_ShouldAccessAdminCreatedPlatformProduct()
+    {
+        const int adminUserId = 914;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+        var platformUserId = await GetPlatformSellerUserIdAsync();
+
+        var platformSellerClient = _factory.CreateClient().AsSeller(platformUserId);
+        var response = await platformSellerClient.GetAsync($"/api/v1/seller/products/{createdProduct.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        content.Should().NotBeNull();
+        content!.Success.Should().BeTrue();
+        content.Data.Should().NotBeNull();
+        content.Data!.Id.Should().Be(createdProduct.Id);
+        content.Data.SellerId.Should().Be(createdProduct.SellerId);
+    }
+
+    [Fact]
+    public async Task GetAdminSellerDetail_ForPlatformSeller_ShouldContainAdminCreatedProductAndCounts()
+    {
+        const int adminUserId = 915;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+        var platformSellerId = await GetPlatformSellerProfileIdAsync();
+
+        var adminClient = _factory.CreateClient().AsAdmin(adminUserId);
+        var response = await adminClient.GetAsync($"/api/v1/admin/sellers/{platformSellerId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ApiResult<AdminSellerDetailDto>>();
+        content.Should().NotBeNull();
+        content!.Success.Should().BeTrue();
+        content.Data.Should().NotBeNull();
+        content.Data.Id.Should().Be(platformSellerId);
+        content.Data.ProductCount.Should().BeGreaterThan(0);
+        content.Data.Products.Should().Contain(product => product.ProductId == createdProduct.Id);
+    }
+
     private async Task<int> GetExistingCategoryIdAsync()
     {
         using var scope = _factory.Services.CreateScope();
@@ -173,5 +443,82 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         return categoryId != 0
             ? categoryId
             : throw new InvalidOperationException("No categories found for integration tests.");
+    }
+
+    private async Task EnsureAdminUserAsync(int userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await TestDataSeeder.EnsureUserAsync(db, userId, "Admin");
+    }
+
+    private async Task EnsureSellerUserAsync(int userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await TestDataSeeder.EnsureSellerProfileAsync(db, userId, $"seller-{userId}-{Guid.NewGuid():N}");
+    }
+
+    private async Task<int> EnsureSellerUserAndGetProfileIdAsync(int userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var profile = await TestDataSeeder.EnsureSellerProfileAsync(db, userId, $"seller-{userId}-{Guid.NewGuid():N}");
+        return profile.Id;
+    }
+
+    private async Task<ProductDto> CreatePlatformProductAsAdminAsync(int adminUserId)
+    {
+        var adminClient = _factory.CreateClient().AsAdmin(adminUserId);
+        var categoryId = await GetExistingCategoryIdAsync();
+        var createRequest = new CreateProductRequest
+        {
+            Name = $"Platform Product {Guid.NewGuid():N}",
+            Description = "Platform product for authorization test",
+            Price = 199.99m,
+            CategoryId = categoryId,
+            SKU = $"PLT-{Guid.NewGuid():N}"[..12],
+            InitialStock = 7
+        };
+
+        var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.Should().NotBeNull();
+        apiResult.Data.SellerId.Should().NotBeNull();
+
+        return apiResult.Data;
+    }
+
+    private async Task<int> GetPlatformSellerUserIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var platformSellerService = scope.ServiceProvider.GetRequiredService<IPlatformSellerService>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var platformSellerResult = await platformSellerService.GetOrCreatePlatformSellerIdAsync();
+        platformSellerResult.Success.Should().BeTrue(platformSellerResult.Message);
+        platformSellerResult.Data.Should().BeGreaterThan(0);
+
+        var sellerProfile = await db.SellerProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(profile => profile.Id == platformSellerResult.Data);
+
+        sellerProfile.Should().NotBeNull();
+        return sellerProfile!.UserId;
+    }
+
+    private async Task<int> GetPlatformSellerProfileIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var platformSellerService = scope.ServiceProvider.GetRequiredService<IPlatformSellerService>();
+
+        var platformSellerResult = await platformSellerService.GetOrCreatePlatformSellerIdAsync();
+        platformSellerResult.Success.Should().BeTrue(platformSellerResult.Message);
+        platformSellerResult.Data.Should().BeGreaterThan(0);
+        return platformSellerResult.Data;
     }
 }

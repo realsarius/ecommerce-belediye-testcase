@@ -7,6 +7,7 @@ public class AdminSellerListItemDto : IDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public string BrandName { get; set; } = string.Empty;
+    public bool IsPlatformAccount { get; set; }
     public string SellerFirstName { get; set; } = string.Empty;
     public string SellerLastName { get; set; } = string.Empty;
     public string OwnerEmail { get; set; } = string.Empty;
@@ -39,6 +40,7 @@ public class AdminSellerDetailDto : IDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public string BrandName { get; set; } = string.Empty;
+    public bool IsPlatformAccount { get; set; }
     public string? BrandDescription { get; set; }
     public string? LogoUrl { get; set; }
     public string? BannerImageUrl { get; set; }

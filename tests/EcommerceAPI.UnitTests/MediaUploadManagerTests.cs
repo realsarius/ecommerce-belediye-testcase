@@ -26,6 +26,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.GetPresignedUploadUrlAsync(1, false, new PresignMediaUploadRequest
@@ -56,6 +57,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
@@ -93,6 +95,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
@@ -145,6 +148,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
@@ -208,6 +212,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.DeleteProductImageAsync(userId: 2, isAdmin: false, imageId: 55);
@@ -271,6 +276,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ReorderProductImagesAsync(userId: 2, isAdmin: false, productId: 99, new ReorderProductImagesRequest
@@ -341,6 +347,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ReorderProductImagesAsync(userId: 2, isAdmin: false, productId: 99, new ReorderProductImagesRequest
@@ -417,6 +424,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.DeleteProductImageAsync(userId: 2, isAdmin: false, imageId: 55);
@@ -428,5 +436,103 @@ public class MediaUploadManagerTests
         product.Images.Single().SortOrder.Should().Be(0);
         objectStorageMock.Verify(service => service.DeleteAsync("products/seller-10/product-99/a.webp", It.IsAny<CancellationToken>()), Times.Once);
         unitOfWorkMock.Verify(unit => unit.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPresignedUploadUrlAsync_WhenProductSellerIsMissing_ShouldReturnError()
+    {
+        var product = new Product
+        {
+            Id = 99,
+            Name = "Test Product",
+            Description = "Desc",
+            SKU = "SKU-1",
+            CategoryId = 1,
+            SellerId = null
+        };
+
+        var objectStorageMock = new Mock<IObjectStorageService>();
+        var productDalMock = new Mock<IProductDal>();
+        productDalMock
+            .Setup(dal => dal.GetByIdWithDetailsAsync(99))
+            .ReturnsAsync(product);
+
+        var categoryDalMock = new Mock<ICategoryDal>();
+        var sellerProfileDalMock = new Mock<ISellerProfileDal>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<MediaUploadManager>>();
+
+        var manager = new MediaUploadManager(
+            objectStorageMock.Object,
+            productDalMock.Object,
+            categoryDalMock.Object,
+            sellerProfileDalMock.Object,
+            unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
+            loggerMock.Object);
+
+        var result = await manager.GetPresignedUploadUrlAsync(1, true, new PresignMediaUploadRequest
+        {
+            Context = "product",
+            ReferenceId = 99,
+            ContentType = "image/webp",
+            FileSizeBytes = 1024
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Ürün satıcı bilgisi eksik olduğu için yükleme başlatılamadı");
+        objectStorageMock.Verify(service => service.GeneratePresignedUploadUrlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ConfirmUploadAsync_WhenProductSellerIsMissing_ShouldReturnError()
+    {
+        var product = new Product
+        {
+            Id = 99,
+            Name = "Test Product",
+            Description = "Desc",
+            SKU = "SKU-1",
+            CategoryId = 1,
+            SellerId = null
+        };
+
+        var objectStorageMock = new Mock<IObjectStorageService>();
+        objectStorageMock
+            .Setup(service => service.ExistsAsync("products/seller-0/product-99/test.webp", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        objectStorageMock
+            .Setup(service => service.GetObjectHeaderBytesAsync("products/seller-0/product-99/test.webp", 32, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]);
+
+        var productDalMock = new Mock<IProductDal>();
+        productDalMock
+            .Setup(dal => dal.GetByIdForUpdateAsync(99))
+            .ReturnsAsync(product);
+
+        var categoryDalMock = new Mock<ICategoryDal>();
+        var sellerProfileDalMock = new Mock<ISellerProfileDal>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<MediaUploadManager>>();
+
+        var manager = new MediaUploadManager(
+            objectStorageMock.Object,
+            productDalMock.Object,
+            categoryDalMock.Object,
+            sellerProfileDalMock.Object,
+            unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
+            loggerMock.Object);
+
+        var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
+        {
+            Context = "product",
+            ReferenceId = 99,
+            ObjectKey = "products/seller-0/product-99/test.webp"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Ürün satıcı bilgisi eksik olduğu için görsel kaydı yapılamadı");
+        unitOfWorkMock.Verify(unit => unit.SaveChangesAsync(), Times.Never);
     }
 }

@@ -22,6 +22,9 @@ public interface IProductDal : IEntityRepository<Product>
         decimal? maxPrice = null, string? search = null, string? sortBy = null, bool sortDescending = false);
     Task<List<Product>> GetAllActiveWithDetailsAsync();
     Task<IReadOnlyList<string>> GetAllImageObjectKeysAsync();
+    Task<IReadOnlyList<int>> GetProductIdsWithoutSellerAsync();
+    Task<int> CountProductsWithoutSellerAsync();
+    Task<int> BackfillMissingSellerIdsAsync(int sellerId, DateTime updatedAtUtc);
     Task<(int ActiveProducts, int ActiveSellers, string Currency)> GetAdminDashboardProductSummaryAsync();
     Task<IReadOnlyList<AdminDashboardLowStockItemDto>> GetAdminDashboardLowStockAsync(int threshold, int limit = 5);
 }

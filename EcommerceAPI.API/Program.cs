@@ -38,6 +38,7 @@ using OpenTelemetry.Metrics;
 using System.Diagnostics;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -512,6 +513,33 @@ using (var scope = app.Services.CreateScope())
             var seeder = new SeedRunner(context, logger, seedPath, hashingService, encryptionService);
             await seeder.RunAsync(seed: true);
         }
+
+        if (!app.Environment.IsEnvironment("Test"))
+        {
+            var backfillService = services.GetRequiredService<IPlatformProductBackfillService>();
+            var logger = services.GetRequiredService<ILogger<Program>>();
+
+            if (IsPlatformBackfillSnapshotEnabled(builder.Configuration))
+            {
+                var snapshotProductIds = await backfillService.GetProductIdsWithoutSellerSnapshotAsync();
+                if (snapshotProductIds.Count > 0)
+                {
+                    var snapshotPath = ResolvePlatformBackfillSnapshotPath(
+                        builder.Configuration,
+                        builder.Environment.ContentRootPath);
+
+                    await WritePlatformBackfillSnapshotAsync(snapshotPath, snapshotProductIds, logger);
+                }
+            }
+
+            var backfillResult = await backfillService.BackfillMissingSellerIdsAsync();
+            if (!backfillResult.Success)
+            {
+                logger.LogWarning(
+                    "Platform product backfill tamamlanamadi. Message={Message}",
+                    backfillResult.Message);
+            }
+        }
     }
     catch (Exception ex)
     {
@@ -714,6 +742,64 @@ static bool IsElasticsearchRequest(Uri? uri)
     }
 
     return uri.Port == 9200;
+}
+
+static bool IsPlatformBackfillSnapshotEnabled(IConfiguration configuration)
+{
+    var envValue = Environment.GetEnvironmentVariable("PLATFORM_PRODUCT_BACKFILL_SNAPSHOT_ENABLED");
+    if (bool.TryParse(envValue, out var envEnabled))
+    {
+        return envEnabled;
+    }
+
+    return configuration.GetValue("PlatformSeller:BackfillSnapshotEnabled", true);
+}
+
+static string ResolvePlatformBackfillSnapshotPath(IConfiguration configuration, string contentRootPath)
+{
+    var explicitPath = Environment.GetEnvironmentVariable("PLATFORM_PRODUCT_BACKFILL_SNAPSHOT_PATH")
+                       ?? configuration["PlatformSeller:BackfillSnapshotPath"];
+
+    if (!string.IsNullOrWhiteSpace(explicitPath))
+    {
+        return Path.IsPathRooted(explicitPath)
+            ? explicitPath
+            : Path.GetFullPath(Path.Combine(contentRootPath, explicitPath));
+    }
+
+    var fileName = $"platform-backfill-null-seller-products-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
+    return Path.Combine(contentRootPath, "logs", "platform-backfill", fileName);
+}
+
+static async Task WritePlatformBackfillSnapshotAsync(
+    string snapshotPath,
+    IReadOnlyList<int> productIds,
+    Microsoft.Extensions.Logging.ILogger logger)
+{
+    var snapshotDirectory = Path.GetDirectoryName(snapshotPath);
+    if (!string.IsNullOrWhiteSpace(snapshotDirectory))
+    {
+        Directory.CreateDirectory(snapshotDirectory);
+    }
+
+    var payload = new
+    {
+        GeneratedAtUtc = DateTime.UtcNow,
+        ProductCount = productIds.Count,
+        ProductIds = productIds
+    };
+
+    var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+    {
+        WriteIndented = true
+    });
+
+    await File.WriteAllTextAsync(snapshotPath, json);
+
+    logger.LogInformation(
+        "Platform backfill snapshot yazildi. Path={SnapshotPath}, ProductCount={ProductCount}",
+        snapshotPath,
+        productIds.Count);
 }
 
 static void ConfigureRedisRateLimiterPolicies(Microsoft.AspNetCore.RateLimiting.RateLimiterOptions options, IConnectionMultiplexer redisMultiplexer)

@@ -300,6 +300,17 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                         sellerId = new { type = "integer" },
                         sellerBrandName = new { type = "keyword" },
                         wishlistCount = new { type = "integer" },
+                        primaryImageUrl = new { type = "keyword", ignore_above = 2048 },
+                        images = new
+                        {
+                            type = "nested",
+                            properties = new
+                            {
+                                imageUrl = new { type = "keyword", ignore_above = 2048 },
+                                sortOrder = new { type = "integer" },
+                                isPrimary = new { type = "boolean" }
+                            }
+                        },
                         createdAt = new { type = "date" }
                     }
                 }
@@ -325,11 +336,13 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             await EnsureSearchFieldMappingsAsync(cancellationToken);
             await EnsureSuggestionMappingAsync(cancellationToken);
             await EnsureWishlistCountMappingAsync(cancellationToken);
+            await EnsureMediaFieldMappingsAsync(cancellationToken);
         }
 
 
         await BackfillIfEmptyAsync(cancellationToken);
         await BackfillWishlistCountDocumentsAsync(cancellationToken);
+        await BackfillProductMediaDocumentsAsync(cancellationToken);
 
         Interlocked.Exchange(ref _indexInitialized, 1);
     }
@@ -438,6 +451,37 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
         }
     }
 
+    private async Task EnsureMediaFieldMappingsAsync(CancellationToken cancellationToken)
+    {
+        var mappingPayload = new
+        {
+            properties = new
+            {
+                primaryImageUrl = new { type = "keyword", ignore_above = 2048 },
+                images = new
+                {
+                    type = "nested",
+                    properties = new
+                    {
+                        imageUrl = new { type = "keyword", ignore_above = 2048 },
+                        sortOrder = new { type = "integer" },
+                        isPrimary = new { type = "boolean" }
+                    }
+                }
+            }
+        };
+
+        var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_mapping", mappingPayload, JsonOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Elasticsearch media mapping update failed. Status: {Status}, Body: {Body}",
+                response.StatusCode,
+                body);
+        }
+    }
+
     private async Task BackfillWishlistCountDocumentsAsync(CancellationToken cancellationToken)
     {
         var productsWithWishlistSignal = (await _productDal.GetAllActiveWithDetailsAsync())
@@ -454,6 +498,29 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
                 _logger.LogWarning(
                     "Wishlist count backfill failed for product {ProductId}. Status: {Status}, Body: {Body}",
+                    product.Id,
+                    response.StatusCode,
+                    body);
+            }
+        }
+    }
+
+    private async Task BackfillProductMediaDocumentsAsync(CancellationToken cancellationToken)
+    {
+        var productsWithMedia = (await _productDal.GetAllActiveWithDetailsAsync())
+            .Where(product => product.Images.Any())
+            .ToList();
+
+        foreach (var product in productsWithMedia)
+        {
+            var doc = MapToDocument(product);
+            var response = await _httpClient.PutAsJsonAsync($"/{IndexName}/_doc/{product.Id}", doc, JsonOptions, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "Product media backfill failed for product {ProductId}. Status: {Status}, Body: {Body}",
                     product.Id,
                     response.StatusCode,
                     body);
@@ -1082,6 +1149,17 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
     private static ElasticProductDocument MapToDocument(Product product)
     {
+        var orderedImages = product.Images
+            .OrderByDescending(image => image.IsPrimary)
+            .ThenBy(image => image.SortOrder)
+            .Select(image => new ElasticProductImageDocument
+            {
+                ImageUrl = image.ImageUrl,
+                SortOrder = image.SortOrder,
+                IsPrimary = image.IsPrimary
+            })
+            .ToList();
+
         return new ElasticProductDocument
         {
             Id = product.Id,
@@ -1097,6 +1175,8 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             SellerId = product.SellerId,
             SellerBrandName = product.Seller?.BrandName,
             WishlistCount = product.WishlistCount,
+            PrimaryImageUrl = orderedImages.FirstOrDefault()?.ImageUrl,
+            Images = orderedImages,
             CreatedAt = product.CreatedAt,
             NameSuggest = new ElasticCompletionField { Input = BuildSuggestionInputs(product) },
         };
@@ -1146,7 +1226,18 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
             StockQuantity = doc.StockQuantity,
             SellerId = doc.SellerId,
             SellerBrandName = doc.SellerBrandName,
-            WishlistCount = doc.WishlistCount
+            WishlistCount = doc.WishlistCount,
+            PrimaryImageUrl = doc.PrimaryImageUrl,
+            Images = doc.Images
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.SortOrder)
+                .Select(image => new ProductImageDto
+                {
+                    ImageUrl = image.ImageUrl,
+                    SortOrder = image.SortOrder,
+                    IsPrimary = image.IsPrimary
+                })
+                .ToList()
         };
     }
 
@@ -1250,5 +1341,23 @@ public class ElasticProductSearchIndexService : IProductSearchIndexService
 
         [JsonPropertyName("wishlistCount")]
         public int WishlistCount { get; set; }
+
+        [JsonPropertyName("primaryImageUrl")]
+        public string? PrimaryImageUrl { get; set; }
+
+        [JsonPropertyName("images")]
+        public List<ElasticProductImageDocument> Images { get; set; } = new();
+    }
+
+    private sealed class ElasticProductImageDocument
+    {
+        [JsonPropertyName("imageUrl")]
+        public string ImageUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("sortOrder")]
+        public int SortOrder { get; set; }
+
+        [JsonPropertyName("isPrimary")]
+        public bool IsPrimary { get; set; }
     }
 }

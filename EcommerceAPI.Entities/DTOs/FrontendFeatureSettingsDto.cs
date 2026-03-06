@@ -8,4 +8,6 @@ public class FrontendFeatureSettingsDto : IDto
     public bool EnableCheckoutInvoiceInfo { get; set; }
     public bool EnableShipmentTimeline { get; set; }
     public bool EnableReturnAttachments { get; set; }
+    public bool EnableAdminProductImageUploader { get; set; }
+    public bool EnableAdminProductSellerPicker { get; set; }
 }

@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useGetProductQuery, useCreateProductMutation, useUpdateProductMutation } from '@/features/products/productsApi';
-import { useGetCategoriesQuery } from '@/features/admin/adminApi';
+import { useGetAdminSellersQuery, useGetCategoriesQuery } from '@/features/admin/adminApi';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
@@ -18,11 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/select';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Store } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProductImageUploader } from '@/components/media/ProductImageUploader';
 
+const imageSchema = z.object({
+  id: z.number().optional(),
+  imageUrl: z.string().url('Geçerli bir görsel URL girin'),
+  objectKey: z.string().max(1024, 'Object key çok uzun').optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isPrimary: z.boolean().default(false),
+});
 
 const productSchema = z.object({
+  sellerId: z.string().default('platform'),
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
   description: z.string().max(2000, 'Açıklama çok uzun').optional().or(z.literal('')),
   sku: z
@@ -44,10 +54,28 @@ const productSchema = z.object({
     .refine((val) => !isNaN(val) && val >= 0, { message: 'Stok negatif olamaz' })
     .default(0),
   isActive: z.boolean().default(true),
+  images: z.array(imageSchema).max(8, 'En fazla 8 görsel ekleyebilirsiniz').default([]),
 });
 
 type ProductFormInput = z.input<typeof productSchema>;
 type ProductFormData = z.output<typeof productSchema>;
+
+function normalizeImagesForRequest(images: ProductFormData['images']) {
+  const sanitized = (images || [])
+    .filter((image) => image.imageUrl?.trim())
+    .map((image, index) => ({
+      imageUrl: image.imageUrl.trim(),
+      objectKey: image.objectKey?.trim() ? image.objectKey.trim() : undefined,
+      isPrimary: !!image.isPrimary,
+      sortOrder: index,
+    }));
+
+  if (sanitized.length > 0 && sanitized.every((image) => !image.isPrimary)) {
+    sanitized[0].isPrimary = true;
+  }
+
+  return sanitized;
+}
 
 export default function ProductForm() {
   const { id } = useParams<{ id: string }>();
@@ -59,18 +87,29 @@ export default function ProductForm() {
     skip: !isEdit,
   });
   const { data: categories } = useGetCategoriesQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
+  const isAdminProductSellerPickerEnabled = frontendFeatures?.enableAdminProductSellerPicker ?? false;
+  const shouldLoadSellerPicker = isAdminProductSellerPickerEnabled && !isEdit;
+  const { data: adminSellers = [] } = useGetAdminSellersQuery(
+    shouldLoadSellerPicker ? { status: 'active' } : undefined,
+    { skip: !shouldLoadSellerPicker },
+  );
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+  const isAdminProductImageUploaderEnabled = frontendFeatures?.enableAdminProductImageUploader ?? true;
+  const assignableSellers = adminSellers.filter((seller) => !seller.isPlatformAccount);
 
   const {
     register,
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormInput, unknown, ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
+      sellerId: 'platform',
       name: '',
       description: '',
       sku: '',
@@ -79,8 +118,17 @@ export default function ProductForm() {
       categoryId: '',
       stockQuantity: 0,
       isActive: true,
+      images: [],
     },
   });
+  const watchedImages = useWatch({ control, name: 'images' }) || [];
+  const images = watchedImages.map((image, index) => ({
+    id: image.id,
+    imageUrl: image.imageUrl,
+    objectKey: image.objectKey,
+    sortOrder: image.sortOrder ?? index,
+    isPrimary: image.isPrimary ?? index === 0,
+  }));
 
   useEffect(() => {
     // Kategoriler ve ürün yüklendiğinde formu doldur
@@ -89,6 +137,7 @@ export default function ProductForm() {
       const rawCatId = product.categoryId ?? (typeof legacyCategoryId === 'number' ? legacyCategoryId : undefined);
 
       reset({
+        sellerId: product.sellerId ? product.sellerId.toString() : 'platform',
         name: product.name,
         description: product.description || '',
         sku: product.sku,
@@ -97,6 +146,13 @@ export default function ProductForm() {
         categoryId: rawCatId ? rawCatId.toString() : '',
         stockQuantity: product.stockQuantity,
         isActive: product.isActive,
+        images: (product.images || []).map((image) => ({
+          id: image.id,
+          imageUrl: image.imageUrl,
+          objectKey: image.objectKey,
+          sortOrder: image.sortOrder,
+          isPrimary: image.isPrimary,
+        })),
       });
     }
   }, [product, categories, isEdit, reset]);
@@ -113,11 +169,19 @@ export default function ProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           stockQuantity: data.stockQuantity,
           isActive: data.isActive,
+          images: normalizeImagesForRequest(data.images),
         };
         await updateProduct({ id: productId, data: updatePayload }).unwrap();
         toast.success('Ürün güncellendi.');
       } else {
+        const selectedSellerId = data.sellerId !== 'platform'
+          ? parseInt(data.sellerId, 10)
+          : undefined;
+
         const createPayload = {
+          sellerId: shouldLoadSellerPicker && selectedSellerId && selectedSellerId > 0
+            ? selectedSellerId
+            : undefined,
           name: data.name,
           description: data.description || '',
           sku: data.sku,
@@ -126,6 +190,7 @@ export default function ProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           initialStock: data.stockQuantity,
           isActive: data.isActive,
+          images: normalizeImagesForRequest(data.images),
         };
         await createProduct(createPayload).unwrap();
         toast.success('Ürün oluşturuldu.');
@@ -160,8 +225,19 @@ export default function ProductForm() {
       </h1>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <Store className="h-4 w-4 text-amber-600 mt-0.5" />
+                    <p className="text-sm text-amber-900 dark:text-amber-200">
+                      Bu panelden oluşturulan ürünler otomatik olarak Platform Seller hesabına atanır
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Temel Bilgiler</CardTitle>
@@ -292,6 +368,72 @@ export default function ProductForm() {
                     <p className="text-sm text-destructive">{errors.stockQuantity.message}</p>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+
+            {shouldLoadSellerPicker ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Satıcı Ataması</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Satıcı</Label>
+                    <Controller
+                      name="sellerId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || 'platform'}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Satıcı seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="platform">Platform Seller (varsayılan)</SelectItem>
+                            {assignableSellers.map((seller) => (
+                              <SelectItem key={seller.id} value={seller.id.toString()}>
+                                {seller.brandName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Satıcı seçmezseniz ürün Platform Seller hesabı altında oluşturulur
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Görseller</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isAdminProductImageUploaderEnabled ? (
+                  <>
+                    <ProductImageUploader
+                      productId={isEdit ? productId : undefined}
+                      canUpload={!!isEdit}
+                      images={images}
+                      onChange={(nextImages) => {
+                        setValue('images', nextImages, { shouldDirty: true, shouldValidate: true });
+                      }}
+                      maxFiles={8}
+                    />
+                    {errors.images && !Array.isArray(errors.images) && 'message' in errors.images ? (
+                      <p className="text-sm text-destructive">{errors.images.message as string}</p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Admin ürün görsel yükleme özelliği geçici olarak kapalı
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

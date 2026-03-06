@@ -55,6 +55,8 @@ public static class Messages
     public static string CurrentPasswordInvalid = "Mevcut şifreniz hatalı.";
     public static string PasswordResetLinkSent = "Şifre sıfırlama linki e-posta adresinize gönderildi.";
     public static string PasswordResetSuccess = "Şifreniz başarıyla güncellendi.";
+    public static string SystemAccountLoginNotAllowed = "Bu hesapla giriş yapılamaz.";
+    public static string ReservedSystemEmailNotAllowed = "Bu e-posta adresi kullanılamaz.";
 
     // Order
     public static string OrderNotFound = "Sipariş bulunamadı";

@@ -1,3 +1,4 @@
+using Amazon;
 using Amazon.S3;
 using Amazon.S3.Model;
 using EcommerceAPI.Core.Interfaces;
@@ -15,12 +16,16 @@ public class R2ObjectStorageService : IObjectStorageService
     public R2ObjectStorageService(IOptions<CloudflareR2Settings> settings)
     {
         _settings = settings.Value;
+        EnsureConfigured();
+
+        AWSConfigsS3.UseSignatureVersion4 = true;
 
         var config = new AmazonS3Config
         {
             ServiceURL = $"https://{_settings.AccountId}.r2.cloudflarestorage.com",
             ForcePathStyle = true,
-            SignatureVersion = "4"
+            SignatureVersion = "4",
+            AuthenticationRegion = "auto"
         };
 
         _s3Client = new AmazonS3Client(_settings.AccessKeyId, _settings.SecretAccessKey, config);

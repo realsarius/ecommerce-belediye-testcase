@@ -177,6 +177,7 @@ export interface AdminSellerListItem {
   id: number;
   userId: number;
   brandName: string;
+  isPlatformAccount?: boolean;
   sellerFirstName: string;
   sellerLastName: string;
   ownerEmail: string;

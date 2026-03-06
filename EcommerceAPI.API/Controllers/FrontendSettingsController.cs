@@ -28,6 +28,8 @@ public class FrontendSettingsController : ControllerBase
             EnableCheckoutInvoiceInfo = _frontendFeatureSettings.EnableCheckoutInvoiceInfo,
             EnableShipmentTimeline = _frontendFeatureSettings.EnableShipmentTimeline,
             EnableReturnAttachments = _frontendFeatureSettings.EnableReturnAttachments,
+            EnableAdminProductImageUploader = _frontendFeatureSettings.EnableAdminProductImageUploader,
+            EnableAdminProductSellerPicker = _frontendFeatureSettings.EnableAdminProductSellerPicker,
         }));
     }
 }

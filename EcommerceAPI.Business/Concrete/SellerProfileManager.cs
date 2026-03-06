@@ -5,6 +5,7 @@ using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Core.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using EcommerceAPI.Core.Aspects.Autofac.Logging;
 using EcommerceAPI.Core.Aspects.Autofac.Caching;
 
@@ -12,20 +13,27 @@ namespace EcommerceAPI.Business.Concrete;
 
 public class SellerProfileManager : ISellerProfileService
 {
+    private const string DefaultPlatformSellerEmail = "platform-seller@system.local";
     private readonly ISellerProfileDal _sellerProfileDal;
     private readonly IUserDal _userDal;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IHashingService _hashingService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<SellerProfileManager> _logger;
 
     public SellerProfileManager(
         ISellerProfileDal sellerProfileDal,
         IUserDal userDal,
         IUnitOfWork unitOfWork,
+        IHashingService hashingService,
+        IConfiguration configuration,
         ILogger<SellerProfileManager> logger)
     {
         _sellerProfileDal = sellerProfileDal;
         _userDal = userDal;
         _unitOfWork = unitOfWork;
+        _hashingService = hashingService;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -102,6 +110,9 @@ public class SellerProfileManager : ISellerProfileService
     [CacheRemoveAspect("GetByIdAsync")]
     public async Task<IDataResult<SellerProfileDto>> UpdateAsync(int userId, UpdateSellerProfileRequest request)
     {
+        if (await IsPlatformSellerUserAsync(userId))
+            return new ErrorDataResult<SellerProfileDto>("Yetkiniz yok. Platform satıcı profili sadece admin tarafından yönetilebilir");
+
         var profile = await _sellerProfileDal.GetByUserIdWithDetailsAsync(userId);
 
         if (profile == null)
@@ -152,6 +163,9 @@ public class SellerProfileManager : ISellerProfileService
     [CacheRemoveAspect("GetByIdAsync")]
     public async Task<IResult> DeleteAsync(int userId)
     {
+        if (await IsPlatformSellerUserAsync(userId))
+            return new ErrorResult("Yetkiniz yok. Platform satıcı profili sadece admin tarafından yönetilebilir");
+
         var profile = await _sellerProfileDal.GetAsync(sp => sp.UserId == userId);
 
         if (profile == null)
@@ -169,6 +183,45 @@ public class SellerProfileManager : ISellerProfileService
     public async Task<bool> HasProfileAsync(int userId)
     {
         return await _sellerProfileDal.ExistsAsync(sp => sp.UserId == userId);
+    }
+
+    private async Task<bool> IsPlatformSellerUserAsync(int userId)
+    {
+        var platformProfile = await _sellerProfileDal.GetAsync(entity => entity.UserId == userId && entity.IsPlatformAccount);
+        if (platformProfile != null)
+        {
+            return true;
+        }
+
+        var user = await _userDal.GetAsync(entity => entity.Id == userId);
+        if (user == null)
+        {
+            return false;
+        }
+
+        var configuredPlatformEmail = _configuration["PlatformSeller:Email"];
+        if (string.IsNullOrWhiteSpace(configuredPlatformEmail))
+        {
+            configuredPlatformEmail = DefaultPlatformSellerEmail;
+        }
+
+        var normalizedPlatformEmail = configuredPlatformEmail.Trim().ToLowerInvariant();
+        var platformEmailHash = _hashingService.Hash(normalizedPlatformEmail);
+        if (!string.IsNullOrWhiteSpace(user.EmailHash) &&
+            string.Equals(user.EmailHash, platformEmailHash, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            user.Email.Trim().ToLowerInvariant(),
+            normalizedPlatformEmail,
+            StringComparison.Ordinal);
     }
 
     private static SellerProfileDto MapToDto(SellerProfile profile)
