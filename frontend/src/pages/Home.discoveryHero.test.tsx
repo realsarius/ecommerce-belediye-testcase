@@ -38,18 +38,27 @@ vi.mock('@/components/home/ActiveCampaignSpotlight', () => ({
 }));
 
 describe('Home discovery hero görünürlüğü', () => {
-  it('discovery akışında hero başlığını gösterir', () => {
+  it('discovery akışında hero başlığını ve kampanya spotlightını gösterir', () => {
     renderWithProviders(<Home />, { route: '/' });
     expect(screen.getByRole('heading', { name: 'Hoş Geldiniz' })).toBeInTheDocument();
+    expect(screen.getByTestId('campaign-spotlight')).toBeInTheDocument();
   });
 
-  it('arama aktifken hero başlığını gizler', () => {
+  it('arama aktifken hero başlığını ve kampanya spotlightını gizler', () => {
     renderWithProviders(<Home />, { route: '/?q=telefon' });
     expect(screen.queryByRole('heading', { name: 'Hoş Geldiniz' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('campaign-spotlight')).not.toBeInTheDocument();
   });
 
-  it('varsayılan dışı sıralama seçiliyken hero başlığını gizler', () => {
+  it('varsayılan dışı sıralama seçiliyken hero başlığını ve kampanya spotlightını gizler', () => {
     renderWithProviders(<Home />, { route: '/?sort=price&order=asc' });
     expect(screen.queryByRole('heading', { name: 'Hoş Geldiniz' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('campaign-spotlight')).not.toBeInTheDocument();
+  });
+
+  it('kategori filtresi aktifken hero başlığını ve kampanya spotlightını gizler', () => {
+    renderWithProviders(<Home />, { route: '/?categoryId=3' });
+    expect(screen.queryByRole('heading', { name: 'Hoş Geldiniz' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('campaign-spotlight')).not.toBeInTheDocument();
   });
 });

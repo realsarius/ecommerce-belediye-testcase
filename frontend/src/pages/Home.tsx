@@ -28,7 +28,7 @@ export default function Home() {
   const urlOrder = searchParams.get('order') || 'desc';
   const parsedPage = Number.parseInt(searchParams.get('page') || '1', 10);
   const urlPage = Number.isNaN(parsedPage) ? 1 : parsedPage;
-  const shouldShowDiscoveryHero = isDiscoveryFeedContext({
+  const isDiscoveryContextFromUrl = isDiscoveryFeedContext({
     page: urlPage,
     search: urlSearch,
     categoryId: urlCategoryId,
@@ -114,7 +114,7 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-5">
-      {shouldShowDiscoveryHero ? (
+      {isDiscoveryContextFromUrl ? (
         <div className="mb-4 rounded-lg bg-muted/20 px-4 py-4 text-center sm:mb-5 sm:py-5">
           <h1 className="text-xl font-bold sm:text-3xl">Hoş Geldiniz</h1>
           <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
@@ -131,7 +131,7 @@ export default function Home() {
 
         {/* Product Grid */}
         <main className="flex-1 w-full">
-          <ActiveCampaignSpotlight />
+          {isDiscoveryContextFromUrl ? <ActiveCampaignSpotlight /> : null}
           <ProductList
             isLoading={isLoading}
             productsData={productsData}
