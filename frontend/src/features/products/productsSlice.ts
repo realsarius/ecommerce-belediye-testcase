@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-interface ProductState {
+export interface ProductState {
   page: number;
   search: string;
   categoryId: string;
@@ -15,6 +15,13 @@ const initialState: ProductState = {
   sortBy: 'createdAt',
   sortDesc: true,
 };
+
+export const isDiscoveryFeedContext = (state: ProductState) =>
+  state.page === 1
+  && state.search.trim().length === 0
+  && (state.categoryId === '' || state.categoryId === 'all')
+  && state.sortBy === 'createdAt'
+  && state.sortDesc;
 
 const productsSlice = createSlice({
   name: 'products',
