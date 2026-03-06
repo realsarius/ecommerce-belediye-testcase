@@ -4,4 +4,5 @@ export interface FrontendFeatureSettings {
   enableShipmentTimeline: boolean;
   enableReturnAttachments: boolean;
   enableAdminProductImageUploader?: boolean;
+  enableAdminProductSellerPicker?: boolean;
 }

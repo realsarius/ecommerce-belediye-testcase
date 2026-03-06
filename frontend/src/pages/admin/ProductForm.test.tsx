@@ -13,6 +13,7 @@ const mockProductsApi = vi.hoisted(() => ({
 
 const mockAdminApi = vi.hoisted(() => ({
   useGetCategoriesQuery: vi.fn(),
+  useGetAdminSellersQuery: vi.fn(),
 }));
 
 const mockSettingsApi = vi.hoisted(() => ({
@@ -90,6 +91,30 @@ function setupBaseMocks() {
     ],
     isLoading: false,
   });
+  mockAdminApi.useGetAdminSellersQuery.mockReturnValue({
+    data: [
+      {
+        id: 21,
+        userId: 1001,
+        brandName: 'Test Seller',
+        isPlatformAccount: false,
+        sellerFirstName: 'Test',
+        sellerLastName: 'Seller',
+        ownerEmail: 'seller@test.local',
+        status: 'Active',
+        productCount: 0,
+        activeProductCount: 0,
+        totalStock: 0,
+        totalSales: 0,
+        averageRating: 0,
+        commissionRate: 10,
+        hasCommissionOverride: false,
+        createdAt: '2026-03-01T00:00:00Z',
+        isVerified: true,
+      },
+    ],
+    isLoading: false,
+  });
 
   mockProductsApi.useCreateProductMutation.mockReturnValue([
     vi.fn(() => ({
@@ -102,11 +127,12 @@ function setupBaseMocks() {
     data: {
       enableCheckoutLegalConsents: true,
       enableCheckoutInvoiceInfo: true,
-      enableShipmentTimeline: true,
-      enableReturnAttachments: true,
-      enableAdminProductImageUploader: true,
-    },
-    isLoading: false,
+        enableShipmentTimeline: true,
+        enableReturnAttachments: true,
+        enableAdminProductImageUploader: true,
+        enableAdminProductSellerPicker: false,
+      },
+      isLoading: false,
   });
 }
 
@@ -221,6 +247,7 @@ describe('Admin ProductForm', () => {
         enableShipmentTimeline: true,
         enableReturnAttachments: true,
         enableAdminProductImageUploader: false,
+        enableAdminProductSellerPicker: false,
       },
       isLoading: false,
     });
@@ -229,5 +256,27 @@ describe('Admin ProductForm', () => {
 
     expect(screen.queryByTestId('product-image-uploader')).not.toBeInTheDocument();
     expect(screen.getByText('Admin ürün görsel yükleme özelliği geçici olarak kapalı')).toBeInTheDocument();
+  });
+
+  it('seller picker aktifken satıcı atama alanını göstermeli ve aktif seller listesini istemeli', () => {
+    mockSettingsApi.useGetFrontendFeaturesQuery.mockReturnValue({
+      data: {
+        enableCheckoutLegalConsents: true,
+        enableCheckoutInvoiceInfo: true,
+        enableShipmentTimeline: true,
+        enableReturnAttachments: true,
+        enableAdminProductImageUploader: true,
+        enableAdminProductSellerPicker: true,
+      },
+      isLoading: false,
+    });
+
+    renderCreateForm();
+    expect(screen.getByText('Satıcı Ataması')).toBeInTheDocument();
+    expect(screen.getByText('Satıcı seçmezseniz ürün Platform Seller hesabı altında oluşturulur')).toBeInTheDocument();
+    expect(mockAdminApi.useGetAdminSellersQuery).toHaveBeenCalledWith(
+      { status: 'active' },
+      { skip: false },
+    );
   });
 });

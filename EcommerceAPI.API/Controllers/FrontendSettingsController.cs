@@ -29,6 +29,7 @@ public class FrontendSettingsController : ControllerBase
             EnableShipmentTimeline = _frontendFeatureSettings.EnableShipmentTimeline,
             EnableReturnAttachments = _frontendFeatureSettings.EnableReturnAttachments,
             EnableAdminProductImageUploader = _frontendFeatureSettings.EnableAdminProductImageUploader,
+            EnableAdminProductSellerPicker = _frontendFeatureSettings.EnableAdminProductSellerPicker,
         }));
     }
 }

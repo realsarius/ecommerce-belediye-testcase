@@ -4,7 +4,7 @@ import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useGetProductQuery, useCreateProductMutation, useUpdateProductMutation } from '@/features/products/productsApi';
-import { useGetCategoriesQuery } from '@/features/admin/adminApi';
+import { useGetAdminSellersQuery, useGetCategoriesQuery } from '@/features/admin/adminApi';
 import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
@@ -32,6 +32,7 @@ const imageSchema = z.object({
 });
 
 const productSchema = z.object({
+  sellerId: z.string().default('platform'),
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
   description: z.string().max(2000, 'Açıklama çok uzun').optional().or(z.literal('')),
   sku: z
@@ -87,6 +88,12 @@ export default function ProductForm() {
   });
   const { data: categories } = useGetCategoriesQuery();
   const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
+  const isAdminProductSellerPickerEnabled = frontendFeatures?.enableAdminProductSellerPicker ?? false;
+  const shouldLoadSellerPicker = isAdminProductSellerPickerEnabled && !isEdit;
+  const { data: adminSellers = [] } = useGetAdminSellersQuery(
+    shouldLoadSellerPicker ? { status: 'active' } : undefined,
+    { skip: !shouldLoadSellerPicker },
+  );
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
   const isAdminProductImageUploaderEnabled = frontendFeatures?.enableAdminProductImageUploader ?? true;
@@ -101,6 +108,7 @@ export default function ProductForm() {
   } = useForm<ProductFormInput, unknown, ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
+      sellerId: 'platform',
       name: '',
       description: '',
       sku: '',
@@ -128,6 +136,7 @@ export default function ProductForm() {
       const rawCatId = product.categoryId ?? (typeof legacyCategoryId === 'number' ? legacyCategoryId : undefined);
 
       reset({
+        sellerId: product.sellerId ? product.sellerId.toString() : 'platform',
         name: product.name,
         description: product.description || '',
         sku: product.sku,
@@ -164,7 +173,14 @@ export default function ProductForm() {
         await updateProduct({ id: productId, data: updatePayload }).unwrap();
         toast.success('Ürün güncellendi.');
       } else {
+        const selectedSellerId = data.sellerId !== 'platform'
+          ? parseInt(data.sellerId, 10)
+          : undefined;
+
         const createPayload = {
+          sellerId: shouldLoadSellerPicker && selectedSellerId && selectedSellerId > 0
+            ? selectedSellerId
+            : undefined,
           name: data.name,
           description: data.description || '',
           sku: data.sku,
@@ -353,6 +369,44 @@ export default function ProductForm() {
                 </div>
               </CardContent>
             </Card>
+
+            {shouldLoadSellerPicker ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Satıcı Ataması</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Satıcı</Label>
+                    <Controller
+                      name="sellerId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || 'platform'}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Satıcı seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="platform">Platform Seller (varsayılan)</SelectItem>
+                            {adminSellers.map((seller) => (
+                              <SelectItem key={seller.id} value={seller.id.toString()}>
+                                {seller.brandName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Satıcı seçmezseniz ürün Platform Seller hesabı altında oluşturulur
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <Card>
               <CardHeader>

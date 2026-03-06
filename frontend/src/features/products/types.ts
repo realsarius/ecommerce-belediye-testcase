@@ -97,6 +97,7 @@ export interface ProductListRequest {
 }
 
 export interface CreateProductRequest {
+  sellerId?: number;
   name: string;
   description: string;
   price: number;

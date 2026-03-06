@@ -7,6 +7,11 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
 {
     public CreateProductRequestValidator()
     {
+        RuleFor(x => x.SellerId)
+            .GreaterThan(0)
+            .When(x => x.SellerId.HasValue)
+            .WithMessage("Satıcı kimliği geçersiz");
+
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Ürün adı zorunludur")
             .MaximumLength(200);

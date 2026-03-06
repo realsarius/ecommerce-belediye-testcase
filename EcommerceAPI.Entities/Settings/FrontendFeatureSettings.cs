@@ -7,4 +7,5 @@ public class FrontendFeatureSettings
     public bool EnableShipmentTimeline { get; set; } = true;
     public bool EnableReturnAttachments { get; set; } = true;
     public bool EnableAdminProductImageUploader { get; set; } = true;
+    public bool EnableAdminProductSellerPicker { get; set; } = false;
 }

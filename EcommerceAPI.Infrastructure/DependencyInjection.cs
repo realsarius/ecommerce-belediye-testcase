@@ -121,6 +121,13 @@ public static class DependencyInjection
             {
                 options.EnableAdminProductImageUploader = enableAdminProductImageUploader;
             }
+
+            if (bool.TryParse(
+                    Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER"),
+                    out var enableAdminProductSellerPicker))
+            {
+                options.EnableAdminProductSellerPicker = enableAdminProductSellerPicker;
+            }
         });
 
         services.Configure<CloudflareR2Settings>(options =>

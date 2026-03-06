@@ -128,6 +128,56 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task CreateProduct_AsAdmin_WhenSellerPickerEnabledAndSellerProvided_ShouldAssignSelectedSeller()
+    {
+        const int adminUserId = 916;
+        const int sellerUserId = 917;
+        await EnsureAdminUserAsync(adminUserId);
+        var selectedSellerProfileId = await EnsureSellerUserAndGetProfileIdAsync(sellerUserId);
+
+        var previousPickerFlag = Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER");
+        Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", "true");
+
+        try
+        {
+            var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+            var categoryId = await GetExistingCategoryIdAsync();
+            var createRequest = new CreateProductRequest
+            {
+                SellerId = selectedSellerProfileId,
+                Name = $"Selected Seller Product {Guid.NewGuid():N}",
+                Description = "Admin selected seller test",
+                Price = 349.99m,
+                CategoryId = categoryId,
+                SKU = $"SEL-{Guid.NewGuid():N}"[..12],
+                InitialStock = 6
+            };
+
+            var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+            apiResult.Should().NotBeNull();
+            apiResult!.Success.Should().BeTrue();
+            apiResult.Data.Id.Should().BeGreaterThan(0);
+            apiResult.Data.SellerId.Should().Be(selectedSellerProfileId);
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var createdProduct = await db.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(product => product.Id == apiResult.Data.Id);
+
+            createdProduct.Should().NotBeNull();
+            createdProduct!.SellerId.Should().Be(selectedSellerProfileId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", previousPickerFlag);
+        }
+    }
+
+    [Fact]
     public async Task UpdateProduct_AsAdmin_ReturnsOkOrError()
     {
         var adminClient = _factory.CreateClient().AsAdmin(userId: 1);
@@ -337,6 +387,14 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await TestDataSeeder.EnsureSellerProfileAsync(db, userId, $"seller-{userId}-{Guid.NewGuid():N}");
+    }
+
+    private async Task<int> EnsureSellerUserAndGetProfileIdAsync(int userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var profile = await TestDataSeeder.EnsureSellerProfileAsync(db, userId, $"seller-{userId}-{Guid.NewGuid():N}");
+        return profile.Id;
     }
 
     private async Task<ProductDto> CreatePlatformProductAsAdminAsync(int adminUserId)

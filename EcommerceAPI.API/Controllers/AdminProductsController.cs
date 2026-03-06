@@ -65,6 +65,7 @@ public class AdminProductsController : ControllerBase
     {
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
+        var isAdminSellerPickerEnabled = IsAdminSellerPickerEnabled();
 
         if (role == "Seller" && userId.HasValue)
         {
@@ -76,7 +77,22 @@ public class AdminProductsController : ControllerBase
         }
         else if (role == "Admin")
         {
-            if (IsAdminPlatformSellerAutoAssignmentEnabled())
+            if (!isAdminSellerPickerEnabled && request.SellerId.HasValue)
+            {
+                return BadRequest(new { message = "Satıcı seçimi özelliği şu anda kapalı" });
+            }
+
+            if (isAdminSellerPickerEnabled && request.SellerId.HasValue)
+            {
+                var sellerResult = await _sellerProfileService.GetByIdAsync(request.SellerId.Value);
+                if (!sellerResult.Success || sellerResult.Data == null)
+                {
+                    return BadRequest(new { message = "Seçilen satıcı profili bulunamadı" });
+                }
+
+                sellerId = sellerResult.Data.Id;
+            }
+            else if (IsAdminPlatformSellerAutoAssignmentEnabled())
             {
                 var platformSellerResult = await _platformSellerService.GetOrCreatePlatformSellerIdAsync();
                 if (!platformSellerResult.Success)
@@ -190,5 +206,15 @@ public class AdminProductsController : ControllerBase
         }
 
         return _configuration.GetValue("PlatformSeller:EnableAdminAutoAssignment", true);
+    }
+
+    private bool IsAdminSellerPickerEnabled()
+    {
+        if (bool.TryParse(Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER"), out var envEnabled))
+        {
+            return envEnabled;
+        }
+
+        return _configuration.GetValue("FrontendFeatures:EnableAdminProductSellerPicker", false);
     }
 }

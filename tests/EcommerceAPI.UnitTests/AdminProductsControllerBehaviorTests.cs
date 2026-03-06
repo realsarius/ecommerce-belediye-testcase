@@ -127,4 +127,76 @@ public class AdminProductsControllerBehaviorTests
         platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Never);
         productServiceMock.Verify(service => service.CreateProductAsync(request, null), Times.Once);
     }
+
+    [Fact]
+    public async Task CreateProduct_AdminRole_WhenSellerPickerEnabledAndSellerSelected_ShouldPassSelectedSellerId()
+    {
+        var request = new CreateProductRequest
+        {
+            SellerId = 88,
+            Name = "Seller Assigned Product",
+            Description = "Admin selects seller",
+            Price = 399.90m,
+            CategoryId = 1,
+            SKU = "SELLER-003"
+        };
+
+        var productServiceMock = new Mock<IProductService>();
+        int? capturedSellerId = null;
+        productServiceMock
+            .Setup(service => service.CreateProductAsync(request, It.IsAny<int?>()))
+            .Callback<CreateProductRequest, int?>((_, sellerId) => capturedSellerId = sellerId)
+            .ReturnsAsync(new SuccessDataResult<ProductDto>(new ProductDto
+            {
+                Id = 44,
+                Name = request.Name,
+                SellerId = 88
+            }));
+
+        var sellerProfileServiceMock = new Mock<ISellerProfileService>();
+        sellerProfileServiceMock
+            .Setup(service => service.GetByIdAsync(88))
+            .ReturnsAsync(new SuccessDataResult<SellerProfileDto>(new SellerProfileDto
+            {
+                Id = 88,
+                UserId = 1001,
+                BrandName = "Selected Seller",
+                IsVerified = true
+            }));
+
+        var platformSellerServiceMock = new Mock<IPlatformSellerService>();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FrontendFeatures:EnableAdminProductSellerPicker"] = "true",
+                ["PlatformSeller:EnableAdminAutoAssignment"] = "true"
+            })
+            .Build();
+
+        var controller = new AdminProductsController(
+            productServiceMock.Object,
+            sellerProfileServiceMock.Object,
+            platformSellerServiceMock.Object,
+            configuration);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "15"),
+                    new Claim(ClaimTypes.Role, "Admin")
+                ], "TestAuth"))
+            }
+        };
+
+        var actionResult = await controller.CreateProduct(request);
+
+        actionResult.Should().BeOfType<CreatedAtRouteResult>();
+        capturedSellerId.Should().Be(88);
+        sellerProfileServiceMock.Verify(service => service.GetByIdAsync(88), Times.Once);
+        platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Never);
+        productServiceMock.Verify(service => service.CreateProductAsync(request, 88), Times.Once);
+    }
 }
