@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "ecommerce-api-collection",
     "name": "EcommerceAPI - Complete Collection",
-    "description": "E-Commerce API için kapsamlı Postman collection. Tüm endpoint'ler, örnek request/response'lar ve otomatik token yönetimi içerir.\n\n## Kullanım\n1. Environment'ı import edin veya değişkenleri ayarlayın\n2. İlk önce 'Auth > Register' veya 'Auth > Login' çalıştırın\n3. Token otomatik olarak kaydedilecektir\n4. Diğer endpoint'leri test edin\n\n## Test Kartları (Iyzico Sandbox)\n- Başarılı: 5406670000000009\n- Yetersiz Bakiye: 4111111111111129\n- Çalıntı Kart: 4126111111111114",
+    "description": "E-Commerce API için kapsamlı Postman collection. Auth, müşteri, seller ve admin yüzeyleri ile yeni Wishlist/Notification/GiftCard/Referral/Loyalty/Media endpointlerini içerir.\n\n## Kullanım\n1. Environment'ı import edin veya değişkenleri ayarlayın\n2. İlk önce 'Auth > Register' veya 'Auth > Login' çalıştırın\n3. Token otomatik olarak kaydedilecektir\n4. İlgili role göre endpoint'leri test edin\n\n## Test Kartları (Iyzico Sandbox)\n- Başarılı: 5406670000000009\n- Yetersiz Bakiye: 4111111111111129\n- Çalıntı Kart: 4126111111111114",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -59,6 +59,51 @@
     {
       "key": "uploadedPhotoKey",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "giftCardId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "campaignId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "notificationType",
+      "value": "OrderStatusChanged",
+      "type": "string"
+    },
+    {
+      "key": "wishlistShareToken",
+      "value": "00000000-0000-0000-0000-000000000000",
+      "type": "string"
+    },
+    {
+      "key": "collectionId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "imageId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "couponId",
+      "value": "1",
       "type": "string"
     }
   ],
@@ -263,6 +308,234 @@
             },
             "description": "Oturum açmış kullanıcının bilgilerini döner."
           }
+        },
+        {
+          "name": "Social Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/social",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "social"
+              ]
+            },
+            "description": "Google/Apple sosyal giriş akışı.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"Google\",\n  \"idToken\": \"<GOOGLE_ID_TOKEN>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "description": "Email doğrulama token akışı.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<EMAIL_VERIFICATION_TOKEN>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Email Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email-code",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email-code"
+              ]
+            },
+            "description": "Kod ile email doğrulama.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@test.com\",\n  \"code\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Resend Verification",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Oturum açık kullanıcı için doğrulama mailini tekrar gönderir."
+          }
+        },
+        {
+          "name": "Resend Verification Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-verification-code",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification-code"
+              ]
+            },
+            "description": "Kod fallback tekrar gönderim.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@test.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Şifre sıfırlama maili gönderir.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@test.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Şifre sıfırlama token doğrulaması sonrası yeni şifre setler.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<RESET_TOKEN>\",\n  \"newPassword\": \"Demo123!\",\n  \"confirmPassword\": \"Demo123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm Email Change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/confirm-email-change",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "confirm-email-change"
+              ]
+            },
+            "description": "Email değişikliği token onayı.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<EMAIL_CHANGE_TOKEN>\"\n}"
+            }
+          }
         }
       ]
     },
@@ -339,6 +612,137 @@
               ]
             },
             "description": "Belirli bir ürünün detaylarını getirir."
+          }
+        },
+        {
+          "name": "Track Product View",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/views",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "views"
+              ]
+            },
+            "description": "Ürün görüntülenme event kaydı.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Get Also Viewed Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/recommendations/also-viewed?take=8",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "recommendations",
+                "also-viewed"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "8"
+                }
+              ]
+            },
+            "description": "Ürüne göre also-viewed önerileri."
+          }
+        },
+        {
+          "name": "Get Frequently Bought Together",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/recommendations/frequently-bought?take=8",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "recommendations",
+                "frequently-bought"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "8"
+                }
+              ]
+            },
+            "description": "Ürüne göre birlikte alınan öneriler."
+          }
+        },
+        {
+          "name": "Get Personalized Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/recommendations/for-you?take=12",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "recommendations",
+                "for-you"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "12"
+                }
+              ]
+            },
+            "description": "Kişiselleştirilmiş öneri listesi."
+          }
+        },
+        {
+          "name": "Track Recommendation Click",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/recommendations/click",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "recommendations",
+                "click"
+              ]
+            },
+            "description": "Öneri klik analitiği event’i.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recommendedProductId\": 104\n}"
+            }
           }
         }
       ]
@@ -770,6 +1174,70 @@
             },
             "description": "Aktif ödeme sağlayıcıları, 3DS ayarları ve rollout flag bilgilerini getirir."
           }
+        },
+        {
+          "name": "Payment Webhook (Iyzico)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-IYZ-SIGNATURE-V3",
+                "value": "<SIGNATURE>"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "webhook"
+              ]
+            },
+            "description": "Iyzico webhook callback endpointi.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUCCESS\",\n  \"paymentId\": \"payment_123\",\n  \"paymentConversationId\": \"ORD-123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Payment 3DS Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/callback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "callback"
+              ]
+            },
+            "description": "3DS callback endpointi (form-data/json).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"payment_123\",\n  \"conversationId\": \"ORD-123\",\n  \"conversationData\": \"<CONVERSATION_DATA>\",\n  \"status\": \"success\",\n  \"mdStatus\": \"1\"\n}"
+            }
+          }
         }
       ]
     },
@@ -841,6 +1309,26 @@
               ]
             },
             "description": "Return attachment için signed access URL üretir."
+          }
+        },
+        {
+          "name": "Get Return Attachment Content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/returns/attachments/{{attachmentId}}/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "returns",
+                "attachments",
+                "{{attachmentId}}",
+                "content"
+              ]
+            },
+            "description": "İade ekinin binary içeriğini indirir."
           }
         }
       ]
@@ -1200,6 +1688,51 @@
             },
             "description": "Yeni kupon oluşturur (Admin rolü gerekli)."
           }
+        },
+        {
+          "name": "Update Coupon (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/coupons/{{couponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons",
+                "{{couponId}}"
+              ]
+            },
+            "description": "Kupon güncelleme.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WELCOME10\",\n  \"type\": \"Percentage\",\n  \"value\": 10,\n  \"minOrderAmount\": 300,\n  \"usageLimit\": 100,\n  \"expiresAt\": \"2026-12-31T23:59:59Z\",\n  \"isActive\": true,\n  \"description\": \"Yeni kullanıcı indirimi\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Coupon (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/coupons/{{couponId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupons",
+                "{{couponId}}"
+              ]
+            },
+            "description": "Kupon silme."
+          }
         }
       ]
     },
@@ -1296,6 +1829,24 @@
               ]
             },
             "description": "Satıcı profilinin olup olmadığını kontrol eder."
+          }
+        },
+        {
+          "name": "Delete Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "seller",
+                "profile"
+              ]
+            },
+            "description": "Satıcı profilini siler."
           }
         }
       ]
@@ -2140,6 +2691,37 @@
               ]
             },
             "description": "Elasticsearch uzerinden urun arar. Fuzzy/prefix desteklenir."
+          }
+        },
+        {
+          "name": "Search Suggestions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/suggestions?q=adi&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "adi"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Autocomplete/suggestion endpointi.",
+            "auth": {
+              "type": "noauth"
+            }
           }
         }
       ]
@@ -3355,6 +3937,1409 @@
               "mode": "raw",
               "raw": "{\n  \"replyText\": \"Geri bildiriminiz için teşekkür ederiz.\"\n}"
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "description": "Hesap yönetimi endpointleri",
+      "item": [
+        {
+          "name": "Change Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/account/change-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "account",
+                "change-email"
+              ]
+            },
+            "description": "Giriş yapmış kullanıcı email değişikliği başlatır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newEmail\": \"new-demo@test.com\",\n  \"currentPassword\": \"Demo123!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "Kullanıcı ve admin bildirim yönetimi endpointleri",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?take=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "take",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Kullanıcının bildirim listesini döner."
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "unread-count"
+              ]
+            },
+            "description": "Okunmamış bildirim sayısını döner."
+          }
+        },
+        {
+          "name": "Mark Notification As Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            },
+            "description": "Tek bir bildirimi okundu işaretler."
+          }
+        },
+        {
+          "name": "Mark All Notifications As Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Tüm bildirimleri okundu işaretler."
+          }
+        },
+        {
+          "name": "Get Notification Preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "preferences"
+              ]
+            },
+            "description": "Kullanıcı bildirim tercihlerine erişir."
+          }
+        },
+        {
+          "name": "Update Notification Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "preferences"
+              ]
+            },
+            "description": "Bildirim tercihlerini günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preferences\": [\n    {\n      \"type\": \"OrderStatusChanged\",\n      \"inAppEnabled\": true,\n      \"emailEnabled\": true,\n      \"pushEnabled\": false\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Notification Templates (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/notifications/templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "notifications",
+                "templates"
+              ]
+            },
+            "description": "Bildirim şablonlarını listeler."
+          }
+        },
+        {
+          "name": "Update Notification Template (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/notifications/templates/{{notificationType}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "notifications",
+                "templates",
+                "{{notificationType}}"
+              ]
+            },
+            "description": "Template güncelleme.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Sipariş Durum Güncellemesi\",\n  \"description\": \"Sipariş durum değişikliği bildirimi\",\n  \"titleExample\": \"Siparişiniz kargoya verildi\",\n  \"bodyExample\": \"123 numaralı siparişiniz yola çıktı.\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wishlists",
+      "description": "Wishlist, paylaşım ve fiyat alarmı uçları",
+      "item": [
+        {
+          "name": "Get Wishlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists?cursor=&limit=20&collectionId=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "collectionId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cursor bazlı wishlist listeleme."
+          }
+        },
+        {
+          "name": "Get Collections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/collections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "collections"
+              ]
+            },
+            "description": "Wishlist koleksiyonlarını listeler."
+          }
+        },
+        {
+          "name": "Create Collection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/collections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "collections"
+              ]
+            },
+            "description": "Yeni koleksiyon oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yaz Favorileri\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Share Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/share",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "share"
+              ]
+            },
+            "description": "Paylaşım durumunu döner."
+          }
+        },
+        {
+          "name": "Enable Sharing",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/share",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "share"
+              ]
+            },
+            "description": "Wishlist paylaşımını açar."
+          }
+        },
+        {
+          "name": "Disable Sharing",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/share",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "share"
+              ]
+            },
+            "description": "Wishlist paylaşımını kapatır."
+          }
+        },
+        {
+          "name": "Get Shared Wishlist (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/share/{{wishlistShareToken}}?cursor=&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "share",
+                "{{wishlistShareToken}}"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Paylaşılan wishlist public erişimi.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Add Wishlist Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "items"
+              ]
+            },
+            "description": "Wishlist’e ürün ekler.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 103,\n  \"collectionId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Move Wishlist Item To Collection",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/items/{{productId}}/collection",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "items",
+                "{{productId}}",
+                "collection"
+              ]
+            },
+            "description": "Wishlist item koleksiyonunu değiştirir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"collectionId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Remove Wishlist Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/items/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "items",
+                "{{productId}}"
+              ]
+            },
+            "description": "Wishlist’ten tek ürün siler."
+          }
+        },
+        {
+          "name": "Clear Wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists"
+              ]
+            },
+            "description": "Wishlist’i tamamen temizler."
+          }
+        },
+        {
+          "name": "Add All Wishlist Items To Cart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/add-all-to-cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "add-all-to-cart"
+              ]
+            },
+            "description": "Uygun wishlist ürünlerini sepete toplu ekler."
+          }
+        },
+        {
+          "name": "Get Price Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/price-alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "price-alerts"
+              ]
+            },
+            "description": "Aktif fiyat alarmı kayıtları."
+          }
+        },
+        {
+          "name": "Upsert Price Alert",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/price-alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "price-alerts"
+              ]
+            },
+            "description": "Fiyat alarmı ekler/günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 103,\n  \"targetPrice\": 1499.9\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Price Alert",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlists/price-alerts/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlists",
+                "price-alerts",
+                "{{productId}}"
+              ]
+            },
+            "description": "Fiyat alarmını kaldırır."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gift Cards",
+      "description": "Gift card admin ve müşteri uçları",
+      "item": [
+        {
+          "name": "Get Gift Cards (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards"
+              ]
+            },
+            "description": "Admin gift card listesi."
+          }
+        },
+        {
+          "name": "Get Gift Card By Id (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards/{{giftCardId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards",
+                "{{giftCardId}}"
+              ]
+            },
+            "description": "Admin gift card detayı."
+          }
+        },
+        {
+          "name": "Create Gift Card (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards"
+              ]
+            },
+            "description": "Gift card oluşturur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"GIFT-2026-0001\",\n  \"initialBalance\": 1000,\n  \"validDays\": 90,\n  \"description\": \"Kampanya hediyesi\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Gift Card (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards/{{giftCardId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards",
+                "{{giftCardId}}"
+              ]
+            },
+            "description": "Gift card güncelleme.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true,\n  \"expiresAt\": \"2026-12-31T23:59:59Z\",\n  \"description\": \"Guncellendi\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Gift Cards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards/my",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards",
+                "my"
+              ]
+            },
+            "description": "Kullanıcının tanımlı gift cardları."
+          }
+        },
+        {
+          "name": "Get My Gift Card Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards/my/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards",
+                "my",
+                "summary"
+              ]
+            },
+            "description": "Gift card bakiye özeti."
+          }
+        },
+        {
+          "name": "Get My Gift Card History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards/my/history?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards",
+                "my",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Gift card kullanım geçmişi."
+          }
+        },
+        {
+          "name": "Validate Gift Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gift-cards/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gift-cards",
+                "validate"
+              ]
+            },
+            "description": "Checkout öncesi hediye kartı uygunluk kontrolü.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"GIFT-2026-0001\",\n  \"orderTotal\": 2500\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referrals & Loyalty",
+      "description": "Referral ve loyalty müşteri endpointleri",
+      "item": [
+        {
+          "name": "Get Referral Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/referrals/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "referrals",
+                "summary"
+              ]
+            },
+            "description": "Referral özet bilgisi."
+          }
+        },
+        {
+          "name": "Get Referral History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/referrals/history?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "referrals",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Referral hareket geçmişi."
+          }
+        },
+        {
+          "name": "Get Loyalty Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/loyalty/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "loyalty",
+                "summary"
+              ]
+            },
+            "description": "Loyalty puan özeti."
+          }
+        },
+        {
+          "name": "Get Loyalty History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/loyalty/history?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "loyalty",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Loyalty işlem geçmişi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Campaigns",
+      "description": "Kampanya listeleme ve etkileşim takip endpointleri",
+      "item": [
+        {
+          "name": "Get Active Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "active"
+              ]
+            },
+            "description": "Aktif kampanya listesi.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Track Campaign Interaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Session-Id",
+                "value": "session-123"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/interactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "interactions"
+              ]
+            },
+            "description": "Kampanya etkileşimi kaydı.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"interactionType\": \"View\",\n  \"productId\": 103\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "description": "R2 tabanlı ürün medya upload ve yönetim endpointleri",
+      "item": [
+        {
+          "name": "Presign Media Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/media/presign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "media",
+                "presign"
+              ]
+            },
+            "description": "Yükleme için pre-signed URL alır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"context\": \"ProductImage\",\n  \"referenceId\": 103,\n  \"contentType\": \"image/jpeg\",\n  \"fileSizeBytes\": 512000\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm Media Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/media/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "media",
+                "confirm"
+              ]
+            },
+            "description": "Yükleme tamamlandıktan sonra kaydı finalize eder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"context\": \"ProductImage\",\n  \"referenceId\": 103,\n  \"objectKey\": \"products/103/urun-1.jpg\",\n  \"isPrimary\": true,\n  \"sortOrder\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Media Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/media/{{imageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "media",
+                "{{imageId}}"
+              ]
+            },
+            "description": "Ürün görselini siler."
+          }
+        },
+        {
+          "name": "Reorder Product Images",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/media/products/{{productId}}/images/reorder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "media",
+                "products",
+                "{{productId}}",
+                "images",
+                "reorder"
+              ]
+            },
+            "description": "Ürün görsel sıralamasını günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageOrders\": [\n    {\n      \"imageId\": 1,\n      \"displayOrder\": 0,\n      \"isPrimary\": true\n    },\n    {\n      \"imageId\": 2,\n      \"displayOrder\": 1,\n      \"isPrimary\": false\n    }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews (Public & Admin)",
+      "description": "Public ürün yorumları ve admin moderasyon endpointleri",
+      "item": [
+        {
+          "name": "Get Product Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "reviews"
+              ]
+            },
+            "description": "Ürün yorumlarını listeler.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Get Product Review Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/reviews/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "reviews",
+                "summary"
+              ]
+            },
+            "description": "Ürün yorum özetini döner.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Can Current User Review",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/reviews/can-review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "reviews",
+                "can-review"
+              ]
+            },
+            "description": "Kullanıcının yorum yazma uygunluğu."
+          }
+        },
+        {
+          "name": "Create Product Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "reviews"
+              ]
+            },
+            "description": "Ürüne yorum ekler.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Harika ürün!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Product Review",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/reviews/{{reviewId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "reviews",
+                "{{reviewId}}"
+              ]
+            },
+            "description": "Kullanıcının yorumunu günceller.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Güncellenmiş yorum\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Product Review",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/reviews/{{reviewId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "reviews",
+                "{{reviewId}}"
+              ]
+            },
+            "description": "Kullanıcının yorumunu siler."
+          }
+        },
+        {
+          "name": "Get Reviews (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews?status=Pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Pending"
+                }
+              ]
+            },
+            "description": "Admin moderasyon listesi."
+          }
+        },
+        {
+          "name": "Approve Review (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/{{reviewId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "{{reviewId}}",
+                "approve"
+              ]
+            },
+            "description": "Admin yorum onayı."
+          }
+        },
+        {
+          "name": "Reject Review (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/{{reviewId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "{{reviewId}}",
+                "reject"
+              ]
+            },
+            "description": "Admin yorum reddi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"moderationNote\": \"Kurallara uygun değil.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Bulk Approve Reviews (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/bulk-approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "bulk-approve"
+              ]
+            },
+            "description": "Admin toplu onay.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    1,\n    2,\n    3\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Users",
+      "description": "Admin kullanıcı yönetimi endpointleri",
+      "item": [
+        {
+          "name": "Get Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users?page=1&pageSize=20&search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Kullanıcı listeleme ve filtreleme."
+          }
+        },
+        {
+          "name": "Get User Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Kullanıcı detay."
+          }
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{userId}}",
+                "role"
+              ]
+            },
+            "description": "Kullanıcı rol güncelleme.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"Seller\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{userId}}",
+                "status"
+              ]
+            },
+            "description": "Kullanıcı durum güncelleme.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Active\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Data Migration",
+      "description": "Tek seferlik admin data migration uçları",
+      "item": [
+        {
+          "name": "Encrypt Order Addresses",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/data-migration/encrypt-order-addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "data-migration",
+                "encrypt-order-addresses"
+              ]
+            },
+            "description": "Order shipping address alanlarını şifreler."
+          }
+        },
+        {
+          "name": "Check Unencrypted Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/data-migration/check-unencrypted-orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "data-migration",
+                "check-unencrypted-orders"
+              ]
+            },
+            "description": "Şifrelenmemiş kayıt kontrolü."
           }
         }
       ]

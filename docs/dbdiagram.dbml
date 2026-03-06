@@ -18,6 +18,18 @@ Table User {
   GoogleSubject varchar [null]
   AppleSubject varchar [null]
   IsEmailVerified bool
+  EmailVerificationToken varchar [null]
+  EmailVerificationTokenExpiry datetime [null]
+  EmailVerificationCodeHash varchar [null]
+  EmailVerificationCodeExpiry datetime [null]
+  EmailVerificationCodeAttemptCount int
+  EmailVerificationCodeLastSentAt datetime [null]
+  EmailVerificationCodeLockedUntil datetime [null]
+  PasswordResetToken varchar [null]
+  PasswordResetTokenExpiry datetime [null]
+  PendingEmail varchar [null]
+  EmailChangeToken varchar [null]
+  EmailChangeTokenExpiry datetime [null]
   RoleId int [ref: > Role.Id]
   ReferredByUserId int [null, ref: > User.Id]
   AppliedReferralCodeId int [null, ref: > ReferralCode.Id]
@@ -52,6 +64,8 @@ Table Category {
   Id int [pk, increment]
   Name varchar
   Description varchar
+  ImageUrl varchar [null]
+  ImageObjectKey varchar [null]
   IsActive bool
   ParentCategoryId int [null, ref: > Category.Id]
   SortOrder int
@@ -78,6 +92,7 @@ Table ProductImage {
   Id int [pk, increment]
   ProductId int [ref: > Product.Id]
   ImageUrl varchar
+  ObjectKey varchar [null]
   SortOrder int
   IsPrimary bool
   CreatedAt datetime
@@ -104,7 +119,9 @@ Table SellerProfile {
   BrandName varchar
   BrandDescription varchar [null]
   LogoUrl varchar [null]
+  LogoObjectKey varchar [null]
   BannerImageUrl varchar [null]
+  BannerImageObjectKey varchar [null]
   ContactEmail varchar [null]
   ContactPhone varchar [null]
   WebsiteUrl varchar [null]
@@ -112,6 +129,7 @@ Table SellerProfile {
   FacebookUrl varchar [null]
   XUrl varchar [null]
   IsVerified bool
+  IsPlatformAccount bool
   CommissionRateOverride decimal [null]
   ApplicationReviewNote varchar [null]
   ApplicationReviewedAt datetime [null]
@@ -169,6 +187,7 @@ Table CartItem {
 
 Table Order {
   Id int [pk, increment]
+  CheckoutContextVersion int
   OrderNumber varchar
   UserId int [ref: > User.Id]
   Status varchar [note: 'PendingPayment, Processing, Shipped, Delivered, Cancelled']
@@ -180,7 +199,13 @@ Table Order {
   CargoCompany varchar [null]
   TrackingCode varchar [null]
   ShippedAt datetime [null]
+  EstimatedDeliveryDate datetime [null]
+  DeliveredAt datetime [null]
+  ShipmentStatus varchar [note: 'Pending, InTransit, Delivered']
   CancelledAt datetime [null]
+  PreliminaryInfoAcceptedAt datetime [null]
+  DistanceSalesContractAcceptedAt datetime [null]
+  AcceptedFromIp varchar [null]
   CouponId int [null, ref: > Coupon.Id]
   CouponCode varchar [null]
   DiscountAmount decimal
@@ -190,6 +215,20 @@ Table Order {
   GiftCardId int [null, ref: > GiftCard.Id]
   GiftCardCode varchar [null]
   GiftCardAmount decimal
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table InvoiceInfo {
+  Id int [pk, increment]
+  OrderId int [ref: - Order.Id]
+  Type varchar [note: 'Individual, Corporate']
+  FullName varchar
+  TcKimlikNo varchar [null]
+  CompanyName varchar [null]
+  TaxOffice varchar [null]
+  TaxNumber varchar [null]
+  InvoiceAddress varchar
   CreatedAt datetime
   UpdatedAt datetime
 }
@@ -209,9 +248,11 @@ Table Payment {
   OrderId int [ref: - Order.Id]
   Amount decimal
   Currency varchar [default: 'TRY']
-  Status varchar [note: 'Pending, Completed, Failed, Refunded']
+  Status varchar [note: 'Pending, Success, Failed, Refunded']
   PaymentMethod varchar
+  Provider varchar [null, note: 'Iyzico, Stripe, PayTr']
   PaymentProviderId varchar [null]
+  Last4Digits varchar [null]
   IdempotencyKey varchar
   ErrorMessage varchar [null]
   CreatedAt datetime
@@ -242,11 +283,17 @@ Table CreditCard {
   UserId int [ref: > User.Id]
   CardAlias varchar
   CardHolderName varchar
+  Brand varchar
   CardNumberEncrypted varchar
   Last4Digits varchar
   ExpireYearEncrypted varchar
   ExpireMonthEncrypted varchar
-  CvvEncrypted varchar
+  IyzicoCardToken varchar [null]
+  IyzicoUserKey varchar [null]
+  StripePaymentMethodId varchar [null]
+  StripeCustomerId varchar [null]
+  PayTrToken varchar [null]
+  TokenProvider varchar [null]
   IsDefault bool
   CreatedAt datetime
   UpdatedAt datetime
@@ -502,13 +549,28 @@ Table ReturnRequest {
   OrderId int [ref: > Order.Id]
   UserId int [ref: > User.Id]
   Type varchar [note: 'Return, Exchange']
+  ReasonCategory varchar [note: 'Damaged, WrongItem, SizeIssue, Other']
+  SelectedOrderItemIdsJson text [null]
   Status varchar [note: 'Pending, Approved, Rejected, Completed']
   Reason varchar
   RequestNote varchar [null]
+  RequestWindowEndsAt datetime [null]
   RequestedRefundAmount decimal
   ReviewedByUserId int [null, ref: > User.Id]
   ReviewNote varchar [null]
   ReviewedAt datetime [null]
+  CreatedAt datetime
+  UpdatedAt datetime
+}
+
+Table ReturnRequestAttachment {
+  Id int [pk, increment]
+  ReturnRequestId int [ref: > ReturnRequest.Id]
+  OriginalFileName varchar
+  StoredFileName varchar
+  RelativePath varchar
+  ContentType varchar
+  SizeBytes bigint
   CreatedAt datetime
   UpdatedAt datetime
 }
@@ -518,6 +580,7 @@ Table RefundRequest {
   ReturnRequestId int [ref: - ReturnRequest.Id]
   OrderId int [ref: > Order.Id]
   PaymentId int [null, ref: > Payment.Id]
+  Provider varchar [note: 'Iyzico, Stripe, PayTr']
   Amount decimal
   Status varchar [note: 'Pending, Completed, Failed']
   IdempotencyKey varchar
@@ -572,7 +635,7 @@ Table ReferralTransaction {
 // MESSAGING (Outbox/Inbox Pattern)
 // ════════════════════════════════════════
 
-Table OutboxMessage {
+Table OutboxMessageApp {
   Id int [pk, increment]
   EventId varchar
   EventType varchar
@@ -592,4 +655,55 @@ Table InboxMessage {
   ProcessedOnUtc datetime
   CreatedAt datetime
   UpdatedAt datetime
+}
+
+Table InboxState {
+  Id bigint [pk, increment]
+  MessageId uuid
+  ConsumerId uuid
+  LockId uuid
+  ReceiveCount int
+  Received datetime
+  LastSequenceNumber bigint [null]
+  Consumed datetime [null]
+  Delivered datetime [null]
+  ExpirationTime datetime [null]
+  RowVersion varchar
+
+  indexes {
+    (MessageId, ConsumerId) [unique]
+  }
+}
+
+Table OutboxMessage {
+  SequenceNumber bigint [pk, increment]
+  OutboxId uuid [null, ref: > OutboxState.OutboxId]
+  InboxMessageId uuid [null]
+  InboxConsumerId uuid [null]
+  MessageId uuid
+  ConversationId uuid [null]
+  CorrelationId uuid [null]
+  InitiatorId uuid [null]
+  RequestId uuid [null]
+  SourceAddress varchar [null]
+  DestinationAddress varchar [null]
+  ResponseAddress varchar [null]
+  FaultAddress varchar [null]
+  MessageType text
+  ContentType varchar
+  Body text
+  Headers text [null]
+  Properties text [null]
+  SentTime datetime
+  EnqueueTime datetime [null]
+  ExpirationTime datetime [null]
+}
+
+Table OutboxState {
+  OutboxId uuid [pk]
+  LockId uuid
+  Created datetime
+  Delivered datetime [null]
+  LastSequenceNumber bigint [null]
+  RowVersion varchar
 }

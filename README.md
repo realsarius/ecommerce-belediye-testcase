@@ -121,8 +121,11 @@ Veritabanı diyagramı Dbdiagram'da görselleştirildi:
 22. **PriceAlerts**: Hedef fiyat bazlı wishlist alarm kayıtları.
 23. **GiftCards**: Kullanıcıya bağlanabilen ve bakiyesi takip edilen gift card kayıtları.
 24. **GiftCardTransactions**: Gift card oluşturma, kullanım ve iade hareketleri.
-25. **InboxMessages**: Consumer idempotency ve dedupe kayıtları.
-26. **MassTransit Outbox Tabloları**: Transactional event publish altyapısı.
+25. **InvoiceInfos**: Sipariş bazlı bireysel/kurumsal fatura bilgileri.
+26. **ReturnRequestAttachments**: İade talebine bağlı fotoğraf/dosya kayıtları.
+27. **InboxMessages**: Consumer idempotency ve dedupe kayıtları.
+28. **OutboxMessages (App)**: Uygulama outbox event kayıtları.
+29. **MassTransit Outbox/Inbox State Tabloları**: Transactional event publish altyapısı (`InboxState`, `OutboxMessage`, `OutboxState`).
 
 ### 3.2 Migration ve Şema Yönetimi
 
@@ -499,21 +502,29 @@ API dokümantasyonu: `http://localhost:5000/swagger`
 ### 7.9 Postman Collection
 
 Postman collection dosyası: `postman/EcommerceAPI.postman_collection.json`
+Toplam içerik: **198 request / 41 klasör** (güncelleme tarihi: 2026-03-06)
 
 **Collection İçeriği:**
 
 | Klasör | Açıklama |
 |--------|----------|
-| Auth | Register, Login, Refresh, Revoke, Me |
+| Auth | Register/Login/Refresh/Revoke/Me + Social Login + Email Verify/Code + Password Reset akışları |
+| Account | Email değişikliği endpoint'i |
 | Products / Categories / Cart / Orders / Payments | Public ve customer yüzeyi |
+| Wishlists | Koleksiyon, paylaşım, add/remove, add-all-to-cart, price-alert yönetimi |
+| Notifications | Kullanıcı bildirimleri + admin template yönetimi |
 | Shipping Addresses / Credit Cards / Coupons | Kullanıcı checkout yardımcı akışları |
-| Seller Profile | Satıcı profil oluşturma ve güncelleme |
+| Seller Profile | Satıcı profil oluşturma / güncelleme / silme |
 | Admin - Dashboard / Products / Categories / Orders | Yönetim paneli temel operasyonları |
-| Admin - Returns / Sellers / Finance | İade, satıcı ve gelir raporu akışları |
+| Admin - Returns / Sellers / Finance / Users | İade, satıcı, gelir ve kullanıcı yönetimi |
+| Admin - Data Migration | Tek seferlik admin migration endpoint'leri |
 | Admin - Announcements / System | Duyuru yönetimi ve sistem sağlığı endpoint'leri |
 | Seller - Dashboard / Products / Orders | Seller panel ana operasyon yüzeyi |
 | Seller - Finance / Reviews | Seller analytics, finans ve yorum yönetimi |
-| Search / Support (Live Chat) | Arama ve canlı destek uçları |
+| Gift Cards / Referrals & Loyalty | Sadakat, referral ve hediye kartı akışları |
+| Campaigns / Media | Kampanya etkileşimleri ve R2 medya yönetimi |
+| Reviews (Public & Admin) | Ürün yorumları + admin moderasyon akışları |
+| Search / Support (Live Chat) | Arama (suggestion dahil) ve canlı destek uçları |
 | Full E-Commerce Flow | Uçtan uca test senaryosu |
 
 ## 8. Frontend
