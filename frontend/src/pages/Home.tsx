@@ -108,16 +108,16 @@ export default function Home() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-5 sm:py-6">
       {/* Hero Section */}
-      <div className="mb-8 text-center bg-muted/30 py-12 rounded-lg">
-        <h1 className="text-4xl font-bold mb-4">Hoş Geldiniz</h1>
-        <p className="text-xl text-muted-foreground">
+      <div className="mb-5 rounded-lg bg-muted/25 px-4 py-5 text-center sm:py-6">
+        <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Hoş Geldiniz</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           En kaliteli ürünleri keşfedin ve avantajlı fiyatlarla alışveriş yapın
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex flex-col items-start gap-4 lg:flex-row">
         {/* Sidebar Filters */}
         <aside className="w-full lg:w-64 xl:w-72 flex-shrink-0">
           <HomeFilters categories={categories} />
