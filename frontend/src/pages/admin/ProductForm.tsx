@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useGetProductQuery, useCreateProductMutation, useUpdateProductMutation } from '@/features/products/productsApi';
 import { useGetCategoriesQuery } from '@/features/admin/adminApi';
+import { useGetFrontendFeaturesQuery } from '@/features/settings/settingsApi';
 import { Button } from '@/components/common/button';
 import { Input } from '@/components/common/input';
 import { Label } from '@/components/common/label';
@@ -85,8 +86,10 @@ export default function ProductForm() {
     skip: !isEdit,
   });
   const { data: categories } = useGetCategoriesQuery();
+  const { data: frontendFeatures } = useGetFrontendFeaturesQuery();
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+  const isAdminProductImageUploaderEnabled = frontendFeatures?.enableAdminProductImageUploader ?? true;
 
   const {
     register,
@@ -356,18 +359,26 @@ export default function ProductForm() {
                 <CardTitle>Görseller</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ProductImageUploader
-                  productId={isEdit ? productId : undefined}
-                  canUpload={!!isEdit}
-                  images={images}
-                  onChange={(nextImages) => {
-                    setValue('images', nextImages, { shouldDirty: true, shouldValidate: true });
-                  }}
-                  maxFiles={8}
-                />
-                {errors.images && !Array.isArray(errors.images) && 'message' in errors.images ? (
-                  <p className="text-sm text-destructive">{errors.images.message as string}</p>
-                ) : null}
+                {isAdminProductImageUploaderEnabled ? (
+                  <>
+                    <ProductImageUploader
+                      productId={isEdit ? productId : undefined}
+                      canUpload={!!isEdit}
+                      images={images}
+                      onChange={(nextImages) => {
+                        setValue('images', nextImages, { shouldDirty: true, shouldValidate: true });
+                      }}
+                      maxFiles={8}
+                    />
+                    {errors.images && !Array.isArray(errors.images) && 'message' in errors.images ? (
+                      <p className="text-sm text-destructive">{errors.images.message as string}</p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Admin ürün görsel yükleme özelliği geçici olarak kapalı
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

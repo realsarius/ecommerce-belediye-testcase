@@ -3,4 +3,5 @@ export interface FrontendFeatureSettings {
   enableCheckoutInvoiceInfo: boolean;
   enableShipmentTimeline: boolean;
   enableReturnAttachments: boolean;
+  enableAdminProductImageUploader?: boolean;
 }

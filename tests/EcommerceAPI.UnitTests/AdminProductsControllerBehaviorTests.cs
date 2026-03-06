@@ -6,6 +6,7 @@ using EcommerceAPI.Entities.DTOs;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Moq;
 
 namespace EcommerceAPI.UnitTests;
@@ -45,7 +46,8 @@ public class AdminProductsControllerBehaviorTests
         var controller = new AdminProductsController(
             productServiceMock.Object,
             sellerProfileServiceMock.Object,
-            platformSellerServiceMock.Object);
+            platformSellerServiceMock.Object,
+            new ConfigurationBuilder().Build());
 
         controller.ControllerContext = new ControllerContext
         {
@@ -65,5 +67,64 @@ public class AdminProductsControllerBehaviorTests
         capturedSellerId.Should().Be(7001);
         platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Once);
         productServiceMock.Verify(service => service.CreateProductAsync(request, 7001), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateProduct_AdminRole_WhenPlatformAutoAssignmentDisabled_ShouldCreateWithoutPlatformSellerId()
+    {
+        var request = new CreateProductRequest
+        {
+            Name = "Fallback Product",
+            Description = "Admin create product fallback test",
+            Price = 249.90m,
+            CategoryId = 1,
+            SKU = "PLATFORM-002"
+        };
+
+        var productServiceMock = new Mock<IProductService>();
+        int? capturedSellerId = 999;
+        productServiceMock
+            .Setup(service => service.CreateProductAsync(request, It.IsAny<int?>()))
+            .Callback<CreateProductRequest, int?>((_, sellerId) => capturedSellerId = sellerId)
+            .ReturnsAsync(new SuccessDataResult<ProductDto>(new ProductDto
+            {
+                Id = 43,
+                Name = request.Name,
+                SellerId = null
+            }));
+
+        var sellerProfileServiceMock = new Mock<ISellerProfileService>();
+        var platformSellerServiceMock = new Mock<IPlatformSellerService>();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PlatformSeller:EnableAdminAutoAssignment"] = "false"
+            })
+            .Build();
+
+        var controller = new AdminProductsController(
+            productServiceMock.Object,
+            sellerProfileServiceMock.Object,
+            platformSellerServiceMock.Object,
+            configuration);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "11"),
+                    new Claim(ClaimTypes.Role, "Admin")
+                ], "TestAuth"))
+            }
+        };
+
+        var actionResult = await controller.CreateProduct(request);
+
+        actionResult.Should().BeOfType<CreatedAtRouteResult>();
+        capturedSellerId.Should().BeNull();
+        platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Never);
+        productServiceMock.Verify(service => service.CreateProductAsync(request, null), Times.Once);
     }
 }

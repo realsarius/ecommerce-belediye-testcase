@@ -15,6 +15,10 @@ const mockAdminApi = vi.hoisted(() => ({
   useGetCategoriesQuery: vi.fn(),
 }));
 
+const mockSettingsApi = vi.hoisted(() => ({
+  useGetFrontendFeaturesQuery: vi.fn(),
+}));
+
 vi.mock('@/features/products/productsApi', async () => {
   const actual = await vi.importActual<typeof import('@/features/products/productsApi')>('@/features/products/productsApi');
   return {
@@ -28,6 +32,14 @@ vi.mock('@/features/admin/adminApi', async () => {
   return {
     ...actual,
     ...mockAdminApi,
+  };
+});
+
+vi.mock('@/features/settings/settingsApi', async () => {
+  const actual = await vi.importActual<typeof import('@/features/settings/settingsApi')>('@/features/settings/settingsApi');
+  return {
+    ...actual,
+    ...mockSettingsApi,
   };
 });
 
@@ -85,6 +97,17 @@ function setupBaseMocks() {
     })),
     { isLoading: false },
   ]);
+
+  mockSettingsApi.useGetFrontendFeaturesQuery.mockReturnValue({
+    data: {
+      enableCheckoutLegalConsents: true,
+      enableCheckoutInvoiceInfo: true,
+      enableShipmentTimeline: true,
+      enableReturnAttachments: true,
+      enableAdminProductImageUploader: true,
+    },
+    isLoading: false,
+  });
 }
 
 function renderCreateForm() {
@@ -188,5 +211,23 @@ describe('Admin ProductForm', () => {
         ],
       }),
     });
+  });
+
+  it('admin image uploader feature flag kapaliyken uploader render etmemeli', () => {
+    mockSettingsApi.useGetFrontendFeaturesQuery.mockReturnValue({
+      data: {
+        enableCheckoutLegalConsents: true,
+        enableCheckoutInvoiceInfo: true,
+        enableShipmentTimeline: true,
+        enableReturnAttachments: true,
+        enableAdminProductImageUploader: false,
+      },
+      isLoading: false,
+    });
+
+    renderCreateForm();
+
+    expect(screen.queryByTestId('product-image-uploader')).not.toBeInTheDocument();
+    expect(screen.getByText('Admin ürün görsel yükleme özelliği geçici olarak kapalı')).toBeInTheDocument();
   });
 });

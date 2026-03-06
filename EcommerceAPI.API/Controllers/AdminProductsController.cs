@@ -2,6 +2,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 
 namespace EcommerceAPI.API.Controllers;
@@ -14,15 +15,18 @@ public class AdminProductsController : ControllerBase
     private readonly IProductService _productService;
     private readonly ISellerProfileService _sellerProfileService;
     private readonly IPlatformSellerService _platformSellerService;
+    private readonly IConfiguration _configuration;
 
     public AdminProductsController(
         IProductService productService,
         ISellerProfileService sellerProfileService,
-        IPlatformSellerService platformSellerService)
+        IPlatformSellerService platformSellerService,
+        IConfiguration configuration)
     {
         _productService = productService;
         _sellerProfileService = sellerProfileService;
         _platformSellerService = platformSellerService;
+        _configuration = configuration;
     }
 
     private (int? UserId, string? Role) GetCurrentUser()
@@ -72,11 +76,14 @@ public class AdminProductsController : ControllerBase
         }
         else if (role == "Admin")
         {
-            var platformSellerResult = await _platformSellerService.GetOrCreatePlatformSellerIdAsync();
-            if (!platformSellerResult.Success)
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = platformSellerResult.Message });
+            if (IsAdminPlatformSellerAutoAssignmentEnabled())
+            {
+                var platformSellerResult = await _platformSellerService.GetOrCreatePlatformSellerIdAsync();
+                if (!platformSellerResult.Success)
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = platformSellerResult.Message });
 
-            sellerId = platformSellerResult.Data;
+                sellerId = platformSellerResult.Data;
+            }
         }
         
         var result = await _productService.CreateProductAsync(request, sellerId);
@@ -173,5 +180,15 @@ public class AdminProductsController : ControllerBase
             return Ok(result);
         }
         return BadRequest(result);
+    }
+
+    private bool IsAdminPlatformSellerAutoAssignmentEnabled()
+    {
+        if (bool.TryParse(Environment.GetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED"), out var envEnabled))
+        {
+            return envEnabled;
+        }
+
+        return _configuration.GetValue("PlatformSeller:EnableAdminAutoAssignment", true);
     }
 }

@@ -114,6 +114,13 @@ public static class DependencyInjection
         services.Configure<FrontendFeatureSettings>(options =>
         {
             configuration.GetSection("FrontendFeatures").Bind(options);
+
+            if (bool.TryParse(
+                    Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_IMAGE_UPLOADER"),
+                    out var enableAdminProductImageUploader))
+            {
+                options.EnableAdminProductImageUploader = enableAdminProductImageUploader;
+            }
         });
 
         services.Configure<CloudflareR2Settings>(options =>
