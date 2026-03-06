@@ -292,6 +292,28 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         content.Data.SellerId.Should().Be(createdProduct.SellerId);
     }
 
+    [Fact]
+    public async Task GetAdminSellerDetail_ForPlatformSeller_ShouldContainAdminCreatedProductAndCounts()
+    {
+        const int adminUserId = 915;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+        var platformSellerId = await GetPlatformSellerProfileIdAsync();
+
+        var adminClient = _factory.CreateClient().AsAdmin(adminUserId);
+        var response = await adminClient.GetAsync($"/api/v1/admin/sellers/{platformSellerId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ApiResult<AdminSellerDetailDto>>();
+        content.Should().NotBeNull();
+        content!.Success.Should().BeTrue();
+        content.Data.Should().NotBeNull();
+        content.Data.Id.Should().Be(platformSellerId);
+        content.Data.ProductCount.Should().BeGreaterThan(0);
+        content.Data.Products.Should().Contain(product => product.ProductId == createdProduct.Id);
+    }
+
     private async Task<int> GetExistingCategoryIdAsync()
     {
         using var scope = _factory.Services.CreateScope();
@@ -358,5 +380,16 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
 
         sellerProfile.Should().NotBeNull();
         return sellerProfile!.UserId;
+    }
+
+    private async Task<int> GetPlatformSellerProfileIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var platformSellerService = scope.ServiceProvider.GetRequiredService<IPlatformSellerService>();
+
+        var platformSellerResult = await platformSellerService.GetOrCreatePlatformSellerIdAsync();
+        platformSellerResult.Success.Should().BeTrue(platformSellerResult.Message);
+        platformSellerResult.Data.Should().BeGreaterThan(0);
+        return platformSellerResult.Data;
     }
 }
