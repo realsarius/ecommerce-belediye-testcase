@@ -9,7 +9,7 @@ import { Button } from '@/components/common/button';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { Separator } from '@/components/common/separator';
-import { ShoppingCart, Package, ArrowLeft, Check, X, Heart, GitCompareArrows } from 'lucide-react';
+import { ShoppingCart, Package, ArrowLeft, Check, X, Heart, GitCompareArrows, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReviewList } from '@/components/reviews/ReviewList';
 import { StarRating } from '@/components/reviews/StarRating';
@@ -31,6 +31,10 @@ export default function ProductDetail() {
   const productId = parseInt(id || '0');
   const [imageSelection, setImageSelection] = useState<{ productId: number | null; index: number }>({
     productId: null,
+    index: 0,
+  });
+  const [lightbox, setLightbox] = useState<{ isOpen: boolean; index: number }>({
+    isOpen: false,
     index: 0,
   });
 
@@ -130,6 +134,52 @@ export default function ProductDetail() {
     const sessionId = getRecommendationSessionId();
     void trackProductView({ productId, sessionId }).unwrap().catch(() => undefined);
   }, [productId, trackProductView]);
+
+  const lightboxImageCount = product?.images?.length
+    ? product.images.length
+    : product?.primaryImageUrl
+      ? 1
+      : 0;
+
+  useEffect(() => {
+    if (!lightbox.isOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLightbox((current) => ({ ...current, isOpen: false }));
+        return;
+      }
+
+      if (event.key === 'ArrowLeft' && lightboxImageCount > 1) {
+        event.preventDefault();
+        setLightbox((current) => ({
+          ...current,
+          index: (current.index - 1 + lightboxImageCount) % lightboxImageCount,
+        }));
+        return;
+      }
+
+      if (event.key === 'ArrowRight' && lightboxImageCount > 1) {
+        event.preventDefault();
+        setLightbox((current) => ({
+          ...current,
+          index: (current.index + 1) % lightboxImageCount,
+        }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [lightbox.isOpen, lightboxImageCount]);
 
   const handleRecommendationClick = (targetProductId: number, source: 'also-viewed' | 'frequently-bought' | 'for-you') => {
     const sessionId = getRecommendationSessionId();
@@ -269,6 +319,43 @@ export default function ProductDetail() {
     }, {})
   );
 
+  const lightboxImageIndex = Math.min(lightbox.index, Math.max(productImages.length - 1, 0));
+  const lightboxImageUrl = productImages[lightboxImageIndex]?.imageUrl ?? null;
+  const hasMultipleImages = productImages.length > 1;
+
+  const openLightbox = (index: number) => {
+    setLightbox({
+      isOpen: true,
+      index: Math.min(Math.max(index, 0), Math.max(productImages.length - 1, 0)),
+    });
+  };
+
+  const closeLightbox = () => {
+    setLightbox((current) => ({ ...current, isOpen: false }));
+  };
+
+  const goToPreviousImage = () => {
+    if (!hasMultipleImages) {
+      return;
+    }
+
+    setLightbox((current) => ({
+      ...current,
+      index: (current.index - 1 + productImages.length) % productImages.length,
+    }));
+  };
+
+  const goToNextImage = () => {
+    if (!hasMultipleImages) {
+      return;
+    }
+
+    setLightbox((current) => ({
+      ...current,
+      index: (current.index + 1) % productImages.length,
+    }));
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Button variant="ghost" asChild className="mb-8">
@@ -283,11 +370,18 @@ export default function ProductDetail() {
         <div className="space-y-4">
           <div className="aspect-square overflow-hidden rounded-3xl border border-border/70 bg-muted/40 flex items-center justify-center">
             {activeImageUrl ? (
-              <img
-                src={activeImageUrl}
-                alt={product.name}
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                className="h-full w-full cursor-zoom-in"
+                onClick={() => openLightbox(selectedImageIndex)}
+                aria-label="Gorseli buyuk boyutta ac"
+              >
+                <img
+                  src={activeImageUrl}
+                  alt={product.name}
+                  className="h-full w-full object-cover"
+                />
+              </button>
             ) : (
               <Package className="h-32 w-32 text-muted-foreground" />
             )}
@@ -480,6 +574,110 @@ export default function ProductDetail() {
       </div>
 
       <ReviewList productId={product.id} />
+
+      {lightbox.isOpen && lightboxImageUrl ? (
+        <div
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-sm"
+          onClick={closeLightbox}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${product.name} gorsel galerisi`}
+        >
+          <button
+            type="button"
+            className="absolute right-4 top-4 z-[101] rounded-full bg-white/95 p-2 text-black shadow transition hover:bg-white"
+            onClick={closeLightbox}
+            aria-label="Galeri penceresini kapat"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          <div
+            className="mx-auto flex h-full w-full max-w-7xl items-center justify-center gap-4 px-4 py-6 sm:px-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="relative flex w-full flex-1 items-center justify-center">
+              {hasMultipleImages ? (
+                <button
+                  type="button"
+                  className="absolute left-2 z-[101] rounded-full bg-white/90 p-2 text-black shadow transition hover:bg-white sm:left-4"
+                  onClick={goToPreviousImage}
+                  aria-label="Onceki gorsele gec"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+              ) : null}
+
+              <img
+                src={lightboxImageUrl}
+                alt={`${product.name} buyuk gorsel ${lightboxImageIndex + 1}`}
+                className="max-h-[84vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl"
+              />
+
+              {hasMultipleImages ? (
+                <button
+                  type="button"
+                  className="absolute right-2 z-[101] rounded-full bg-white/90 p-2 text-black shadow transition hover:bg-white sm:right-4"
+                  onClick={goToNextImage}
+                  aria-label="Sonraki gorsele gec"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              ) : null}
+            </div>
+
+            {hasMultipleImages ? (
+              <div className="hidden h-[84vh] w-28 shrink-0 flex-col gap-3 overflow-y-auto rounded-2xl bg-black/35 p-2 lg:flex">
+                {productImages.map((image, index) => (
+                  <button
+                    key={`lightbox-thumb-desktop-${image.imageUrl}-${index}`}
+                    type="button"
+                    className={`overflow-hidden rounded-xl border-2 transition ${
+                      index === lightboxImageIndex
+                        ? 'border-white'
+                        : 'border-white/30 hover:border-white/60'
+                    }`}
+                    onClick={() => setLightbox((current) => ({ ...current, index }))}
+                    aria-label={`${index + 1}. gorsele git`}
+                  >
+                    <img
+                      src={image.imageUrl}
+                      alt={`${product.name} thumbnail ${index + 1}`}
+                      className="h-20 w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {hasMultipleImages ? (
+            <div className="absolute bottom-4 left-1/2 z-[101] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 lg:hidden">
+              <div className="flex gap-2 overflow-x-auto rounded-2xl bg-black/45 p-2">
+                {productImages.map((image, index) => (
+                  <button
+                    key={`lightbox-thumb-mobile-${image.imageUrl}-${index}`}
+                    type="button"
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                      index === lightboxImageIndex
+                        ? 'border-white'
+                        : 'border-white/30'
+                    }`}
+                    onClick={() => setLightbox((current) => ({ ...current, index }))}
+                    aria-label={`${index + 1}. gorsele git`}
+                  >
+                    <img
+                      src={image.imageUrl}
+                      alt={`${product.name} mobil thumbnail ${index + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
