@@ -69,6 +69,61 @@ public class MediaControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task PresignAndConfirm_ProductAsAdmin_ForPlatformProduct_ShouldUsePlatformSellerPrefix()
+    {
+        var storage = new FakeObjectStorageService();
+        using var factory = CreateFactoryWithStorage(storage);
+
+        var seeded = await SeedAdminCreatedProductAsync(factory);
+        var client = factory.CreateClient().AsAdmin(seeded.AdminUserId);
+
+        var presignResponse = await client.PostAsJsonAsync("/api/v1/media/presign", new PresignMediaUploadRequest
+        {
+            Context = "product",
+            ReferenceId = seeded.ProductId,
+            ContentType = "image/webp",
+            FileSizeBytes = 2_048
+        });
+
+        var presignBody = await presignResponse.Content.ReadAsStringAsync();
+        presignResponse.StatusCode.Should().Be(HttpStatusCode.OK, $"response body: {presignBody}");
+
+        var presignResult = await presignResponse.Content.ReadFromJsonAsync<ApiResult<PresignedMediaUploadDto>>();
+        presignResult.Should().NotBeNull();
+        presignResult!.Success.Should().BeTrue();
+        presignResult.Data.Should().NotBeNull();
+        presignResult.Data.ObjectKey.Should().StartWith($"products/seller-{seeded.PlatformSellerId}/product-{seeded.ProductId}/");
+        presignResult.Data.ObjectKey.Should().EndWith(".webp");
+
+        var confirmResponse = await client.PostAsJsonAsync("/api/v1/media/confirm", new ConfirmMediaUploadRequest
+        {
+            Context = "product",
+            ReferenceId = seeded.ProductId,
+            ObjectKey = presignResult.Data.ObjectKey,
+            IsPrimary = true,
+            SortOrder = 0
+        });
+
+        var confirmBody = await confirmResponse.Content.ReadAsStringAsync();
+        confirmResponse.StatusCode.Should().Be(HttpStatusCode.OK, $"response body: {confirmBody}");
+
+        var confirmResult = await confirmResponse.Content.ReadFromJsonAsync<ApiResult<ConfirmMediaUploadDto>>();
+        confirmResult.Should().NotBeNull();
+        confirmResult!.Success.Should().BeTrue();
+        confirmResult.Data.ObjectKey.Should().Be(presignResult.Data.ObjectKey);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var product = await db.Products
+            .AsNoTracking()
+            .Include(p => p.Images)
+            .SingleAsync(p => p.Id == seeded.ProductId);
+
+        product.SellerId.Should().Be(seeded.PlatformSellerId);
+        product.Images.Should().ContainSingle(image => image.ObjectKey == presignResult.Data.ObjectKey);
+    }
+
+    [Fact]
     public async Task PresignUpload_ProductAsDifferentSeller_ReturnsForbidden()
     {
         var storage = new FakeObjectStorageService();
@@ -448,6 +503,39 @@ public class MediaControllerTests : IClassFixture<CustomWebApplicationFactory>
         }
 
         return null;
+    }
+
+    private static async Task<(int AdminUserId, int ProductId, int PlatformSellerId)> SeedAdminCreatedProductAsync(WebApplicationFactory<Program> factory)
+    {
+        var adminUserId = NextId();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await TestDataSeeder.EnsureUserAsync(db, adminUserId, "Admin");
+        }
+
+        var categoryId = await SeedCategoryAsync(factory.Services);
+        var adminClient = factory.CreateClient().AsAdmin(adminUserId);
+        var createResponse = await adminClient.PostAsJsonAsync("/api/v1/admin/products", new CreateProductRequest
+        {
+            Name = $"Admin Product {Guid.NewGuid():N}",
+            Description = "Admin tarafindan olusturulan urun",
+            Price = 199.99m,
+            CategoryId = categoryId,
+            SKU = $"ADM-{Guid.NewGuid():N}"[..12],
+            InitialStock = 10
+        });
+
+        var createBody = await createResponse.Content.ReadAsStringAsync();
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created, $"response body: {createBody}");
+
+        var createdResult = await createResponse.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        createdResult.Should().NotBeNull();
+        createdResult!.Success.Should().BeTrue();
+        createdResult.Data.Id.Should().BeGreaterThan(0);
+        createdResult.Data.SellerId.Should().NotBeNull();
+
+        return (adminUserId, createdResult.Data.Id, createdResult.Data.SellerId!.Value);
     }
 
     private static async Task<(int UserId, int SellerProfileId, int ProductId)> SeedSellerProductAsync(IServiceProvider services)
