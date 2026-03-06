@@ -59,7 +59,7 @@ describe('ProductFeedCard', () => {
     expect(screen.getByText('Kalan süre')).toBeInTheDocument();
   });
 
-  it('compact varyantta compare ve ağır meta alanlarını gizler', () => {
+  it('compact varyantta compare alanını gizler ve mini meta satırı gösterir', () => {
     const product = createProduct();
     renderWithProviders(
       <ProductFeedCard
@@ -76,5 +76,7 @@ describe('ProductFeedCard', () => {
     expect(screen.queryByRole('button', { name: 'Karşılaştırmaya Ekle' })).not.toBeInTheDocument();
     expect(screen.queryByText(/kişi favoriledi/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Kalan süre')).not.toBeInTheDocument();
+    expect(screen.getByText('7 stok')).toBeInTheDocument();
+    expect(screen.getByText('18')).toBeInTheDocument();
   });
 });

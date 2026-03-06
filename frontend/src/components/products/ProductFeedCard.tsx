@@ -93,6 +93,20 @@ export function ProductFeedCard({
           {product.categoryName}
         </p>
 
+        {isCompact ? (
+          <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/90">
+            <span className="truncate">
+              {product.stockQuantity > 0 ? `${product.stockQuantity} stok` : 'Stok yok'}
+            </span>
+            {product.wishlistCount > 0 ? (
+              <span className="inline-flex shrink-0 items-center gap-1">
+                <Heart className="h-2.5 w-2.5 text-red-500" />
+                {product.wishlistCount}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         {product.hasActiveCampaign && (
           <div className={cn('flex flex-wrap items-center gap-2', isCompact ? 'pt-0.5' : 'pt-1')}>
             <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-200">

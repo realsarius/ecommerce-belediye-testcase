@@ -12,6 +12,12 @@ import { getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
 import { buildCompareUrl, useProductCompare } from '@/features/compare';
 import { useGetPersonalizedRecommendationsQuery, useSearchProductsQuery } from '@/features/products/productsApi';
 import { isDiscoveryFeedContext } from '@/features/products/productsSlice';
+import {
+  buildDedupedRailItems,
+  getRailFetchFlags,
+  getRailRenderFlags,
+  splitProductsForInlineRails,
+} from '@/components/home/productFeedRailRules';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -21,9 +27,6 @@ interface ProductListProps {
   isAddingToCart: boolean;
   handleAddToCart: (productId: number, productName: string) => void;
 }
-
-const FIRST_RAIL_INSERT_INDEX = 8;
-const SECOND_RAIL_INSERT_INDEX = 16;
 
 export const ProductList = ({
   isLoading,
@@ -43,10 +46,16 @@ export const ProductList = ({
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
   const { addProduct: addCompareProduct, containsProduct, removeProduct: removeCompareProduct, compareIds } = useProductCompare();
   const allProducts = productsData?.items ?? [];
-  const canInsertFirstRail = allProducts.length > FIRST_RAIL_INSERT_INDEX;
-  const canInsertSecondRail = allProducts.length > SECOND_RAIL_INSERT_INDEX;
-  const shouldFetchPersonalizedRail = hasDiscoveryFeedContext && isAuthenticated && canInsertFirstRail;
-  const shouldFetchTopWishlistedRail = hasDiscoveryFeedContext && canInsertSecondRail;
+  const {
+    firstSegment: firstProductSegment,
+    secondSegment: secondProductSegment,
+    remainingSegment: remainingProductSegment,
+  } = splitProductsForInlineRails(allProducts);
+  const { shouldFetchPersonalizedRail, shouldFetchTopWishlistedRail } = getRailFetchFlags({
+    hasDiscoveryFeedContext,
+    isAuthenticated,
+    totalProducts: allProducts.length,
+  });
   const { data: personalizedRecommendations, isLoading: isPersonalizedLoading } = useGetPersonalizedRecommendationsQuery(
     { take: 6 },
     { skip: !shouldFetchPersonalizedRail },
@@ -128,27 +137,20 @@ export const ProductList = ({
     toast.success(`${productName} karşılaştırma listesine eklendi.`);
   };
 
-  const firstProductSegment = allProducts.slice(0, FIRST_RAIL_INSERT_INDEX);
-  const secondProductSegment = allProducts.slice(FIRST_RAIL_INSERT_INDEX, SECOND_RAIL_INSERT_INDEX);
-  const remainingProductSegment = allProducts.slice(SECOND_RAIL_INSERT_INDEX);
-  const productIdsInFeed = new Set(allProducts.map((product) => product.id));
+  const { personalizedItems, topWishlistedItems } = buildDedupedRailItems({
+    feedProducts: allProducts,
+    personalizedCandidates: personalizedRecommendations ?? [],
+    topWishlistedCandidates: topWishlistedData?.items ?? [],
+  });
 
-  const personalizedItems = (personalizedRecommendations ?? [])
-    .filter((item) => !productIdsInFeed.has(item.id))
-    .slice(0, 6);
-  const personalizedIds = new Set(personalizedItems.map((item) => item.id));
-
-  const topWishlistedItems = (topWishlistedData?.items ?? [])
-    .filter((item) => item.wishlistCount > 0)
-    .filter((item) => !productIdsInFeed.has(item.id))
-    .filter((item) => !personalizedIds.has(item.id))
-    .slice(0, 8);
-
-  const shouldRenderPersonalizedRail = shouldFetchPersonalizedRail
-    && (isPersonalizedLoading || personalizedItems.length > 0);
-
-  const shouldRenderTopWishlistedRail = shouldFetchTopWishlistedRail
-    && (isTopWishlistedLoading || topWishlistedItems.length > 0);
+  const { shouldRenderPersonalizedRail, shouldRenderTopWishlistedRail } = getRailRenderFlags({
+    shouldFetchPersonalizedRail,
+    shouldFetchTopWishlistedRail,
+    isPersonalizedLoading,
+    isTopWishlistedLoading,
+    personalizedCount: personalizedItems.length,
+    topWishlistedCount: topWishlistedItems.length,
+  });
 
   const renderProductCards = (items: Product[]) =>
     items.map((product) => (
