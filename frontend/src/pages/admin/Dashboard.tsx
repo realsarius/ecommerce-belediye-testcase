@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -21,7 +21,6 @@ import {
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -72,6 +71,50 @@ function formatDelta(current: number, previous: number) {
   }
 
   return ((current - previous) / previous) * 100;
+}
+
+function ChartSurface({
+  height,
+  children,
+}: {
+  height: number;
+  children: (size: { width: number; height: number }) => ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateReadiness = () => {
+      const { width, height: currentHeight } = element.getBoundingClientRect();
+      if (width > 0 && currentHeight > 0) {
+        setSize({ width: Math.floor(width), height: Math.floor(currentHeight) });
+      }
+    };
+
+    const frame = window.requestAnimationFrame(updateReadiness);
+    const observer = new ResizeObserver(updateReadiness);
+    observer.observe(element);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="min-w-0 w-full"
+      style={{ height, minHeight: Math.max(220, Math.floor(height * 0.75)) }}
+    >
+      {size ? children(size) : null}
+    </div>
+  );
 }
 
 export default function AdminDashboard() {
@@ -232,38 +275,40 @@ export default function AdminDashboard() {
               </Tabs>
             </div>
           </CardHeader>
-          <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <LineChart data={revenueTrend}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
-                <Tooltip
-                  formatter={(value, name) => [
-                    formatCurrency(typeof value === 'number' ? value : 0, kpi?.currency),
-                    name === 'revenue' ? 'Seçili dönem' : 'Karşılaştırma',
-                  ]}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  name="Seçili dönem"
-                  stroke="#6366f1"
-                  strokeWidth={3}
-                  dot={{ r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="previousRevenue"
-                  name="Karşılaştırma"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
-                  strokeDasharray="6 6"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0">
+            <ChartSurface height={320}>
+              {({ width, height }) => (
+                <LineChart width={width} height={height} data={revenueTrend}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatCurrency(typeof value === 'number' ? value : 0, kpi?.currency),
+                      name === 'revenue' ? 'Seçili dönem' : 'Karşılaştırma',
+                    ]}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Seçili dönem"
+                    stroke="#6366f1"
+                    strokeWidth={3}
+                    dot={{ r: 3 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="previousRevenue"
+                    name="Karşılaştırma"
+                    stroke="#94a3b8"
+                    strokeWidth={2}
+                    strokeDasharray="6 6"
+                    dot={false}
+                  />
+                </LineChart>
+              )}
+            </ChartSurface>
           </CardContent>
         </Card>
 
@@ -272,31 +317,33 @@ export default function AdminDashboard() {
             <CardTitle>Sipariş Durum Dağılımı</CardTitle>
             <CardDescription>Toplam {formatNumber(dashboardData.totalOrders)} siparişin güncel dağılımı.</CardDescription>
           </CardHeader>
-          <CardContent className="min-w-0 h-[320px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <PieChart>
-                <Pie
-                  data={dashboardData.statusDistribution}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={72}
-                  outerRadius={102}
-                  paddingAngle={3}
-                >
-                  {dashboardData.statusDistribution.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined)} />
-                <Legend verticalAlign="bottom" height={42} />
-                <text x="50%" y="47%" textAnchor="middle" className="fill-foreground text-2xl font-semibold">
-                  {dashboardData.totalOrders}
-                </text>
-                <text x="50%" y="55%" textAnchor="middle" className="fill-muted-foreground text-xs">
-                  toplam sipariş
-                </text>
-              </PieChart>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0">
+            <ChartSurface height={320}>
+              {({ width, height }) => (
+                <PieChart width={width} height={height}>
+                  <Pie
+                    data={dashboardData.statusDistribution}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={72}
+                    outerRadius={102}
+                    paddingAngle={3}
+                  >
+                    {dashboardData.statusDistribution.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined)} />
+                  <Legend verticalAlign="bottom" height={42} />
+                  <text x="50%" y="47%" textAnchor="middle" className="fill-foreground text-2xl font-semibold">
+                    {dashboardData.totalOrders}
+                  </text>
+                  <text x="50%" y="55%" textAnchor="middle" className="fill-muted-foreground text-xs">
+                    toplam sipariş
+                  </text>
+                </PieChart>
+              )}
+            </ChartSurface>
           </CardContent>
         </Card>
       </div>
@@ -307,16 +354,18 @@ export default function AdminDashboard() {
             <CardTitle>Kategori Bazlı Satış</CardTitle>
             <CardDescription>Kategori bazlı satış hacmi başarılı sipariş kalemlerinden hesaplanır.</CardDescription>
           </CardHeader>
-          <CardContent className="min-w-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart data={categorySales}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
-                <XAxis dataKey="categoryName" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'adet')} />
-                <Bar dataKey="salesCount" fill="#06b6d4" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0">
+            <ChartSurface height={300}>
+              {({ width, height }) => (
+                <BarChart width={width} height={height} data={categorySales}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
+                  <XAxis dataKey="categoryName" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'adet')} />
+                  <Bar dataKey="salesCount" fill="#06b6d4" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              )}
+            </ChartSurface>
           </CardContent>
         </Card>
 
@@ -325,28 +374,30 @@ export default function AdminDashboard() {
             <CardTitle>Kullanıcı Kayıt Trendi</CardTitle>
             <CardDescription>Son 30 günde sisteme katılan kullanıcı sayısı.</CardDescription>
           </CardHeader>
-          <CardContent className="min-w-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <AreaChart data={userRegistrations}>
-                <defs>
-                  <linearGradient id="userRegistrationGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.45} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'kayıt')} />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  fill="url(#userRegistrationGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0">
+            <ChartSurface height={300}>
+              {({ width, height }) => (
+                <AreaChart width={width} height={height} data={userRegistrations}>
+                  <defs>
+                    <linearGradient id="userRegistrationGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.45} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(value) => formatCountTooltip(typeof value === 'number' ? value : undefined, 'kayıt')} />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#8b5cf6"
+                    strokeWidth={3}
+                    fill="url(#userRegistrationGradient)"
+                  />
+                </AreaChart>
+              )}
+            </ChartSurface>
           </CardContent>
         </Card>
       </div>

@@ -9,6 +9,8 @@ namespace EcommerceAPI.Business.Concrete;
 
 public class AdminDashboardManager : IAdminDashboardService
 {
+    private static readonly CultureInfo DashboardCulture = ResolveDashboardCulture();
+
     private readonly IOrderDal _orderDal;
     private readonly IUserDal _userDal;
     private readonly IProductDal _productDal;
@@ -97,14 +99,13 @@ public class AdminDashboardManager : IAdminDashboardService
         var normalizedDays = Math.Clamp(days, 7, 90);
         var userCreatedDates = await _userDal.GetAdminDashboardUserCreatedDatesAsync();
         var today = DateTime.UtcNow.Date;
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
 
         var result = Enumerable.Range(0, normalizedDays)
             .Select(offset => today.AddDays(-(normalizedDays - 1 - offset)))
             .Select(date => new AdminDashboardUserRegistrationPointDto
             {
                 Date = DateOnly.FromDateTime(date),
-                Label = date.ToString("dd MMM", culture),
+                Label = date.ToString("dd MMM", DashboardCulture),
                 Count = userCreatedDates.Count(createdAt => createdAt.Date == date)
             })
             .ToList();
@@ -157,7 +158,6 @@ public class AdminDashboardManager : IAdminDashboardService
 
     private static List<AdminDashboardRevenueTrendPointDto> BuildDailyTrend(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
 
         return Enumerable.Range(0, 7)
@@ -170,7 +170,7 @@ public class AdminDashboardManager : IAdminDashboardService
 
                 return new AdminDashboardRevenueTrendPointDto
                 {
-                    Label = date.ToString("dd MMM", culture),
+                    Label = date.ToString("dd MMM", DashboardCulture),
                     Date = DateOnly.FromDateTime(date),
                     Revenue = Math.Round(CalculateRevenue(currentOrders), 2),
                     PreviousRevenue = Math.Round(CalculateRevenue(previousOrders), 2),
@@ -182,7 +182,6 @@ public class AdminDashboardManager : IAdminDashboardService
 
     private static List<AdminDashboardRevenueTrendPointDto> BuildWeeklyTrend(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
         var currentWeekStart = StartOfWeek(DateTime.UtcNow.Date);
 
         return Enumerable.Range(0, 8)
@@ -198,7 +197,7 @@ public class AdminDashboardManager : IAdminDashboardService
 
                 return new AdminDashboardRevenueTrendPointDto
                 {
-                    Label = currentStart.ToString("dd MMM", culture),
+                    Label = currentStart.ToString("dd MMM", DashboardCulture),
                     Date = DateOnly.FromDateTime(currentStart),
                     Revenue = Math.Round(CalculateRevenue(currentOrders), 2),
                     PreviousRevenue = Math.Round(CalculateRevenue(previousOrders), 2),
@@ -210,7 +209,6 @@ public class AdminDashboardManager : IAdminDashboardService
 
     private static List<AdminDashboardRevenueTrendPointDto> BuildMonthlyTrend(IEnumerable<AdminDashboardOrderProjectionDto> orders)
     {
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
         var currentMonthStart = new DateTime(today.Year, today.Month, 1);
 
@@ -227,7 +225,7 @@ public class AdminDashboardManager : IAdminDashboardService
 
                 return new AdminDashboardRevenueTrendPointDto
                 {
-                    Label = currentStart.ToString("MMM yyyy", culture),
+                    Label = currentStart.ToString("MMM yyyy", DashboardCulture),
                     Date = DateOnly.FromDateTime(currentStart),
                     Revenue = Math.Round(CalculateRevenue(currentOrders), 2),
                     PreviousRevenue = Math.Round(CalculateRevenue(previousOrders), 2),
@@ -247,6 +245,18 @@ public class AdminDashboardManager : IAdminDashboardService
     private static bool IsRevenueOrder(AdminDashboardOrderProjectionDto order)
     {
         return order.Status is OrderStatus.Paid or OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Delivered;
+    }
+
+    private static CultureInfo ResolveDashboardCulture()
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo("tr-TR");
+        }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
     }
 
     private static DateTime StartOfWeek(DateTime date)

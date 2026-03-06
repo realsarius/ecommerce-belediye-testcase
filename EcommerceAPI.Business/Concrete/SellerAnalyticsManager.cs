@@ -12,6 +12,7 @@ namespace EcommerceAPI.Business.Concrete;
 public class SellerAnalyticsManager : ISellerAnalyticsService
 {
     private const decimal DefaultCommissionRate = 0.10m;
+    private static readonly CultureInfo AnalyticsCulture = ResolveAnalyticsCulture();
 
     private readonly IProductDal _productDal;
     private readonly IOrderDal _orderDal;
@@ -255,7 +256,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
                 return new SellerFinanceMonthlySummaryDto
                 {
                     MonthKey = $"{group.Key.Year}-{group.Key.Month:00}",
-                    MonthLabel = representativeDate.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("tr-TR")),
+                    MonthLabel = representativeDate.ToString("MMMM yyyy", AnalyticsCulture),
                     Orders = group.Sum(point => point.Orders),
                     GrossSales = Math.Round(group.Sum(point => point.GrossSales), 2),
                     NetSales = Math.Round(group.Sum(point => point.NetSales), 2),
@@ -489,7 +490,6 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
 
     private static List<SellerDashboardRevenueTrendPointDto> BuildDailyDashboardTrend(IEnumerable<Order> orders, int sellerId)
     {
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
 
         return Enumerable.Range(0, 30)
@@ -502,7 +502,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
 
                 return new SellerDashboardRevenueTrendPointDto
                 {
-                    Label = date.ToString("dd MMM", culture),
+                    Label = date.ToString("dd MMM", AnalyticsCulture),
                     Date = DateOnly.FromDateTime(date),
                     Orders = matchingOrders.Count(order => order.OrderItems.Any(item => item.Product.SellerId == sellerId)),
                     Revenue = Math.Round(CalculateSellerRevenue(matchingOrders, sellerId), 2)
@@ -513,7 +513,6 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
 
     private static List<SellerDashboardRevenueTrendPointDto> BuildWeeklyDashboardTrend(IEnumerable<Order> orders, int sellerId)
     {
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
         var currentWeekStart = StartOfWeek(today);
 
@@ -528,7 +527,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
 
                 return new SellerDashboardRevenueTrendPointDto
                 {
-                    Label = start.ToString("dd MMM", culture),
+                    Label = start.ToString("dd MMM", AnalyticsCulture),
                     Date = DateOnly.FromDateTime(start),
                     Orders = matchingOrders.Count(order => order.OrderItems.Any(item => item.Product.SellerId == sellerId)),
                     Revenue = Math.Round(CalculateSellerRevenue(matchingOrders, sellerId), 2)
@@ -539,7 +538,6 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
 
     private static List<SellerDashboardRevenueTrendPointDto> BuildMonthlyDashboardTrend(IEnumerable<Order> orders, int sellerId)
     {
-        var culture = CultureInfo.GetCultureInfo("tr-TR");
         var today = DateTime.UtcNow.Date;
         var currentMonthStart = new DateTime(today.Year, today.Month, 1);
 
@@ -554,7 +552,7 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
 
                 return new SellerDashboardRevenueTrendPointDto
                 {
-                    Label = start.ToString("MMM yyyy", culture),
+                    Label = start.ToString("MMM yyyy", AnalyticsCulture),
                     Date = DateOnly.FromDateTime(start),
                     Orders = matchingOrders.Count(order => order.OrderItems.Any(item => item.Product.SellerId == sellerId)),
                     Revenue = Math.Round(CalculateSellerRevenue(matchingOrders, sellerId), 2)
@@ -596,6 +594,18 @@ public class SellerAnalyticsManager : ISellerAnalyticsService
     {
         var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
         return date.AddDays(-1 * diff).Date;
+    }
+
+    private static CultureInfo ResolveAnalyticsCulture()
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo("tr-TR");
+        }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
     }
 
     private static decimal CalculateRatio(long numerator, long denominator)
