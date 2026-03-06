@@ -86,11 +86,8 @@ public class IyzicoPaymentServiceTests
             .Setup(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IyzicoThreeDSInitializeGatewayResult(true, "PAY-3DS", "base64-html", null));
         _paymentWebhookEventDalMock
-            .Setup(x => x.ExistsByDedupeKeyAsync(It.IsAny<PaymentProviderType>(), It.IsAny<string>()))
-            .ReturnsAsync(false);
-        _paymentWebhookEventDalMock
-            .Setup(x => x.AddAsync(It.IsAny<PaymentWebhookEvent>()))
-            .ReturnsAsync((PaymentWebhookEvent entity) => entity);
+            .Setup(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
@@ -508,17 +505,34 @@ public class IyzicoPaymentServiceTests
             Status = "SUCCESS"
         };
 
+        _orderDalMock.Setup(x => x.GetByOrderNumberAsync("ORD-DUP"))
+            .ReturnsAsync(new Order
+            {
+                Id = 79,
+                OrderNumber = "ORD-DUP",
+                Status = OrderStatus.PendingPayment,
+                UserId = 1,
+                TotalAmount = 100,
+                Payment = new Payment
+                {
+                    Status = PaymentStatus.Pending,
+                    Amount = 100,
+                    Currency = "TRY"
+                }
+            });
+
         _paymentWebhookEventDalMock
-            .Setup(x => x.ExistsByDedupeKeyAsync(PaymentProviderType.Iyzico, It.IsAny<string>()))
-            .ReturnsAsync(true);
+            .Setup(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         var signature = ComputeSignature(request, "test");
         var result = await _paymentService.ProcessWebhookAsync(request, signature);
 
         result.Success.Should().BeTrue();
         result.Message.Should().Be("Webhook already processed");
-        _orderDalMock.Verify(x => x.GetByOrderNumberAsync(It.IsAny<string>()), Times.Never);
-        _paymentWebhookEventDalMock.Verify(x => x.AddAsync(It.IsAny<PaymentWebhookEvent>()), Times.Never);
+        _orderDalMock.Verify(x => x.GetByOrderNumberAsync("ORD-DUP"), Times.Once);
+        _paymentWebhookEventDalMock.Verify(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 

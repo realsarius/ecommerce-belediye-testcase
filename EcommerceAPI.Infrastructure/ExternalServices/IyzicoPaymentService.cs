@@ -641,12 +641,6 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
                  Constants.InfrastructureConstants.Payment.WebhookConversationIdMissingCode);
 
         var dedupeKey = BuildWebhookDedupeKey(request);
-        var alreadyProcessed = await _paymentWebhookEventDal.ExistsByDedupeKeyAsync(PaymentProviderType.Iyzico, dedupeKey);
-        if (alreadyProcessed)
-        {
-            return new SuccessResult("Webhook already processed");
-        }
-
         var order = await _orderDal.GetByOrderNumberAsync(request.PaymentConversationId);
         if (order == null)
              return new ErrorResult(
@@ -661,7 +655,12 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         await _unitOfWork.BeginTransactionAsync();
         try
         {
-            await _paymentWebhookEventDal.AddAsync(CreateWebhookEventRecord(request, dedupeKey));
+            var inserted = await _paymentWebhookEventDal.TryAddWebhookEventAsync(CreateWebhookEventRecord(request, dedupeKey));
+            if (!inserted)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return new SuccessResult("Webhook already processed");
+            }
 
             if (order.Payment == null)
             {
