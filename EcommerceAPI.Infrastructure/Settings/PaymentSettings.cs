@@ -12,4 +12,8 @@ public class PaymentSettings
     public bool Force3DSecure { get; set; }
     public decimal Force3DSecureAbove { get; set; } = 5000m;
     public string PublicApiBaseUrl { get; set; } = "http://localhost:5000";
+
+    // Security defaults: webhook imzasi zorunlu, bypass kapali.
+    public bool RequireWebhookSignature { get; set; } = true;
+    public bool AllowWebhookSignatureBypass { get; set; }
 }

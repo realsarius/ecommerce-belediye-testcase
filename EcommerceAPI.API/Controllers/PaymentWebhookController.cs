@@ -1,6 +1,7 @@
 using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Infrastructure.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,6 +30,10 @@ public class PaymentWebhookController : ControllerBase
     [Consumes("application/x-www-form-urlencoded", "application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> HandleWebhook(
         [FromForm] IyzicoWebhookRequest request,
         [FromHeader(Name = "X-IYZ-SIGNATURE-V3")] string? signature)
@@ -39,11 +44,9 @@ public class PaymentWebhookController : ControllerBase
 
         try
         {
-
             if (string.IsNullOrEmpty(signature))
             {
                 _logger.LogWarning("Webhook rejected: Missing X-IYZ-SIGNATURE-V3 header");
-
             }
 
             var result = await _paymentService.ProcessWebhookAsync(request, signature ?? string.Empty);
@@ -55,20 +58,27 @@ public class PaymentWebhookController : ControllerBase
                     request.PaymentConversationId);
                 return Ok(new { message = "Webhook processed successfully" });
             }
-            else
+
+            _logger.LogWarning(
+                "Webhook processing failed: ConversationId={ConversationId}, ErrorCode={ErrorCode}",
+                request.PaymentConversationId,
+                result.ErrorCode);
+
+            return result.ErrorCode switch
             {
-                _logger.LogWarning(
-                    "Webhook processing failed: ConversationId={ConversationId}",
-                    request.PaymentConversationId);
-                // iyzico retry durdurması için yine 200 dönmek gerekebilir
-                return Ok(new { message = "Webhook received but not processed" });
-            }
+                InfrastructureConstants.Payment.WebhookInvalidSignatureCode
+                    => Unauthorized(new { message = "Webhook signature is invalid" }),
+                InfrastructureConstants.Payment.WebhookConversationIdMissingCode
+                    => BadRequest(new { message = "ConversationId is missing" }),
+                InfrastructureConstants.Payment.OrderNotFoundCode or InfrastructureConstants.Payment.PaymentRecordNotFoundCode
+                    => NotFound(new { message = result.Message }),
+                _ => UnprocessableEntity(new { message = result.Message, errorCode = result.ErrorCode })
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Webhook error: ConversationId={ConversationId}", request.PaymentConversationId);
-            // iyzico'ya 200 dönerek retry'ı durdurmak bazen tercih edilir
-            return Ok(new { message = "Webhook error logged" });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Webhook processing failed" });
         }
     }
 

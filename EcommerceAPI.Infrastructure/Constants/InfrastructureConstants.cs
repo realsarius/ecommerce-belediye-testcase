@@ -17,5 +17,7 @@ public static class InfrastructureConstants
         public const string OrderNotFoundCode = "ORDER_NOT_FOUND";
         public const string PaymentRecordNotFoundCode = "PAYMENT_RECORD_NOT_FOUND";
         public const string AlreadyPaidCode = "ALREADY_PAID";
+        public const string WebhookInvalidSignatureCode = "WEBHOOK_INVALID_SIGNATURE";
+        public const string WebhookConversationIdMissingCode = "WEBHOOK_CONVERSATION_ID_MISSING";
     }
 }

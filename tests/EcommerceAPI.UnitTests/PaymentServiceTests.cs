@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Infrastructure.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
+using EcommerceAPI.Infrastructure.Constants;
 using EcommerceAPI.Core.Utilities.Results;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
@@ -485,6 +486,63 @@ public class IyzicoPaymentServiceTests
         result.Message.Should().Be("Already paid");
         _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenSignatureMissingAndRequired_ShouldReturnInvalidSignatureError()
+    {
+        _paymentSettings.RequireWebhookSignature = true;
+        _paymentSettings.AllowWebhookSignatureBypass = false;
+
+        var result = await _paymentService.ProcessWebhookAsync(
+            new IyzicoWebhookRequest
+            {
+                IyziEventType = "PAYMENT",
+                PaymentId = "PAY-1",
+                PaymentConversationId = "ORD-1",
+                Status = "SUCCESS"
+            },
+            string.Empty);
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(InfrastructureConstants.Payment.WebhookInvalidSignatureCode);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenSignatureBypassEnabled_ShouldAllowMissingSignature()
+    {
+        _paymentSettings.RequireWebhookSignature = true;
+        _paymentSettings.AllowWebhookSignatureBypass = true;
+
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "PAYMENT",
+            PaymentId = "PAY-2",
+            PaymentConversationId = "ORD-BYPASS",
+            Status = "SUCCESS"
+        };
+
+        var existingOrder = new Order
+        {
+            Id = 78,
+            OrderNumber = "ORD-BYPASS",
+            Status = OrderStatus.Paid,
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Success,
+                IdempotencyKey = "bypass-key",
+                Amount = 100,
+                Currency = "TRY"
+            }
+        };
+
+        _orderDalMock.Setup(x => x.GetByOrderNumberAsync("ORD-BYPASS"))
+            .ReturnsAsync(existingOrder);
+
+        var result = await _paymentService.ProcessWebhookAsync(request, string.Empty);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Already paid");
     }
 
     private static string ComputeSignature(IyzicoWebhookRequest request, string secretKey)

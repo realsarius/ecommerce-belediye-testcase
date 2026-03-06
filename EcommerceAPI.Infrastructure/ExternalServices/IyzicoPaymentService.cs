@@ -624,16 +624,22 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         // Signature doğrulama
         if (!ValidateSignature(request, signatureHeader))
         {
-            return new ErrorResult("Invalid signature");
+            return new ErrorResult(
+                "Invalid signature",
+                Constants.InfrastructureConstants.Payment.WebhookInvalidSignatureCode);
         }
 
         // ConversationId ile siparişi bul
         if (string.IsNullOrEmpty(request.PaymentConversationId))
-             return new ErrorResult("ConversationId is missing");
+             return new ErrorResult(
+                 "ConversationId is missing",
+                 Constants.InfrastructureConstants.Payment.WebhookConversationIdMissingCode);
 
         var order = await _orderDal.GetByOrderNumberAsync(request.PaymentConversationId);
         if (order == null)
-             return new ErrorResult("Order not found");
+             return new ErrorResult(
+                 "Order not found",
+                 Constants.InfrastructureConstants.Payment.OrderNotFoundCode);
 
         // Idempotency: Zaten işlenmiş mi?
         if (order.Status == OrderStatus.Paid)
@@ -646,7 +652,9 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             if (order.Payment == null)
             {
                  await _unitOfWork.RollbackTransactionAsync();
-                 return new ErrorResult("Payment record not found on order");
+                 return new ErrorResult(
+                     "Payment record not found on order",
+                     Constants.InfrastructureConstants.Payment.PaymentRecordNotFoundCode);
             }
 
             if (request.Status?.ToUpperInvariant() == "SUCCESS")
@@ -757,23 +765,38 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     }
 
     /// <summary>
-    /// iyzico X-IYZ-SIGNATURE-V3 doğrulaması
-    /// Format: SECRET KEY + iyziEventType + paymentId + paymentConversationId + status
-    /// Development: Boş signature kabul edilir (test için)
+    /// iyzico X-IYZ-SIGNATURE-V3 doğrulaması.
+    /// Bypass davranışı yalnızca config ile açılabilir (varsayılan kapalı).
     /// </summary>
     private bool ValidateSignature(IyzicoWebhookRequest request, string signatureHeader)
     {
-        // Development mode: Signature yoksa bypass et
-        if (string.IsNullOrEmpty(signatureHeader))
+        if (_paymentSettings.AllowWebhookSignatureBypass)
         {
-            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            return isDevelopment;
+            _logger.LogWarning("Webhook signature validation bypass is enabled via configuration.");
+            return true;
         }
 
-        var dataToSign = $"{_settings.SecretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        var normalizedSignatureHeader = signatureHeader?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(normalizedSignatureHeader))
+        {
+            return !_paymentSettings.RequireWebhookSignature;
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.SecretKey))
+        {
+            _logger.LogWarning("Webhook signature validation failed because Iyzico SecretKey is missing.");
+            return false;
+        }
+
+        var dataToSign = BuildSignaturePayload(request);
         var computedSignature = ComputeHmacSha256Hex(dataToSign);
 
-        return string.Equals(computedSignature, signatureHeader, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(computedSignature, normalizedSignatureHeader, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string BuildSignaturePayload(IyzicoWebhookRequest request)
+    {
+        return $"{_settings.SecretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
     }
 
     /// <summary>

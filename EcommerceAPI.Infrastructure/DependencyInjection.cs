@@ -86,6 +86,20 @@ public static class DependencyInjection
                 options.PublicApiBaseUrl = publicApiBaseUrl.Trim();
             }
 
+            if (bool.TryParse(
+                    Environment.GetEnvironmentVariable("PAYMENT_REQUIRE_WEBHOOK_SIGNATURE"),
+                    out var requireWebhookSignature))
+            {
+                options.RequireWebhookSignature = requireWebhookSignature;
+            }
+
+            if (bool.TryParse(
+                    Environment.GetEnvironmentVariable("PAYMENT_ALLOW_WEBHOOK_SIGNATURE_BYPASS"),
+                    out var allowWebhookSignatureBypass))
+            {
+                options.AllowWebhookSignatureBypass = allowWebhookSignatureBypass;
+            }
+
             if (options.ActiveProviders == null || options.ActiveProviders.Count == 0)
             {
                 options.ActiveProviders = new List<Entities.Enums.PaymentProviderType>
