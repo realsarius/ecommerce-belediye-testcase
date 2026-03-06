@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test-utils';
 import { ProductFeedCard } from './ProductFeedCard';
 import type { Product } from '@/features/products/types';
@@ -78,5 +79,51 @@ describe('ProductFeedCard', () => {
     expect(screen.queryByText('Kalan süre')).not.toBeInTheDocument();
     expect(screen.getByText('7 stok')).toBeInTheDocument();
     expect(screen.getByText('18')).toBeInTheDocument();
+  });
+
+  it('compact varyantta favori ve sepete ekle aksiyon callbacklerini tetikler', async () => {
+    const user = userEvent.setup();
+    const onAddToCart = vi.fn();
+    const onWishlistToggle = vi.fn();
+    const product = createProduct();
+
+    renderWithProviders(
+      <ProductFeedCard
+        product={product}
+        variant="compact"
+        isAddingToCart={false}
+        isInWishlist={false}
+        onAddToCart={onAddToCart}
+        onWishlistToggle={onWishlistToggle}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Ürünü favorilere ekle' }));
+    await user.click(screen.getByRole('button', { name: 'Sepete' }));
+
+    expect(onWishlistToggle).toHaveBeenCalledTimes(1);
+    expect(onWishlistToggle.mock.calls[0]?.[1]).toBe(product.id);
+    expect(onAddToCart).toHaveBeenCalledWith(product.id, product.name);
+  });
+
+  it('ürün detay linklerini doğru path ile üretir', () => {
+    const product = createProduct({ id: 42, name: 'Detay Ürün' });
+
+    renderWithProviders(
+      <ProductFeedCard
+        product={product}
+        variant="compact"
+        isAddingToCart={false}
+        isInWishlist={false}
+        onAddToCart={vi.fn()}
+        onWishlistToggle={vi.fn()}
+      />,
+    );
+
+    const detailLinks = screen.getAllByRole('link');
+    expect(detailLinks.length).toBeGreaterThan(0);
+    detailLinks.forEach((link) => {
+      expect(link).toHaveAttribute('href', `/products/${product.id}`);
+    });
   });
 });
