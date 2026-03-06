@@ -39,6 +39,7 @@ export default function ProductDetail() {
   });
 
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const isAdmin = user?.role?.trim().toLowerCase() === 'admin';
   const { data: product, isLoading, error } = useGetProductQuery(productId);
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation();
   const [trackProductView] = useTrackProductViewMutation();
@@ -428,7 +429,14 @@ export default function ProductDetail() {
                 />
               </div>
             )}
-            <h1 className="text-3xl font-bold">{product.name}</h1>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h1 className="text-3xl font-bold">{product.name}</h1>
+              {isAdmin ? (
+                <Button asChild variant="outline" size="sm" className="h-9">
+                  <Link to={`/admin/products/${product.id}`}>Ürünü Düzenle</Link>
+                </Button>
+              ) : null}
+            </div>
             <p className="text-muted-foreground mt-1">SKU: {product.sku}</p>
           </div>
 
