@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useGetProductQuery, useCreateProductMutation, useUpdateProductMutation } from '@/features/products/productsApi';
@@ -20,7 +20,15 @@ import {
 } from '@/components/common/select';
 import { ArrowLeft, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProductImageUploader } from '@/components/media/ProductImageUploader';
 
+const imageSchema = z.object({
+  id: z.number().optional(),
+  imageUrl: z.string().url('Geçerli bir görsel URL girin'),
+  objectKey: z.string().max(1024, 'Object key çok uzun').optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isPrimary: z.boolean().default(false),
+});
 
 const productSchema = z.object({
   name: z.string().min(1, 'Ürün adı gereklidir').max(200, 'Ürün adı çok uzun'),
@@ -44,10 +52,28 @@ const productSchema = z.object({
     .refine((val) => !isNaN(val) && val >= 0, { message: 'Stok negatif olamaz' })
     .default(0),
   isActive: z.boolean().default(true),
+  images: z.array(imageSchema).max(8, 'En fazla 8 görsel ekleyebilirsiniz').default([]),
 });
 
 type ProductFormInput = z.input<typeof productSchema>;
 type ProductFormData = z.output<typeof productSchema>;
+
+function normalizeImagesForRequest(images: ProductFormData['images']) {
+  const sanitized = (images || [])
+    .filter((image) => image.imageUrl?.trim())
+    .map((image, index) => ({
+      imageUrl: image.imageUrl.trim(),
+      objectKey: image.objectKey?.trim() ? image.objectKey.trim() : undefined,
+      isPrimary: !!image.isPrimary,
+      sortOrder: index,
+    }));
+
+  if (sanitized.length > 0 && sanitized.every((image) => !image.isPrimary)) {
+    sanitized[0].isPrimary = true;
+  }
+
+  return sanitized;
+}
 
 export default function ProductForm() {
   const { id } = useParams<{ id: string }>();
@@ -67,6 +93,7 @@ export default function ProductForm() {
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormInput, unknown, ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -79,8 +106,17 @@ export default function ProductForm() {
       categoryId: '',
       stockQuantity: 0,
       isActive: true,
+      images: [],
     },
   });
+  const watchedImages = useWatch({ control, name: 'images' }) || [];
+  const images = watchedImages.map((image, index) => ({
+    id: image.id,
+    imageUrl: image.imageUrl,
+    objectKey: image.objectKey,
+    sortOrder: image.sortOrder ?? index,
+    isPrimary: image.isPrimary ?? index === 0,
+  }));
 
   useEffect(() => {
     // Kategoriler ve ürün yüklendiğinde formu doldur
@@ -97,6 +133,13 @@ export default function ProductForm() {
         categoryId: rawCatId ? rawCatId.toString() : '',
         stockQuantity: product.stockQuantity,
         isActive: product.isActive,
+        images: (product.images || []).map((image) => ({
+          id: image.id,
+          imageUrl: image.imageUrl,
+          objectKey: image.objectKey,
+          sortOrder: image.sortOrder,
+          isPrimary: image.isPrimary,
+        })),
       });
     }
   }, [product, categories, isEdit, reset]);
@@ -113,6 +156,7 @@ export default function ProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           stockQuantity: data.stockQuantity,
           isActive: data.isActive,
+          images: normalizeImagesForRequest(data.images),
         };
         await updateProduct({ id: productId, data: updatePayload }).unwrap();
         toast.success('Ürün güncellendi.');
@@ -126,6 +170,7 @@ export default function ProductForm() {
           categoryId: parseInt(data.categoryId, 10),
           initialStock: data.stockQuantity,
           isActive: data.isActive,
+          images: normalizeImagesForRequest(data.images),
         };
         await createProduct(createPayload).unwrap();
         toast.success('Ürün oluşturuldu.');
@@ -292,6 +337,26 @@ export default function ProductForm() {
                     <p className="text-sm text-destructive">{errors.stockQuantity.message}</p>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Görseller</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ProductImageUploader
+                  productId={isEdit ? productId : undefined}
+                  canUpload={!!isEdit}
+                  images={images}
+                  onChange={(nextImages) => {
+                    setValue('images', nextImages, { shouldDirty: true, shouldValidate: true });
+                  }}
+                  maxFiles={8}
+                />
+                {errors.images && !Array.isArray(errors.images) && 'message' in errors.images ? (
+                  <p className="text-sm text-destructive">{errors.images.message as string}</p>
+                ) : null}
               </CardContent>
             </Card>
           </div>
