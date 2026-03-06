@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Bell,
   BellRing,
   ChevronLeft,
   ChevronRight,
@@ -47,7 +46,6 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { logout } from '@/features/auth/authSlice';
 import { useRevokeMutation } from '@/features/auth/authApi';
-import { useGetUnreadNotificationCountQuery } from '@/features/notifications/notificationsApi';
 import {
   buildDashboardBreadcrumbs,
   getUserInitials,
@@ -213,7 +211,6 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user, refreshToken } = useAppSelector((state) => state.auth);
-  const { data: notificationSummary } = useGetUnreadNotificationCountQuery();
   const [revoke] = useRevokeMutation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('adminSidebarCollapsed') === 'true');
@@ -224,7 +221,6 @@ export function AdminLayout() {
 
   const normalizedPath = normalizeDashboardPath(location.pathname, '/admin');
   const breadcrumbs = buildDashboardBreadcrumbs(normalizedPath, '/admin', 'Yönetim Paneli', adminNavigationGroups);
-  const unreadNotificationCount = notificationSummary?.unreadCount ?? 0;
 
   const handleLogout = async () => {
     if (refreshToken) {
@@ -310,11 +306,38 @@ export function AdminLayout() {
               </div>
             </div>
 
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/notifications">
-                <Bell className="h-5 w-5" />
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar className="h-8 w-8 border">
+                    <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                      {getUserInitials(user?.firstName, user?.lastName, user?.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel>Yönetici Hesabı</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/account">
+                    <User className="h-4 w-4" />
+                    Profilim
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/">
+                    <ArrowLeft className="h-4 w-4" />
+                    Mağazaya Dön
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
+                  Çıkış Yap
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="hidden h-16 items-center justify-between gap-6 px-6 md:flex">
@@ -339,20 +362,6 @@ export function AdminLayout() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="relative" asChild>
-                <Link to="/notifications">
-                  <Bell className="h-5 w-5" />
-                  {unreadNotificationCount > 0 ? (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full px-1 text-[10px]"
-                    >
-                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                    </Badge>
-                  ) : null}
-                </Link>
-              </Button>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex h-auto items-center gap-3 rounded-2xl px-2 py-1.5">

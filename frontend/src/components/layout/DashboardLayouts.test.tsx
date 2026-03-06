@@ -80,6 +80,7 @@ describe('Dashboard Layout render testleri', () => {
     expect(screen.getAllByText('Operasyon Merkezi')[0]).toBeInTheDocument();
     expect(screen.getByText('Admin İçerik')).toBeInTheDocument();
     expect(screen.getAllByText('Dashboard')[0]).toBeInTheDocument();
+    expect(document.querySelector('a[href="/notifications"]')).not.toBeInTheDocument();
   });
 
   it('SellerLayout çökmeden render edilmeli ve mağaza bilgisi görünmeli', () => {
