@@ -25,6 +25,11 @@ public class PlatformProductBackfillManager : IPlatformProductBackfillService
         _logger = logger;
     }
 
+    public Task<IReadOnlyList<int>> GetProductIdsWithoutSellerSnapshotAsync()
+    {
+        return _productDal.GetProductIdsWithoutSellerAsync();
+    }
+
     public async Task<IResult> BackfillMissingSellerIdsAsync()
     {
         var missingSellerCountBefore = await _productDal.CountProductsWithoutSellerAsync();

@@ -197,6 +197,16 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .CountAsync(product => !product.SellerId.HasValue);
     }
 
+    public async Task<IReadOnlyList<int>> GetProductIdsWithoutSellerAsync()
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Where(product => !product.SellerId.HasValue)
+            .OrderBy(product => product.Id)
+            .Select(product => product.Id)
+            .ToListAsync();
+    }
+
     public Task<int> BackfillMissingSellerIdsAsync(int sellerId, DateTime updatedAtUtc)
     {
         return _dbSet

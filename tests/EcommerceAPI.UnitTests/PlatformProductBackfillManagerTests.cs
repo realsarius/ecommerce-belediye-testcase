@@ -11,6 +11,32 @@ namespace EcommerceAPI.UnitTests;
 public class PlatformProductBackfillManagerTests
 {
     [Fact]
+    public async Task GetProductIdsWithoutSellerSnapshotAsync_ShouldReturnIdsFromRepository()
+    {
+        var expectedIds = new List<int> { 3, 8, 21 };
+
+        var productDalMock = new Mock<IProductDal>();
+        productDalMock
+            .Setup(dal => dal.GetProductIdsWithoutSellerAsync())
+            .ReturnsAsync(expectedIds);
+
+        var platformSellerServiceMock = new Mock<IPlatformSellerService>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<PlatformProductBackfillManager>>();
+
+        var manager = new PlatformProductBackfillManager(
+            productDalMock.Object,
+            platformSellerServiceMock.Object,
+            unitOfWorkMock.Object,
+            loggerMock.Object);
+
+        var snapshotIds = await manager.GetProductIdsWithoutSellerSnapshotAsync();
+
+        snapshotIds.Should().Equal(expectedIds);
+        productDalMock.Verify(dal => dal.GetProductIdsWithoutSellerAsync(), Times.Once);
+    }
+
+    [Fact]
     public async Task BackfillMissingSellerIdsAsync_WhenNoMissingProductExists_ShouldSkipBackfill()
     {
         var productDalMock = new Mock<IProductDal>();

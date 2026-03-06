@@ -54,6 +54,9 @@ public class PlatformProductBackfillTests : IClassFixture<CustomWebApplicationFa
         await db.SaveChangesAsync();
 
         var backfillService = services.GetRequiredService<IPlatformProductBackfillService>();
+        var snapshotProductIds = await backfillService.GetProductIdsWithoutSellerSnapshotAsync();
+        snapshotProductIds.Should().Contain(product.Id);
+
         var backfillResult = await backfillService.BackfillMissingSellerIdsAsync();
 
         backfillResult.Success.Should().BeTrue();
