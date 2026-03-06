@@ -88,33 +88,19 @@ export function ProductCardMediaPreview({
       )}
 
       {hasPreview && (
-        <>
-          <div className="pointer-events-none absolute inset-0 hidden md:flex">
-            {imageUrls.map((url, index) => (
-              <span
-                key={`${url}-${index}`}
-                className={cn(
-                  'flex-1 transition-colors duration-150',
-                  index === activeIndex ? 'bg-black/10 dark:bg-white/10' : 'bg-transparent'
-                )}
-              />
-            ))}
-          </div>
-          <div className="pointer-events-none absolute left-3 right-3 top-3 hidden gap-1 md:flex">
-            {imageUrls.map((url, index) => (
-              <span
-                key={`indicator-${url}-${index}`}
-                className={cn(
-                  'h-0.5 flex-1 rounded-full transition-colors duration-150',
-                  index === activeIndex
-                    ? 'bg-black/70 dark:bg-white/85'
-                    : 'bg-black/20 dark:bg-white/30'
-                )}
-              />
-            ))}
-          </div>
-        </>
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1.5">
+          {imageUrls.map((_, index) => (
+            <span
+              key={`dot-${index}`}
+              className={cn(
+                'h-1.5 w-1.5 rounded-full transition-colors duration-150',
+                index === activeIndex ? 'bg-black/80 ring-1 ring-white/70' : 'bg-black/35'
+              )}
+            />
+          ))}
+        </div>
       )}
+
     </div>
   );
 }
