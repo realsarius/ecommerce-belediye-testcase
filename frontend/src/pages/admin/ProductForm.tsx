@@ -225,18 +225,18 @@ export default function ProductForm() {
       </h1>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="border-amber-500/30 bg-amber-500/5">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <Store className="h-4 w-4 text-amber-600 mt-0.5" />
-                    <p className="text-sm text-amber-900 dark:text-amber-200">
-                      Bu panelden oluşturulan ürünler otomatik olarak Platform Seller hesabına atanır
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardContent>
+                <div className="flex items-start gap-3">
+                  <Store className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <p className="text-sm text-amber-900 dark:text-amber-200">
+                    Bu panelden oluşturulan ürünler otomatik olarak Platform Seller hesabına atanır
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -287,10 +287,10 @@ export default function ProductForm() {
                           key={product?.categoryId ? `cat-${product.categoryId}` : 'cat-empty'}
                           value={field.value ? field.value.toString() : ""}
                           onValueChange={(val) => {
-                              if (!val && product?.categoryId) {
-                                return;
-                              }
-                              field.onChange(val);
+                            if (!val && product?.categoryId) {
+                              return;
+                            }
+                            field.onChange(val);
                           }}
                         >
                           <SelectTrigger>
