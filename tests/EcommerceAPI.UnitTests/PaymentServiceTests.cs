@@ -594,9 +594,68 @@ public class IyzicoPaymentServiceTests
         result.Message.Should().Be("Already paid");
     }
 
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenHppSignatureIsValid_ShouldAcceptWebhook()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "CHECKOUT_FORM_AUTH",
+            IyziPaymentId = "IYZ-PAY-1",
+            Token = "token-1",
+            PaymentConversationId = "ORD-HPP",
+            Status = "SUCCESS"
+        };
+
+        var existingOrder = new Order
+        {
+            Id = 82,
+            OrderNumber = "ORD-HPP",
+            Status = OrderStatus.Paid,
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Success,
+                IdempotencyKey = "hpp-key",
+                Amount = 100,
+                Currency = "TRY"
+            }
+        };
+
+        _orderDalMock
+            .Setup(x => x.GetByOrderNumberAsync("ORD-HPP"))
+            .ReturnsAsync(existingOrder);
+
+        var signature = ComputeSignature(request, "test");
+        var result = await _paymentService.ProcessWebhookAsync(request, signature);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Already paid");
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenHppPayloadMissingToken_ShouldReturnInvalidSignatureError()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "CHECKOUT_FORM_AUTH",
+            IyziPaymentId = "IYZ-PAY-2",
+            Token = null,
+            PaymentConversationId = "ORD-HPP-INVALID",
+            Status = "SUCCESS"
+        };
+
+        var result = await _paymentService.ProcessWebhookAsync(request, "invalid-signature");
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(InfrastructureConstants.Payment.WebhookInvalidSignatureCode);
+    }
+
     private static string ComputeSignature(IyzicoWebhookRequest request, string secretKey)
     {
-        var payload = $"{secretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        var useHppPayload = !string.IsNullOrWhiteSpace(request.IyziPaymentId) || !string.IsNullOrWhiteSpace(request.Token);
+        var payload = useHppPayload
+            ? $"{secretKey}{request.IyziEventType}{request.IyziPaymentId}{request.Token}{request.PaymentConversationId}{request.Status}"
+            : $"{secretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLowerInvariant();

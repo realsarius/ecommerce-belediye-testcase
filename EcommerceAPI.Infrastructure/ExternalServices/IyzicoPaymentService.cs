@@ -801,15 +801,75 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
             return false;
         }
 
-        var dataToSign = BuildSignaturePayload(request);
+        if (!TryBuildSignaturePayload(request, out var dataToSign, out var payloadFormat))
+        {
+            _logger.LogWarning(
+                "Webhook signature validation failed because canonical payload could not be built. EventType={EventType}, ConversationId={ConversationId}",
+                request.IyziEventType,
+                SensitiveDataLogSanitizer.Sanitize(request.PaymentConversationId));
+            return false;
+        }
+
         var computedSignature = ComputeHmacSha256Hex(dataToSign);
 
-        return string.Equals(computedSignature, normalizedSignatureHeader, StringComparison.OrdinalIgnoreCase);
+        var isValid = string.Equals(computedSignature, normalizedSignatureHeader, StringComparison.OrdinalIgnoreCase);
+        if (!isValid)
+        {
+            _logger.LogWarning(
+                "Webhook signature mismatch. EventType={EventType}, ConversationId={ConversationId}, PayloadFormat={PayloadFormat}",
+                request.IyziEventType,
+                SensitiveDataLogSanitizer.Sanitize(request.PaymentConversationId),
+                payloadFormat);
+        }
+
+        return isValid;
     }
 
-    private string BuildSignaturePayload(IyzicoWebhookRequest request)
+    /// <summary>
+    /// Canonical payload formatı iyzico webhook dokümantasyonuna göre seçilir.
+    /// Direct payment: secretKey + iyziEventType + paymentId + paymentConversationId + status
+    /// HPP payment: secretKey + iyziEventType + iyziPaymentId + token + paymentConversationId + status
+    /// </summary>
+    private bool TryBuildSignaturePayload(IyzicoWebhookRequest request, out string payload, out string payloadFormat)
     {
-        return $"{_settings.SecretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        payload = string.Empty;
+        payloadFormat = "unknown";
+
+        var eventType = request.IyziEventType?.Trim();
+        var conversationId = request.PaymentConversationId?.Trim();
+        var status = request.Status?.Trim();
+        if (string.IsNullOrWhiteSpace(eventType) ||
+            string.IsNullOrWhiteSpace(conversationId) ||
+            string.IsNullOrWhiteSpace(status))
+        {
+            return false;
+        }
+
+        var iyziPaymentId = request.IyziPaymentId?.Trim();
+        var token = request.Token?.Trim();
+
+        var isHppPayload = !string.IsNullOrWhiteSpace(iyziPaymentId) || !string.IsNullOrWhiteSpace(token);
+        if (isHppPayload)
+        {
+            if (string.IsNullOrWhiteSpace(iyziPaymentId) || string.IsNullOrWhiteSpace(token))
+            {
+                return false;
+            }
+
+            payload = $"{_settings.SecretKey}{eventType}{iyziPaymentId}{token}{conversationId}{status}";
+            payloadFormat = "hpp";
+            return true;
+        }
+
+        var paymentId = request.PaymentId?.Trim();
+        if (string.IsNullOrWhiteSpace(paymentId))
+        {
+            return false;
+        }
+
+        payload = $"{_settings.SecretKey}{eventType}{paymentId}{conversationId}{status}";
+        payloadFormat = "direct";
+        return true;
     }
 
     private string BuildWebhookDedupeKey(IyzicoWebhookRequest request)

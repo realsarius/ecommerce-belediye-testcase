@@ -2,6 +2,7 @@ using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Infrastructure.Constants;
+using EcommerceAPI.Infrastructure.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics.Metrics;
@@ -45,9 +46,12 @@ public class PaymentWebhookController : ControllerBase
         [FromForm] IyzicoWebhookRequest request,
         [FromHeader(Name = "X-IYZ-SIGNATURE-V3")] string? signature)
     {
+        var sanitizedPaymentId = SensitiveDataLogSanitizer.Sanitize(request.PaymentId);
+        var sanitizedConversationId = SensitiveDataLogSanitizer.Sanitize(request.PaymentConversationId);
+
         _logger.LogInformation(
             "Webhook received: EventType={EventType}, PaymentId={PaymentId}, ConversationId={ConversationId}, Status={Status}",
-            request.IyziEventType, request.PaymentId, request.PaymentConversationId, request.Status);
+            request.IyziEventType, sanitizedPaymentId, sanitizedConversationId, request.Status);
 
         try
         {
@@ -67,13 +71,13 @@ public class PaymentWebhookController : ControllerBase
 
                 _logger.LogInformation(
                     "Webhook processed successfully: ConversationId={ConversationId}",
-                    request.PaymentConversationId);
+                    sanitizedConversationId);
                 return Ok(new { message = string.IsNullOrWhiteSpace(result.Message) ? "Webhook processed successfully" : result.Message });
             }
 
             _logger.LogWarning(
                 "Webhook processing failed: ConversationId={ConversationId}, ErrorCode={ErrorCode}",
-                request.PaymentConversationId,
+                sanitizedConversationId,
                 result.ErrorCode);
 
             return result.ErrorCode switch
@@ -89,7 +93,7 @@ public class PaymentWebhookController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Webhook error: ConversationId={ConversationId}", request.PaymentConversationId);
+            _logger.LogError(ex, "Webhook error: ConversationId={ConversationId}", sanitizedConversationId);
             RecordWebhookMetric("error", StatusCodes.Status500InternalServerError);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Webhook processing failed" });
         }
