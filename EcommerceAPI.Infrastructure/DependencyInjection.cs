@@ -2,6 +2,7 @@ using EcommerceAPI.Business.Abstract;
 
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
+using EcommerceAPI.Core.CrossCuttingConcerns.Caching;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Entities.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
@@ -253,6 +254,7 @@ public static class DependencyInjection
         services.AddSingleton<ISocialAuthValidator, SocialAuthValidator>();
 
         services.AddScoped<ICacheService, RedisCacheManager>();
+        services.AddSingleton<ICacheManager, RedisAopCacheManager>();
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
         var emailProvider = ResolveEmailProvider(configuration);

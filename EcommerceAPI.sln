@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.DataAccess", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Infrastructure", "EcommerceAPI.Infrastructure\EcommerceAPI.Infrastructure.csproj", "{E9C45442-94F2-4FC0-8191-E3AB236724A0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcommerceAPI.Application.Abstractions", "EcommerceAPI.Application.Abstractions\EcommerceAPI.Application.Abstractions.csproj", "{200BE280-8D2F-44BA-BB6B-67D4254370BD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,6 +70,10 @@ Global
 		{E9C45442-94F2-4FC0-8191-E3AB236724A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E9C45442-94F2-4FC0-8191-E3AB236724A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E9C45442-94F2-4FC0-8191-E3AB236724A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{200BE280-8D2F-44BA-BB6B-67D4254370BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{200BE280-8D2F-44BA-BB6B-67D4254370BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{200BE280-8D2F-44BA-BB6B-67D4254370BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{200BE280-8D2F-44BA-BB6B-67D4254370BD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0B27887A-B318-4970-877E-FD1F456660F3} = {78381FF8-1B50-4C69-A3D6-64BC489BB2E4}

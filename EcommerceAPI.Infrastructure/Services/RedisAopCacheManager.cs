@@ -1,22 +1,21 @@
-
+using EcommerceAPI.Core.CrossCuttingConcerns.Caching;
 using Newtonsoft.Json;
 using StackExchange.Redis;
-using EcommerceAPI.Core.CrossCuttingConcerns.Caching;
 
-namespace EcommerceAPI.Core.CrossCuttingConcerns.Caching.Microsoft;
+namespace EcommerceAPI.Infrastructure.Services;
 
-public class RedisCacheManager : ICacheManager
+public class RedisAopCacheManager : ICacheManager
 {
     private readonly IConnectionMultiplexer _connectionMultiplexer;
     private readonly IDatabase _database;
 
-    public RedisCacheManager(IConnectionMultiplexer connectionMultiplexer)
+    public RedisAopCacheManager(IConnectionMultiplexer connectionMultiplexer)
     {
         _connectionMultiplexer = connectionMultiplexer;
         _database = _connectionMultiplexer.GetDatabase();
     }
 
-    private static readonly JsonSerializerSettings _jsonSettings = new()
+    private static readonly JsonSerializerSettings JsonSettings = new()
     {
         ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
         NullValueHandling = NullValueHandling.Ignore,
@@ -25,7 +24,7 @@ public class RedisCacheManager : ICacheManager
 
     public void Add(string key, object value, int duration)
     {
-        var jsonData = JsonConvert.SerializeObject(value, _jsonSettings);
+        var jsonData = JsonConvert.SerializeObject(value, JsonSettings);
         _database.StringSet(key, jsonData, TimeSpan.FromMinutes(duration));
     }
 
@@ -34,9 +33,10 @@ public class RedisCacheManager : ICacheManager
         var redisValue = _database.StringGet(key);
         if (redisValue.HasValue)
         {
-            return JsonConvert.DeserializeObject<T>(redisValue.ToString(), _jsonSettings);
+            return JsonConvert.DeserializeObject<T>(redisValue.ToString(), JsonSettings)!;
         }
-        return default;
+
+        return default!;
     }
 
     public object Get(string key)
@@ -44,9 +44,10 @@ public class RedisCacheManager : ICacheManager
         var redisValue = _database.StringGet(key);
         if (redisValue.HasValue)
         {
-             return JsonConvert.DeserializeObject(redisValue.ToString(), _jsonSettings);
+            return JsonConvert.DeserializeObject(redisValue.ToString(), JsonSettings)!;
         }
-        return null;
+
+        return null!;
     }
 
     public object Get(string key, Type type)
@@ -54,9 +55,10 @@ public class RedisCacheManager : ICacheManager
         var redisValue = _database.StringGet(key);
         if (redisValue.HasValue)
         {
-            return JsonConvert.DeserializeObject(redisValue.ToString(), type, _jsonSettings);
+            return JsonConvert.DeserializeObject(redisValue.ToString(), type, JsonSettings)!;
         }
-        return null;
+
+        return null!;
     }
 
     public bool IsAdd(string key)
@@ -71,8 +73,14 @@ public class RedisCacheManager : ICacheManager
 
     public void RemoveByPattern(string pattern)
     {
-        var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints().FirstOrDefault());
-        foreach (var key in server.Keys(pattern: "*" + pattern + "*"))
+        var endpoint = _connectionMultiplexer.GetEndPoints().FirstOrDefault();
+        if (endpoint == null)
+        {
+            return;
+        }
+
+        var server = _connectionMultiplexer.GetServer(endpoint);
+        foreach (var key in server.Keys(pattern: $"*{pattern}*"))
         {
             _database.KeyDelete(key);
         }
