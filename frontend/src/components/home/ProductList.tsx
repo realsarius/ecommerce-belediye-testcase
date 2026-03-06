@@ -22,6 +22,9 @@ interface ProductListProps {
   handleAddToCart: (productId: number, productName: string) => void;
 }
 
+const FIRST_RAIL_INSERT_INDEX = 8;
+const SECOND_RAIL_INSERT_INDEX = 16;
+
 export const ProductList = ({
   isLoading,
   productsData,
@@ -39,9 +42,14 @@ export const ProductList = ({
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
   const { addProduct: addCompareProduct, containsProduct, removeProduct: removeCompareProduct, compareIds } = useProductCompare();
+  const allProducts = productsData?.items ?? [];
+  const canInsertFirstRail = allProducts.length > FIRST_RAIL_INSERT_INDEX;
+  const canInsertSecondRail = allProducts.length > SECOND_RAIL_INSERT_INDEX;
+  const shouldFetchPersonalizedRail = hasDiscoveryFeedContext && isAuthenticated && canInsertFirstRail;
+  const shouldFetchTopWishlistedRail = hasDiscoveryFeedContext && canInsertSecondRail;
   const { data: personalizedRecommendations, isLoading: isPersonalizedLoading } = useGetPersonalizedRecommendationsQuery(
     { take: 6 },
-    { skip: !isAuthenticated || !hasDiscoveryFeedContext },
+    { skip: !shouldFetchPersonalizedRail },
   );
   const { data: topWishlistedData, isLoading: isTopWishlistedLoading } = useSearchProductsQuery(
     {
@@ -50,7 +58,7 @@ export const ProductList = ({
       sortBy: 'wishlistCount',
       sortDescending: true,
     },
-    { skip: !hasDiscoveryFeedContext },
+    { skip: !shouldFetchTopWishlistedRail },
   );
 
   const isProductInServerWishlist = (productId: number) =>
@@ -120,10 +128,9 @@ export const ProductList = ({
     toast.success(`${productName} karşılaştırma listesine eklendi.`);
   };
 
-  const allProducts = productsData?.items ?? [];
-  const firstProductSegment = allProducts.slice(0, 8);
-  const secondProductSegment = allProducts.slice(8, 16);
-  const remainingProductSegment = allProducts.slice(16);
+  const firstProductSegment = allProducts.slice(0, FIRST_RAIL_INSERT_INDEX);
+  const secondProductSegment = allProducts.slice(FIRST_RAIL_INSERT_INDEX, SECOND_RAIL_INSERT_INDEX);
+  const remainingProductSegment = allProducts.slice(SECOND_RAIL_INSERT_INDEX);
   const productIdsInFeed = new Set(allProducts.map((product) => product.id));
 
   const personalizedItems = (personalizedRecommendations ?? [])
@@ -137,11 +144,10 @@ export const ProductList = ({
     .filter((item) => !personalizedIds.has(item.id))
     .slice(0, 8);
 
-  const shouldRenderPersonalizedRail = hasDiscoveryFeedContext
-    && isAuthenticated
+  const shouldRenderPersonalizedRail = shouldFetchPersonalizedRail
     && (isPersonalizedLoading || personalizedItems.length > 0);
 
-  const shouldRenderTopWishlistedRail = hasDiscoveryFeedContext
+  const shouldRenderTopWishlistedRail = shouldFetchTopWishlistedRail
     && (isTopWishlistedLoading || topWishlistedItems.length > 0);
 
   const renderProductCards = (items: Product[]) =>

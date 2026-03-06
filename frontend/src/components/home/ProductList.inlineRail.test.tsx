@@ -369,4 +369,58 @@ describe('ProductList inline rail akışı', () => {
     expect(screen.getByText('Senin İçin Öneriler')).toHaveAttribute('data-loading', 'true');
     expect(screen.getByText('En Çok Favorilenenler')).toHaveAttribute('data-loading', 'true');
   });
+
+  it('ürün sayısı 8 veya altındaysa rail göstermez ve recommendation querylerini skip eder', () => {
+    mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
+      data: [createProduct(901, 'Gösterilmemeli Kişisel')],
+      isLoading: false,
+    });
+    mockProductsApi.useSearchProductsQuery.mockReturnValue({
+      data: { items: [createProduct(902, 'Gösterilmemeli Favori', 21)] },
+      isLoading: false,
+    });
+
+    renderProductList({ productsData: createProductsResponse(8) });
+
+    expect(screen.queryByText('Senin İçin Öneriler')).not.toBeInTheDocument();
+    expect(screen.queryByText('En Çok Favorilenenler')).not.toBeInTheDocument();
+    expect(mockProductsApi.useGetPersonalizedRecommendationsQuery).toHaveBeenCalledWith(
+      { take: 6 },
+      { skip: true },
+    );
+    expect(mockProductsApi.useSearchProductsQuery).toHaveBeenCalledWith(
+      {
+        page: 1,
+        pageSize: 8,
+        sortBy: 'wishlistCount',
+        sortDescending: true,
+      },
+      { skip: true },
+    );
+  });
+
+  it('8 ile 16 arası ürünlerde yalnızca ilk raili gösterir', () => {
+    mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
+      data: [createProduct(903, 'Ara Eşik Öneri')],
+      isLoading: false,
+    });
+    mockProductsApi.useSearchProductsQuery.mockReturnValue({
+      data: { items: [createProduct(904, 'Ara Eşik Favori', 64)] },
+      isLoading: false,
+    });
+
+    renderProductList({ productsData: createProductsResponse(12) });
+
+    expect(screen.getByText('Senin İçin Öneriler')).toBeInTheDocument();
+    expect(screen.queryByText('En Çok Favorilenenler')).not.toBeInTheDocument();
+    expect(mockProductsApi.useSearchProductsQuery).toHaveBeenCalledWith(
+      {
+        page: 1,
+        pageSize: 8,
+        sortBy: 'wishlistCount',
+        sortDescending: true,
+      },
+      { skip: true },
+    );
+  });
 });
