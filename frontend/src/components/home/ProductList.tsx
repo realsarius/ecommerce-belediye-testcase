@@ -1,16 +1,17 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Package, Heart, GitCompareArrows } from 'lucide-react';
-import { Card, CardContent, CardFooter } from '@/components/common/card';
+import { GitCompareArrows, Package } from 'lucide-react';
+import { Card, CardContent } from '@/components/common/card';
 import { Button } from '@/components/common/button';
-import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
-import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
+import { InlineProductRail } from '@/components/home/InlineProductRail';
+import { ProductFeedCard } from '@/components/products/ProductFeedCard';
 import { useAppSelector } from '@/app/hooks';
 import { toast } from 'sonner';
 import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
 import { getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
 import { buildCompareUrl, useProductCompare } from '@/features/compare';
-import { ProductCardMediaPreview } from '@/components/products/ProductCardMediaPreview';
+import { useGetPersonalizedRecommendationsQuery, useSearchProductsQuery } from '@/features/products/productsApi';
+import { isDiscoveryFeedContext } from '@/features/products/productsSlice';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -28,14 +29,29 @@ export const ProductList = ({
   handleAddToCart,
 }: ProductListProps) => {
   const [, setSearchParams] = useSearchParams();
-  const { page } = useAppSelector((state) => state.products);
+  const productFilters = useAppSelector((state) => state.products);
+  const { page } = productFilters;
   const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const hasDiscoveryFeedContext = isDiscoveryFeedContext(productFilters);
 
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
   const [addToWishlist] = useAddWishlistItemMutation();
   const [removeFromWishlist] = useRemoveWishlistItemMutation();
   const { addProduct, isPending, removeProduct } = useGuestWishlist();
   const { addProduct: addCompareProduct, containsProduct, removeProduct: removeCompareProduct, compareIds } = useProductCompare();
+  const { data: personalizedRecommendations } = useGetPersonalizedRecommendationsQuery(
+    { take: 6 },
+    { skip: !isAuthenticated || !hasDiscoveryFeedContext },
+  );
+  const { data: topWishlistedData } = useSearchProductsQuery(
+    {
+      page: 1,
+      pageSize: 8,
+      sortBy: 'wishlistCount',
+      sortDescending: true,
+    },
+    { skip: !hasDiscoveryFeedContext },
+  );
 
   const isProductInServerWishlist = (productId: number) =>
     wishlistData?.items?.some((item: { productId: number }) => item.productId === productId) ?? false;
@@ -104,6 +120,36 @@ export const ProductList = ({
     toast.success(`${productName} karşılaştırma listesine eklendi.`);
   };
 
+  const allProducts = productsData?.items ?? [];
+  const firstProductSegment = allProducts.slice(0, 8);
+  const secondProductSegment = allProducts.slice(8, 16);
+  const remainingProductSegment = allProducts.slice(16);
+
+  const personalizedItems = (personalizedRecommendations ?? []).slice(0, 6);
+  const topWishlistedItems = (topWishlistedData?.items ?? [])
+    .filter((item) => item.wishlistCount > 0)
+    .slice(0, 8);
+
+  const shouldRenderPersonalizedRail = hasDiscoveryFeedContext
+    && isAuthenticated
+    && personalizedItems.length > 0;
+
+  const shouldRenderTopWishlistedRail = hasDiscoveryFeedContext
+    && topWishlistedItems.length > 0;
+
+  const renderProductCards = (items: Product[]) =>
+    items.map((product) => (
+      <ProductFeedCard
+        key={product.id}
+        product={product}
+        isAddingToCart={isAddingToCart}
+        isInWishlist={isProductInWishlist(product.id)}
+        isInCompare={containsProduct(product.id)}
+        onAddToCart={handleAddToCart}
+        onWishlistToggle={handleWishlistToggle}
+        onCompareToggle={handleCompareToggle}
+      />
+    ));
 
   const handlePageChange = (newPage: number) => {
     setSearchParams(prev => {
@@ -142,87 +188,41 @@ export const ProductList = ({
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 place-items-center sm:place-items-stretch">
-        {productsData?.items?.map((product) => (
-          <Card key={product.id} className="overflow-hidden group w-full max-w-sm relative">
-            <div className="relative h-48 bg-muted flex items-center justify-center">
-              <Link
-                to={`/products/${product.id}`}
-                aria-label={`${product.name} ürün detayına git`}
-                className="block h-full w-full"
-              >
-                <ProductCardMediaPreview product={product} />
-              </Link>
-              {product.stockQuantity === 0 && (
-                <Badge variant="destructive" className="absolute top-2 left-2">
-                  Stokta Yok
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 z-20 rounded-full bg-background/50 backdrop-blur-sm hover:bg-background/80"
-                onClick={(e) => handleWishlistToggle(e, product.id)}
-              >
-                <Heart
-                  className={`h-5 w-5 ${isProductInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-foreground'}`}
-                />
-              </Button>
-            </div>
-            <CardContent className="p-4">
-              <Link to={`/products/${product.id}`}>
-                <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                  {product.name}
-                </h3>
-              </Link>
-              <p className="text-sm text-muted-foreground truncate">
-                {product.categoryName}
-              </p>
-              {product.hasActiveCampaign && (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-200">
-                    {product.campaignBadgeText || 'Kampanya'}
-                  </Badge>
-                  <CampaignCountdown
-                    endsAt={product.campaignEndsAt}
-                    className="text-xs text-amber-700/80 dark:text-amber-200/80"
-                  />
-                </div>
-              )}
-              {product.wishlistCount > 0 && (
-                <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Heart className="h-3.5 w-3.5 text-red-500" />
-                  <span>{product.wishlistCount} kişi favoriledi</span>
-                </div>
-              )}
-              {product.hasActiveCampaign && (
-                <p className="mt-3 text-xs text-muted-foreground line-through">
-                  {product.originalPrice.toLocaleString('tr-TR')} {product.currency}
-                </p>
-              )}
-              <p className="text-lg font-bold mt-1">
-                {product.price.toLocaleString('tr-TR')} {product.currency}
-              </p>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2 p-4 pt-0">
-              <Button
-                className="w-full"
-                disabled={product.stockQuantity === 0 || isAddingToCart}
-                onClick={() => handleAddToCart(product.id, product.name)}
-              >
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                Sepete Ekle
-              </Button>
-              <Button
-                variant={containsProduct(product.id) ? 'secondary' : 'outline'}
-                className="w-full"
-                onClick={(e) => handleCompareToggle(e, product.id, product.name)}
-              >
-                <GitCompareArrows className="mr-2 h-4 w-4" />
-                {containsProduct(product.id) ? 'Karşılaştırılıyor' : 'Karşılaştırmaya Ekle'}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+        {renderProductCards(firstProductSegment)}
+
+        {shouldRenderPersonalizedRail ? (
+          <InlineProductRail
+            title="Senin İçin Öneriler"
+            badgeText="Sana özel seçkiler"
+            helperText="Kişiselleştirilmiş öneri motoru"
+            description="Wishlist kategorilerin ve son aramalarına göre öneriler."
+            tone="personalized"
+            products={personalizedItems}
+            isAddingToCart={isAddingToCart}
+            isInWishlist={isProductInWishlist}
+            onAddToCart={handleAddToCart}
+            onWishlistToggle={handleWishlistToggle}
+          />
+        ) : null}
+
+        {renderProductCards(secondProductSegment)}
+
+        {shouldRenderTopWishlistedRail ? (
+          <InlineProductRail
+            title="En Çok Favorilenenler"
+            badgeText="Bu hafta öne çıkanlar"
+            helperText="Sosyal kanıtla öne çıkan seçimler"
+            description="Kullanıcıların sık favorilediği ürünler."
+            tone="wishlisted"
+            products={topWishlistedItems}
+            isAddingToCart={isAddingToCart}
+            isInWishlist={isProductInWishlist}
+            onAddToCart={handleAddToCart}
+            onWishlistToggle={handleWishlistToggle}
+          />
+        ) : null}
+
+        {renderProductCards(remainingProductSegment)}
       </div>
 
       {/* Pagination */}
