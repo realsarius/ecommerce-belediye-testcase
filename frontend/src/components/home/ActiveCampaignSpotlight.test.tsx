@@ -88,6 +88,26 @@ describe('ActiveCampaignSpotlight', () => {
     expect(thirdCard).toHaveClass('hidden', 'lg:block');
   });
 
+  it('spotlight containerı feed uyumlu kompakt sınıfları uygular', () => {
+    mockCampaignsApi.useGetActiveCampaignsQuery.mockReturnValue({
+      data: [createCampaign(5)],
+      isLoading: false,
+    });
+
+    const { container } = renderWithProviders(<ActiveCampaignSpotlight />);
+
+    const section = container.querySelector('section');
+    const description = screen.getByText(
+      'Şu anda aktif olan kampanyaları, öne çıkan ürünleri ve kalan süreyi tek bakışta görün.',
+    );
+
+    expect(section).not.toBeNull();
+    expect(section).toHaveClass('rounded-xl');
+    expect(section).not.toHaveClass('rounded-2xl');
+    expect(section?.className).toContain('shadow-[0_6px_16px');
+    expect(description).toHaveClass('hidden', 'sm:block');
+  });
+
   it('kampanya impression etkileşimlerini campaign başına tetikler', async () => {
     mockCampaignsApi.useGetActiveCampaignsQuery.mockReturnValue({
       data: [createCampaign(11), createCampaign(22), createCampaign(33)],

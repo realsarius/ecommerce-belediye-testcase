@@ -52,21 +52,21 @@ export function ActiveCampaignSpotlight() {
   }
 
   return (
-    <section className="relative mb-6 overflow-hidden rounded-2xl border border-amber-400/15 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.14),_transparent_22%),radial-gradient(circle_at_top_right,_rgba(249,115,22,0.14),_transparent_26%),linear-gradient(135deg,_rgba(24,24,27,0.96),_rgba(9,9,11,0.96))] shadow-[0_14px_40px_rgba(0,0,0,0.35)]">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent_24%,transparent_78%,rgba(255,255,255,0.03))]" />
+    <section className="relative mb-6 overflow-hidden rounded-xl border border-amber-400/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.10),rgba(10,10,12,0.94)_52%)] shadow-[0_6px_16px_rgba(0,0,0,0.24)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_30%,transparent_100%)]" />
 
-      <div className="relative border-b border-white/10 px-4 py-3.5 sm:px-5">
+      <div className="relative border-b border-white/8 px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <Badge className="mb-2 border border-amber-400/20 bg-amber-500/10 text-amber-100">
+            <Badge className="mb-2 border border-amber-400/18 bg-amber-500/10 text-amber-100">
               Zaman sınırlı fırsatlar
             </Badge>
             <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Canlı Kampanyalar</h2>
-            <p className="mt-1 max-w-2xl text-xs text-white/60 sm:text-sm">
+            <p className="mt-1 hidden max-w-2xl text-xs text-white/60 sm:block sm:text-sm">
               Şu anda aktif olan kampanyaları, öne çıkan ürünleri ve kalan süreyi tek bakışta görün.
             </p>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-amber-400/15 bg-white/5 px-3 py-1.5 text-sm text-amber-100/90 backdrop-blur-sm md:flex">
+          <div className="hidden items-center gap-2 rounded-full border border-amber-400/12 bg-white/[0.05] px-3 py-1.5 text-xs text-amber-100/85 backdrop-blur-sm md:flex">
             <Timer className="h-4 w-4" />
             <span>Flash sale ve kampanya görünürlüğü</span>
           </div>
@@ -80,6 +80,7 @@ export function ActiveCampaignSpotlight() {
                 key={index}
                 className={cn(
                   'border-white/10 bg-white/[0.04] text-white shadow-none backdrop-blur-sm',
+                  'border-white/8 bg-white/[0.03]',
                   getCampaignVisibilityClass(index),
                 )}
               >
@@ -101,7 +102,7 @@ export function ActiveCampaignSpotlight() {
                 <Card
                   key={campaign.id}
                   className={cn(
-                    'border-white/10 bg-white/[0.04] text-white shadow-none backdrop-blur-sm transition-all duration-200 hover:-translate-y-1.5 hover:border-amber-400/30 hover:bg-white/[0.06]',
+                    'border-white/8 bg-white/[0.03] text-white shadow-none backdrop-blur-sm transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/22 hover:bg-white/[0.05]',
                     getCampaignVisibilityClass(index),
                   )}
                 >
@@ -113,7 +114,7 @@ export function ActiveCampaignSpotlight() {
                         </Badge>
                         <h3 className="mt-2 text-base font-semibold text-white sm:text-lg">{campaign.name}</h3>
                       </div>
-                      <div className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-100">
+                      <div className="flex items-center gap-1 rounded-full border border-amber-400/18 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-100">
                         <Zap className="h-3.5 w-3.5" />
                         {campaign.products.length} ürün
                       </div>
@@ -123,7 +124,7 @@ export function ActiveCampaignSpotlight() {
                       {campaign.description || 'Seçili ürünlerde sınırlı süreli kampanya fiyatları aktif.'}
                     </p>
 
-                    <div className="rounded-xl border border-white/8 bg-black/20 p-3">
+                    <div className="rounded-lg border border-white/8 bg-black/20 p-3">
                       <CampaignCountdown
                         endsAt={campaign.endsAt}
                         className="text-xs font-medium text-amber-100 sm:text-sm"
