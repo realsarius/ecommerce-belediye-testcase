@@ -49,17 +49,26 @@ public class TransactionScopeAspect : MethodInterception
         {
             var returnType = invocation.Method.ReturnType.GetGenericArguments()[0];
             var method = GetType().GetMethod(nameof(HandleAsyncWithResult), BindingFlags.NonPublic | BindingFlags.Instance)
-                 .MakeGenericMethod(returnType);
+                 ?.MakeGenericMethod(returnType)
+                 ?? throw new InvalidOperationException("HandleAsyncWithResult metodu bulunamadı.");
 
             invocation.Proceed();
-            var task = (Task)invocation.ReturnValue;
+            if (invocation.ReturnValue is not Task task)
+            {
+                throw new InvalidOperationException("Beklenen Task sonucu elde edilemedi.");
+            }
 
-            invocation.ReturnValue = method.Invoke(this, new object[] { task });
+            invocation.ReturnValue = method.Invoke(this, new object[] { task }) ??
+                throw new InvalidOperationException("Async transaction wrapper çağrısı başarısız.");
         }
         else
         {
             invocation.Proceed();
-            var task = (Task)invocation.ReturnValue;
+            if (invocation.ReturnValue is not Task task)
+            {
+                throw new InvalidOperationException("Beklenen Task sonucu elde edilemedi.");
+            }
+
             invocation.ReturnValue = HandleAsync(task);
         }
     }

@@ -271,9 +271,9 @@ public class AuditEntry
     }
 
     public Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry Entry { get; }
-    public string UserId { get; set; }
-    public string TableName { get; set; }
-    public string Action { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string TableName { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
     public Dictionary<string, object?> KeyValues { get; } = new();
     public Dictionary<string, object?> OldValues { get; } = new();
     public Dictionary<string, object?> NewValues { get; } = new();

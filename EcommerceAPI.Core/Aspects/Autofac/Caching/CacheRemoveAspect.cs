@@ -9,21 +9,19 @@ namespace EcommerceAPI.Core.Aspects.Autofac.Caching;
 
 public class CacheRemoveAspect : MethodInterception
 {
-    private string _pattern;
-    private ICacheManager _cacheManager;
+    private readonly string _pattern;
+    private ICacheManager? _cacheManager;
 
     public CacheRemoveAspect(string pattern)
     {
         _pattern = pattern;
     }
 
+    private ICacheManager CacheManager =>
+        _cacheManager ??= ServiceTool.ServiceProvider.GetRequiredService<ICacheManager>();
+
     protected override void OnSuccess(IInvocation invocation)
     {
-        if (_cacheManager == null)
-        {
-             _cacheManager = ServiceTool.ServiceProvider.GetService<ICacheManager>();
-        }
-
-        _cacheManager.RemoveByPattern(_pattern);
+        CacheManager.RemoveByPattern(_pattern);
     }
 }

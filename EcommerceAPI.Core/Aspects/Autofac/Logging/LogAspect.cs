@@ -10,33 +10,24 @@ namespace EcommerceAPI.Core.Aspects.Autofac.Logging;
 
 public class LogAspect : MethodInterception
 {
-    private ILogger _loggerService;
+    private ILogger? _loggerService;
 
     public LogAspect()
     {
     }
 
+    private ILogger Logger => _loggerService ??= Log.Logger;
+
     protected override void OnBefore(IInvocation invocation)
     {
-        if (_loggerService == null)
-        {
-             _loggerService = Log.Logger;
-             // Or better: ServiceTool.ServiceProvider.GetService<ILogger>();
-        }
-
         var logDetail = GetLogDetail(invocation);
-        _loggerService.Information("Running: {0} | Args: {1}", invocation.Method.Name, JsonConvert.SerializeObject(logDetail.LogParameters));
+        Logger.Information("Running: {0} | Args: {1}", invocation.Method.Name, JsonConvert.SerializeObject(logDetail.LogParameters));
     }
 
     protected override void OnException(IInvocation invocation, Exception e)
     {
-        if (_loggerService == null)
-        {
-             _loggerService = Log.Logger;
-        }
-
         var logDetail = GetLogDetail(invocation);
-        _loggerService.Error(e, "Exception in: {0} | Args: {1}", invocation.Method.Name, JsonConvert.SerializeObject(logDetail.LogParameters));
+        Logger.Error(e, "Exception in: {0} | Args: {1}", invocation.Method.Name, JsonConvert.SerializeObject(logDetail.LogParameters));
     }
 
     private LogDetail GetLogDetail(IInvocation invocation)
@@ -48,9 +39,9 @@ public class LogAspect : MethodInterception
             var parameterValue = invocation.Arguments[i];
             logParameters.Add(new LogParameter
             {
-                Name = parameterName,
+                Name = parameterName ?? string.Empty,
                 Value = parameterValue,
-                Type = parameterValue?.GetType().Name
+                Type = parameterValue?.GetType().Name ?? "null"
             });
         }
 
