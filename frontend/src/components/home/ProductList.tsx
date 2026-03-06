@@ -144,7 +144,17 @@ export const ProductList = ({
         {productsData?.items?.map((product) => (
           <Card key={product.id} className="overflow-hidden group w-full max-w-sm relative">
             <div className="relative h-48 bg-muted flex items-center justify-center">
-              <Package className="h-16 w-16 text-muted-foreground" />
+              {product.primaryImageUrl ? (
+                <img
+                  src={product.primaryImageUrl}
+                  alt={product.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Package className="h-16 w-16 text-muted-foreground" />
+              )}
               {product.stockQuantity === 0 && (
                 <Badge variant="destructive" className="absolute top-2 left-2">
                   Stokta Yok

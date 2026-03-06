@@ -252,6 +252,179 @@ test.describe('Media Upload E2E', () => {
     }).toBe(true);
   });
 
+  test('admin yeni ürün oluşturabilmeli', async ({ page }) => {
+    await seedAuthState(page, 'Admin');
+
+    let createPayload: Record<string, unknown> | null = null;
+
+    await page.route('**/api/v1/notifications/unread-count', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+
+      await okJson(route, { data: { unreadCount: 0 } });
+    });
+
+    await page.route('**/api/v1/frontend-settings/features', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+
+      await okJson(route, {
+        data: {
+          enablePersonalizedRecommendations: true,
+          enableCampaignCountdown: true,
+          enableWalletCards: true,
+          enableCampaignProgressBar: true,
+          enableStockProgressBar: true,
+          enableStickyFilterBar: true,
+          enableInlineRecommendations: true,
+          enableAdminProductImageUploader: true,
+        },
+      });
+    });
+
+    await page.route('**/api/v1/categories', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+
+      await okJson(route, {
+        data: [
+          {
+            id: 12,
+            name: 'Elektronik',
+            description: 'Kategori',
+            isActive: true,
+            parentCategoryId: null,
+            sortOrder: 0,
+            productCount: 10,
+            childCount: 0,
+          },
+        ],
+      });
+    });
+
+    await page.route('**/api/v1/admin/products*', async (route) => {
+      const method = route.request().method();
+      if (method === 'POST') {
+        createPayload = route.request().postDataJSON() as Record<string, unknown>;
+
+        await okJson(route, {
+          data: {
+            id: 909,
+            name: createPayload.name,
+            description: createPayload.description,
+            price: createPayload.price,
+            originalPrice: createPayload.price,
+            currency: createPayload.currency,
+            sku: createPayload.sku,
+            isActive: createPayload.isActive,
+            categoryId: createPayload.categoryId,
+            categoryName: 'Elektronik',
+            stockQuantity: createPayload.initialStock,
+            createdAt: '2026-03-06T12:00:00Z',
+            averageRating: 0,
+            reviewCount: 0,
+            wishlistCount: 0,
+            hasActiveCampaign: false,
+            isCampaignFeatured: false,
+            images: [],
+            variants: [],
+          },
+        });
+        return;
+      }
+
+      if (method === 'GET') {
+        await okJson(route, {
+          data: {
+            items: [
+              {
+                id: 909,
+                name: 'Admin Yeni Ürün',
+                description: '',
+                price: 15499,
+                originalPrice: 15499,
+                currency: 'TRY',
+                sku: 'ADMIN-NEW-909',
+                isActive: true,
+                categoryId: 12,
+                categoryName: 'Elektronik',
+                stockQuantity: 25,
+                sellerId: 11,
+                sellerBrandName: 'E-Ticaret',
+                createdAt: '2026-03-06T12:00:00Z',
+                averageRating: 0,
+                reviewCount: 0,
+                wishlistCount: 0,
+                hasActiveCampaign: false,
+                isCampaignFeatured: false,
+                primaryImageUrl: null,
+                images: [],
+                variants: [],
+              },
+            ],
+            page: 1,
+            pageSize: 20,
+            totalCount: 1,
+            totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false,
+          },
+        });
+        return;
+      }
+
+      await route.continue();
+    });
+
+    await page.route('**/api/v1/admin/categories', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+
+      await okJson(route, {
+        data: [
+          {
+            id: 12,
+            name: 'Elektronik',
+            description: 'Kategori',
+            imageUrl: null,
+            isActive: true,
+            parentCategoryId: null,
+            sortOrder: 0,
+            productCount: 10,
+            childCount: 0,
+          },
+        ],
+      });
+    });
+
+    await page.goto('/admin/products/new');
+    await expect(page.getByRole('heading', { name: 'Yeni Ürün' })).toBeVisible({ timeout: 10_000 });
+
+    await page.getByLabel('Ürün Adı *').fill('Admin Yeni Ürün');
+    await page.getByLabel('SKU *').fill('admin-new-909');
+    await page.getByLabel('Fiyat *').fill('15499');
+    await page.getByLabel('Stok Miktarı').fill('25');
+
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: 'Elektronik' }).click();
+
+    await page.getByRole('button', { name: 'Oluştur' }).click();
+
+    await expect.poll(() => createPayload !== null).toBe(true);
+    await expect.poll(() => createPayload?.categoryId).toBe(12);
+    await expect.poll(() => createPayload?.initialStock).toBe(25);
+    await expect(page).toHaveURL(/\/admin\/products$/);
+    await expect(page.getByRole('heading', { name: 'Ürün Yönetimi' })).toBeVisible({ timeout: 10_000 });
+  });
+
   test('admin ürün ekranında görsel yükleyip ana görseli değiştirebilmeli', async ({ page }) => {
     await seedAuthState(page, 'Admin');
 
