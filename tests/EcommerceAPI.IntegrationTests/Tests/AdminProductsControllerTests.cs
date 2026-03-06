@@ -178,6 +178,41 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task CreateProduct_AsAdmin_WhenSellerPickerDisabledAndSellerProvided_ShouldReturnBadRequest()
+    {
+        const int adminUserId = 918;
+        const int sellerUserId = 919;
+        await EnsureAdminUserAsync(adminUserId);
+        var selectedSellerProfileId = await EnsureSellerUserAndGetProfileIdAsync(sellerUserId);
+
+        var previousPickerFlag = Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER");
+        Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", "false");
+
+        try
+        {
+            var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+            var categoryId = await GetExistingCategoryIdAsync();
+            var createRequest = new CreateProductRequest
+            {
+                SellerId = selectedSellerProfileId,
+                Name = $"Rejected Seller Product {Guid.NewGuid():N}",
+                Description = "Seller picker disabled test",
+                Price = 229.99m,
+                CategoryId = categoryId,
+                SKU = $"RJT-{Guid.NewGuid():N}"[..12],
+                InitialStock = 2
+            };
+
+            var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", previousPickerFlag);
+        }
+    }
+
+    [Fact]
     public async Task UpdateProduct_AsAdmin_ReturnsOkOrError()
     {
         var adminClient = _factory.CreateClient().AsAdmin(userId: 1);

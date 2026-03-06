@@ -97,6 +97,7 @@ export default function ProductForm() {
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
   const isAdminProductImageUploaderEnabled = frontendFeatures?.enableAdminProductImageUploader ?? true;
+  const assignableSellers = adminSellers.filter((seller) => !seller.isPlatformAccount);
 
   const {
     register,
@@ -391,7 +392,7 @@ export default function ProductForm() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="platform">Platform Seller (varsayılan)</SelectItem>
-                            {adminSellers.map((seller) => (
+                            {assignableSellers.map((seller) => (
                               <SelectItem key={seller.id} value={seller.id.toString()}>
                                 {seller.brandName}
                               </SelectItem>

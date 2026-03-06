@@ -199,4 +199,54 @@ public class AdminProductsControllerBehaviorTests
         platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Never);
         productServiceMock.Verify(service => service.CreateProductAsync(request, 88), Times.Once);
     }
+
+    [Fact]
+    public async Task CreateProduct_AdminRole_WhenSellerPickerDisabledAndSellerProvided_ShouldReturnBadRequest()
+    {
+        var request = new CreateProductRequest
+        {
+            SellerId = 77,
+            Name = "Blocked Seller Assign Product",
+            Description = "Picker disabled",
+            Price = 199.90m,
+            CategoryId = 1,
+            SKU = "SELLER-004"
+        };
+
+        var productServiceMock = new Mock<IProductService>();
+        var sellerProfileServiceMock = new Mock<ISellerProfileService>();
+        var platformSellerServiceMock = new Mock<IPlatformSellerService>();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FrontendFeatures:EnableAdminProductSellerPicker"] = "false",
+                ["PlatformSeller:EnableAdminAutoAssignment"] = "true"
+            })
+            .Build();
+
+        var controller = new AdminProductsController(
+            productServiceMock.Object,
+            sellerProfileServiceMock.Object,
+            platformSellerServiceMock.Object,
+            configuration);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "22"),
+                    new Claim(ClaimTypes.Role, "Admin")
+                ], "TestAuth"))
+            }
+        };
+
+        var actionResult = await controller.CreateProduct(request);
+
+        actionResult.Should().BeOfType<BadRequestObjectResult>();
+        sellerProfileServiceMock.Verify(service => service.GetByIdAsync(It.IsAny<int>()), Times.Never);
+        platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Never);
+        productServiceMock.Verify(service => service.CreateProductAsync(It.IsAny<CreateProductRequest>(), It.IsAny<int?>()), Times.Never);
+    }
 }
