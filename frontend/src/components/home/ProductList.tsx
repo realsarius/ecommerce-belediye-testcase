@@ -14,6 +14,7 @@ import { useGetPersonalizedRecommendationsQuery, useSearchProductsQuery } from '
 import { isDiscoveryFeedContext } from '@/features/products/productsSlice';
 import {
   buildDedupedRailItems,
+  getRailInsertionConfig,
   getRailFetchFlags,
   getRailRenderFlags,
   splitProductsForInlineRails,
@@ -34,11 +35,12 @@ export const ProductList = ({
   isAddingToCart,
   handleAddToCart,
 }: ProductListProps) => {
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const productFilters = useAppSelector((state) => state.products);
   const { page } = productFilters;
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const hasDiscoveryFeedContext = isDiscoveryFeedContext(productFilters);
+  const railInsertionConfig = getRailInsertionConfig(searchParams.get('railMode'));
 
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !isAuthenticated });
   const [addToWishlist] = useAddWishlistItemMutation();
@@ -50,11 +52,12 @@ export const ProductList = ({
     firstSegment: firstProductSegment,
     secondSegment: secondProductSegment,
     remainingSegment: remainingProductSegment,
-  } = splitProductsForInlineRails(allProducts);
+  } = splitProductsForInlineRails(allProducts, railInsertionConfig);
   const { shouldFetchPersonalizedRail, shouldFetchTopWishlistedRail } = getRailFetchFlags({
     hasDiscoveryFeedContext,
     isAuthenticated,
     totalProducts: allProducts.length,
+    insertionConfig: railInsertionConfig,
   });
   const { data: personalizedRecommendations, isLoading: isPersonalizedLoading } = useGetPersonalizedRecommendationsQuery(
     { take: 6 },

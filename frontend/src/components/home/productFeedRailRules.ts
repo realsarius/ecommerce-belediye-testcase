@@ -2,13 +2,37 @@ import type { Product } from '@/features/products/types';
 
 export const FIRST_RAIL_INSERT_INDEX = 8;
 export const SECOND_RAIL_INSERT_INDEX = 16;
+export const EARLY_FIRST_RAIL_INSERT_INDEX = 4;
+export const EARLY_SECOND_RAIL_INSERT_INDEX = 12;
 export const PERSONALIZED_RAIL_LIMIT = 6;
 export const TOP_WISHLISTED_RAIL_LIMIT = 8;
+
+export interface RailInsertionConfig {
+  firstRailInsertIndex: number;
+  secondRailInsertIndex: number;
+}
+
+export const DEFAULT_RAIL_INSERTION_CONFIG: RailInsertionConfig = {
+  firstRailInsertIndex: FIRST_RAIL_INSERT_INDEX,
+  secondRailInsertIndex: SECOND_RAIL_INSERT_INDEX,
+};
+
+export const EARLY_RAIL_INSERTION_CONFIG: RailInsertionConfig = {
+  firstRailInsertIndex: EARLY_FIRST_RAIL_INSERT_INDEX,
+  secondRailInsertIndex: EARLY_SECOND_RAIL_INSERT_INDEX,
+};
+
+export function getRailInsertionConfig(mode: string | null): RailInsertionConfig {
+  return mode === 'early'
+    ? EARLY_RAIL_INSERTION_CONFIG
+    : DEFAULT_RAIL_INSERTION_CONFIG;
+}
 
 interface RailFetchFlagsArgs {
   hasDiscoveryFeedContext: boolean;
   isAuthenticated: boolean;
   totalProducts: number;
+  insertionConfig?: RailInsertionConfig;
 }
 
 interface RailRenderFlagsArgs {
@@ -26,11 +50,16 @@ interface DedupedRailItemsArgs {
   topWishlistedCandidates: Product[];
 }
 
-export function splitProductsForInlineRails(products: Product[]) {
+export function splitProductsForInlineRails(
+  products: Product[],
+  insertionConfig: RailInsertionConfig = DEFAULT_RAIL_INSERTION_CONFIG,
+) {
+  const { firstRailInsertIndex, secondRailInsertIndex } = insertionConfig;
+
   return {
-    firstSegment: products.slice(0, FIRST_RAIL_INSERT_INDEX),
-    secondSegment: products.slice(FIRST_RAIL_INSERT_INDEX, SECOND_RAIL_INSERT_INDEX),
-    remainingSegment: products.slice(SECOND_RAIL_INSERT_INDEX),
+    firstSegment: products.slice(0, firstRailInsertIndex),
+    secondSegment: products.slice(firstRailInsertIndex, secondRailInsertIndex),
+    remainingSegment: products.slice(secondRailInsertIndex),
   };
 }
 
@@ -38,9 +67,10 @@ export function getRailFetchFlags({
   hasDiscoveryFeedContext,
   isAuthenticated,
   totalProducts,
+  insertionConfig = DEFAULT_RAIL_INSERTION_CONFIG,
 }: RailFetchFlagsArgs) {
-  const canInsertFirstRail = totalProducts > FIRST_RAIL_INSERT_INDEX;
-  const canInsertSecondRail = totalProducts > SECOND_RAIL_INSERT_INDEX;
+  const canInsertFirstRail = totalProducts > insertionConfig.firstRailInsertIndex;
+  const canInsertSecondRail = totalProducts > insertionConfig.secondRailInsertIndex;
 
   return {
     shouldFetchPersonalizedRail: hasDiscoveryFeedContext && isAuthenticated && canInsertFirstRail,

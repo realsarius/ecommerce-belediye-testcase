@@ -113,6 +113,7 @@ const renderProductList = ({
   isAuthenticated = true,
   productState = {},
   productsData = createProductsResponse(20),
+  route = '/',
 }: {
   isAuthenticated?: boolean;
   productState?: Partial<{
@@ -123,6 +124,7 @@ const renderProductList = ({
     sortDesc: boolean;
   }>;
   productsData?: PaginatedResponse<Product>;
+  route?: string;
 } = {}) => {
   const store = createTestStore({
     auth: {
@@ -148,7 +150,7 @@ const renderProductList = ({
       isAddingToCart={false}
       handleAddToCart={vi.fn()}
     />,
-    { store },
+    { store, route },
   );
 };
 
@@ -421,6 +423,39 @@ describe('ProductList inline rail akışı', () => {
         sortDescending: true,
       },
       { skip: true },
+    );
+  });
+
+  it('early rail mode ile ilk rail 4 üründen sonra render edilir', () => {
+    mockProductsApi.useGetPersonalizedRecommendationsQuery.mockReturnValue({
+      data: [createProduct(905, 'Erken Öneri')],
+      isLoading: false,
+    });
+    mockProductsApi.useSearchProductsQuery.mockReturnValue({
+      data: { items: [createProduct(906, 'Erken Favori', 32)] },
+      isLoading: false,
+    });
+
+    renderProductList({
+      productsData: createProductsResponse(13),
+      route: '/?railMode=early',
+    });
+
+    const fourthProduct = screen.getByText('Grid Product 4');
+    const twelfthProduct = screen.getByText('Grid Product 12');
+    const firstRail = screen.getByText('Senin İçin Öneriler');
+    const secondRail = screen.getByText('En Çok Favorilenenler');
+
+    expect(fourthProduct.compareDocumentPosition(firstRail) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(twelfthProduct.compareDocumentPosition(secondRail) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(mockProductsApi.useSearchProductsQuery).toHaveBeenCalledWith(
+      {
+        page: 1,
+        pageSize: 8,
+        sortBy: 'wishlistCount',
+        sortDescending: true,
+      },
+      { skip: false },
     );
   });
 });

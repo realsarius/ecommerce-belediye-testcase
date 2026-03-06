@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDedupedRailItems,
+  EARLY_RAIL_INSERTION_CONFIG,
   FIRST_RAIL_INSERT_INDEX,
+  getRailInsertionConfig,
   getRailFetchFlags,
   getRailRenderFlags,
   SECOND_RAIL_INSERT_INDEX,
@@ -39,6 +41,23 @@ describe('productFeedRailRules', () => {
     expect(remainingSegment).toHaveLength(22 - SECOND_RAIL_INSERT_INDEX);
   });
 
+  it('early mode için 4/12 rail yerleşim konfigürasyonunu döner', () => {
+    expect(getRailInsertionConfig('early')).toEqual(EARLY_RAIL_INSERTION_CONFIG);
+    expect(getRailInsertionConfig(null)).not.toEqual(EARLY_RAIL_INSERTION_CONFIG);
+  });
+
+  it('custom rail indexleri ile segmentleri ayırabilir', () => {
+    const products = Array.from({ length: 15 }, (_, index) => createProduct(index + 1));
+    const { firstSegment, secondSegment, remainingSegment } = splitProductsForInlineRails(
+      products,
+      EARLY_RAIL_INSERTION_CONFIG,
+    );
+
+    expect(firstSegment).toHaveLength(4);
+    expect(secondSegment).toHaveLength(8);
+    expect(remainingSegment).toHaveLength(3);
+  });
+
   it('fetch flaglerini discovery/auth ve ürün sayısına göre üretir', () => {
     const withAllConditions = getRailFetchFlags({
       hasDiscoveryFeedContext: true,
@@ -55,6 +74,26 @@ describe('productFeedRailRules', () => {
     expect(withAllConditions.shouldFetchTopWishlistedRail).toBe(true);
     expect(withoutEnoughProducts.shouldFetchPersonalizedRail).toBe(false);
     expect(withoutEnoughProducts.shouldFetchTopWishlistedRail).toBe(false);
+  });
+
+  it('early rail konfigürasyonunda fetch eşiklerini buna göre uygular', () => {
+    const earlyModeFetch = getRailFetchFlags({
+      hasDiscoveryFeedContext: true,
+      isAuthenticated: true,
+      totalProducts: 13,
+      insertionConfig: EARLY_RAIL_INSERTION_CONFIG,
+    });
+    const earlyModeNotEnough = getRailFetchFlags({
+      hasDiscoveryFeedContext: true,
+      isAuthenticated: true,
+      totalProducts: 4,
+      insertionConfig: EARLY_RAIL_INSERTION_CONFIG,
+    });
+
+    expect(earlyModeFetch.shouldFetchPersonalizedRail).toBe(true);
+    expect(earlyModeFetch.shouldFetchTopWishlistedRail).toBe(true);
+    expect(earlyModeNotEnough.shouldFetchPersonalizedRail).toBe(false);
+    expect(earlyModeNotEnough.shouldFetchTopWishlistedRail).toBe(false);
   });
 
   it('feeddeki ve cross-rail tekrarları dedupe eder', () => {
