@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
@@ -209,6 +210,88 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task UpdateProduct_AsDifferentSeller_ForPlatformProduct_ShouldReturnBadRequestAndKeepData()
+    {
+        const int adminUserId = 910;
+        const int sellerUserId = 911;
+
+        await EnsureAdminUserAsync(adminUserId);
+        await EnsureSellerUserAsync(sellerUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+        var originalName = createdProduct.Name;
+
+        var sellerClient = _factory.CreateClient().AsSeller(sellerUserId);
+        var categoryId = await GetExistingCategoryIdAsync();
+        var updateRequest = new UpdateProductRequest
+        {
+            Name = $"Unauthorized Update {Guid.NewGuid():N}",
+            Description = "Should be blocked",
+            Price = 1.99m,
+            CategoryId = categoryId,
+            SKU = $"BLK-{Guid.NewGuid():N}"[..12],
+            IsActive = true
+        };
+
+        var response = await sellerClient.PutAsJsonAsync($"/api/v1/admin/products/{createdProduct.Id}", updateRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product => product.Id == createdProduct.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.Name.Should().Be(originalName);
+    }
+
+    [Fact]
+    public async Task DeleteProduct_AsDifferentSeller_ForPlatformProduct_ShouldReturnBadRequestAndKeepProduct()
+    {
+        const int adminUserId = 912;
+        const int sellerUserId = 913;
+
+        await EnsureAdminUserAsync(adminUserId);
+        await EnsureSellerUserAsync(sellerUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+
+        var sellerClient = _factory.CreateClient().AsSeller(sellerUserId);
+        var response = await sellerClient.DeleteAsync($"/api/v1/admin/products/{createdProduct.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product => product.Id == createdProduct.Id);
+
+        persisted.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetProduct_AsPlatformSeller_ShouldAccessAdminCreatedPlatformProduct()
+    {
+        const int adminUserId = 914;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var createdProduct = await CreatePlatformProductAsAdminAsync(adminUserId);
+        var platformUserId = await GetPlatformSellerUserIdAsync();
+
+        var platformSellerClient = _factory.CreateClient().AsSeller(platformUserId);
+        var response = await platformSellerClient.GetAsync($"/api/v1/seller/products/{createdProduct.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        content.Should().NotBeNull();
+        content!.Success.Should().BeTrue();
+        content.Data.Should().NotBeNull();
+        content.Data!.Id.Should().Be(createdProduct.Id);
+        content.Data.SellerId.Should().Be(createdProduct.SellerId);
+    }
+
     private async Task<int> GetExistingCategoryIdAsync()
     {
         using var scope = _factory.Services.CreateScope();
@@ -224,5 +307,56 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await TestDataSeeder.EnsureUserAsync(db, userId, "Admin");
+    }
+
+    private async Task EnsureSellerUserAsync(int userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await TestDataSeeder.EnsureSellerProfileAsync(db, userId, $"seller-{userId}-{Guid.NewGuid():N}");
+    }
+
+    private async Task<ProductDto> CreatePlatformProductAsAdminAsync(int adminUserId)
+    {
+        var adminClient = _factory.CreateClient().AsAdmin(adminUserId);
+        var categoryId = await GetExistingCategoryIdAsync();
+        var createRequest = new CreateProductRequest
+        {
+            Name = $"Platform Product {Guid.NewGuid():N}",
+            Description = "Platform product for authorization test",
+            Price = 199.99m,
+            CategoryId = categoryId,
+            SKU = $"PLT-{Guid.NewGuid():N}"[..12],
+            InitialStock = 7
+        };
+
+        var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var apiResult = await response.Content.ReadFromJsonAsync<ApiResult<ProductDto>>();
+        apiResult.Should().NotBeNull();
+        apiResult!.Success.Should().BeTrue();
+        apiResult.Data.Should().NotBeNull();
+        apiResult.Data.SellerId.Should().NotBeNull();
+
+        return apiResult.Data;
+    }
+
+    private async Task<int> GetPlatformSellerUserIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var platformSellerService = scope.ServiceProvider.GetRequiredService<IPlatformSellerService>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var platformSellerResult = await platformSellerService.GetOrCreatePlatformSellerIdAsync();
+        platformSellerResult.Success.Should().BeTrue(platformSellerResult.Message);
+        platformSellerResult.Data.Should().BeGreaterThan(0);
+
+        var sellerProfile = await db.SellerProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(profile => profile.Id == platformSellerResult.Data);
+
+        sellerProfile.Should().NotBeNull();
+        return sellerProfile!.UserId;
     }
 }

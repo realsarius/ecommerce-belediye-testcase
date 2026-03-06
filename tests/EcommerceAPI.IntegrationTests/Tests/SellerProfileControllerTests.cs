@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EcommerceAPI.Business.Abstract;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.IntegrationTests.Utilities;
@@ -93,6 +94,49 @@ public class SellerProfileControllerTests : IClassFixture<CustomWebApplicationFa
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var content = await response.Content.ReadFromJsonAsync<HasProfileResponse>();
         content.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateProfile_AsPlatformSeller_ShouldReturnForbidden()
+    {
+        var platformUserId = await EnsurePlatformSellerProfileAsync();
+        var sellerClient = _factory.CreateClient().AsSeller(platformUserId);
+
+        var response = await sellerClient.PutAsJsonAsync("/api/v1/seller/profile", new UpdateSellerProfileRequest
+        {
+            BrandName = "Blocked Platform Update"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteProfile_AsPlatformSeller_ShouldReturnForbidden()
+    {
+        var platformUserId = await EnsurePlatformSellerProfileAsync();
+        var sellerClient = _factory.CreateClient().AsSeller(platformUserId);
+
+        var response = await sellerClient.DeleteAsync("/api/v1/seller/profile");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    private async Task<int> EnsurePlatformSellerProfileAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var platformSellerService = scope.ServiceProvider.GetRequiredService<IPlatformSellerService>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var platformSellerResult = await platformSellerService.GetOrCreatePlatformSellerIdAsync();
+        platformSellerResult.Success.Should().BeTrue(platformSellerResult.Message);
+        platformSellerResult.Data.Should().BeGreaterThan(0);
+
+        var profile = await db.SellerProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(entity => entity.Id == platformSellerResult.Data);
+
+        profile.Should().NotBeNull();
+        return profile!.UserId;
     }
 
     private class HasProfileResponse
