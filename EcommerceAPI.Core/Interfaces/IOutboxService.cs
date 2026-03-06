@@ -1,4 +1,4 @@
-namespace EcommerceAPI.Business.Abstract;
+namespace EcommerceAPI.Core.Interfaces;
 
 public interface IOutboxService
 {

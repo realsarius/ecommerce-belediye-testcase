@@ -183,7 +183,8 @@ if (int.TryParse(rabbitMqPortFromEnv, out var parsedRabbitMqPort))
     rabbitMqPort = parsedRabbitMqPort;
 }
 
-builder.Services.AddBusinessServices(connectionString!);
+builder.Services.AddDataAccessServices(connectionString!);
+builder.Services.AddBusinessServices();
 builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment.EnvironmentName);
 
 if (openTelemetryEnabled)

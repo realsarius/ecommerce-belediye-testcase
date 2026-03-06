@@ -11,7 +11,6 @@
     <ProjectReference Include="..\EcommerceAPI.Core\EcommerceAPI.Core.csproj" />
     <ProjectReference Include="..\EcommerceAPI.Business\EcommerceAPI.Business.csproj" />
     <ProjectReference Include="..\EcommerceAPI.Entities\EcommerceAPI.Entities.csproj" />
-    <ProjectReference Include="..\EcommerceAPI.DataAccess\EcommerceAPI.DataAccess.csproj" />
   </ItemGroup>
 
   <!-- Dış servis paketleri (Iyzico, Redis vb.) -->

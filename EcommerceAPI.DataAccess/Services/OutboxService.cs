@@ -1,10 +1,10 @@
 using System.Text.Json;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;
 using Microsoft.Extensions.Logging;
 
-namespace EcommerceAPI.Business.Concrete;
+namespace EcommerceAPI.DataAccess.Services;
 
 public sealed class OutboxService : IOutboxService
 {
@@ -36,11 +36,12 @@ public sealed class OutboxService : IOutboxService
             "Outbox message queued. EventType={EventType}, EventId={EventId}",
             eventType,
             eventId);
-        
+
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static Guid ResolveEventId<TEvent>(TEvent @event) where TEvent : class
+    private static Guid ResolveEventId<TEvent>(TEvent @event)
+        where TEvent : class
     {
         var prop = typeof(TEvent).GetProperty("EventId");
         if (prop?.PropertyType == typeof(Guid))
