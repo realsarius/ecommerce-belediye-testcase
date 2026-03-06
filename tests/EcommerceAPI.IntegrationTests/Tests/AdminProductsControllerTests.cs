@@ -213,6 +213,41 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task CreateProduct_AsAdmin_WhenPlatformAutoAssignmentDisabledAndNoSellerProvided_ShouldReturnBadRequest()
+    {
+        const int adminUserId = 920;
+        await EnsureAdminUserAsync(adminUserId);
+
+        var previousPickerFlag = Environment.GetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER");
+        var previousAutoAssignFlag = Environment.GetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED");
+        Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", "false");
+        Environment.SetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED", "false");
+
+        try
+        {
+            var adminClient = _factory.CreateClient().AsAdmin(userId: adminUserId);
+            var categoryId = await GetExistingCategoryIdAsync();
+            var createRequest = new CreateProductRequest
+            {
+                Name = $"Rejected No Seller Product {Guid.NewGuid():N}",
+                Description = "Platform assignment disabled and no seller selected",
+                Price = 229.99m,
+                CategoryId = categoryId,
+                SKU = $"NSL-{Guid.NewGuid():N}"[..12],
+                InitialStock = 2
+            };
+
+            var response = await adminClient.PostAsJsonAsync("/api/v1/admin/products", createRequest);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FRONTEND_FEATURE_ENABLE_ADMIN_PRODUCT_SELLER_PICKER", previousPickerFlag);
+            Environment.SetEnvironmentVariable("PLATFORM_SELLER_AUTO_ASSIGN_ENABLED", previousAutoAssignFlag);
+        }
+    }
+
+    [Fact]
     public async Task UpdateProduct_AsAdmin_ReturnsOkOrError()
     {
         var adminClient = _factory.CreateClient().AsAdmin(userId: 1);

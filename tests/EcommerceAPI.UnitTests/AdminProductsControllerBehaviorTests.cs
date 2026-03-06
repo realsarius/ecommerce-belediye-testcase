@@ -70,7 +70,7 @@ public class AdminProductsControllerBehaviorTests
     }
 
     [Fact]
-    public async Task CreateProduct_AdminRole_WhenPlatformAutoAssignmentDisabled_ShouldCreateWithoutPlatformSellerId()
+    public async Task CreateProduct_AdminRole_WhenPlatformAutoAssignmentDisabledAndNoSellerProvided_ShouldReturnBadRequest()
     {
         var request = new CreateProductRequest
         {
@@ -82,16 +82,6 @@ public class AdminProductsControllerBehaviorTests
         };
 
         var productServiceMock = new Mock<IProductService>();
-        int? capturedSellerId = 999;
-        productServiceMock
-            .Setup(service => service.CreateProductAsync(request, It.IsAny<int?>()))
-            .Callback<CreateProductRequest, int?>((_, sellerId) => capturedSellerId = sellerId)
-            .ReturnsAsync(new SuccessDataResult<ProductDto>(new ProductDto
-            {
-                Id = 43,
-                Name = request.Name,
-                SellerId = null
-            }));
 
         var sellerProfileServiceMock = new Mock<ISellerProfileService>();
         var platformSellerServiceMock = new Mock<IPlatformSellerService>();
@@ -122,10 +112,10 @@ public class AdminProductsControllerBehaviorTests
 
         var actionResult = await controller.CreateProduct(request);
 
-        actionResult.Should().BeOfType<CreatedAtRouteResult>();
-        capturedSellerId.Should().BeNull();
+        actionResult.Should().BeOfType<BadRequestObjectResult>();
+        sellerProfileServiceMock.Verify(service => service.GetByIdAsync(It.IsAny<int>()), Times.Never);
         platformSellerServiceMock.Verify(service => service.GetOrCreatePlatformSellerIdAsync(), Times.Never);
-        productServiceMock.Verify(service => service.CreateProductAsync(request, null), Times.Once);
+        productServiceMock.Verify(service => service.CreateProductAsync(It.IsAny<CreateProductRequest>(), It.IsAny<int?>()), Times.Never);
     }
 
     [Fact]

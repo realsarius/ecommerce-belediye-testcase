@@ -66,6 +66,7 @@ public class AdminProductsController : ControllerBase
         var (userId, role) = GetCurrentUser();
         int? sellerId = null;
         var isAdminSellerPickerEnabled = IsAdminSellerPickerEnabled();
+        var isPlatformAutoAssignmentEnabled = IsAdminPlatformSellerAutoAssignmentEnabled();
 
         if (role == "Seller" && userId.HasValue)
         {
@@ -92,13 +93,18 @@ public class AdminProductsController : ControllerBase
 
                 sellerId = sellerResult.Data.Id;
             }
-            else if (IsAdminPlatformSellerAutoAssignmentEnabled())
+            else if (isPlatformAutoAssignmentEnabled)
             {
                 var platformSellerResult = await _platformSellerService.GetOrCreatePlatformSellerIdAsync();
                 if (!platformSellerResult.Success)
                     return StatusCode(StatusCodes.Status500InternalServerError, new { message = platformSellerResult.Message });
 
                 sellerId = platformSellerResult.Data;
+            }
+
+            if (!sellerId.HasValue)
+            {
+                return BadRequest(new { message = "Satıcı ataması zorunlu. Platform atamasını açın veya satıcı seçin" });
             }
         }
         
