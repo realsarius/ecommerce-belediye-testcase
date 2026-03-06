@@ -7,6 +7,19 @@ import { Skeleton } from '@/components/common/skeleton';
 import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
 import { useGetActiveCampaignsQuery, useTrackCampaignInteractionMutation } from '@/features/campaigns/campaignsApi';
 import { getCampaignSessionId } from '@/features/campaigns/campaignSession';
+import { cn } from '@/lib/utils';
+
+const getCampaignVisibilityClass = (index: number) => {
+  if (index === 0) {
+    return '';
+  }
+
+  if (index === 1) {
+    return 'hidden md:block';
+  }
+
+  return 'hidden lg:block';
+};
 
 export function ActiveCampaignSpotlight() {
   const { data, isLoading } = useGetActiveCampaignsQuery();
@@ -60,10 +73,16 @@ export function ActiveCampaignSpotlight() {
         </div>
       </div>
 
-      <div className="relative grid gap-3 p-4 sm:p-5 lg:grid-cols-3">
+      <div className="relative grid gap-3 p-4 sm:p-5 md:grid-cols-2 lg:grid-cols-3">
         {isLoading
           ? Array.from({ length: 3 }).map((_, index) => (
-              <Card key={index} className="border-white/10 bg-white/[0.04] text-white shadow-none backdrop-blur-sm">
+              <Card
+                key={index}
+                className={cn(
+                  'border-white/10 bg-white/[0.04] text-white shadow-none backdrop-blur-sm',
+                  getCampaignVisibilityClass(index),
+                )}
+              >
                 <CardContent className="space-y-3 p-4">
                   <Skeleton className="h-5 w-24 bg-white/10" />
                   <Skeleton className="h-6 w-2/3 bg-white/10" />
@@ -72,7 +91,7 @@ export function ActiveCampaignSpotlight() {
                 </CardContent>
               </Card>
             ))
-          : campaigns.map((campaign) => {
+          : campaigns.map((campaign, index) => {
               const featuredProducts = campaign.products
                 .filter((product) => product.isFeatured)
                 .slice(0, 3);
@@ -81,7 +100,10 @@ export function ActiveCampaignSpotlight() {
               return (
                 <Card
                   key={campaign.id}
-                  className="border-white/10 bg-white/[0.04] text-white shadow-none backdrop-blur-sm transition-all duration-200 hover:-translate-y-1.5 hover:border-amber-400/30 hover:bg-white/[0.06]"
+                  className={cn(
+                    'border-white/10 bg-white/[0.04] text-white shadow-none backdrop-blur-sm transition-all duration-200 hover:-translate-y-1.5 hover:border-amber-400/30 hover:bg-white/[0.06]',
+                    getCampaignVisibilityClass(index),
+                  )}
                 >
                   <CardContent className="flex h-full flex-col gap-4 p-4">
                     <div className="flex items-start justify-between gap-3">

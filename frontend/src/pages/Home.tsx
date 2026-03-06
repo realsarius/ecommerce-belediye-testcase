@@ -8,6 +8,7 @@ import { ProductList } from '@/components/home/ProductList';
 import { ActiveCampaignSpotlight } from '@/components/home/ActiveCampaignSpotlight';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { 
+  isDiscoveryFeedContext,
   setCategoryId, 
   setSearch, 
   setSortBy, 
@@ -18,20 +19,24 @@ import {
 export default function Home() {
   const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
-  
 
   const { page, search, categoryId, sortBy, sortDesc } = useAppSelector((state) => state.products);
 
+  const urlCategoryId = searchParams.get('categoryId') || '';
+  const urlSearch = searchParams.get('q') || '';
+  const urlSortBy = searchParams.get('sort') || 'createdAt';
+  const urlOrder = searchParams.get('order') || 'desc';
+  const parsedPage = Number.parseInt(searchParams.get('page') || '1', 10);
+  const urlPage = Number.isNaN(parsedPage) ? 1 : parsedPage;
+  const shouldShowDiscoveryHero = isDiscoveryFeedContext({
+    page: urlPage,
+    search: urlSearch,
+    categoryId: urlCategoryId,
+    sortBy: urlSortBy,
+    sortDesc: urlOrder === 'desc',
+  });
 
   useEffect(() => {
-
-    const urlCategoryId = searchParams.get('categoryId') || '';
-    const urlSearch = searchParams.get('q') || '';
-    const urlSortBy = searchParams.get('sort') || 'createdAt';
-    const urlOrder = searchParams.get('order') || 'desc';
-    const urlPage = parseInt(searchParams.get('page') || '1');
-
-
     if (urlCategoryId !== categoryId) dispatch(setCategoryId(urlCategoryId));
     if (urlSearch !== search) dispatch(setSearch(urlSearch));
     if (urlSortBy !== sortBy) dispatch(setSortBy(urlSortBy));
@@ -108,14 +113,15 @@ export default function Home() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-5 sm:py-6">
-      {/* Hero Section */}
-      <div className="mb-5 rounded-lg bg-muted/25 px-4 py-5 text-center sm:py-6">
-        <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Hoş Geldiniz</h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          En kaliteli ürünleri keşfedin ve avantajlı fiyatlarla alışveriş yapın
-        </p>
-      </div>
+    <div className="container mx-auto px-4 py-4 sm:py-5">
+      {shouldShowDiscoveryHero ? (
+        <div className="mb-4 rounded-lg bg-muted/20 px-4 py-4 text-center sm:mb-5 sm:py-5">
+          <h1 className="text-xl font-bold sm:text-3xl">Hoş Geldiniz</h1>
+          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
+            En kaliteli ürünleri keşfedin ve avantajlı fiyatlarla alışveriş yapın
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex flex-col items-start gap-4 lg:flex-row">
         {/* Sidebar Filters */}
