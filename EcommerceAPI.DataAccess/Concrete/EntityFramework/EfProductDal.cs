@@ -190,6 +190,22 @@ public class EfProductDal : EfEntityRepositoryBase<Product, AppDbContext>, IProd
             .ToListAsync();
     }
 
+    public Task<int> CountProductsWithoutSellerAsync()
+    {
+        return _dbSet
+            .AsNoTracking()
+            .CountAsync(product => !product.SellerId.HasValue);
+    }
+
+    public Task<int> BackfillMissingSellerIdsAsync(int sellerId, DateTime updatedAtUtc)
+    {
+        return _dbSet
+            .Where(product => !product.SellerId.HasValue)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(product => product.SellerId, sellerId)
+                .SetProperty(product => product.UpdatedAt, updatedAtUtc));
+    }
+
     public async Task<(int ActiveProducts, int ActiveSellers, string Currency)> GetAdminDashboardProductSummaryAsync()
     {
         var activeProductsQuery = _dbSet

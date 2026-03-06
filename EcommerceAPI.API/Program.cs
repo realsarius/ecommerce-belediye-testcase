@@ -512,6 +512,19 @@ using (var scope = app.Services.CreateScope())
             var seeder = new SeedRunner(context, logger, seedPath, hashingService, encryptionService);
             await seeder.RunAsync(seed: true);
         }
+
+        if (!app.Environment.IsEnvironment("Test"))
+        {
+            var backfillService = services.GetRequiredService<IPlatformProductBackfillService>();
+            var backfillResult = await backfillService.BackfillMissingSellerIdsAsync();
+            if (!backfillResult.Success)
+            {
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                logger.LogWarning(
+                    "Platform product backfill tamamlanamadi. Message={Message}",
+                    backfillResult.Message);
+            }
+        }
     }
     catch (Exception ex)
     {

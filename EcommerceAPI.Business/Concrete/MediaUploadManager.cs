@@ -278,7 +278,12 @@ public class MediaUploadManager : IMediaUploadService
             return new ErrorDataResult<ConfirmMediaUploadDto>(authorizationResult.Message);
         }
 
-        var sellerId = product.SellerId ?? 0;
+        if (!product.SellerId.HasValue)
+        {
+            return new ErrorDataResult<ConfirmMediaUploadDto>("Ürün satıcı bilgisi eksik olduğu için görsel kaydı yapılamadı");
+        }
+
+        var sellerId = product.SellerId.Value;
         var expectedPrefix = $"products/seller-{sellerId}/product-{product.Id}/";
         if (!HasObjectKeyPrefix(objectKey, expectedPrefix))
         {
@@ -448,7 +453,12 @@ public class MediaUploadManager : IMediaUploadService
                 }
             }
 
-            var sellerIdForPath = product.SellerId ?? 0;
+            if (!product.SellerId.HasValue)
+            {
+                return new ErrorDataResult<string>(message: "Ürün satıcı bilgisi eksik olduğu için yükleme başlatılamadı");
+            }
+
+            var sellerIdForPath = product.SellerId.Value;
             return new SuccessDataResult<string>(data: StorageKeyGenerator.ProductImage(sellerIdForPath, product.Id, extension));
         }
 
