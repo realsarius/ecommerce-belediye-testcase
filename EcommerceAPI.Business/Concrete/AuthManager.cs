@@ -20,6 +20,7 @@ namespace EcommerceAPI.Business.Concrete;
 
 public class AuthManager : IAuthService
 {
+    private const string DefaultPlatformSellerEmail = "platform-seller@system.local";
     private const int EmailVerificationCodeLength = 6;
     private const int EmailVerificationCodeMaxAttempts = 5;
     private static readonly TimeSpan EmailVerificationCodeLifetime = TimeSpan.FromMinutes(10);
@@ -72,13 +73,23 @@ public class AuthManager : IAuthService
     [ValidationAspect(typeof(RegisterRequestValidator))]
     public async Task<IDataResult<AuthResponse>> RegisterAsync(RegisterRequest request)
     {
+        var normalizedEmail = request.Email.ToLowerInvariant().Trim();
+        if (IsReservedPlatformSellerEmail(normalizedEmail))
+        {
+            return new ErrorDataResult<AuthResponse>(new AuthResponse
+            {
+                Success = false,
+                Message = Messages.ReservedSystemEmailNotAllowed
+            });
+        }
+
         var referralValidation = await _referralService.ValidateReferralCodeAsync(request.ReferralCode);
         if (!referralValidation.Success)
         {
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = referralValidation.Message });
         }
 
-        var emailHash = _hashingService.Hash(request.Email.ToLowerInvariant().Trim());
+        var emailHash = _hashingService.Hash(normalizedEmail);
 
         var existingUsers = await _userDal.GetListAsync(u => u.EmailHash == emailHash);
         if (existingUsers.Any())
@@ -161,6 +172,9 @@ public class AuthManager : IAuthService
         if (user == null)
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
 
+        if (IsPlatformSellerUser(user))
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.SystemAccountLoginNotAllowed });
+
         var accountStatusValidation = ValidateAccountStatus(user);
         if (!accountStatusValidation.Success)
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = accountStatusValidation.Message });
@@ -199,6 +213,15 @@ public class AuthManager : IAuthService
         }
 
         var normalizedEmail = validationResult.Email.ToLowerInvariant().Trim();
+        if (IsReservedPlatformSellerEmail(normalizedEmail))
+        {
+            return new ErrorDataResult<AuthResponse>(new AuthResponse
+            {
+                Success = false,
+                Message = Messages.SystemAccountLoginNotAllowed
+            });
+        }
+
         var emailHash = _hashingService.Hash(normalizedEmail);
         var user = (await _userDal.GetListAsync(u => u.EmailHash == emailHash)).FirstOrDefault();
         var shouldPersist = false;
@@ -234,6 +257,15 @@ public class AuthManager : IAuthService
         }
         else
         {
+            if (IsPlatformSellerUser(user))
+            {
+                return new ErrorDataResult<AuthResponse>(new AuthResponse
+                {
+                    Success = false,
+                    Message = Messages.SystemAccountLoginNotAllowed
+                });
+            }
+
             var accountStatusValidation = ValidateAccountStatus(user);
             if (!accountStatusValidation.Success)
             {
@@ -579,6 +611,11 @@ public class AuthManager : IAuthService
         }
 
         var normalizedNewEmail = request.NewEmail.Trim().ToLowerInvariant();
+        if (IsReservedPlatformSellerEmail(normalizedNewEmail))
+        {
+            return new ErrorResult(Messages.ReservedSystemEmailNotAllowed);
+        }
+
         var normalizedCurrentEmail = user.Email.Trim().ToLowerInvariant();
         if (normalizedCurrentEmail == normalizedNewEmail)
         {
@@ -647,6 +684,19 @@ public class AuthManager : IAuthService
         }
 
         var normalizedNewEmail = user.PendingEmail.Trim().ToLowerInvariant();
+        if (IsReservedPlatformSellerEmail(normalizedNewEmail))
+        {
+            user.PendingEmail = null;
+            user.EmailChangeToken = null;
+            user.EmailChangeTokenExpiry = null;
+            _userDal.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ErrorDataResult<AuthResponse>(
+                new AuthResponse { Success = false, Message = Messages.ReservedSystemEmailNotAllowed },
+                Messages.ReservedSystemEmailNotAllowed);
+        }
+
         var newEmailHash = _hashingService.Hash(normalizedNewEmail);
         var existingUser = (await _userDal.GetListAsync(u => u.EmailHash == newEmailHash && u.Id != user.Id)).FirstOrDefault();
         if (existingUser != null)
@@ -725,6 +775,30 @@ public class AuthManager : IAuthService
         if (existingToken.ExpiresAt < DateTime.UtcNow)
             return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.TokenExpired });
 
+        var user = await _userDal.GetAsync(u => u.Id == existingToken.UserId);
+
+        if (user == null)
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
+
+        if (IsPlatformSellerUser(user))
+        {
+            existingToken.IsRevoked = true;
+            existingToken.RevokedReason = "System account refresh blocked";
+            _refreshTokenDal.Update(existingToken);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ErrorDataResult<AuthResponse>(new AuthResponse
+            {
+                Success = false,
+                Message = Messages.SystemAccountLoginNotAllowed
+            });
+        }
+
+        var accountStatusValidation = ValidateAccountStatus(user);
+        if (!accountStatusValidation.Success)
+            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = accountStatusValidation.Message });
+
+        var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
         var newRefreshToken = _tokenHelper.GenerateRefreshToken();
         var newHashedRefreshToken = _hashingService.Hash(newRefreshToken);
 
@@ -744,16 +818,6 @@ public class AuthManager : IAuthService
 
         await _refreshTokenDal.AddAsync(newRefreshTokenEntity);
 
-        var user = await _userDal.GetAsync(u => u.Id == existingToken.UserId);
-
-        if (user == null)
-            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = Messages.UserNotFound });
-
-        var accountStatusValidation = ValidateAccountStatus(user);
-        if (!accountStatusValidation.Success)
-            return new ErrorDataResult<AuthResponse>(new AuthResponse { Success = false, Message = accountStatusValidation.Message });
-
-        var role = await _roleDal.GetAsync(r => r.Id == user.RoleId);
         user.LastLoginAt = DateTime.UtcNow;
         _userDal.Update(user);
 
@@ -1326,5 +1390,34 @@ public class AuthManager : IAuthService
             UserAccountStatus.Banned => new ErrorResult("Hesabınız kullanım dışı bırakılmıştır."),
             _ => new ErrorResult("Hesap durumunuz doğrulanamadı.")
         };
+    }
+
+    private bool IsPlatformSellerUser(User user)
+    {
+        return IsReservedPlatformSellerEmail(user.Email);
+    }
+
+    private bool IsReservedPlatformSellerEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            email.Trim().ToLowerInvariant(),
+            GetPlatformSellerEmail(),
+            StringComparison.Ordinal);
+    }
+
+    private string GetPlatformSellerEmail()
+    {
+        var configured = _configuration["PlatformSeller:Email"];
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            configured = DefaultPlatformSellerEmail;
+        }
+
+        return configured.Trim().ToLowerInvariant();
     }
 }

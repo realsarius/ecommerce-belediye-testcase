@@ -176,6 +176,34 @@ public class AuthManagerTests
     }
 
     [Fact]
+    public async Task SocialLoginAsync_WhenEmailIsPlatformSeller_ShouldReturnBlockedMessage()
+    {
+        _socialAuthValidatorMock
+            .Setup(x => x.ValidateAsync("google", "valid-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SocialAuthValidationResult
+            {
+                Success = true,
+                Provider = "google",
+                Subject = "google-subject-1",
+                Email = "platform-seller@system.local",
+                EmailVerified = true,
+                FirstName = "Platform",
+                LastName = "Seller"
+            });
+
+        var result = await _manager.SocialLoginAsync(new SocialLoginRequest
+        {
+            Provider = "google",
+            IdToken = "valid-token"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Data.Should().NotBeNull();
+        result.Data!.Message.Should().Be(Messages.SystemAccountLoginNotAllowed);
+        _userDalMock.Verify(x => x.AddAsync(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
     public async Task LoginAsync_WhenAccountIsSocialOnly_ShouldReturnFriendlyError()
     {
         _hashingServiceMock
@@ -204,6 +232,44 @@ public class AuthManagerTests
         result.Success.Should().BeFalse();
         result.Data.Should().NotBeNull();
         result.Data!.Message.Should().Be(Messages.SocialAccountPasswordLoginNotAllowed);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenAccountIsPlatformSeller_ShouldReturnBlockedMessage()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("platform-seller@system.local"))
+            .Returns("hash-platform");
+        _userDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync([
+                new User
+                {
+                    Id = 11,
+                    Email = "platform-seller@system.local",
+                    EmailHash = "hash-platform",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+                    RoleId = 2,
+                    AccountStatus = UserAccountStatus.Active
+                }
+            ]);
+
+        var result = await _manager.LoginAsync(new LoginRequest
+        {
+            Email = "platform-seller@system.local",
+            Password = "Strong123!"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Data.Should().NotBeNull();
+        result.Data!.Message.Should().Be(Messages.SystemAccountLoginNotAllowed);
+        _tokenHelperMock.Verify(x => x.GenerateAccessToken(
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -279,6 +345,71 @@ public class AuthManagerTests
         result.Success.Should().BeFalse();
         result.Data.Should().NotBeNull();
         result.Data!.Message.Should().Be("Hesabınız kullanım dışı bırakılmıştır.");
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_WhenAccountIsPlatformSeller_ShouldRevokeTokenAndReturnBlockedMessage()
+    {
+        _hashingServiceMock
+            .Setup(x => x.Hash("refresh-token"))
+            .Returns("hashed-refresh-token");
+
+        var existingToken = new RefreshToken
+        {
+            Id = 1,
+            UserId = 777,
+            Token = "hashed-refresh-token",
+            ExpiresAt = DateTime.UtcNow.AddDays(3),
+            IsRevoked = false,
+            IsUsed = false
+        };
+
+        _refreshTokenDalMock
+            .Setup(x => x.GetListAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>()))
+            .ReturnsAsync([existingToken]);
+
+        _userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync(new User
+            {
+                Id = 777,
+                Email = "platform-seller@system.local",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Strong123!"),
+                RoleId = 2,
+                AccountStatus = UserAccountStatus.Active
+            });
+
+        var result = await _manager.RefreshTokenAsync(new RefreshTokenRequest
+        {
+            RefreshToken = "refresh-token"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Data.Should().NotBeNull();
+        result.Data!.Message.Should().Be(Messages.SystemAccountLoginNotAllowed);
+        existingToken.IsRevoked.Should().BeTrue();
+        existingToken.RevokedReason.Should().Be("System account refresh blocked");
+        _refreshTokenDalMock.Verify(x => x.Update(It.Is<RefreshToken>(token =>
+            token.Id == 1 &&
+            token.IsRevoked &&
+            token.RevokedReason == "System account refresh blocked")), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WhenEmailIsPlatformSeller_ShouldReturnReservedEmailError()
+    {
+        var result = await _manager.RegisterAsync(new RegisterRequest
+        {
+            Email = "platform-seller@system.local",
+            Password = "Strong123!",
+            FirstName = "Platform",
+            LastName = "Seller"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Data.Should().NotBeNull();
+        result.Data!.Message.Should().Be(Messages.ReservedSystemEmailNotAllowed);
+        _userDalMock.Verify(x => x.AddAsync(It.IsAny<User>()), Times.Never);
     }
 
     [Fact]
@@ -723,6 +854,37 @@ public class AuthManagerTests
 
         result.Success.Should().BeFalse();
         result.Message.Should().Be(Messages.CurrentPasswordInvalid);
+        _userDalMock.Verify(x => x.Update(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangeEmailAsync_WhenNewEmailIsPlatformSeller_ShouldReturnReservedEmailError()
+    {
+        var existingUser = new User
+        {
+            Id = 43,
+            Email = "customer@example.com",
+            EmailHash = "customer-hash",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Correct123!"),
+            FirstName = "Customer",
+            LastName = "User",
+            RoleId = 1,
+            AccountStatus = UserAccountStatus.Active,
+            IsEmailVerified = true
+        };
+
+        _userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>()))
+            .ReturnsAsync(existingUser);
+
+        var result = await _manager.ChangeEmailAsync(43, new ChangeEmailRequest
+        {
+            NewEmail = "platform-seller@system.local",
+            CurrentPassword = "Correct123!"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be(Messages.ReservedSystemEmailNotAllowed);
         _userDalMock.Verify(x => x.Update(It.IsAny<User>()), Times.Never);
     }
 
