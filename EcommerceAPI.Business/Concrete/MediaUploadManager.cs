@@ -8,6 +8,8 @@ using EcommerceAPI.Core.Utilities.Storage;
 using EcommerceAPI.DataAccess.Abstract;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Entities.IntegrationEvents;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;
@@ -29,6 +31,7 @@ public class MediaUploadManager : IMediaUploadService
     private readonly ICategoryDal _categoryDal;
     private readonly ISellerProfileDal _sellerProfileDal;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<MediaUploadManager> _logger;
 
     public MediaUploadManager(
@@ -37,6 +40,7 @@ public class MediaUploadManager : IMediaUploadService
         ICategoryDal categoryDal,
         ISellerProfileDal sellerProfileDal,
         IUnitOfWork unitOfWork,
+        IPublishEndpoint publishEndpoint,
         ILogger<MediaUploadManager> logger)
     {
         _objectStorageService = objectStorageService;
@@ -44,6 +48,7 @@ public class MediaUploadManager : IMediaUploadService
         _categoryDal = categoryDal;
         _sellerProfileDal = sellerProfileDal;
         _unitOfWork = unitOfWork;
+        _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
 
@@ -194,6 +199,7 @@ public class MediaUploadManager : IMediaUploadService
         }
 
         _productDal.Update(product);
+        await QueueProductIndexSyncEventAsync(product.Id, "DeleteProductImage");
         await _unitOfWork.SaveChangesAsync();
 
         if (!string.IsNullOrWhiteSpace(image.ObjectKey))
@@ -255,6 +261,7 @@ public class MediaUploadManager : IMediaUploadService
         }
 
         _productDal.Update(product);
+        await QueueProductIndexSyncEventAsync(product.Id, "ReorderProductImages");
         await _unitOfWork.SaveChangesAsync();
 
         return new SuccessResult("Görsel sıralaması güncellendi");
@@ -315,6 +322,7 @@ public class MediaUploadManager : IMediaUploadService
 
         product.Images.Add(image);
         _productDal.Update(product);
+        await QueueProductIndexSyncEventAsync(product.Id, "ConfirmProductImage");
         await _unitOfWork.SaveChangesAsync();
 
         return new SuccessDataResult<ConfirmMediaUploadDto>(new ConfirmMediaUploadDto
@@ -530,6 +538,16 @@ public class MediaUploadManager : IMediaUploadService
         }
 
         return new SuccessResult();
+    }
+
+    private async Task QueueProductIndexSyncEventAsync(int productId, string reason)
+    {
+        await _publishEndpoint.Publish(new ProductIndexSyncEvent
+        {
+            ProductId = productId,
+            Operation = ProductIndexOperations.Upsert,
+            Reason = reason
+        });
     }
 
     private static IDataResult<MediaUploadContext> ParseContext(string context)

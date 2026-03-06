@@ -26,6 +26,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.GetPresignedUploadUrlAsync(1, false, new PresignMediaUploadRequest
@@ -56,6 +57,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
@@ -93,6 +95,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
@@ -145,6 +148,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
@@ -208,6 +212,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.DeleteProductImageAsync(userId: 2, isAdmin: false, imageId: 55);
@@ -271,6 +276,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ReorderProductImagesAsync(userId: 2, isAdmin: false, productId: 99, new ReorderProductImagesRequest
@@ -341,6 +347,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ReorderProductImagesAsync(userId: 2, isAdmin: false, productId: 99, new ReorderProductImagesRequest
@@ -417,6 +424,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.DeleteProductImageAsync(userId: 2, isAdmin: false, imageId: 55);
@@ -460,6 +468,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.GetPresignedUploadUrlAsync(1, true, new PresignMediaUploadRequest
@@ -512,6 +521,7 @@ public class MediaUploadManagerTests
             categoryDalMock.Object,
             sellerProfileDalMock.Object,
             unitOfWorkMock.Object,
+            Mock.Of<MassTransit.IPublishEndpoint>(),
             loggerMock.Object);
 
         var result = await manager.ConfirmUploadAsync(1, true, new ConfirmMediaUploadRequest
