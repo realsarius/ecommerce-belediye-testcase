@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useGetWishlistQuery, useAddWishlistItemMutation, useRemoveWishlistItemMutation } from '@/features/wishlist/wishlistApi';
 import { getWishlistErrorMessage, useGuestWishlist } from '@/features/wishlist';
 import { buildCompareUrl, useProductCompare } from '@/features/compare';
+import { ProductCardMediaPreview } from '@/components/products/ProductCardMediaPreview';
 import type { PaginatedResponse } from '@/types/api';
 import type { Product } from '@/features/products/types';
 
@@ -144,17 +145,7 @@ export const ProductList = ({
         {productsData?.items?.map((product) => (
           <Card key={product.id} className="overflow-hidden group w-full max-w-sm relative">
             <div className="relative h-48 bg-muted flex items-center justify-center">
-              {product.primaryImageUrl ? (
-                <img
-                  src={product.primaryImageUrl}
-                  alt={product.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <Package className="h-16 w-16 text-muted-foreground" />
-              )}
+              <ProductCardMediaPreview product={product} />
               {product.stockQuantity === 0 && (
                 <Badge variant="destructive" className="absolute top-2 left-2">
                   Stokta Yok
@@ -163,7 +154,7 @@ export const ProductList = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-2 right-2 rounded-full bg-background/50 backdrop-blur-sm hover:bg-background/80"
+                className="absolute top-2 right-2 z-20 rounded-full bg-background/50 backdrop-blur-sm hover:bg-background/80"
                 onClick={(e) => handleWishlistToggle(e, product.id)}
               >
                 <Heart

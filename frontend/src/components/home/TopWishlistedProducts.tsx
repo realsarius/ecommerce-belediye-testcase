@@ -1,10 +1,11 @@
-import { Heart, Sparkles, Package } from 'lucide-react';
+import { Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/common/card';
 import { Badge } from '@/components/common/badge';
 import { Skeleton } from '@/components/common/skeleton';
 import { useSearchProductsQuery } from '@/features/products/productsApi';
 import { CampaignCountdown } from '@/components/campaigns/CampaignCountdown';
+import { ProductCardMediaPreview } from '@/components/products/ProductCardMediaPreview';
 
 interface TopWishlistedProductsProps {
   categoryId?: number;
@@ -100,8 +101,8 @@ export function TopWishlistedProducts({
                       </div>
                     </div>
 
-                    <div className="mb-4 flex h-24 items-center justify-center rounded-2xl border border-border/60 bg-muted/60 dark:border-white/8 dark:bg-black/20">
-                      <Package className="h-10 w-10 text-muted-foreground/70 dark:text-white/35" />
+                    <div className="mb-4 h-24 overflow-hidden rounded-2xl border border-border/60 bg-muted/60 dark:border-white/8 dark:bg-black/20">
+                      <ProductCardMediaPreview product={product} />
                     </div>
 
                     <div className="flex-1">
