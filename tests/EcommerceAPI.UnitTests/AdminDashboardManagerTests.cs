@@ -1,5 +1,5 @@
 using EcommerceAPI.Business.Concrete;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
 using FluentAssertions;

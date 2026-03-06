@@ -1,4 +1,4 @@
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,16 +18,20 @@ public class ShippingAddressController : ControllerBase
         _shippingAddressService = shippingAddressService;
     }
 
-    private int GetCurrentUserId()
+    private bool TryGetCurrentUserId(out int userId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(userIdClaim ?? "0");
+        return int.TryParse(userIdClaim, out userId) && userId > 0;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetMyAddresses()
     {
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var result = await _shippingAddressService.GetUserAddressesAsync(userId);
         
         if (result.Success)
@@ -41,7 +45,11 @@ public class ShippingAddressController : ControllerBase
     [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> CreateAddress([FromBody] CreateShippingAddressRequest request)
     {
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var result = await _shippingAddressService.AddAddressAsync(userId, request);
         
         if (result.Success)
@@ -55,7 +63,11 @@ public class ShippingAddressController : ControllerBase
     [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> UpdateAddress(int id, [FromBody] CreateShippingAddressRequest request)
     {
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var result = await _shippingAddressService.UpdateAddressAsync(userId, id, request);
         
         if (result.Success)
@@ -69,7 +81,11 @@ public class ShippingAddressController : ControllerBase
     [Authorize(Policy = "EmailVerified")]
     public async Task<IActionResult> DeleteAddress(int id)
     {
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var result = await _shippingAddressService.DeleteAddressAsync(userId, id);
         
         if (result.Success)

@@ -1,11 +1,11 @@
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Business.Constants;
 using EcommerceAPI.Business.Mappers;
 using EcommerceAPI.Core.Aspects.Autofac.Caching;
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.IntegrationEvents;
@@ -134,8 +134,8 @@ public class WishlistManager : IWishlistService
             }).ToList());
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
     public async Task<IDataResult<WishlistCollectionDto>> CreateCollectionAsync(int userId, CreateWishlistCollectionRequest request)
     {
         var normalizedName = request.Name.Trim();
@@ -176,8 +176,8 @@ public class WishlistManager : IWishlistService
             "Koleksiyon oluşturuldu.");
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
     public async Task<IResult> MoveItemToCollectionAsync(int userId, int productId, int collectionId)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
@@ -230,8 +230,8 @@ public class WishlistManager : IWishlistService
         return new SuccessDataResult<WishlistShareSettingsDto>(CreateShareSettingsDto(wishlist));
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetShareSettingsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetShareSettingsAsync")]
     public async Task<IDataResult<WishlistShareSettingsDto>> EnableSharingAsync(int userId)
     {
         var wishlist = await _wishlistDal.GetOrCreateByUserIdAsync(userId);
@@ -254,8 +254,8 @@ public class WishlistManager : IWishlistService
             "Favori listeniz paylaşılabilir hale getirildi.");
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetShareSettingsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetShareSettingsAsync")]
     public async Task<IResult> DisableSharingAsync(int userId)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
@@ -331,8 +331,8 @@ public class WishlistManager : IWishlistService
         return new SuccessDataResult<SharedWishlistDto>(dto);
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetCollectionsAsync")]
     public async Task<IResult> AddItemToWishlistAsync(int userId, int productId, int? collectionId = null)
     {
         var product = await _productDal.GetAsync(p => p.Id == productId);
@@ -413,8 +413,8 @@ public class WishlistManager : IWishlistService
         return new SuccessResult("Product added to wishlist.");
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetCollectionsAsync")]
     public async Task<IResult> RemoveItemFromWishlistAsync(int userId, int productId)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);
@@ -460,8 +460,8 @@ public class WishlistManager : IWishlistService
         return new SuccessResult("Product removed from wishlist.");
     }
 
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetWishlistByUserIdAsync")]
-    [CacheRemoveAspect("EcommerceAPI.Business.Abstract.IWishlistService.GetCollectionsAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetWishlistByUserIdAsync")]
+    [CacheRemoveAspect("EcommerceAPI.Application.Abstractions.ServiceContracts.IWishlistService.GetCollectionsAsync")]
     public async Task<IResult> ClearWishlistAsync(int userId)
     {
         var wishlist = await _wishlistDal.GetAsync(w => w.UserId == userId);

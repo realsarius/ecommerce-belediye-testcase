@@ -1,0 +1,22 @@
+using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Core.Utilities.Results;
+
+namespace EcommerceAPI.Application.Abstractions.ServiceContracts;
+
+public interface IAuthService
+{
+    Task<IDataResult<AuthResponse>> RegisterAsync(RegisterRequest request);
+    Task<IDataResult<AuthResponse>> LoginAsync(LoginRequest request);
+    Task<IDataResult<AuthResponse>> SocialLoginAsync(SocialLoginRequest request);
+    Task<IDataResult<AuthResponse>> VerifyEmailAsync(VerifyEmailRequest request);
+    Task<IDataResult<AuthResponse>> VerifyEmailCodeAsync(VerifyEmailCodeRequest request);
+    Task<IResult> ResendVerificationAsync(int userId);
+    Task<IResult> ResendVerificationCodeAsync(ResendVerificationCodeRequest request);
+    Task<IResult> ForgotPasswordAsync(ForgotPasswordRequest request);
+    Task<IResult> ResetPasswordAsync(ResetPasswordRequest request);
+    Task<IResult> ChangeEmailAsync(int userId, ChangeEmailRequest request);
+    Task<IDataResult<AuthResponse>> ConfirmEmailChangeAsync(ConfirmEmailChangeRequest request);
+    Task<IDataResult<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request);
+    Task<IResult> RevokeTokenAsync(string token);
+    Task<IDataResult<UserDto>> GetUserByIdAsync(int userId);
+}

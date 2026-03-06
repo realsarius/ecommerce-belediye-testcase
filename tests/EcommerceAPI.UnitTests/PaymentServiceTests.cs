@@ -1,15 +1,16 @@
 using FluentAssertions;
 using Moq;
-using EcommerceAPI.Business.Abstract; 
+using EcommerceAPI.Application.Abstractions.ServiceContracts; 
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using EcommerceAPI.Infrastructure.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
+using EcommerceAPI.Infrastructure.Constants;
 using EcommerceAPI.Core.Utilities.Results;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
@@ -28,6 +29,7 @@ public class IyzicoPaymentServiceTests
     private readonly Mock<ICreditCardService> _creditCardServiceMock;
     private readonly Mock<ILoyaltyService> _loyaltyServiceMock;
     private readonly Mock<IReferralService> _referralServiceMock;
+    private readonly Mock<IPaymentWebhookEventDal> _paymentWebhookEventDalMock;
     private readonly Mock<IIyzicoPaymentGateway> _paymentGatewayMock;
     private readonly Mock<IDistributedLockService> _lockServiceMock;
     private readonly Mock<ILogger<IyzicoPaymentService>> _loggerMock;
@@ -44,6 +46,7 @@ public class IyzicoPaymentServiceTests
         _creditCardServiceMock = new Mock<ICreditCardService>();
         _loyaltyServiceMock = new Mock<ILoyaltyService>();
         _referralServiceMock = new Mock<IReferralService>();
+        _paymentWebhookEventDalMock = new Mock<IPaymentWebhookEventDal>();
         _paymentGatewayMock = new Mock<IIyzicoPaymentGateway>();
         _lockServiceMock = new Mock<IDistributedLockService>();
         _loggerMock = new Mock<ILogger<IyzicoPaymentService>>();
@@ -82,6 +85,9 @@ public class IyzicoPaymentServiceTests
         _paymentGatewayMock
             .Setup(x => x.InitializeThreeDSAsync(It.IsAny<CreatePaymentRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IyzicoThreeDSInitializeGatewayResult(true, "PAY-3DS", "base64-html", null));
+        _paymentWebhookEventDalMock
+            .Setup(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _paymentService = new IyzicoPaymentService(
             _orderDalMock.Object,
@@ -91,6 +97,7 @@ public class IyzicoPaymentServiceTests
             _creditCardServiceMock.Object,
             _loyaltyServiceMock.Object,
             _referralServiceMock.Object,
+            _paymentWebhookEventDalMock.Object,
             _paymentGatewayMock.Object,
             _lockServiceMock.Object,
             _loggerMock.Object,
@@ -487,9 +494,168 @@ public class IyzicoPaymentServiceTests
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenWebhookEventAlreadyRecorded_ShouldReturnSuccessWithoutMutation()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "PAYMENT",
+            PaymentId = "PAY-DUP",
+            PaymentConversationId = "ORD-DUP",
+            Status = "SUCCESS"
+        };
+
+        _orderDalMock.Setup(x => x.GetByOrderNumberAsync("ORD-DUP"))
+            .ReturnsAsync(new Order
+            {
+                Id = 79,
+                OrderNumber = "ORD-DUP",
+                Status = OrderStatus.PendingPayment,
+                UserId = 1,
+                TotalAmount = 100,
+                Payment = new Payment
+                {
+                    Status = PaymentStatus.Pending,
+                    Amount = 100,
+                    Currency = "TRY"
+                }
+            });
+
+        _paymentWebhookEventDalMock
+            .Setup(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var signature = ComputeSignature(request, "test");
+        var result = await _paymentService.ProcessWebhookAsync(request, signature);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Webhook already processed");
+        _orderDalMock.Verify(x => x.GetByOrderNumberAsync("ORD-DUP"), Times.Once);
+        _paymentWebhookEventDalMock.Verify(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
+        _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenSignatureMissingAndRequired_ShouldReturnInvalidSignatureError()
+    {
+        _paymentSettings.RequireWebhookSignature = true;
+        _paymentSettings.AllowWebhookSignatureBypass = false;
+
+        var result = await _paymentService.ProcessWebhookAsync(
+            new IyzicoWebhookRequest
+            {
+                IyziEventType = "PAYMENT",
+                PaymentId = "PAY-1",
+                PaymentConversationId = "ORD-1",
+                Status = "SUCCESS"
+            },
+            string.Empty);
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(InfrastructureConstants.Payment.WebhookInvalidSignatureCode);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenSignatureBypassEnabled_ShouldAllowMissingSignature()
+    {
+        _paymentSettings.RequireWebhookSignature = true;
+        _paymentSettings.AllowWebhookSignatureBypass = true;
+
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "PAYMENT",
+            PaymentId = "PAY-2",
+            PaymentConversationId = "ORD-BYPASS",
+            Status = "SUCCESS"
+        };
+
+        var existingOrder = new Order
+        {
+            Id = 78,
+            OrderNumber = "ORD-BYPASS",
+            Status = OrderStatus.Paid,
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Success,
+                IdempotencyKey = "bypass-key",
+                Amount = 100,
+                Currency = "TRY"
+            }
+        };
+
+        _orderDalMock.Setup(x => x.GetByOrderNumberAsync("ORD-BYPASS"))
+            .ReturnsAsync(existingOrder);
+
+        var result = await _paymentService.ProcessWebhookAsync(request, string.Empty);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Already paid");
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenHppSignatureIsValid_ShouldAcceptWebhook()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "CHECKOUT_FORM_AUTH",
+            IyziPaymentId = "IYZ-PAY-1",
+            Token = "token-1",
+            PaymentConversationId = "ORD-HPP",
+            Status = "SUCCESS"
+        };
+
+        var existingOrder = new Order
+        {
+            Id = 82,
+            OrderNumber = "ORD-HPP",
+            Status = OrderStatus.Paid,
+            Payment = new Payment
+            {
+                Status = PaymentStatus.Success,
+                IdempotencyKey = "hpp-key",
+                Amount = 100,
+                Currency = "TRY"
+            }
+        };
+
+        _orderDalMock
+            .Setup(x => x.GetByOrderNumberAsync("ORD-HPP"))
+            .ReturnsAsync(existingOrder);
+
+        var signature = ComputeSignature(request, "test");
+        var result = await _paymentService.ProcessWebhookAsync(request, signature);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Already paid");
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_WhenHppPayloadMissingToken_ShouldReturnInvalidSignatureError()
+    {
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "CHECKOUT_FORM_AUTH",
+            IyziPaymentId = "IYZ-PAY-2",
+            Token = null,
+            PaymentConversationId = "ORD-HPP-INVALID",
+            Status = "SUCCESS"
+        };
+
+        var result = await _paymentService.ProcessWebhookAsync(request, "invalid-signature");
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be(InfrastructureConstants.Payment.WebhookInvalidSignatureCode);
+    }
+
     private static string ComputeSignature(IyzicoWebhookRequest request, string secretKey)
     {
-        var payload = $"{secretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        var useHppPayload = !string.IsNullOrWhiteSpace(request.IyziPaymentId) || !string.IsNullOrWhiteSpace(request.Token);
+        var payload = useHppPayload
+            ? $"{secretKey}{request.IyziEventType}{request.IyziPaymentId}{request.Token}{request.PaymentConversationId}{request.Status}"
+            : $"{secretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLowerInvariant();

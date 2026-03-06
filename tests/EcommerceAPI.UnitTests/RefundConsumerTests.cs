@@ -1,5 +1,5 @@
 using EcommerceAPI.API.Consumers;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
 using EcommerceAPI.Entities.Concrete;

@@ -1,7 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Google.Apis.Auth;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -133,8 +133,8 @@ public class SocialAuthValidator : ISocialAuthValidator
                 out var validatedToken);
 
             var jwt = validatedToken as JwtSecurityToken;
-            var email = principal.FindFirstValue("email");
-            var emailVerifiedRaw = principal.FindFirstValue("email_verified");
+            var email = GetClaimValue(principal, "email");
+            var emailVerifiedRaw = GetClaimValue(principal, "email_verified");
 
             if (string.IsNullOrWhiteSpace(email) || jwt == null)
             {
@@ -149,13 +149,13 @@ public class SocialAuthValidator : ISocialAuthValidator
             {
                 Success = true,
                 Provider = "apple",
-                Subject = principal.FindFirstValue(ClaimTypes.NameIdentifier)
-                          ?? principal.FindFirstValue("sub")
+                Subject = GetClaimValue(principal, ClaimTypes.NameIdentifier)
+                          ?? GetClaimValue(principal, "sub")
                           ?? string.Empty,
                 Email = email,
                 EmailVerified = string.Equals(emailVerifiedRaw, "true", StringComparison.OrdinalIgnoreCase),
-                FirstName = principal.FindFirstValue(ClaimTypes.GivenName),
-                LastName = principal.FindFirstValue(ClaimTypes.Surname)
+                FirstName = GetClaimValue(principal, ClaimTypes.GivenName),
+                LastName = GetClaimValue(principal, ClaimTypes.Surname)
             };
         }
         catch (Exception ex)
@@ -195,5 +195,10 @@ public class SocialAuthValidator : ISocialAuthValidator
         {
             AppleKeysLock.Release();
         }
+    }
+
+    private static string? GetClaimValue(ClaimsPrincipal principal, string claimType)
+    {
+        return principal.FindFirst(claimType)?.Value;
     }
 }

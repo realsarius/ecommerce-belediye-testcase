@@ -1,7 +1,8 @@
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework;
 using EcommerceAPI.DataAccess.Concrete.EntityFramework.Contexts;
+using EcommerceAPI.DataAccess.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,6 +50,8 @@ public static class DependencyInjection
         services.AddScoped<IGiftCardTransactionDal, EfGiftCardTransactionDal>();
         services.AddScoped<IReferralCodeDal, EfReferralCodeDal>();
         services.AddScoped<IReferralTransactionDal, EfReferralTransactionDal>();
+        services.AddScoped<IPaymentWebhookEventDal, EfPaymentWebhookEventDal>();
+        services.AddScoped<IOutboxService, OutboxService>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

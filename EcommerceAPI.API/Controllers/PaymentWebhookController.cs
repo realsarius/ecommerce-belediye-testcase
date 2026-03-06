@@ -1,8 +1,11 @@
-using EcommerceAPI.Business.Abstract;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Infrastructure.Constants;
+using EcommerceAPI.Infrastructure.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics.Metrics;
 
 namespace EcommerceAPI.API.Controllers;
 
@@ -10,6 +13,12 @@ namespace EcommerceAPI.API.Controllers;
 [Route("api/v1/payments")]
 public class PaymentWebhookController : ControllerBase
 {
+    private static readonly Meter WebhookMeter = new("EcommerceAPI.PaymentWebhook");
+    private static readonly Counter<long> WebhookEventsCounter = WebhookMeter.CreateCounter<long>(
+        "payment_webhook_events_total",
+        unit: "events",
+        description: "Payment webhook requests grouped by processing outcome");
+
     private readonly IPaymentService _paymentService;
     private readonly IOrderDal _orderDal;
     private readonly ILogger<PaymentWebhookController> _logger;
@@ -29,46 +38,64 @@ public class PaymentWebhookController : ControllerBase
     [Consumes("application/x-www-form-urlencoded", "application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> HandleWebhook(
         [FromForm] IyzicoWebhookRequest request,
         [FromHeader(Name = "X-IYZ-SIGNATURE-V3")] string? signature)
     {
+        var sanitizedPaymentId = SensitiveDataLogSanitizer.Sanitize(request.PaymentId);
+        var sanitizedConversationId = SensitiveDataLogSanitizer.Sanitize(request.PaymentConversationId);
+
         _logger.LogInformation(
             "Webhook received: EventType={EventType}, PaymentId={PaymentId}, ConversationId={ConversationId}, Status={Status}",
-            request.IyziEventType, request.PaymentId, request.PaymentConversationId, request.Status);
+            request.IyziEventType, sanitizedPaymentId, sanitizedConversationId, request.Status);
 
         try
         {
-
             if (string.IsNullOrEmpty(signature))
             {
                 _logger.LogWarning("Webhook rejected: Missing X-IYZ-SIGNATURE-V3 header");
-
             }
 
             var result = await _paymentService.ProcessWebhookAsync(request, signature ?? string.Empty);
 
             if (result.Success)
             {
+                var outcome = string.Equals(result.Message, "Webhook already processed", StringComparison.OrdinalIgnoreCase)
+                    ? "duplicate"
+                    : "accepted";
+                RecordWebhookMetric(outcome, StatusCodes.Status200OK);
+
                 _logger.LogInformation(
                     "Webhook processed successfully: ConversationId={ConversationId}",
-                    request.PaymentConversationId);
-                return Ok(new { message = "Webhook processed successfully" });
+                    sanitizedConversationId);
+                return Ok(new { message = string.IsNullOrWhiteSpace(result.Message) ? "Webhook processed successfully" : result.Message });
             }
-            else
+
+            _logger.LogWarning(
+                "Webhook processing failed: ConversationId={ConversationId}, ErrorCode={ErrorCode}",
+                sanitizedConversationId,
+                result.ErrorCode);
+
+            return result.ErrorCode switch
             {
-                _logger.LogWarning(
-                    "Webhook processing failed: ConversationId={ConversationId}",
-                    request.PaymentConversationId);
-                // iyzico retry durdurması için yine 200 dönmek gerekebilir
-                return Ok(new { message = "Webhook received but not processed" });
-            }
+                InfrastructureConstants.Payment.WebhookInvalidSignatureCode
+                    => BuildMetricResult("invalid_signature", StatusCodes.Status401Unauthorized, Unauthorized(new { message = "Webhook signature is invalid" })),
+                InfrastructureConstants.Payment.WebhookConversationIdMissingCode
+                    => BuildMetricResult("missing_conversation_id", StatusCodes.Status400BadRequest, BadRequest(new { message = "ConversationId is missing" })),
+                InfrastructureConstants.Payment.OrderNotFoundCode or InfrastructureConstants.Payment.PaymentRecordNotFoundCode
+                    => BuildMetricResult("not_found", StatusCodes.Status404NotFound, NotFound(new { message = result.Message })),
+                _ => BuildMetricResult("rejected", StatusCodes.Status422UnprocessableEntity, UnprocessableEntity(new { message = result.Message, errorCode = result.ErrorCode }))
+            };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Webhook error: ConversationId={ConversationId}", request.PaymentConversationId);
-            // iyzico'ya 200 dönerek retry'ı durdurmak bazen tercih edilir
-            return Ok(new { message = "Webhook error logged" });
+            _logger.LogError(ex, "Webhook error: ConversationId={ConversationId}", sanitizedConversationId);
+            RecordWebhookMetric("error", StatusCodes.Status500InternalServerError);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Webhook processing failed" });
         }
     }
 
@@ -153,5 +180,20 @@ public class PaymentWebhookController : ControllerBase
         }
 
         return $"{frontendBaseUrl}/checkout?threeDS={status}";
+    }
+
+    private static IActionResult BuildMetricResult(string outcome, int statusCode, IActionResult result)
+    {
+        RecordWebhookMetric(outcome, statusCode);
+        return result;
+    }
+
+    private static void RecordWebhookMetric(string outcome, int statusCode)
+    {
+        WebhookEventsCounter.Add(
+            1,
+            new KeyValuePair<string, object?>("provider", "iyzico"),
+            new KeyValuePair<string, object?>("outcome", outcome),
+            new KeyValuePair<string, object?>("status_code", statusCode));
     }
 }

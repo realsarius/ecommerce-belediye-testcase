@@ -1,7 +1,7 @@
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Core.Utilities.Results;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using Microsoft.Extensions.Logging;
 
 namespace EcommerceAPI.Business.Concrete;

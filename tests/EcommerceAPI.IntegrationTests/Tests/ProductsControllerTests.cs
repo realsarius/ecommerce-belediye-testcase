@@ -194,7 +194,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
-            var searchIndexService = scope.ServiceProvider.GetRequiredService<EcommerceAPI.Business.Abstract.IProductSearchIndexService>();
+            var searchIndexService = scope.ServiceProvider.GetRequiredService<EcommerceAPI.Application.Abstractions.ServiceContracts.IProductSearchIndexService>();
             var cacheDb = redis.GetDatabase();
 
             await TestDataSeeder.EnsureUserAsync(db, userId);

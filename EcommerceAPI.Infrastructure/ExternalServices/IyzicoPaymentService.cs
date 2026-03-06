@@ -1,9 +1,9 @@
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Infrastructure.Settings;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.Concrete;
 using EcommerceAPI.Entities.Enums;
 using EcommerceAPI.Entities.Utilities;
@@ -15,6 +15,8 @@ using Iyzipay.Request;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using EcommerceAPI.Core.CrossCuttingConcerns;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace EcommerceAPI.Infrastructure.ExternalServices;
 
@@ -40,6 +42,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     private readonly ICreditCardService _creditCardService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly IReferralService _referralService;
+    private readonly IPaymentWebhookEventDal _paymentWebhookEventDal;
     private readonly IIyzicoPaymentGateway _paymentGateway;
     private readonly IDistributedLockService _lockService;
     private readonly Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> _logger;
@@ -53,6 +56,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         ICreditCardService creditCardService,
         ILoyaltyService loyaltyService,
         IReferralService referralService,
+        IPaymentWebhookEventDal paymentWebhookEventDal,
         IIyzicoPaymentGateway paymentGateway,
         IDistributedLockService lockService,
         Microsoft.Extensions.Logging.ILogger<IyzicoPaymentService> logger,
@@ -65,6 +69,7 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         _creditCardService = creditCardService;
         _loyaltyService = loyaltyService;
         _referralService = referralService;
+        _paymentWebhookEventDal = paymentWebhookEventDal;
         _paymentGateway = paymentGateway;
         _lockService = lockService;
         _logger = logger;
@@ -624,16 +629,23 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         // Signature doğrulama
         if (!ValidateSignature(request, signatureHeader))
         {
-            return new ErrorResult("Invalid signature");
+            return new ErrorResult(
+                "Invalid signature",
+                Constants.InfrastructureConstants.Payment.WebhookInvalidSignatureCode);
         }
 
         // ConversationId ile siparişi bul
         if (string.IsNullOrEmpty(request.PaymentConversationId))
-             return new ErrorResult("ConversationId is missing");
+             return new ErrorResult(
+                 "ConversationId is missing",
+                 Constants.InfrastructureConstants.Payment.WebhookConversationIdMissingCode);
 
+        var dedupeKey = BuildWebhookDedupeKey(request);
         var order = await _orderDal.GetByOrderNumberAsync(request.PaymentConversationId);
         if (order == null)
-             return new ErrorResult("Order not found");
+             return new ErrorResult(
+                 "Order not found",
+                 Constants.InfrastructureConstants.Payment.OrderNotFoundCode);
 
         // Idempotency: Zaten işlenmiş mi?
         if (order.Status == OrderStatus.Paid)
@@ -643,10 +655,19 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
         await _unitOfWork.BeginTransactionAsync();
         try
         {
+            var inserted = await _paymentWebhookEventDal.TryAddWebhookEventAsync(CreateWebhookEventRecord(request, dedupeKey));
+            if (!inserted)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return new SuccessResult("Webhook already processed");
+            }
+
             if (order.Payment == null)
             {
                  await _unitOfWork.RollbackTransactionAsync();
-                 return new ErrorResult("Payment record not found on order");
+                 return new ErrorResult(
+                     "Payment record not found on order",
+                     Constants.InfrastructureConstants.Payment.PaymentRecordNotFoundCode);
             }
 
             if (request.Status?.ToUpperInvariant() == "SUCCESS")
@@ -757,23 +778,128 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     }
 
     /// <summary>
-    /// iyzico X-IYZ-SIGNATURE-V3 doğrulaması
-    /// Format: SECRET KEY + iyziEventType + paymentId + paymentConversationId + status
-    /// Development: Boş signature kabul edilir (test için)
+    /// iyzico X-IYZ-SIGNATURE-V3 doğrulaması.
+    /// Bypass davranışı yalnızca config ile açılabilir (varsayılan kapalı).
     /// </summary>
     private bool ValidateSignature(IyzicoWebhookRequest request, string signatureHeader)
     {
-        // Development mode: Signature yoksa bypass et
-        if (string.IsNullOrEmpty(signatureHeader))
+        if (_paymentSettings.AllowWebhookSignatureBypass)
         {
-            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            return isDevelopment;
+            _logger.LogWarning("Webhook signature validation bypass is enabled via configuration.");
+            return true;
         }
 
-        var dataToSign = $"{_settings.SecretKey}{request.IyziEventType}{request.PaymentId}{request.PaymentConversationId}{request.Status}";
+        var normalizedSignatureHeader = signatureHeader?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(normalizedSignatureHeader))
+        {
+            return !_paymentSettings.RequireWebhookSignature;
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.SecretKey))
+        {
+            _logger.LogWarning("Webhook signature validation failed because Iyzico SecretKey is missing.");
+            return false;
+        }
+
+        if (!TryBuildSignaturePayload(request, out var dataToSign, out var payloadFormat))
+        {
+            _logger.LogWarning(
+                "Webhook signature validation failed because canonical payload could not be built. EventType={EventType}, ConversationId={ConversationId}",
+                request.IyziEventType,
+                SensitiveDataLogSanitizer.Sanitize(request.PaymentConversationId));
+            return false;
+        }
+
         var computedSignature = ComputeHmacSha256Hex(dataToSign);
 
-        return string.Equals(computedSignature, signatureHeader, StringComparison.OrdinalIgnoreCase);
+        var isValid = string.Equals(computedSignature, normalizedSignatureHeader, StringComparison.OrdinalIgnoreCase);
+        if (!isValid)
+        {
+            _logger.LogWarning(
+                "Webhook signature mismatch. EventType={EventType}, ConversationId={ConversationId}, PayloadFormat={PayloadFormat}",
+                request.IyziEventType,
+                SensitiveDataLogSanitizer.Sanitize(request.PaymentConversationId),
+                payloadFormat);
+        }
+
+        return isValid;
+    }
+
+    /// <summary>
+    /// Canonical payload formatı iyzico webhook dokümantasyonuna göre seçilir.
+    /// Direct payment: secretKey + iyziEventType + paymentId + paymentConversationId + status
+    /// HPP payment: secretKey + iyziEventType + iyziPaymentId + token + paymentConversationId + status
+    /// </summary>
+    private bool TryBuildSignaturePayload(IyzicoWebhookRequest request, out string payload, out string payloadFormat)
+    {
+        payload = string.Empty;
+        payloadFormat = "unknown";
+
+        var eventType = request.IyziEventType?.Trim();
+        var conversationId = request.PaymentConversationId?.Trim();
+        var status = request.Status?.Trim();
+        if (string.IsNullOrWhiteSpace(eventType) ||
+            string.IsNullOrWhiteSpace(conversationId) ||
+            string.IsNullOrWhiteSpace(status))
+        {
+            return false;
+        }
+
+        var iyziPaymentId = request.IyziPaymentId?.Trim();
+        var token = request.Token?.Trim();
+
+        var isHppPayload = !string.IsNullOrWhiteSpace(iyziPaymentId) || !string.IsNullOrWhiteSpace(token);
+        if (isHppPayload)
+        {
+            if (string.IsNullOrWhiteSpace(iyziPaymentId) || string.IsNullOrWhiteSpace(token))
+            {
+                return false;
+            }
+
+            payload = $"{_settings.SecretKey}{eventType}{iyziPaymentId}{token}{conversationId}{status}";
+            payloadFormat = "hpp";
+            return true;
+        }
+
+        var paymentId = request.PaymentId?.Trim();
+        if (string.IsNullOrWhiteSpace(paymentId))
+        {
+            return false;
+        }
+
+        payload = $"{_settings.SecretKey}{eventType}{paymentId}{conversationId}{status}";
+        payloadFormat = "direct";
+        return true;
+    }
+
+    private string BuildWebhookDedupeKey(IyzicoWebhookRequest request)
+    {
+        var canonicalPayload = string.Join('|',
+            request.IyziEventType?.Trim() ?? string.Empty,
+            request.IyziReferenceCode?.Trim() ?? string.Empty,
+            request.IyziPaymentId?.Trim() ?? string.Empty,
+            request.PaymentId?.Trim() ?? string.Empty,
+            request.PaymentConversationId?.Trim() ?? string.Empty,
+            request.Status?.Trim() ?? string.Empty,
+            request.IyziEventTime?.Trim() ?? string.Empty);
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPayload));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static PaymentWebhookEvent CreateWebhookEventRecord(IyzicoWebhookRequest request, string dedupeKey)
+    {
+        return new PaymentWebhookEvent
+        {
+            Provider = PaymentProviderType.Iyzico,
+            DedupeKey = dedupeKey,
+            EventType = request.IyziEventType?.Trim() ?? "UNKNOWN",
+            ProviderEventId = request.IyziReferenceCode?.Trim(),
+            PaymentId = request.IyziPaymentId?.Trim() ?? request.PaymentId?.Trim(),
+            PaymentConversationId = request.PaymentConversationId?.Trim(),
+            Status = request.Status?.Trim(),
+            EventTime = request.IyziEventTime?.Trim()
+        };
     }
 
     /// <summary>
@@ -781,9 +907,8 @@ public class IyzicoPaymentService : IPaymentService, IPaymentProvider
     /// </summary>
     private string ComputeHmacSha256Hex(string data)
     {
-        using var hmac = new System.Security.Cryptography.HMACSHA256(
-            System.Text.Encoding.UTF8.GetBytes(_settings.SecretKey));
-        var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_settings.SecretKey));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
         return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
     }
 

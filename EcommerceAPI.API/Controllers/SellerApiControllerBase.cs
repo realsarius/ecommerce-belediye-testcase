@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcommerceAPI.API.Controllers;

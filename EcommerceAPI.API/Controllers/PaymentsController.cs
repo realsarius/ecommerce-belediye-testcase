@@ -1,6 +1,6 @@
 using System.Linq;
 using System.Security.Claims;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Entities.Enums;

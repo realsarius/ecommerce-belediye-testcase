@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\EcommerceAPI.Application.Abstractions\EcommerceAPI.Application.Abstractions.csproj" />
     <ProjectReference Include="..\EcommerceAPI.Core\EcommerceAPI.Core.csproj" />
-    <ProjectReference Include="..\EcommerceAPI.DataAccess\EcommerceAPI.DataAccess.csproj" />
     <ProjectReference Include="..\EcommerceAPI.Entities\EcommerceAPI.Entities.csproj" />
   </ItemGroup>
 
@@ -14,6 +14,7 @@
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Hangfire.Core" Version="1.8.11" />
     <PackageReference Include="MassTransit.Abstractions" Version="8.2.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />

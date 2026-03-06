@@ -237,6 +237,41 @@ Wishlist akışı standart CRUD'den öte, event-driven ve kullanıcı deneyimi o
 
 Bu akışlar Redis rate limiting, audit log, wishlist count senkronizasyonu ve MassTransit event publish zinciri ile çalışır.
 
+### 4.7 Payment Webhook Semantiği ve Retry Politikası
+
+Webhook endpointi:
+
+- `POST /api/v1/payments/webhook`
+- Zorunlu header: `X-IYZ-SIGNATURE-V3`
+
+Canonical signature payload formatı:
+
+- Direct payment event: `secretKey + iyziEventType + paymentId + paymentConversationId + status`
+- HPP payment event: `secretKey + iyziEventType + iyziPaymentId + token + paymentConversationId + status`
+- İmza doğrulama bu iki formattan uygun olanıyla yapılır; zorunlu alanlardan biri eksikse request reddedilir.
+
+HTTP cevap semantiği:
+
+- `200 OK`: Event başarıyla işlendi veya idempotent olarak daha önce işlenmiş event tekrar geldi (`duplicate`).
+- `400 Bad Request`: `conversationId` gibi zorunlu alan eksik.
+- `401 Unauthorized`: İmza eksik/geçersiz.
+- `404 Not Found`: İlgili order/payment kaydı bulunamadı.
+- `422 Unprocessable Entity`: İş kuralı seviyesinde reddedilen durum.
+- `500 Internal Server Error`: Beklenmeyen hata.
+
+Retry kuralı (operasyonel sözleşme):
+
+- `2xx` cevaplar terminal başarı kabul edilir, provider tekrar denememelidir.
+- `4xx` cevaplar payload/kimlik doğrulama kaynaklı kalıcı hata olarak ele alınmalıdır.
+- `5xx` cevaplar geçici hata kabul edilir; provider retry stratejisi burada devreye girmelidir.
+
+Log güvenliği:
+
+- Webhook loglarında `SensitiveDataLogSanitizer` ile potansiyel hassas alanlar maskelenir.
+- `secretKey`, `token`, `card` gibi alanlar loglara düz metin olarak yazdırılmaz.
+
+Webhook gözlemlenebilirliği için OpenTelemetry meter adı: `EcommerceAPI.PaymentWebhook`, sayaç: `payment_webhook_events_total`.
+
 ## 5. Loglama, İzlenebilirlik ve Hata Yönetimi (Observability)
 
 ### 5.1 Structured Logging (Serilog + Elasticsearch)

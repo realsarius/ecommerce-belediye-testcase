@@ -1,4 +1,4 @@
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Entities.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;

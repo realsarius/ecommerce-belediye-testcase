@@ -1,6 +1,6 @@
 using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Core.Interfaces;
-using EcommerceAPI.DataAccess.Abstract;
+using EcommerceAPI.Application.Abstractions.Persistence;
 using EcommerceAPI.Entities.Concrete;
 using FluentAssertions;
 using Moq;
@@ -15,7 +15,7 @@ public class CreditCardManagerTests
         var creditCardDalMock = new Mock<ICreditCardDal>();
         var unitOfWorkMock = new Mock<IUnitOfWork>();
         var encryptionServiceMock = new Mock<IEncryptionService>();
-        var paymentFeaturePolicyMock = new Mock<EcommerceAPI.Business.Abstract.IPaymentFeaturePolicy>();
+        var paymentFeaturePolicyMock = new Mock<EcommerceAPI.Application.Abstractions.ServiceContracts.IPaymentFeaturePolicy>();
         paymentFeaturePolicyMock.SetupGet(x => x.AllowLegacyEncryptedSavedCardPayments).Returns(true);
 
         var manager = new CreditCardManager(

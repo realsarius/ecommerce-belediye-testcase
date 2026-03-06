@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using EcommerceAPI.API.Hubs;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Core.Utilities.Results;
 using EcommerceAPI.Entities.DTOs;
 using FluentAssertions;

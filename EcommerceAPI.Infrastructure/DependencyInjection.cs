@@ -1,8 +1,8 @@
-using EcommerceAPI.Business.Abstract;
-using EcommerceAPI.Business.Concrete;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 
 using EcommerceAPI.Core.CrossCuttingConcerns.Logging;
 using EcommerceAPI.Core.CrossCuttingConcerns;
+using EcommerceAPI.Core.CrossCuttingConcerns.Caching;
 using EcommerceAPI.Core.Interfaces;
 using EcommerceAPI.Entities.Settings;
 using EcommerceAPI.Infrastructure.ExternalServices;
@@ -84,6 +84,20 @@ public static class DependencyInjection
             if (!string.IsNullOrWhiteSpace(publicApiBaseUrl))
             {
                 options.PublicApiBaseUrl = publicApiBaseUrl.Trim();
+            }
+
+            if (bool.TryParse(
+                    Environment.GetEnvironmentVariable("PAYMENT_REQUIRE_WEBHOOK_SIGNATURE"),
+                    out var requireWebhookSignature))
+            {
+                options.RequireWebhookSignature = requireWebhookSignature;
+            }
+
+            if (bool.TryParse(
+                    Environment.GetEnvironmentVariable("PAYMENT_ALLOW_WEBHOOK_SIGNATURE_BYPASS"),
+                    out var allowWebhookSignatureBypass))
+            {
+                options.AllowWebhookSignatureBypass = allowWebhookSignatureBypass;
             }
 
             if (options.ActiveProviders == null || options.ActiveProviders.Count == 0)
@@ -254,6 +268,7 @@ public static class DependencyInjection
         services.AddSingleton<ISocialAuthValidator, SocialAuthValidator>();
 
         services.AddScoped<ICacheService, RedisCacheManager>();
+        services.AddSingleton<ICacheManager, RedisAopCacheManager>();
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IHashingService, HashingService>();
         var emailProvider = ResolveEmailProvider(configuration);

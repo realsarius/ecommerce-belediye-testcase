@@ -2,10 +2,9 @@
 using Autofac;
 using Autofac.Extras.DynamicProxy;
 using Castle.DynamicProxy;
-using EcommerceAPI.Business.Abstract;
+using EcommerceAPI.Application.Abstractions.ServiceContracts;
 using EcommerceAPI.Business.Concrete;
 using EcommerceAPI.Core.CrossCuttingConcerns.Caching;
-using EcommerceAPI.Core.CrossCuttingConcerns.Caching.Microsoft;
 using EcommerceAPI.Core.Utilities.Interceptors;
 
 namespace EcommerceAPI.Business.DependencyResolvers.Autofac;
@@ -23,7 +22,5 @@ public class BusinessModule : Module
                 Selector = new AspectInterceptorSelector()
             })
             .InstancePerLifetimeScope();
-
-        builder.RegisterType<RedisCacheManager>().As<ICacheManager>().SingleInstance();
     }
 }

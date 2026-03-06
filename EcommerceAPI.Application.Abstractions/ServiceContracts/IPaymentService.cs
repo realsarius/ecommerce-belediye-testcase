@@ -1,0 +1,30 @@
+using EcommerceAPI.Entities.DTOs;
+using EcommerceAPI.Core.Utilities.Results;
+
+namespace EcommerceAPI.Application.Abstractions.ServiceContracts;
+
+/// <summary>
+/// Ödeme işlemleri servisi. Implementasyon: IyzicoPaymentService.
+/// </summary>
+public interface IPaymentService
+{
+    /// <summary>
+    /// Ödeme işlemini gerçekleştirir.
+    /// </summary>
+    Task<IDataResult<PaymentDto>> ProcessPaymentAsync(int userId, ProcessPaymentRequest request);
+    
+    /// <summary>
+    /// Sipariş ID'sine göre ödeme bilgisini getirir.
+    /// </summary>
+    Task<IDataResult<PaymentDto>> GetPaymentByOrderIdAsync(int orderId);
+
+    /// <summary>
+    /// Ödeme sağlayıcısından gelen webhook'u işler.
+    /// </summary>
+    Task<IResult> ProcessWebhookAsync(IyzicoWebhookRequest request, string signatureHeader);
+    
+    /// <summary>
+    /// Ödemeyi doğrular ve sonuçlandırır (3D Secure callback sonrası).
+    /// </summary>
+    Task<IResult> VerifyAndFinalizePaymentAsync(string paymentId, string conversationId, string conversationData);
+}
