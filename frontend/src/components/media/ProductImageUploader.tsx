@@ -367,11 +367,13 @@ export function ProductImageUploader({
       return;
     }
 
-    const reordered = arrayMove(sortableItems, oldIndex, newIndex).map((item) => ({
+    // Drag sonrası yeni sırayı index bazlı yeniden numaralandırıyoruz.
+    // Eski sortOrder değerlerini korursak normalize adımı öğeleri tekrar eski yerine dizer.
+    const reordered = arrayMove(sortableItems, oldIndex, newIndex).map((item, index) => ({
       id: item.id,
       imageUrl: item.imageUrl,
       objectKey: item.objectKey,
-      sortOrder: item.sortOrder,
+      sortOrder: index,
       isPrimary: item.isPrimary,
     }));
 
