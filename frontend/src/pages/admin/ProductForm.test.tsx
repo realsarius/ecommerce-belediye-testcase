@@ -157,6 +157,7 @@ describe('Admin ProductForm', () => {
   it('yeni ürün modunda uploaderı kilitli render etmeli', () => {
     renderCreateForm();
     expect(screen.getByTestId('product-image-uploader')).toHaveTextContent('upload-locked-0');
+    expect(screen.getByText('Bu panelden oluşturulan ürünler otomatik olarak Platform Seller hesabına atanır')).toBeInTheDocument();
   });
 
   it('düzenleme modunda images alanını update payloadına map etmeli', async () => {
