@@ -16,6 +16,7 @@ public class SellerProfile : BaseEntity
     public string? FacebookUrl { get; set; }
     public string? XUrl { get; set; }
     public bool IsVerified { get; set; } = false;
+    public bool IsPlatformAccount { get; set; } = false;
     public decimal? CommissionRateOverride { get; set; }
     public string? ApplicationReviewNote { get; set; }
     public DateTime? ApplicationReviewedAt { get; set; }

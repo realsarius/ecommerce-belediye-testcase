@@ -41,7 +41,8 @@ public class PlatformSellerManagerTests
                 Id = 55,
                 UserId = 21,
                 BrandName = "Platform Store",
-                IsVerified = true
+                IsVerified = true,
+                IsPlatformAccount = true
             });
 
         var hashingMock = new Mock<IHashingService>();
@@ -152,9 +153,73 @@ public class PlatformSellerManagerTests
         createdProfile.BrandDescription.Should().Be("Platform urunleri");
         createdProfile.ContactEmail.Should().Be("platform-owner@test.local");
         createdProfile.IsVerified.Should().BeTrue();
+        createdProfile.IsPlatformAccount.Should().BeTrue();
 
         unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Exactly(2));
         userDalMock.Verify(x => x.AddAsync(It.IsAny<User>()), Times.Once);
         sellerProfileDalMock.Verify(x => x.AddAsync(It.IsAny<SellerProfile>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetOrCreatePlatformSellerIdAsync_WhenExistingProfileIsNotMarked_ShouldUpgradeFlag()
+    {
+        var roleDalMock = new Mock<IRoleDal>();
+        roleDalMock
+            .Setup(x => x.GetAsync(It.IsAny<Expression<Func<Role, bool>>>()))
+            .ReturnsAsync(new Role { Id = 3, Name = "Seller", Description = "Seller role" });
+
+        var userDalMock = new Mock<IUserDal>();
+        userDalMock
+            .Setup(x => x.GetAsync(It.IsAny<Expression<Func<User, bool>>>()))
+            .ReturnsAsync(new User
+            {
+                Id = 44,
+                Email = "platform@example.com",
+                EmailHash = "hash",
+                PasswordHash = "pwd",
+                FirstName = "Platform",
+                LastName = "Seller",
+                RoleId = 3
+            });
+
+        var existingProfile = new SellerProfile
+        {
+            Id = 67,
+            UserId = 44,
+            BrandName = "Platform Store",
+            IsVerified = true,
+            IsPlatformAccount = false
+        };
+
+        var sellerProfileDalMock = new Mock<ISellerProfileDal>();
+        sellerProfileDalMock
+            .Setup(x => x.GetAsync(It.IsAny<Expression<Func<SellerProfile, bool>>>()))
+            .ReturnsAsync(existingProfile);
+
+        var hashingMock = new Mock<IHashingService>();
+        hashingMock.Setup(x => x.Hash(It.IsAny<string>())).Returns("hashed-email");
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.Setup(x => x.SaveChangesAsync()).ReturnsAsync(1);
+
+        var loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<PlatformSellerManager>>();
+        var configuration = new ConfigurationBuilder().Build();
+
+        var manager = new PlatformSellerManager(
+            userDalMock.Object,
+            sellerProfileDalMock.Object,
+            roleDalMock.Object,
+            hashingMock.Object,
+            unitOfWorkMock.Object,
+            configuration,
+            loggerMock.Object);
+
+        var result = await manager.GetOrCreatePlatformSellerIdAsync();
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().Be(67);
+        existingProfile.IsPlatformAccount.Should().BeTrue();
+        sellerProfileDalMock.Verify(x => x.Update(It.Is<SellerProfile>(p => p.Id == 67 && p.IsPlatformAccount)), Times.Once);
+        unitOfWorkMock.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
 }

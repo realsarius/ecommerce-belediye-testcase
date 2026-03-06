@@ -85,7 +85,7 @@ public class SellerProfileManagerTests
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Yetkiniz yok");
-        sellerProfileDalMock.Verify(dal => dal.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<SellerProfile, bool>>>()), Times.Never);
+        sellerProfileDalMock.Verify(dal => dal.GetAsync(It.IsAny<System.Linq.Expressions.Expression<Func<SellerProfile, bool>>>()), Times.Once);
         sellerProfileDalMock.Verify(dal => dal.Delete(It.IsAny<SellerProfile>()), Times.Never);
         unitOfWorkMock.Verify(unit => unit.SaveChangesAsync(), Times.Never);
     }

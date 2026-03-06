@@ -77,6 +77,14 @@ public class PlatformSellerManager : IPlatformSellerService
         var existingProfile = await _sellerProfileDal.GetAsync(profile => profile.UserId == user.Id);
         if (existingProfile != null)
         {
+            if (!existingProfile.IsPlatformAccount)
+            {
+                existingProfile.IsPlatformAccount = true;
+                existingProfile.UpdatedAt = DateTime.UtcNow;
+                _sellerProfileDal.Update(existingProfile);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
             return new SuccessDataResult<int>(existingProfile.Id);
         }
 
@@ -87,6 +95,7 @@ public class PlatformSellerManager : IPlatformSellerService
             BrandDescription = ResolveSetting("PlatformSeller:BrandDescription", DefaultPlatformSellerBrandDescription),
             ContactEmail = email,
             IsVerified = true,
+            IsPlatformAccount = true,
             ApplicationReviewedAt = DateTime.UtcNow
         };
 

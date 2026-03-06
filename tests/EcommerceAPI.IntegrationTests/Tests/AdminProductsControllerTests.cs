@@ -124,6 +124,7 @@ public class AdminProductsControllerTests : IClassFixture<CustomWebApplicationFa
 
         sellerProfile.Should().NotBeNull();
         sellerProfile!.IsVerified.Should().BeTrue();
+        sellerProfile.IsPlatformAccount.Should().BeTrue();
     }
 
     [Fact]

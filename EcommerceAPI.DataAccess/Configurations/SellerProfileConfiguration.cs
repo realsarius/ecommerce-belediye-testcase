@@ -57,12 +57,16 @@ public class SellerProfileConfiguration : IEntityTypeConfiguration<SellerProfile
         
         builder.Property(sp => sp.IsVerified)
             .HasDefaultValue(false);
+
+        builder.Property(sp => sp.IsPlatformAccount)
+            .HasDefaultValue(false);
         
         // Unique constraint on UserId (1-to-1 with User)
         builder.HasIndex(sp => sp.UserId)
             .IsUnique();
         
         builder.HasIndex(sp => sp.BrandName);
+        builder.HasIndex(sp => sp.IsPlatformAccount);
         
         // Relationships
         builder.HasOne(sp => sp.User)

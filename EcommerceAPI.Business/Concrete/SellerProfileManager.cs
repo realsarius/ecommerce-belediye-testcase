@@ -187,6 +187,12 @@ public class SellerProfileManager : ISellerProfileService
 
     private async Task<bool> IsPlatformSellerUserAsync(int userId)
     {
+        var platformProfile = await _sellerProfileDal.GetAsync(entity => entity.UserId == userId && entity.IsPlatformAccount);
+        if (platformProfile != null)
+        {
+            return true;
+        }
+
         var user = await _userDal.GetAsync(entity => entity.Id == userId);
         if (user == null)
         {
