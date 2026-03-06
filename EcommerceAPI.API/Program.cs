@@ -257,7 +257,8 @@ if (openTelemetryEnabled)
         metrics
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
-            .AddRuntimeInstrumentation();
+            .AddRuntimeInstrumentation()
+            .AddMeter("EcommerceAPI.PaymentWebhook");
 
         if (!string.IsNullOrWhiteSpace(openTelemetryOtlpEndpoint))
         {

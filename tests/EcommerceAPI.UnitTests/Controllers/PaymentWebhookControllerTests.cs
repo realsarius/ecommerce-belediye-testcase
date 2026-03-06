@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Text.Json;
 
 namespace EcommerceAPI.UnitTests.Controllers;
 
@@ -82,5 +83,29 @@ public class PaymentWebhookControllerTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(StatusCodes.Status200OK);
+    }
+
+    [Fact]
+    public async Task HandleWebhook_WhenDuplicateEvent_ShouldReturnOkWithDuplicateMessage()
+    {
+        var controller = new PaymentWebhookController(_paymentServiceMock.Object, _orderDalMock.Object, _loggerMock.Object);
+        var request = new IyzicoWebhookRequest
+        {
+            IyziEventType = "PAYMENT",
+            PaymentId = "PAY-4",
+            PaymentConversationId = "ORD-4",
+            Status = "SUCCESS"
+        };
+
+        _paymentServiceMock
+            .Setup(x => x.ProcessWebhookAsync(request, "valid-signature"))
+            .ReturnsAsync(new SuccessResult("Webhook already processed"));
+
+        var result = await controller.HandleWebhook(request, "valid-signature");
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(StatusCodes.Status200OK);
+        var payload = JsonSerializer.Serialize(ok.Value);
+        payload.Should().Contain("Webhook already processed");
     }
 }

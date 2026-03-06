@@ -4,6 +4,7 @@ using EcommerceAPI.Entities.DTOs;
 using EcommerceAPI.Infrastructure.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics.Metrics;
 
 namespace EcommerceAPI.API.Controllers;
 
@@ -11,6 +12,12 @@ namespace EcommerceAPI.API.Controllers;
 [Route("api/v1/payments")]
 public class PaymentWebhookController : ControllerBase
 {
+    private static readonly Meter WebhookMeter = new("EcommerceAPI.PaymentWebhook");
+    private static readonly Counter<long> WebhookEventsCounter = WebhookMeter.CreateCounter<long>(
+        "payment_webhook_events_total",
+        unit: "events",
+        description: "Payment webhook requests grouped by processing outcome");
+
     private readonly IPaymentService _paymentService;
     private readonly IOrderDal _orderDal;
     private readonly ILogger<PaymentWebhookController> _logger;
@@ -53,10 +60,15 @@ public class PaymentWebhookController : ControllerBase
 
             if (result.Success)
             {
+                var outcome = string.Equals(result.Message, "Webhook already processed", StringComparison.OrdinalIgnoreCase)
+                    ? "duplicate"
+                    : "accepted";
+                RecordWebhookMetric(outcome, StatusCodes.Status200OK);
+
                 _logger.LogInformation(
                     "Webhook processed successfully: ConversationId={ConversationId}",
                     request.PaymentConversationId);
-                return Ok(new { message = "Webhook processed successfully" });
+                return Ok(new { message = string.IsNullOrWhiteSpace(result.Message) ? "Webhook processed successfully" : result.Message });
             }
 
             _logger.LogWarning(
@@ -67,17 +79,18 @@ public class PaymentWebhookController : ControllerBase
             return result.ErrorCode switch
             {
                 InfrastructureConstants.Payment.WebhookInvalidSignatureCode
-                    => Unauthorized(new { message = "Webhook signature is invalid" }),
+                    => BuildMetricResult("invalid_signature", StatusCodes.Status401Unauthorized, Unauthorized(new { message = "Webhook signature is invalid" })),
                 InfrastructureConstants.Payment.WebhookConversationIdMissingCode
-                    => BadRequest(new { message = "ConversationId is missing" }),
+                    => BuildMetricResult("missing_conversation_id", StatusCodes.Status400BadRequest, BadRequest(new { message = "ConversationId is missing" })),
                 InfrastructureConstants.Payment.OrderNotFoundCode or InfrastructureConstants.Payment.PaymentRecordNotFoundCode
-                    => NotFound(new { message = result.Message }),
-                _ => UnprocessableEntity(new { message = result.Message, errorCode = result.ErrorCode })
+                    => BuildMetricResult("not_found", StatusCodes.Status404NotFound, NotFound(new { message = result.Message })),
+                _ => BuildMetricResult("rejected", StatusCodes.Status422UnprocessableEntity, UnprocessableEntity(new { message = result.Message, errorCode = result.ErrorCode }))
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Webhook error: ConversationId={ConversationId}", request.PaymentConversationId);
+            RecordWebhookMetric("error", StatusCodes.Status500InternalServerError);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Webhook processing failed" });
         }
     }
@@ -163,5 +176,20 @@ public class PaymentWebhookController : ControllerBase
         }
 
         return $"{frontendBaseUrl}/checkout?threeDS={status}";
+    }
+
+    private static IActionResult BuildMetricResult(string outcome, int statusCode, IActionResult result)
+    {
+        RecordWebhookMetric(outcome, statusCode);
+        return result;
+    }
+
+    private static void RecordWebhookMetric(string outcome, int statusCode)
+    {
+        WebhookEventsCounter.Add(
+            1,
+            new KeyValuePair<string, object?>("provider", "iyzico"),
+            new KeyValuePair<string, object?>("outcome", outcome),
+            new KeyValuePair<string, object?>("status_code", statusCode));
     }
 }

@@ -533,6 +533,7 @@ public class IyzicoPaymentServiceTests
         _orderDalMock.Verify(x => x.GetByOrderNumberAsync("ORD-DUP"), Times.Once);
         _paymentWebhookEventDalMock.Verify(x => x.TryAddWebhookEventAsync(It.IsAny<PaymentWebhookEvent>(), It.IsAny<CancellationToken>()), Times.Once);
         _orderDalMock.Verify(x => x.Update(It.IsAny<Order>()), Times.Never);
+        _uowMock.Verify(x => x.RollbackTransactionAsync(), Times.Once);
         _uowMock.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 

@@ -18,16 +18,20 @@ public class CreditCardsController : ControllerBase
         _creditCardService = creditCardService;
     }
 
-    private int GetCurrentUserId()
+    private bool TryGetCurrentUserId(out int userId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(userIdClaim ?? "0");
+        return int.TryParse(userIdClaim, out userId) && userId > 0;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetMyCards()
     {
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var result = await _creditCardService.GetUserCardsAsync(userId);
         
         if (result.Success)
@@ -50,7 +54,11 @@ public class CreditCardsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCard(int id)
     {
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var result = await _creditCardService.DeleteCardAsync(userId, id);
         
         if (result.Success)
@@ -64,7 +72,10 @@ public class CreditCardsController : ControllerBase
     public async Task<IActionResult> SetDefaultCard(int id, [FromBody] SetDefaultCreditCardRequest request)
     {
         // Pragmatic REST: PATCH method with body
-        var userId = GetCurrentUserId();
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
         
         // request.IsDefault logic can be checked if needed, 
         // assuming calling this endpoint implies setting it to true or handling logic inside service
