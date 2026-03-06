@@ -20,6 +20,7 @@ import { Button } from '@/components/common/button';
 import { Label } from '@/components/common/label';
 import { useConfirmMediaUploadMutation, useDeleteMediaImageMutation, usePresignMediaUploadMutation, useReorderProductImagesMutation } from '@/features/media/mediaApi';
 import { uploadToPresignedUrl } from '@/lib/uploadToPresignedUrl';
+import { optimizeImageForUpload } from '@/lib/optimizeImageForUpload';
 import { cn } from '@/lib/utils';
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
@@ -74,6 +75,22 @@ function buildUploadId(file: File): string {
 
 function getApiErrorMessage(error: unknown, fallbackMessage: string): string {
   return (error as { data?: { message?: string } })?.data?.message ?? fallbackMessage;
+}
+
+function validateFileType(file: File): string | null {
+  if (!ALLOWED_CONTENT_TYPES.includes(file.type as (typeof ALLOWED_CONTENT_TYPES)[number])) {
+    return 'Sadece JPEG, PNG, WebP veya GIF yükleyebilirsiniz';
+  }
+
+  return null;
+}
+
+function validateFileSize(file: File): string | null {
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return 'Dosya boyutu 10 MB sınırını aşıyor';
+  }
+
+  return null;
 }
 
 function SortableImageCard({
@@ -212,32 +229,27 @@ export function ProductImageUploader({
     }
   };
 
-  const validateFile = (file: File): string | null => {
-    if (!ALLOWED_CONTENT_TYPES.includes(file.type as (typeof ALLOWED_CONTENT_TYPES)[number])) {
-      return 'Sadece JPEG, PNG, WebP veya GIF yükleyebilirsiniz';
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return 'Dosya boyutu 10 MB sınırını aşıyor';
-    }
-
-    return null;
-  };
-
   const uploadSingleFile = async (
     file: File,
     currentImages: ProductImageFormValue[],
     uploadId: string,
   ): Promise<{ success: true; images: ProductImageFormValue[] } | { success: false; images: ProductImageFormValue[]; message: string }> => {
-    const validationError = validateFile(file);
-    if (validationError) {
+    const typeError = validateFileType(file);
+    if (typeError) {
       removeUploadStatus(uploadId);
-      return { success: false, images: currentImages, message: validationError };
+      return { success: false, images: currentImages, message: typeError };
     }
 
     if (!productId) {
       removeUploadStatus(uploadId);
       return { success: false, images: currentImages, message: 'Dosya yüklemek için ürünü önce kaydedin' };
+    }
+
+    const optimizedFile = await optimizeImageForUpload(file);
+    const sizeError = validateFileSize(optimizedFile);
+    if (sizeError) {
+      removeUploadStatus(uploadId);
+      return { success: false, images: currentImages, message: sizeError };
     }
 
     setUploadStatus((current) => ({ ...current, [uploadId]: { fileName: file.name, progress: 0 } }));
@@ -246,11 +258,11 @@ export function ProductImageUploader({
       const presigned = await presignUpload({
         context: 'product',
         referenceId: productId,
-        contentType: file.type,
-        fileSizeBytes: file.size,
+        contentType: optimizedFile.type,
+        fileSizeBytes: optimizedFile.size,
       }).unwrap();
 
-      await uploadToPresignedUrl(presigned.uploadUrl, file, (progress) => {
+      await uploadToPresignedUrl(presigned.uploadUrl, optimizedFile, (progress) => {
         setUploadStatus((current) => ({ ...current, [uploadId]: { fileName: file.name, progress } }));
       });
 

@@ -5,10 +5,12 @@ import { Button } from '@/components/common/button';
 import { Label } from '@/components/common/label';
 import { useConfirmMediaUploadMutation, usePresignMediaUploadMutation } from '@/features/media/mediaApi';
 import type { ConfirmMediaUploadResult, MediaUploadContext } from '@/features/media/types';
+import { optimizeImageForUpload } from '@/lib/optimizeImageForUpload';
 import { uploadToPresignedUrl } from '@/lib/uploadToPresignedUrl';
 import { cn } from '@/lib/utils';
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+const OPTIMIZABLE_CONTENT_TYPES = ['image/jpeg', 'image/png'] as const;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 type SingleMediaUploaderProps = {
@@ -65,7 +67,18 @@ export function SingleMediaUploader({
       return false;
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    if (
+      file.size > MAX_FILE_SIZE_BYTES &&
+      !OPTIMIZABLE_CONTENT_TYPES.includes(file.type as (typeof OPTIMIZABLE_CONTENT_TYPES)[number])
+    ) {
+      const message = 'Dosya boyutu 10 MB sınırını aşıyor';
+      toast.error(message);
+      setFailedUpload({ file, message });
+      return false;
+    }
+
+    const optimizedFile = await optimizeImageForUpload(file);
+    if (optimizedFile.size > MAX_FILE_SIZE_BYTES) {
       const message = 'Dosya boyutu 10 MB sınırını aşıyor';
       toast.error(message);
       setFailedUpload({ file, message });
@@ -79,11 +92,11 @@ export function SingleMediaUploader({
       const presigned = await presignUpload({
         context,
         referenceId,
-        contentType: file.type,
-        fileSizeBytes: file.size,
+        contentType: optimizedFile.type,
+        fileSizeBytes: optimizedFile.size,
       }).unwrap();
 
-      await uploadToPresignedUrl(presigned.uploadUrl, file, setProgress);
+      await uploadToPresignedUrl(presigned.uploadUrl, optimizedFile, setProgress);
 
       const confirmed = await confirmUpload({
         context,
