@@ -390,6 +390,7 @@ services:
       - caddy_config:/config
     networks:
       - ecommerce-network
+      - portfolio-web-network
     depends_on:
       - frontend-prod
     restart: unless-stopped
@@ -594,3 +595,6 @@ networks:
     driver: bridge
     labels:
       - "com.ecommerce.network=main"
+  portfolio-web-network:
+    external: true
+    name: portfolio-web_portfolio-network
