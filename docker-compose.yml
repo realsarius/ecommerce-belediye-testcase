@@ -391,6 +391,7 @@ services:
     networks:
       - ecommerce-network
       - portfolio-web-network
+      - cv-app-network
     depends_on:
       - frontend-prod
     restart: unless-stopped
@@ -457,7 +458,7 @@ services:
     container_name: ecommerce-otel-collector
     profiles:
       - logging
-    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    command: [ "--config=/etc/otelcol-contrib/config.yaml" ]
     volumes:
       - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
     ports:
@@ -598,3 +599,6 @@ networks:
   portfolio-web-network:
     external: true
     name: portfolio-web_portfolio-network
+  cv-app-network:
+    external: true
+    name: cv-app-react_cv-network
