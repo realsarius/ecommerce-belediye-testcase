@@ -373,31 +373,6 @@ services:
       - "com.ecommerce.environment=production"
       - "com.ecommerce.service=frontend"
 
-  # Edge reverse proxy for production domains
-  caddy:
-    image: caddy:2-alpine
-    container_name: ecommerce-caddy
-    profiles:
-      - prod
-    environment:
-      ECOMMERCE_DOMAIN: ${ECOMMERCE_DOMAIN:-ecommerce.berkansozer.com}
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - ecommerce-network
-      - portfolio-web-network
-      - cv-app-network
-    depends_on:
-      - frontend-prod
-    restart: unless-stopped
-    labels:
-      - "com.ecommerce.environment=production"
-      - "com.ecommerce.service=edge-proxy"
 
   # Elasticsearch - Audit Log Storage
   elasticsearch:
@@ -545,14 +520,7 @@ volumes:
     driver: local
     labels:
       - "com.ecommerce.service=message-broker"
-  caddy_data:
-    driver: local
-    labels:
-      - "com.ecommerce.service=edge-proxy"
-  caddy_config:
-    driver: local
-    labels:
-      - "com.ecommerce.service=edge-proxy"
+
   prometheus_data:
     driver: local
   grafana_data:
@@ -596,9 +564,3 @@ networks:
     driver: bridge
     labels:
       - "com.ecommerce.network=main"
-  portfolio-web-network:
-    external: true
-    name: portfolio-web_portfolio-network
-  cv-app-network:
-    external: true
-    name: cv-app-react_cv-network
