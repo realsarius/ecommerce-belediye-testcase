@@ -239,8 +239,10 @@ describe('OrderDetail sayfası', () => {
   });
 
   it('teslim edilmiş ve aktif talebi olmayan siparişte iade talebi CTA göstermeli', () => {
+    const deliveredRecently = new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)).toISOString();
+
     mockOrdersApi.useGetOrderQuery.mockReturnValue({
-      data: createOrder(),
+      data: createOrder({ deliveredAt: deliveredRecently }),
       isLoading: false,
       error: undefined,
     });
