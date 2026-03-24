@@ -3,7 +3,7 @@
 ## İçindekiler
 
 - [0. Hızlı Kurulum](#0-hızlı-kurulum)
-- [1. Kapsam](#1-kapsam)
+- [1. Proje Kapsamı](#1-proje-kapsamı)
 - [2. Teknoloji Yığını](#2-teknoloji-yığını-technology-stack)
 - [3. Veritabanı Tasarımı](#3-veritabanı-tasarımı-database-design)
 - [4. API Tasarımı](#4-api-tasarımı-ve-standartlar-api-design)
